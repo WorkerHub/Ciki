@@ -10,18 +10,27 @@ export interface Env {
   R2: R2Bucket
   /** Workers Static Assets：前端构建产物 web/dist。 */
   ASSETS: Fetcher
-  /** 会话 JWT 签名密钥（仓库级 secret，eNotify 现行键名）。 */
-  JWT_SECRET: string
   /** setup / 数据库维护的 X-Setup-Secret 令牌（仓库级 secret）。 */
   SETUP_SECRET: string
   /**
+   * TOTP 密钥的 AES-GCM 加密钥（仓库级 secret）：32 字节，base64 或 hex。
+   * 缺失/非法时全站 API fail closed；解析见 src/core/secret-box.ts。
+   */
+  ENCRYPTION_KEY: string
+  /**
    * 表前缀三态，解析见 src/lib/table-prefix.ts 的 getTablePrefix()：
    * 未设置 → "ciki_"；自定义值 → 补尾 "_"；"" → 无前缀。
-   * 部署期由 scripts/materialize-secrets.mjs 注入，不在仓库里写死。
+   * 部署期由 scripts/materialize-config.mjs 注入，不在仓库里写死。
    */
   TABLE_PREFIX?: string
 }
 
 export type HonoEnv = {
   Bindings: Env
+  Variables: {
+    userId: string
+    role: string
+    sessionId: string
+    restricted: boolean
+  }
 }

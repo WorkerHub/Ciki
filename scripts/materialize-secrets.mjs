@@ -28,9 +28,20 @@ const isPlaceholder = (value) => {
   return /_PLACEHOLDER$/.test(v) || /^replace-with/i.test(v)
 }
 
+/**
+ * ENCRYPTION_KEY 必须是 32 字节：hex（64 字符）或 base64（44 字符）。
+ * 长度不对就在上传前中止——运行时会 fail closed，但那时已经部署出去了。
+ */
+const isUsableEncryptionKey = (value) => {
+  if (/^[0-9a-fA-F]{64}$/.test(value)) return true
+  if (!/^[A-Za-z0-9+/=_-]+$/.test(value)) return false
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/")
+  return Buffer.from(normalized, "base64").length === 32
+}
+
 /** 必填项：键名 → 缺失时的提示位置。 */
 const REQUIRED = [
-  ["JWT_SECRET", "repository secret"],
+  ["ENCRYPTION_KEY", "repository secret"],
   ["SETUP_SECRET", "repository secret"],
   ["CLOUDFLARE_API_TOKEN", "organization secret"],
   ["CLOUDFLARE_ACCOUNT_ID", "organization secret"],
@@ -39,7 +50,7 @@ const REQUIRED = [
 ]
 
 /** 只上传 Worker 运行时要用的密钥；资源 ID 只用于部署期的 wrangler 配置。 */
-const SECRET_KEYS = ["JWT_SECRET", "SETUP_SECRET"]
+const SECRET_KEYS = ["ENCRYPTION_KEY", "SETUP_SECRET"]
 
 const config = {}
 const problems = []
@@ -52,6 +63,12 @@ for (const [name, where] of REQUIRED) {
   }
   if (isPlaceholder(value)) {
     problems.push(`${name} 仍是占位值（应放在 ${where}）`)
+    continue
+  }
+  if (name === "ENCRYPTION_KEY" && !isUsableEncryptionKey(value)) {
+    problems.push(
+      "ENCRYPTION_KEY 不是 32 字节（应是 `openssl rand -base64 32` 的 base64 或 64 位 hex）"
+    )
     continue
   }
   config[name] = value

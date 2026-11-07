@@ -23,113 +23,113 @@
 
 ### users
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| id | TEXT PK | UUID |
-| email | TEXT UNIQUE NOT NULL | 写入前 trim + 小写 |
-| password_hash | TEXT NOT NULL | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex` |
-| role | TEXT NOT NULL DEFAULT 'user' | `admin` / `user` |
-| is_active | INTEGER NOT NULL DEFAULT 1 | 0/1 |
-| approval_status | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected` |
-| email_verified, base_currency, timezone, language, theme | — | 照 eNotify 保留，ciki 不使用、不暴露 |
-| created_at, updated_at | TEXT NOT NULL | ISO 时间 |
+| 列                                                       | 类型                             | 说明                                             |
+| -------------------------------------------------------- | -------------------------------- | ------------------------------------------------ |
+| id                                                       | TEXT PK                          | UUID                                             |
+| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写                               |
+| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex` |
+| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                 |
+| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                              |
+| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`              |
+| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露             |
+| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                         |
 
 ### user_2fa（只存 TOTP）
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| user_id | TEXT PK | |
-| totp_secret | TEXT NULL | AES-GCM 密文，格式 `v1.<ivB64url>.<ctB64url>`，AAD = `ciki:totp:<userId>` |
-| totp_enabled | INTEGER NOT NULL DEFAULT 0 | |
-| updated_at | TEXT NOT NULL | |
+| 列           | 类型                       | 说明                                                                      |
+| ------------ | -------------------------- | ------------------------------------------------------------------------- |
+| user_id      | TEXT PK                    |                                                                           |
+| totp_secret  | TEXT NULL                  | AES-GCM 密文，格式 `v1.<ivB64url>.<ctB64url>`，AAD = `ciki:totp:<userId>` |
+| totp_enabled | INTEGER NOT NULL DEFAULT 0 |                                                                           |
+| updated_at   | TEXT NOT NULL              |                                                                           |
 
 ### passkey_credentials
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| id | TEXT PK | UUID |
-| user_id | TEXT NOT NULL | 索引 |
-| credential_id | TEXT NOT NULL | 唯一索引 |
-| public_key | TEXT NOT NULL | base64 |
-| counter | INTEGER NOT NULL DEFAULT 0 | 每次认证后更新 |
-| transports | TEXT NOT NULL DEFAULT '' | JSON 数组文本 |
-| created_at | TEXT NOT NULL | |
-| last_used_at | TEXT NULL | |
+| 列            | 类型                       | 说明           |
+| ------------- | -------------------------- | -------------- |
+| id            | TEXT PK                    | UUID           |
+| user_id       | TEXT NOT NULL              | 索引           |
+| credential_id | TEXT NOT NULL              | 唯一索引       |
+| public_key    | TEXT NOT NULL              | base64         |
+| counter       | INTEGER NOT NULL DEFAULT 0 | 每次认证后更新 |
+| transports    | TEXT NOT NULL DEFAULT ''   | JSON 数组文本  |
+| created_at    | TEXT NOT NULL              |                |
+| last_used_at  | TEXT NULL                  |                |
 
 passkey 是否可用由该用户是否有行推导，没有开关列。
 
 ### sessions
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| id | TEXT PK | 行 UUID（对外只作为会话列表的 `id`） |
-| token_hash | TEXT NOT NULL UNIQUE | Cookie 令牌的 SHA-256 |
-| user_id | TEXT NOT NULL | 索引 |
-| needs_2fa_setup | INTEGER NOT NULL DEFAULT 0 | 1 = 受限会话（强制配置 2FA） |
-| created_at, last_seen_at, expires_at | INTEGER NOT NULL | Unix 秒 |
-| ip, user_agent | TEXT NOT NULL DEFAULT '' | |
+| 列                                   | 类型                       | 说明                                 |
+| ------------------------------------ | -------------------------- | ------------------------------------ |
+| id                                   | TEXT PK                    | 行 UUID（对外只作为会话列表的 `id`） |
+| token_hash                           | TEXT NOT NULL UNIQUE       | Cookie 令牌的 SHA-256                |
+| user_id                              | TEXT NOT NULL              | 索引                                 |
+| needs_2fa_setup                      | INTEGER NOT NULL DEFAULT 0 | 1 = 受限会话（强制配置 2FA）         |
+| created_at, last_seen_at, expires_at | INTEGER NOT NULL           | Unix 秒                              |
+| ip, user_agent                       | TEXT NOT NULL DEFAULT ''   |                                      |
 
 ### auth_challenges（一次性挑战）
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| key | TEXT PK | `SHA-256(令牌)` 或 `SHA-256("<purpose>:<uid>")`，不存原值 |
-| user_id | TEXT NOT NULL | |
-| purpose | TEXT NOT NULL | `2fa_login` / `totp_setup` / `passkey_register` / `passkey_auth` / `totp_used` |
-| payload | TEXT NOT NULL DEFAULT '' | 挑战原文 / 加密后的 TOTP 待确认密钥 |
-| expires_at, created_at | INTEGER NOT NULL | 均为 5 分钟过期（`totp_used` 90 秒） |
+| 列                     | 类型                     | 说明                                                                           |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| key                    | TEXT PK                  | `SHA-256(令牌)` 或 `SHA-256("<purpose>:<uid>")`，不存原值                      |
+| user_id                | TEXT NOT NULL            |                                                                                |
+| purpose                | TEXT NOT NULL            | `2fa_login` / `totp_setup` / `passkey_register` / `passkey_auth` / `totp_used` |
+| payload                | TEXT NOT NULL DEFAULT '' | 挑战原文 / 加密后的 TOTP 待确认密钥                                            |
+| expires_at, created_at | INTEGER NOT NULL         | 均为 5 分钟过期（`totp_used` 90 秒）                                           |
 
 消费语义：先读后 `DELETE`，`meta.changes=0` 视为已被消费；过期行在写入时顺带清理。
 
 ### auth_counters（权威限流/锁定）
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| key | TEXT PK | `<action>:<account>:<ip>` |
-| action | TEXT NOT NULL | 见下表 |
-| account | TEXT NOT NULL DEFAULT '' | 邮箱/用户 id/空 |
-| ip | TEXT NOT NULL DEFAULT '' | 客户端 IP |
-| count | INTEGER NOT NULL | |
-| window_start | INTEGER NOT NULL | Unix 秒 |
-| locked_until | INTEGER NULL | Unix 秒 |
-| updated_at | INTEGER NOT NULL | |
+| 列           | 类型                     | 说明                      |
+| ------------ | ------------------------ | ------------------------- |
+| key          | TEXT PK                  | `<action>:<account>:<ip>` |
+| action       | TEXT NOT NULL            | 见下表                    |
+| account      | TEXT NOT NULL DEFAULT '' | 邮箱/用户 id/空           |
+| ip           | TEXT NOT NULL DEFAULT '' | 客户端 IP                 |
+| count        | INTEGER NOT NULL         |                           |
+| window_start | INTEGER NOT NULL         | Unix 秒                   |
+| locked_until | INTEGER NULL             | Unix 秒                   |
+| updated_at   | INTEGER NOT NULL         |                           |
 
 单条 `INSERT … ON CONFLICT(key) DO UPDATE` 原子自增，窗口过期自动重置；登录成功按账号删除失败/锁定行。
 
-| action | account | 上限 / 窗口 | 说明 |
-| --- | --- | --- | --- |
-| login | 空 | 10 次 / 5 分钟 | 每 IP |
-| login_fail | 邮箱 | 5 次 / 15 分钟 | 第 5 次起锁 15 分钟 |
-| register | 空 | 5 次 / 5 分钟 | 每 IP |
-| 2fa_verify | 空 | 5 次 / 5 分钟 | 每 IP；另按 tempToken 记失败，5 次作废令牌 |
-| password_change | 用户 id | 5 次 / 5 分钟 | |
-| setup | 空 | 3 次 / 10 分钟 | 每 IP，初始化前也生效 |
+| action          | account | 上限 / 窗口    | 说明                                       |
+| --------------- | ------- | -------------- | ------------------------------------------ |
+| login           | 空      | 10 次 / 5 分钟 | 每 IP                                      |
+| login_fail      | 邮箱    | 5 次 / 15 分钟 | 第 5 次起锁 15 分钟                        |
+| register        | 空      | 5 次 / 5 分钟  | 每 IP                                      |
+| 2fa_verify      | 空      | 5 次 / 5 分钟  | 每 IP；另按 tempToken 记失败，5 次作废令牌 |
+| password_change | 用户 id | 5 次 / 5 分钟  |                                            |
+| setup           | 空      | 3 次 / 10 分钟 | 每 IP，初始化前也生效                      |
 
 ### system_settings
 
 `key` TEXT PK、`value` TEXT、`updated_at` TEXT。键与默认值：
 
-| key | 值 | 默认 |
-| --- | --- | --- |
-| setup_page_enabled | `0` / `1` | 初始化后写 `0` |
-| registration_enabled | `true` / `false` | `true` |
-| registration_approval_required | `true` / `false` | `true` |
-| require_2fa | `true` / `false` | `false` |
+| key                            | 值               | 默认           |
+| ------------------------------ | ---------------- | -------------- |
+| setup_page_enabled             | `0` / `1`        | 初始化后写 `0` |
+| registration_enabled           | `true` / `false` | `true`         |
+| registration_approval_required | `true` / `false` | `true`         |
+| require_2fa                    | `true` / `false` | `false`        |
 
 ### pages
 
-| 列 | 类型 | 说明 |
-| --- | --- | --- |
-| id | TEXT PK | UUID |
-| parent_id | TEXT NULL | 根页为 NULL |
-| title | TEXT NOT NULL | |
-| sort_order | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1 |
-| content_json | TEXT NOT NULL DEFAULT '' | TipTap JSON 文本 |
-| content_html | TEXT NOT NULL DEFAULT '' | 服务端消毒后的 HTML |
-| content_text | TEXT NOT NULL DEFAULT '' | 供搜索/摘要 |
-| created_by, updated_by | TEXT NOT NULL | 用户 id |
-| created_at, updated_at | TEXT NOT NULL | ISO 时间 |
-| deleted_at | TEXT NULL | 软删时间 |
+| 列                     | 类型                       | 说明                |
+| ---------------------- | -------------------------- | ------------------- |
+| id                     | TEXT PK                    | UUID                |
+| parent_id              | TEXT NULL                  | 根页为 NULL         |
+| title                  | TEXT NOT NULL              |                     |
+| sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1         |
+| content_json           | TEXT NOT NULL DEFAULT ''   | TipTap JSON 文本    |
+| content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML |
+| content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要         |
+| created_by, updated_by | TEXT NOT NULL              | 用户 id             |
+| created_at, updated_at | TEXT NOT NULL              | ISO 时间            |
+| deleted_at             | TEXT NULL                  | 软删时间            |
 
 索引：`(parent_id, sort_order)`、`(deleted_at)`、`(updated_at)`。
 
@@ -171,7 +171,8 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 }
 ```
 
-  `status` 为 `applied` 或 `skipped`（已初始化后再调用只做幂等检查/迁移，全部 `skipped`）。
+`status` 为 `applied` 或 `skipped`（已初始化后再调用只做幂等检查/迁移，全部 `skipped`）。
+
 - 403 `{"error":"Invalid setup secret"}`；409：
 
 ```json
@@ -184,7 +185,8 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 }
 ```
 
-  （检测到另一前缀下已有本项目的 `users`+`pages` 时中止，绝不另建第二套表）
+（检测到另一前缀下已有本项目的 `users`+`pages` 时中止，绝不另建第二套表）
+
 - 429：每 IP 每 10 分钟 3 次。
 - 初始化完成时显式写 `setup_page_enabled=0`（只门控页面，不门控密钥接口）。
 
@@ -223,11 +225,19 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 ```
 
 ```json
-{ "requires2fa": true, "tempToken": "…", "availableMethods": ["totp", "passkey"] }
+{
+  "requires2fa": true,
+  "tempToken": "…",
+  "availableMethods": ["totp", "passkey"]
+}
 ```
 
 ```json
-{ "success": true, "needs2faSetup": true, "user": { "id": "…", "email": "…", "role": "user" } }
+{
+  "success": true,
+  "needs2faSetup": true,
+  "user": { "id": "…", "email": "…", "role": "user" }
+}
 ```
 
 - 第一种与第三种同时下发 `ciki_session` Cookie；第三种是受限会话（`require_2fa` 打开且用户未配置任何方法），只能访问 `/api/me`、`/api/auth/logout`、`/api/auth/2fa/totp/*`、`/api/auth/2fa/passkey/*`。
@@ -308,15 +318,15 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 ### 2FA 管理（均需会话）
 
-| 端点 | 请求体 | 响应 |
-| --- | --- | --- |
-| `POST /api/auth/2fa/totp/setup` | 无 | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，待确认密钥以密文存挑战行） |
-| `POST /api/auth/2fa/totp/enable` | `{"code":"123456"}` | `{"success":true}`；消费挑战行、解密校验后把密文落 `user_2fa`，并把当前受限会话标记清零 |
-| `POST /api/auth/2fa/totp/disable` | `{"password":"…"}` | `{"success":true}`，清空密文与开关 |
-| `POST /api/auth/2fa/passkey/register/options` | 无 | WebAuthn 注册 options（写 `passkey_register` 挑战行） |
-| `POST /api/auth/2fa/passkey/register/verify` | WebAuthn registration response | `{"success":true}`；消费挑战行、插 `passkey_credentials`，并把受限会话标记清零 |
-| `DELETE /api/auth/2fa/passkey/:credentialId` | `{"password":"…"}` | `{"success":true}`；删除该凭证行 |
-| `POST /api/auth/2fa/passkey/disable` | `{"password":"…"}` | `{"success":true}`；删除该用户全部凭证 |
+| 端点                                          | 请求体                         | 响应                                                                                    |
+| --------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
+| `POST /api/auth/2fa/totp/setup`               | 无                             | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，待确认密钥以密文存挑战行）   |
+| `POST /api/auth/2fa/totp/enable`              | `{"code":"123456"}`            | `{"success":true}`；消费挑战行、解密校验后把密文落 `user_2fa`，并把当前受限会话标记清零 |
+| `POST /api/auth/2fa/totp/disable`             | `{"password":"…"}`             | `{"success":true}`，清空密文与开关                                                      |
+| `POST /api/auth/2fa/passkey/register/options` | 无                             | WebAuthn 注册 options（写 `passkey_register` 挑战行）                                   |
+| `POST /api/auth/2fa/passkey/register/verify`  | WebAuthn registration response | `{"success":true}`；消费挑战行、插 `passkey_credentials`，并把受限会话标记清零          |
+| `DELETE /api/auth/2fa/passkey/:credentialId`  | `{"password":"…"}`             | `{"success":true}`；删除该凭证行                                                        |
+| `POST /api/auth/2fa/passkey/disable`          | `{"password":"…"}`             | `{"success":true}`；删除该用户全部凭证                                                  |
 
 所有 2FA 变更在密码错误时返回 403 `{"error":"Password is incorrect"}`。
 
@@ -405,7 +415,13 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 ```json
 [
-  { "id": "…", "parentId": null, "title": "…", "deletedAt": "…", "updatedAt": "…" }
+  {
+    "id": "…",
+    "parentId": null,
+    "title": "…",
+    "deletedAt": "…",
+    "updatedAt": "…"
+  }
 ]
 ```
 

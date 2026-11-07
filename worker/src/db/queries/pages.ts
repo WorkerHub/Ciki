@@ -1,0 +1,284 @@
+import { pagesFtsTable, pagesTable, revisionsTable } from "../../lib/tables"
+
+export interface PageRow {
+  id: string
+  parent_id: string | null
+  title: string
+  sort_order: number
+  content_json: string
+  content_html: string
+  content_text: string
+  created_by: string
+  updated_by: string
+  created_at: string
+  updated_at: string
+  deleted_at: string | null
+}
+
+/** 递归子树 CTE（含根，不按删除状态过滤）。 */
+function subtreeCte(prefix: string): string {
+  return `WITH RECURSIVE sub(id) AS (
+    SELECT id FROM ${pagesTable(prefix)} WHERE id = ?
+    UNION ALL
+    SELECT p.id FROM ${pagesTable(prefix)} p JOIN sub ON p.parent_id = sub.id
+  )`
+}
+
+export async function listPageRows(
+  db: D1Database,
+  prefix: string
+): Promise<PageRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM ${pagesTable(prefix)} WHERE deleted_at IS NULL ORDER BY sort_order, created_at`
+    )
+    .all<PageRow>()
+  return rows.results
+}
+
+export async function getPageRow(
+  db: D1Database,
+  prefix: string,
+  id: string
+): Promise<PageRow | null> {
+  return db
+    .prepare(`SELECT * FROM ${pagesTable(prefix)} WHERE id = ?`)
+    .bind(id)
+    .first<PageRow>()
+}
+
+export async function listChildren(
+  db: D1Database,
+  prefix: string,
+  parentId: string | null
+): Promise<PageRow[]> {
+  const table = pagesTable(prefix)
+  const sql =
+    parentId === null
+      ? `SELECT * FROM ${table} WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order, created_at`
+      : `SELECT * FROM ${table} WHERE parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at`
+  const stmt = db.prepare(sql)
+  const rows =
+    parentId === null
+      ? await stmt.all<PageRow>()
+      : await stmt.bind(parentId).all<PageRow>()
+  return rows.results
+}
+
+export async function maxSortOrder(
+  db: D1Database,
+  prefix: string,
+  parentId: string | null
+): Promise<number> {
+  const table = pagesTable(prefix)
+  const sql =
+    parentId === null
+      ? `SELECT MAX(sort_order) AS max FROM ${table} WHERE parent_id IS NULL`
+      : `SELECT MAX(sort_order) AS max FROM ${table} WHERE parent_id = ?`
+  const stmt = db.prepare(sql)
+  const row =
+    parentId === null
+      ? await stmt.first<{ max: number | null }>()
+      : await stmt.bind(parentId).first<{ max: number | null }>()
+  return (row?.max ?? -1) + 1
+}
+
+export function insertPage(
+  db: D1Database,
+  prefix: string,
+  page: PageRow
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `INSERT INTO ${pagesTable(prefix)}
+        (id, parent_id, title, sort_order, content_json, content_html, content_text, created_by, updated_by, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
+    )
+    .bind(
+      page.id,
+      page.parent_id,
+      page.title,
+      page.sort_order,
+      page.content_json,
+      page.content_html,
+      page.content_text,
+      page.created_by,
+      page.updated_by,
+      page.created_at,
+      page.updated_at
+    )
+}
+
+export function updatePageContent(
+  db: D1Database,
+  prefix: string,
+  page: {
+    id: string
+    title: string
+    content_json: string
+    content_html: string
+    content_text: string
+    updated_by: string
+    updated_at: string
+  }
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `UPDATE ${pagesTable(prefix)}
+          SET title = ?, content_json = ?, content_html = ?, content_text = ?,
+              updated_by = ?, updated_at = ?
+        WHERE id = ? AND deleted_at IS NULL`
+    )
+    .bind(
+      page.title,
+      page.content_json,
+      page.content_html,
+      page.content_text,
+      page.updated_by,
+      page.updated_at,
+      page.id
+    )
+}
+
+export function updatePagePlacement(
+  db: D1Database,
+  prefix: string,
+  id: string,
+  parentId: string | null,
+  sortOrder: number,
+  updatedAt: string
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `UPDATE ${pagesTable(prefix)} SET parent_id = ?, sort_order = ?, updated_at = ? WHERE id = ?`
+    )
+    .bind(parentId, sortOrder, updatedAt, id)
+}
+
+export function updatePageSortOrder(
+  db: D1Database,
+  prefix: string,
+  id: string,
+  sortOrder: number
+): D1PreparedStatement {
+  return db
+    .prepare(`UPDATE ${pagesTable(prefix)} SET sort_order = ? WHERE id = ?`)
+    .bind(sortOrder, id)
+}
+
+/** 子树全部 id（含根，含已删除节点）。 */
+export async function listSubtreeIds(
+  db: D1Database,
+  prefix: string,
+  rootId: string
+): Promise<string[]> {
+  const rows = await db
+    .prepare(`${subtreeCte(prefix)} SELECT id FROM sub`)
+    .bind(rootId)
+    .all<{ id: string }>()
+  return rows.results.map((row) => row.id)
+}
+
+/** 子树里指定删除批次的页面（恢复时用）。 */
+export async function listSubtreeDeletedRows(
+  db: D1Database,
+  prefix: string,
+  rootId: string,
+  deletedAt: string
+): Promise<PageRow[]> {
+  const rows = await db
+    .prepare(
+      `${subtreeCte(prefix)} SELECT * FROM ${pagesTable(prefix)} WHERE id IN (SELECT id FROM sub) AND deleted_at = ? ORDER BY sort_order`
+    )
+    .bind(rootId, deletedAt)
+    .all<PageRow>()
+  return rows.results
+}
+
+/** 软删整棵子树：一次 UPDATE 统一写同一个 deleted_at，再清 FTS。 */
+export function softDeleteSubtree(
+  db: D1Database,
+  prefix: string,
+  rootId: string,
+  deletedAt: string
+): D1PreparedStatement[] {
+  return [
+    db
+      .prepare(
+        `${subtreeCte(prefix)} UPDATE ${pagesTable(prefix)} SET deleted_at = ?, updated_at = ? WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL`
+      )
+      .bind(rootId, deletedAt, deletedAt),
+    db
+      .prepare(
+        `${subtreeCte(prefix)} DELETE FROM ${pagesFtsTable(prefix)} WHERE page_id IN (SELECT id FROM sub)`
+      )
+      .bind(rootId)
+  ]
+}
+
+/** 恢复同一批删除的子树。 */
+export function restoreSubtree(
+  db: D1Database,
+  prefix: string,
+  rootId: string,
+  deletedAt: string,
+  now: string
+): D1PreparedStatement[] {
+  return [
+    db
+      .prepare(
+        `${subtreeCte(prefix)} UPDATE ${pagesTable(prefix)} SET deleted_at = NULL, updated_at = ? WHERE id IN (SELECT id FROM sub) AND deleted_at = ?`
+      )
+      .bind(rootId, now, deletedAt)
+  ]
+}
+
+/** 彻底删除：页面 + 全部 revision + FTS 行。 */
+export function permanentDeleteSubtree(
+  db: D1Database,
+  prefix: string,
+  rootId: string
+): D1PreparedStatement[] {
+  return [
+    db
+      .prepare(
+        `${subtreeCte(prefix)} DELETE FROM ${revisionsTable(prefix)} WHERE page_id IN (SELECT id FROM sub)`
+      )
+      .bind(rootId),
+    db
+      .prepare(
+        `${subtreeCte(prefix)} DELETE FROM ${pagesFtsTable(prefix)} WHERE page_id IN (SELECT id FROM sub)`
+      )
+      .bind(rootId),
+    db
+      .prepare(
+        `${subtreeCte(prefix)} DELETE FROM ${pagesTable(prefix)} WHERE id IN (SELECT id FROM sub)`
+      )
+      .bind(rootId)
+  ]
+}
+
+/** 回收站根：父页未删、父页为空，或父页属于更早的另一批删除。 */
+export async function listTrashRoots(
+  db: D1Database,
+  prefix: string
+): Promise<PageRow[]> {
+  const table = pagesTable(prefix)
+  const rows = await db
+    .prepare(
+      `SELECT p.* FROM ${table} p
+        WHERE p.deleted_at IS NOT NULL
+          AND (
+            p.parent_id IS NULL
+            OR NOT EXISTS (
+              SELECT 1 FROM ${table} parent
+               WHERE parent.id = p.parent_id
+                 AND parent.deleted_at IS NOT NULL
+                 AND parent.deleted_at = p.deleted_at
+            )
+          )
+        ORDER BY p.deleted_at DESC, p.sort_order`
+    )
+    .all<PageRow>()
+  return rows.results
+}

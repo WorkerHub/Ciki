@@ -1,5 +1,15 @@
 import { Hono } from "hono"
 import { getTablePrefix, isValidTablePrefix } from "./lib/table-prefix"
+import { isEncryptionKeyUsable } from "./core/secret-box"
+import { authMiddleware } from "./middleware/auth"
+import { authRoutes } from "./routes/auth"
+import { auth2faRoutes } from "./routes/auth-2fa"
+import { meRoutes } from "./routes/me"
+import { adminRoutes } from "./routes/admin"
+import { setupRoutes } from "./routes/setup"
+import { pageRoutes } from "./routes/pages"
+import { searchRoutes } from "./routes/search"
+import { fileRoutes } from "./routes/files"
 import type { HonoEnv } from "./types"
 
 export const app = new Hono<HonoEnv>()
@@ -17,7 +27,61 @@ app.use("*", async (c, next) => {
   await next()
 })
 
-// 存活探针。生效前缀不在这里暴露——它只经 setup / 管理面的接口回显（后端单）。
+// 加密钥 fail closed：TOTP 密钥靠它落库，缺/非法时不放行任何 API。
+app.use("/api/*", async (c, next) => {
+  if (!isEncryptionKeyUsable(c.env.ENCRYPTION_KEY)) {
+    console.error("ENCRYPTION_KEY 缺失、仍是占位值，或不是 32 字节 base64/hex")
+    return c.json({ error: "Server misconfigured" }, 500)
+  }
+  await next()
+})
+
+// 未登录/敏感响应一律 no-store；files 路由自带缓存头时保留它自己的。
+app.use("/api/*", async (c, next) => {
+  await next()
+  if (!c.res.headers.has("cache-control")) {
+    c.res.headers.set("cache-control", "no-store")
+  }
+})
+
+// 公开路径之外，全部要会话。
+const PUBLIC_ROUTES: Array<[string, string]> = [
+  ["GET", "/api/health"],
+  ["GET", "/api/auth/config"],
+  ["POST", "/api/auth/register"],
+  ["POST", "/api/auth/login"],
+  ["POST", "/api/auth/logout"],
+  ["POST", "/api/auth/refresh"],
+  ["POST", "/api/auth/2fa/verify"],
+  ["POST", "/api/auth/2fa/passkey/authenticate/options"],
+  ["POST", "/api/auth/2fa/passkey/authenticate/verify"]
+]
+
+function isPublicRoute(method: string, path: string): boolean {
+  // setup 整段公开：state 是公开状态端点，POST 只认请求头密钥，
+  // 其余方法由 setup 路由自己回 405 JSON（不能掉进会话 401）。
+  if (path === "/api/setup" || path.startsWith("/api/setup/")) return true
+  return PUBLIC_ROUTES.some(([m, p]) => m === method && p === path)
+}
+
+app.use("/api/*", async (c, next) => {
+  if (isPublicRoute(c.req.method, new URL(c.req.url).pathname)) {
+    await next()
+    return
+  }
+  return authMiddleware(c, next)
+})
+
+app.route("/api/auth/2fa", auth2faRoutes)
+app.route("/api/auth", authRoutes)
+app.route("/api/me", meRoutes)
+app.route("/api/admin", adminRoutes)
+app.route("/api/setup", setupRoutes)
+app.route("/api/pages", pageRoutes)
+app.route("/api/search", searchRoutes)
+app.route("/api/files", fileRoutes)
+
+// 存活探针。生效前缀不在这里暴露——它只经 setup / 管理面的接口回显。
 app.get("/api/health", (c) => c.json({ status: "ok" }))
 
 // 未命中的 API 一律 JSON 404：不能落到下面的 SPA 回落，否则调用方会把
@@ -29,6 +93,17 @@ app.get("*", async (c) => {
   const res = await c.env.ASSETS.fetch(c.req.raw)
   if (res.status !== 404) return res
   return c.env.ASSETS.fetch(new Request(new URL("/", c.req.url), c.req.raw))
+})
+
+app.onError((err, c) => {
+  console.error(
+    "Unhandled error:",
+    err instanceof Error ? err.message : String(err)
+  )
+  if (err instanceof SyntaxError) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
+  return c.json({ error: "Internal server error" }, 500)
 })
 
 export default { fetch: app.fetch } satisfies ExportedHandler<
