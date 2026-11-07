@@ -19,8 +19,8 @@ import { normalizeImportedContent } from "../lib/page-input"
 import { handleImageUpload } from "../lib/upload"
 import { createPage, savePageContent } from "../core/page-write"
 import { importTokenMiddleware } from "../middleware/import-token"
-import { readJsonBody } from "../lib/http"
-import { toPlainText } from "../lib/sanitize"
+import { readJsonBody, readParentId } from "../lib/http"
+import { MAX_TITLE_LENGTH, toPlainText } from "../lib/sanitize"
 import type { HonoEnv } from "../types"
 
 export const importRoutes = new Hono<HonoEnv>()
@@ -47,17 +47,23 @@ importRoutes.post("/check", async (c) => {
   if (typeof body?.title !== "string") {
     return c.json({ error: "Title required" }, 400)
   }
+  // 与保存口径一致：标题按纯文本规范化后必须 1–255 字符。
   const title = toPlainText(body.title)
-  if (!title) {
+  if (!title || title.length > MAX_TITLE_LENGTH) {
     return c.json({ error: "Title must be 1-255 characters" }, 400)
   }
-  const parentId = body.parentId ?? null
-  if (parentId !== null && typeof parentId !== "string") {
+  const parent = readParentId(body.parentId)
+  if (!parent.ok) {
     return c.json({ error: "parentId must be a string or null" }, 400)
   }
 
   const prefix = getTablePrefix(c.env)
-  const existing = await findSiblingByTitle(c.env.DB, prefix, parentId, title)
+  const existing = await findSiblingByTitle(
+    c.env.DB,
+    prefix,
+    parent.value,
+    title
+  )
   return c.json(
     existing ? { exists: true, pageId: existing.id } : { exists: false }
   )
@@ -84,10 +90,11 @@ importRoutes.post("/pages", async (c) => {
   if (conflict !== "update" && conflict !== "create_copy") {
     return c.json({ error: 'conflict must be "update" or "create_copy"' }, 400)
   }
-  const parentId = body?.parentId ?? null
-  if (parentId !== null && typeof parentId !== "string") {
+  const parent = readParentId(body?.parentId)
+  if (!parent.ok) {
     return c.json({ error: "parentId must be a string or null" }, 400)
   }
+  const parentId = parent.value
 
   const parsed = normalizeImportedContent({
     title: body?.title,

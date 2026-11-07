@@ -33,7 +33,7 @@ import {
   type PageContentResult
 } from "../lib/page-input"
 import { createPage, savePageContent } from "../core/page-write"
-import { readJsonBody } from "../lib/http"
+import { readJsonBody, readParentId } from "../lib/http"
 import type { HonoEnv } from "../types"
 
 export const pageRoutes = new Hono<HonoEnv>()
@@ -135,10 +135,12 @@ pageRoutes.post("/", async (c) => {
 
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const parentId = body?.parentId ?? null
-  if (parentId !== null && typeof parentId !== "string") {
+  // 根页 = null；空串/纯空白同样按根页处理，绝不把 "" 写进 parent_id。
+  const parent = readParentId(body?.parentId)
+  if (!parent.ok) {
     return c.json({ error: "parentId must be a string or null" }, 400)
   }
+  const parentId = parent.value
   if (parentId) {
     const parent = await getPageRow(db, prefix, parentId)
     if (!parent || parent.deleted_at) {
@@ -194,11 +196,14 @@ pageRoutes.post("/:id/move", async (c) => {
     return c.json({ error: "Page not found" }, 404)
   }
 
-  const parentId = body?.parentId === undefined ? page.parent_id : body.parentId
+  const target = readParentId(
+    body?.parentId === undefined ? page.parent_id : body.parentId
+  )
+  if (!target.ok) {
+    return c.json({ error: "parentId must be a string or null" }, 400)
+  }
+  const parentId = target.value
   if (parentId !== null) {
-    if (typeof parentId !== "string") {
-      return c.json({ error: "parentId must be a string or null" }, 400)
-    }
     const parent = await getPageRow(db, prefix, parentId)
     if (!parent || parent.deleted_at) {
       return c.json(

@@ -40,6 +40,14 @@ function rateLimited(c: Context<HonoEnv>, retryAfter: number) {
   )
 }
 
+/** 当前计数的窗口还剩多少秒（与 readCounterWindow 的口径一致）。 */
+function remainingSeconds(windowStart: number): number {
+  return Math.max(
+    1,
+    windowStart + WINDOW_SECONDS - Math.floor(Date.now() / 1000)
+  )
+}
+
 /** 取出 Bearer 令牌；`Bearer` 前缀之外的形式（含 Cookie）一律不认。 */
 export function readBearerToken(c: Context<HonoEnv>): string | null {
   const header = c.req.header("authorization")
@@ -68,7 +76,7 @@ export async function importTokenMiddleware(c: Context<HonoEnv>, next: Next) {
       windowSeconds: WINDOW_SECONDS
     })
     if (state.count >= MAX_AUTH_FAILURES) {
-      return rateLimited(c, WINDOW_SECONDS)
+      return rateLimited(c, remainingSeconds(state.windowStart))
     }
     return unauthorized(c)
   }
@@ -82,7 +90,7 @@ export async function importTokenMiddleware(c: Context<HonoEnv>, next: Next) {
     windowSeconds: WINDOW_SECONDS
   })
   if (usage.count > MAX_IMPORT_CALLS) {
-    return rateLimited(c, WINDOW_SECONDS)
+    return rateLimited(c, remainingSeconds(usage.windowStart))
   }
 
   await touchImportToken(db, prefix, identity.userId)

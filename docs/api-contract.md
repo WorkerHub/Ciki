@@ -479,7 +479,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 }
 ```
 
-201 返回完整详情；新页追加到同级末尾；首次创建同时生成一条 revision。`contentHtml` 由服务端二次消毒后入库。
+201 返回完整详情；新页追加到同级末尾；首次创建同时生成一条 revision。`contentHtml` 由服务端二次消毒后入库。`parentId` 缺省、`null` 或空串都表示根页（不会把空串写进 `parent_id`）。
 
 #### PUT /api/pages/:id
 
@@ -613,7 +613,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 #### 导入接口通用约定
 
 - 鉴权：只认 `Authorization: Bearer <token>`。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。会话 Cookie 与查询参数都不认（职责分离，避免把 Cookie 写操作的 CSRF 面带进插件）。
-- 限流沿用 `auth_counters`：失败按 IP（`import_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`import` 3000 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。成功鉴权一次即清零该 IP 的失败计数。
+- 限流沿用 `auth_counters`：失败按 IP（`import_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`import` 3000 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`，`retryAfter` 是**当前计数窗口的剩余秒数**（不做整窗预留）。成功鉴权一次即清零该 IP 的失败计数。
 - 每次成功调用都刷新令牌的 `lastUsedAt`。
 - **不做服务端外抓**：接口只收插件上传的字节，不接受 URL 让服务端去下载，SSRF 面为零。
 
@@ -637,7 +637,9 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 { "exists": true, "pageId": "…" }
 ```
 
-不存在时 `{"exists":false}`。标题按纯文本规范化后比较（与保存口径一致）；同名多页时取排序最前的一条。父页不存在或已删也返回 `exists:false`（不报错）。
+不存在时 `{"exists":false}`。标题按纯文本规范化后比较，且必须 1–255 字符（否则 400，与保存口径一致）；同名多页时取排序最前的一条。父页不存在或已删也返回 `exists:false`（不报错）。
+
+`parentId` 的取值口径见下节：缺省、`null` 与空串都表示根页。
 
 #### POST /api/import/files
 
@@ -665,6 +667,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 }
 ```
 
+- `parentId`：目标父页 id。缺省、`null` 与空串（含纯空白）都表示根页——根页在库里是 `parent_id IS NULL`，服务端不会写入空串，避免造出游离页；其它类型 400。
 - `contentJson`：TipTap JSON，**字符串或对象均可**（对象由服务端序列化后入库）；只存 JSON，`contentHtml` / `contentText` 一律服务端生成。
 - `conflict` 必填：`"update"` = 同父级同名未删页则覆盖内容并追加一条 revision（与编辑器保存同一条写路径：页面 + revision + FTS 同一 `db.batch()` 事务），不存在则新建；`"create_copy"` = 总是新建，不改写标题。
 - 新建 201、更新 200，响应一致：

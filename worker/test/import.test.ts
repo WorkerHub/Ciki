@@ -379,6 +379,63 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     expect(await blocked.json()).toMatchObject({ code: "PARENT_DELETED" })
   })
 
+  it('parentId 空串按根页处理：不会写出 parent_id="" 的游离页', async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const token = await issueToken(env, admin)
+
+    const res = await importRequest(env, token, "POST", "/api/import/pages", {
+      title: "空串父页",
+      parentId: "",
+      contentJson: JSON.stringify({ type: "doc" }),
+      conflict: "update"
+    })
+    expect(res.status).toBe(201)
+    const { pageId } = (await res.json()) as { pageId: string }
+
+    const row = db.db
+      .prepare("SELECT parent_id FROM ciki_pages WHERE id = ?")
+      .get(pageId) as { parent_id: string | null }
+    expect(row.parent_id).toBeNull()
+
+    const parents = (await (
+      await importRequest(env, token, "GET", "/api/import/parents")
+    ).json()) as Array<{ id: string; title: string; parentId: string | null }>
+    expect(parents).toContainEqual({
+      id: pageId,
+      title: "空串父页",
+      parentId: null
+    })
+
+    // 空白串同理，不等于任何真实 id。
+    const blank = await importRequest(env, token, "POST", "/api/import/check", {
+      title: "空串父页",
+      parentId: "  "
+    })
+    expect(blank.status).toBe(200)
+    expect(await blank.json()).toEqual({ exists: true, pageId })
+  })
+
+  it("限流响应的 retryAfter 是当前窗口剩余秒数（不是固定 300）", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    await issueToken(env, admin)
+    const now = Math.floor(Date.now() / 1000)
+
+    // 第 20 次失败落在窗口第 290 秒：应只回 ~10 秒，而不是整窗 300 秒。
+    db.db
+      .prepare(
+        "INSERT INTO ciki_auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at) VALUES (?, 'import_auth_fail', '', 'unknown', 19, ?, NULL, ?)"
+      )
+      .run("import_auth_fail::unknown", now - 290, now)
+
+    const res = await importRequest(env, "wrong", "GET", "/api/import/parents")
+    expect(res.status).toBe(429)
+    const body = (await res.json()) as { retryAfter: number }
+    expect(body.retryAfter).toBeGreaterThanOrEqual(1)
+    expect(body.retryAfter).toBeLessThanOrEqual(11)
+  })
+
   it("POST /api/import/files 复用 /api/files 的校验与 R2 口径：只收图片、返回 {url}", async () => {
     const { env, r2 } = await initializedContext()
     const admin = await adminSession(env)
@@ -455,6 +512,36 @@ describe("导入接口：令牌鉴权与四个端点", () => {
       { ...base, parentId: 42 }
     )
     expect(badParent.status).toBe(400)
+
+    // check 与保存同一口径：标题按纯文本规范化后必须 1–255 字符。
+    const tooLongCheck = await importRequest(
+      env,
+      token,
+      "POST",
+      "/api/import/check",
+      { title: "长".repeat(256) }
+    )
+    expect(tooLongCheck.status).toBe(400)
+    expect(await tooLongCheck.json()).toEqual({
+      error: "Title must be 1-255 characters"
+    })
+    const maxLengthCheck = await importRequest(
+      env,
+      token,
+      "POST",
+      "/api/import/check",
+      { title: "长".repeat(255) }
+    )
+    expect(maxLengthCheck.status).toBe(200)
+    expect(await maxLengthCheck.json()).toEqual({ exists: false })
+    const emptyCheck = await importRequest(
+      env,
+      token,
+      "POST",
+      "/api/import/check",
+      { title: "   " }
+    )
+    expect(emptyCheck.status).toBe(400)
 
     const badJson = await importRequest(
       env,
@@ -544,7 +631,11 @@ describe("导入接口：令牌鉴权与四个端点", () => {
 
     const res = await importRequest(env, token, "GET", "/api/import/parents")
     expect(res.status).toBe(429)
-    expect(await res.json()).toMatchObject({ code: "RATE_LIMITED" })
+    const limited = (await res.json()) as { code: string; retryAfter: number }
+    expect(limited.code).toBe("RATE_LIMITED")
+    // 刚开的窗口：剩余时间应接近整窗，而不是写死或超出窗口。
+    expect(limited.retryAfter).toBeGreaterThanOrEqual(290)
+    expect(limited.retryAfter).toBeLessThanOrEqual(300)
 
     // 计数窗口过期后自动恢复。
     db.db
