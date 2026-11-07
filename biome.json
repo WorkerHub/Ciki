@@ -6,8 +6,7 @@
       "!**/node_modules",
       "!**/dist",
       "!**/.wrangler",
-      "!**/web/public",
-      "!prototype"
+      "!**/web/public"
     ]
   },
   "formatter": {
@@ -27,7 +26,13 @@
       "tailwindDirectives": true
     }
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -49,5 +54,22 @@
         "noUnusedVariables": "error"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["web/src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useImportType": "off"
+          },
+          "a11y": {
+            "useSemanticElements": "off",
+            "useFocusableInteractive": "off",
+            "useAriaPropsSupportedByRole": "off"
+          }
+        }
+      }
+    }
+  ]
 }

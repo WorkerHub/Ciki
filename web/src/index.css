@@ -4,6 +4,9 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
+/* Kumo 组件内部的类名写在它自己的产物里，不声明 @source 就会被 Tailwind 漏掉。 */
+@source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -127,5 +130,381 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * wiki 正文：编辑态（.ProseMirror）与阅读态（ReadView）共用同一组样式，
+ * 保证「编辑看到什么，保存后就读到什么」。样式来源是粘贴验证小样 v0.4
+ * 的定版（表格按内容定宽、代码块浅色高亮、任务列表勾选态）。
+ * ------------------------------------------------------------------ */
+.wiki-content {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--foreground);
+  word-break: break-word;
+}
+
+.wiki-content:focus,
+.wiki-content:focus-visible {
+  outline: none;
+}
+
+.wiki-content > *:first-child {
+  margin-top: 0;
+}
+
+.wiki-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.wiki-content p {
+  margin: 0.625em 0;
+  text-wrap: pretty;
+}
+
+.wiki-content h1,
+.wiki-content h2,
+.wiki-content h3,
+.wiki-content h4,
+.wiki-content h5,
+.wiki-content h6 {
+  margin: 1.25em 0 0.5em;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.wiki-content h1 {
+  font-size: 1.55em;
+  text-wrap: balance;
+}
+
+.wiki-content h2 {
+  font-size: 1.3em;
+  text-wrap: balance;
+}
+
+.wiki-content h3 {
+  font-size: 1.12em;
+}
+
+.wiki-content h4 {
+  font-size: 1.05em;
+}
+
+.wiki-content h5 {
+  font-size: 1em;
+}
+
+.wiki-content h6 {
+  font-size: 0.95em;
+  color: var(--muted-foreground);
+}
+
+.wiki-content ul,
+.wiki-content ol {
+  margin: 0.625em 0;
+  padding-left: 1.5em;
+}
+
+.wiki-content ul {
+  list-style: disc;
+}
+
+.wiki-content ol {
+  list-style: decimal;
+}
+
+.wiki-content li > p {
+  margin: 0.2em 0;
+}
+
+.wiki-content li > ul,
+.wiki-content li > ol {
+  margin: 0.2em 0;
+}
+
+.wiki-content blockquote {
+  margin: 0.875em 0;
+  padding: 0.25em 1em;
+  border-left: 3px solid var(--border);
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  color: color-mix(in oklch, var(--foreground) 85%, transparent);
+}
+
+.wiki-content blockquote > p:first-child {
+  margin-top: 0.25em;
+}
+
+.wiki-content blockquote > p:last-child {
+  margin-bottom: 0.25em;
+}
+
+.wiki-content hr {
+  margin: 1.5em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.wiki-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 行内代码 */
+.wiki-content :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  background: var(--muted);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  word-break: break-word;
+}
+
+/* 代码块：容器（头部 + pre）由 CodeBlockView 渲染；浅色主题在明暗两态都保留，
+   因为 GitHub 浅色配色的高亮色是定版效果，深色底会让关键字对比度崩掉。 */
+.wiki-content .code-block {
+  margin: 1em 0;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  overflow: hidden;
+  background: #f6f8fa;
+}
+
+.wiki-content .code-block > pre {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: #f6f8fa;
+  color: #24292f;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.wiki-content .code-block > pre > code {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  white-space: pre;
+}
+
+/* highlight.js —— GitHub 浅色配色（小样 index.html 定版） */
+.wiki-content .hljs-comment,
+.wiki-content .hljs-punctuation {
+  color: #6a737d;
+}
+
+.wiki-content .hljs-comment {
+  font-style: italic;
+}
+
+.wiki-content .hljs-keyword,
+.wiki-content .hljs-tag,
+.wiki-content .hljs-selector-tag,
+.wiki-content .hljs-doctag,
+.wiki-content .hljs-template-tag {
+  color: #d73a49;
+}
+
+.wiki-content .hljs-string,
+.wiki-content .hljs-regexp,
+.wiki-content .hljs-meta .hljs-string {
+  color: #032f62;
+}
+
+.wiki-content .hljs-number,
+.wiki-content .hljs-literal {
+  color: #005cc5;
+}
+
+.wiki-content .hljs-title,
+.wiki-content .hljs-title.function_,
+.wiki-content .hljs-section {
+  color: #6f42c1;
+}
+
+.wiki-content .hljs-title.class_,
+.wiki-content .hljs-type,
+.wiki-content .hljs-built_in,
+.wiki-content .hljs-builtin-name {
+  color: #e36209;
+}
+
+.wiki-content .hljs-attr,
+.wiki-content .hljs-attribute,
+.wiki-content .hljs-variable,
+.wiki-content .hljs-template-variable,
+.wiki-content .hljs-selector-id,
+.wiki-content .hljs-name {
+  color: #005cc5;
+}
+
+.wiki-content .hljs-symbol,
+.wiki-content .hljs-bullet,
+.wiki-content .hljs-link {
+  color: #735c0f;
+}
+
+.wiki-content .hljs-emphasis {
+  font-style: italic;
+}
+
+.wiki-content .hljs-strong {
+  font-weight: 700;
+}
+
+.wiki-content .hljs-addition {
+  color: #22863a;
+  background: #f0fff4;
+}
+
+.wiki-content .hljs-deletion {
+  color: #b31d28;
+  background: #ffeef0;
+}
+
+/* 表格：按内容定宽 + 保留源列宽比例 + 超宽横向滚动 */
+.wiki-content .tableWrapper {
+  margin: 0.875em 0;
+  overflow-x: auto;
+}
+
+.wiki-content table {
+  width: auto;
+  max-width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.wiki-content .tableWrapper > table {
+  margin: 0;
+}
+
+.wiki-content th,
+.wiki-content td {
+  min-width: 3.5rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.wiki-content th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+.wiki-content th > p,
+.wiki-content td > p {
+  margin: 0;
+}
+
+.wiki-content .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: var(--primary);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.wiki-content .resize-cursor {
+  cursor: col-resize;
+}
+
+.wiki-content .selectedCell::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.wiki-content .tableWrapper {
+  position: relative;
+}
+
+/* 任务列表：勾选态由 data-checked 渲染，编辑态可点 */
+.wiki-content ul[data-type="taskList"] {
+  padding-left: 0.25rem;
+  list-style: none;
+}
+
+.wiki-content ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.wiki-content ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.3rem;
+}
+
+.wiki-content ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wiki-content ul[data-type="taskList"] input[type="checkbox"] {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: var(--primary);
+}
+
+.wiki-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}
+
+.wiki-content .is-empty::before {
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.wiki-content .ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.wiki-content .tableWrapper table .selectedCell {
+  position: relative;
+}
+
+/* 移动端触控目标：顶栏与工具条的小图标按钮在 390px 上要够得着。 */
+@media (max-width: 767px) {
+  header [data-slot="button"] {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+  [role="toolbar"] [data-slot="button"],
+  [role="toolbar"] [data-slot="toggle"] {
+    height: 2.25rem;
+    min-width: 2.25rem;
+  }
+  .wiki-content ul[data-type="taskList"] input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+  /* 代码块角标的复制按钮在触屏上放大一点 */
+  .wiki-content [data-code-header] [data-slot="button"] {
+    min-width: 2rem;
+    min-height: 2rem;
   }
 }
