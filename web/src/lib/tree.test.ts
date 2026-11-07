@@ -94,11 +94,43 @@ describe("页面树工具", () => {
     expect(projectDrop(rows, "a", "a", 0)).toBeNull()
   })
 
-  it("拖拽：同级重排时下标按目标兄弟位置计算", () => {
+  it("拖拽：向下移动时插到目标行之后（A 拖到 C 上 → 落到最后一位）", () => {
     const rows = flattenVisible(tree, new Set())
     expect(projectDrop(rows, "a", "c", 0)).toEqual({
       parentId: null,
-      sortOrder: 1
+      sortOrder: 2
+    })
+  })
+
+  it("拖拽：向上移动时插到目标行之前", () => {
+    const rows = flattenVisible(tree, new Set())
+    expect(projectDrop(rows, "c", "a", 0)).toEqual({
+      parentId: null,
+      sortOrder: 0
+    })
+  })
+
+  it("拖拽：向下移动一格（B → C）落点紧随目标", () => {
+    const rows = flattenVisible(tree, new Set())
+    expect(projectDrop(rows, "b", "c", 0)).toEqual({
+      parentId: null,
+      sortOrder: 2
+    })
+  })
+
+  it("拖拽：跨父级向上时插到目标之前", () => {
+    const rows = flattenVisible(tree, new Set(["a"]))
+    expect(projectDrop(rows, "c", "a1", 0)).toEqual({
+      parentId: "a",
+      sortOrder: 0
+    })
+  })
+
+  it("拖拽：跨父级向下时插到目标之后（子页拖到根层末尾）", () => {
+    const rows = flattenVisible(tree, new Set(["a"]))
+    expect(projectDrop(rows, "a1", "c", 0)).toEqual({
+      parentId: null,
+      sortOrder: 3
     })
   })
 

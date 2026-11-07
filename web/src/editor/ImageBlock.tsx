@@ -3,6 +3,7 @@ import { ImageOff, Upload } from "lucide-react"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { describeApiError } from "@/lib/api"
+import { isSafeExternalUrl } from "@/lib/media"
 import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
 
 /**
@@ -79,14 +80,20 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
       {originalSrc ? (
         <p className="mt-1 truncate text-xs opacity-80" title={originalSrc}>
           原地址：
-          <a
-            href={originalSrc}
-            target="_blank"
-            rel="noreferrer noopener"
-            className="underline underline-offset-2"
-          >
-            {originalSrc}
-          </a>
+          {/* 只有 http(s)/根相对路径才给链接：contentJson 里的 originalSrc 来自他人编辑，
+              绝不能把 javascript:/data:text/html 变成可点击的 href */}
+          {isSafeExternalUrl(originalSrc) ? (
+            <a
+              href={originalSrc}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="underline underline-offset-2"
+            >
+              {originalSrc}
+            </a>
+          ) : (
+            <span>{originalSrc}</span>
+          )}
         </p>
       ) : null}
       {editor.isEditable ? (

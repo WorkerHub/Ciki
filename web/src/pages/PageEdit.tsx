@@ -36,21 +36,31 @@ export function PageEdit() {
   const [page, setPage] = useState<PageDetail | null>(null)
   const [title, setTitle] = useState("")
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState("")
+  const [reloadToken, setReloadToken] = useState(0)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState("")
+  const [saveError, setSaveError] = useState("")
   const [notFound, setNotFound] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
 
   const editor = useWikiEditor({
     contentJson: page?.contentJson ?? "",
     onUpdate: () => setDirty(true),
-    onError: setError
+    onError: setSaveError
   })
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken 只是「重新加载」的触发器
   useEffect(() => {
     if (!pageId) return
     let alive = true
+    // 换页先把旧页状态清干净：避免把 A 的正文/标题写进 B
+    setPage(null)
+    setTitle("")
+    setDirty(false)
+    setSavedAt(null)
+    setLoadError("")
+    setNotFound(false)
     setLoading(true)
     pagesApi
       .get(pageId)
@@ -61,11 +71,10 @@ export function PageEdit() {
         setSavedAt(detail.updatedAt)
         setDirty(false)
       })
-      .catch((loadError: unknown) => {
+      .catch((error: unknown) => {
         if (!alive) return
-        if (loadError instanceof ApiError && loadError.status === 404)
-          setNotFound(true)
-        else setError(describeApiError(loadError))
+        if (error instanceof ApiError && error.status === 404) setNotFound(true)
+        else setLoadError(describeApiError(error))
       })
       .finally(() => {
         if (alive) setLoading(false)
@@ -73,12 +82,26 @@ export function PageEdit() {
     return () => {
       alive = false
     }
-  }, [pageId])
+  }, [pageId, reloadToken])
 
-  const save = useCallback(async () => {
-    if (!editor || !pageId || saving) return
+  /** 页面数据不到位就绝不允许写回：加载中、加载失败、换页途中都返回 false。 */
+  const ready = Boolean(
+    editor && page && pageId && page.id === pageId && !loading
+  )
+
+  const save = useCallback(async (): Promise<boolean> => {
+    if (
+      !editor ||
+      !page ||
+      !pageId ||
+      page.id !== pageId ||
+      loading ||
+      saving
+    ) {
+      return false
+    }
     setSaving(true)
-    setError("")
+    setSaveError("")
     try {
       const payload = editorPayload(editor)
       const updated = await pagesApi.update(pageId, {
@@ -88,14 +111,18 @@ export function PageEdit() {
       setDirty(false)
       setSavedAt(updated.updatedAt)
       await loadTree()
-    } catch (saveError) {
-      setError(describeApiError(saveError))
+      return true
+    } catch (error) {
+      setSaveError(describeApiError(error))
+      return false
     } finally {
       setSaving(false)
     }
-  }, [editor, pageId, saving, title, loadTree])
+  }, [editor, page, pageId, loading, saving, title, loadTree])
 
+  // 页面加载完成前不挂 Ctrl/⌘+S：否则会把空文档写回页面
   useEffect(() => {
+    if (!ready) return
     const handler = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
         event.preventDefault()
@@ -104,7 +131,7 @@ export function PageEdit() {
     }
     window.addEventListener("keydown", handler)
     return () => window.removeEventListener("keydown", handler)
-  }, [save])
+  }, [ready, save])
 
   useEffect(() => {
     if (!dirty) return
@@ -146,6 +173,31 @@ export function PageEdit() {
     )
   }
 
+  // 加载失败：给重试入口，绝不渲染一个空编辑器
+  if (!page || page.id !== pageId) {
+    return (
+      <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
+        <p role="alert" className="text-sm text-destructive">
+          {loadError || "页面加载失败"}
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          为了不覆盖已有内容，加载完成前不会打开编辑器。
+        </p>
+        <div className="mt-3 flex justify-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => setReloadToken((value) => value + 1)}
+          >
+            重新加载
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => navigate("/")}>
+            回到首页
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-[900px] space-y-3">
       <header className="space-y-2">
@@ -174,7 +226,7 @@ export function PageEdit() {
               type="button"
               size="sm"
               onClick={() => void save()}
-              disabled={saving || !editor}
+              disabled={saving || !ready}
             >
               <Save aria-hidden="true" />
               保存
@@ -199,7 +251,11 @@ export function PageEdit() {
         </p>
       </header>
 
-      <WikiEditorSurface editor={editor} error={error} onError={setError} />
+      <WikiEditorSurface
+        editor={editor}
+        error={saveError}
+        onError={setSaveError}
+      />
 
       <AlertDialog open={blocker.state === "blocked"}>
         <AlertDialogContent>
@@ -209,13 +265,23 @@ export function PageEdit() {
               离开后这些修改会丢失。要先保存再走吗？
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {saveError ? (
+            <p role="alert" className="text-xs text-destructive">
+              {saveError}
+            </p>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => blocker.reset?.()}>
               留在此页
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={async () => {
-                await save()
+              onClick={async (event) => {
+                // 保存失败就留在对话框里：不能让「保存并离开」把未保存内容带走
+                const saved = await save()
+                if (!saved) {
+                  event.preventDefault()
+                  return
+                }
                 blocker.proceed?.()
               }}
             >

@@ -145,7 +145,10 @@ export function projectDrop(
   const position = siblings.findIndex((row) => row.id === anchor.id)
   if (position < 0) return null
 
-  return { parentId, sortOrder: position }
+  // 往下拖时插到目标行之后：否则「拖到某个兄弟上」永远落在它前面，
+  // 同级最后一位也就永远达不到（契约里 sortOrder 是插入下标，允许等于列表长度）。
+  const movingDown = overIndex > activeIndex
+  return { parentId, sortOrder: movingDown ? position + 1 : position }
 }
 
 /** 同级出现重复（或乱序）的 sortOrder 时需要客户端校正一次。 */

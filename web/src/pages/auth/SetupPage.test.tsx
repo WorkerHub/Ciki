@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
 import { SetupPage } from "@/pages/auth/SetupPage"
+import { useSetupGateStore } from "@/stores/setup"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -89,9 +90,9 @@ describe("初始化页", () => {
   })
 
   it("初始化页已关闭时不再给初始化表单", async () => {
-    vi.mocked(setupApi.state).mockResolvedValue({
-      initialized: true,
-      enabled: false
+    useSetupGateStore.setState({
+      state: { initialized: true, enabled: false },
+      loading: false
     })
     renderSetup()
     expect(await screen.findByText(/已完成初始化/)).toBeInTheDocument()

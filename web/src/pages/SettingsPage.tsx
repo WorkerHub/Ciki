@@ -110,6 +110,7 @@ function PasswordConfirmDialog({
 export function SettingsPage() {
   const user = useAuthStore((state) => state.user)
   const refreshMe = useAuthStore((state) => state.refreshMe)
+  const setRestricted = useAuthStore((state) => state.setRestricted)
   const logout = useAuthStore((state) => state.logout)
   const navigate = useNavigate()
 
@@ -232,6 +233,9 @@ export function SettingsPage() {
       setTotp(null)
       setTotpCode("")
       setReauthPassword("")
+      // 后端在启用成功后已经清掉 needs_2fa_setup，本地受限标记也要跟着清，
+      // 否则用户会一直被 RequireAuth 拉回设置页
+      setRestricted(false)
       setNotice("两步验证已开启，下次登录需要输入动态验证码。")
       await refreshMe()
     } catch (enableError) {
@@ -259,6 +263,7 @@ export function SettingsPage() {
       )
       setReauthPassword("")
       setPendingReauth(null)
+      setRestricted(false)
       setNotice("Passkey 已添加。")
       await refreshMe()
     } catch (passkeyError) {

@@ -145,3 +145,57 @@ describe("形态二：SyntaxHighlighter 表格型代码块", () => {
     expect(cleaned).toContain("代码块后面的正文")
   })
 })
+
+/**
+ * 契约变更配套：图片地址白名单必须与后端消毒规则同义。
+ * 尤其是 data-original-src —— 读态会把它渲染成可点击链接，
+ * 所以 javascript:/data:text/html/svg 数据地址必须在清洗阶段就丢掉。
+ */
+describe("图片地址：本站图床保留、危险地址丢弃", () => {
+  const UUID = "0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b"
+  const img = (src: string) =>
+    cleanConfluenceHtml(`<p><img src="${src}" alt="图"></p>`)
+
+  it("本站图床地址原样保留", () => {
+    const cleaned = img(`/api/files/${UUID}.png`)
+    expect(cleaned).toContain(`src="/api/files/${UUID}.png"`)
+    expect(cleaned).not.toContain("data-original-src")
+  })
+
+  it("合规内联图（png base64）保留", () => {
+    const cleaned = img("data:image/png;base64,iVBORw0KGgo=")
+    expect(cleaned).toContain('src="data:image/png;base64,iVBORw0KGgo="')
+  })
+
+  it("http(s) 外链改成未转存标记，原地址保留", () => {
+    const cleaned = img("https://confluence.example.com/download/a.png")
+    expect(cleaned).not.toContain("<img src=")
+    expect(cleaned).toContain(
+      'data-original-src="https://confluence.example.com/download/a.png"'
+    )
+    expect(cleaned).toContain('data-confluence-img="true"')
+  })
+
+  it("javascript: 协议被丢弃", () => {
+    const cleaned = img("javascript:alert(1)")
+    expect(cleaned).not.toContain("javascript:")
+    expect(cleaned).not.toContain("data-original-src")
+    expect(cleaned).toContain('data-confluence-img="true"')
+  })
+
+  it("data:text/html 与 svg 内联图被丢弃（不收 svg）", () => {
+    expect(
+      img("data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==")
+    ).not.toContain("data-original-src")
+    const svg = img("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
+    expect(svg).not.toContain("<img src=")
+    expect(svg).not.toContain("data-original-src")
+  })
+
+  it("伪装成本站图床但路径不合规的地址也会被转成未转存", () => {
+    const cleaned = img("/api/files/evil.png")
+    // 自身 src 必须消失；根相对地址仍然可以作为「原地址」保留
+    expect(cleaned).not.toMatch(/<img[^>]*\ssrc=/)
+    expect(cleaned).toContain('data-confluence-img="true"')
+  })
+})

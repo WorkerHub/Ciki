@@ -1,10 +1,12 @@
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { routes } from "@/App"
 import { ApiError, type Me } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
+import { useSetupGateStore } from "@/stores/setup"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -29,7 +31,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
   }
 })
 
-const { setupApi, meApi, pagesApi, adminApi } = await import("@/lib/api")
+const { setupApi, meApi, pagesApi, adminApi, authApi } = await import(
+  "@/lib/api"
+)
 
 const admin: Me = {
   id: "u1",
@@ -56,6 +60,8 @@ describe("路由守卫与初始化门", () => {
   beforeEach(() => {
     useAuthStore.setState({ user: null, status: "loading", restricted: false })
     usePagesStore.setState({ tree: [], loading: true, expanded: [] })
+    // setup 状态在共享 store 里，用例之间必须复位，否则第二个用例不会再拉
+    useSetupGateStore.setState({ state: null, loading: false })
     vi.mocked(setupApi.state).mockResolvedValue({
       initialized: true,
       enabled: true
@@ -91,6 +97,36 @@ describe("路由守卫与初始化门", () => {
 
     expect(
       await screen.findByRole("heading", { name: /ciki 初始化/ })
+    ).toBeInTheDocument()
+  })
+
+  it("初始化成功后可以直接去注册首个管理员，不会被重定向回 /setup", async () => {
+    const user = userEvent.setup()
+    vi.mocked(meApi.get).mockRejectedValue(new ApiError(401, "Unauthorized"))
+    vi.mocked(setupApi.state)
+      .mockResolvedValueOnce({ initialized: false, enabled: true })
+      .mockResolvedValue({ initialized: true, enabled: false })
+    vi.mocked(setupApi.run).mockResolvedValue({
+      success: true,
+      tablePrefix: "ciki_",
+      migrations: [{ name: "schema_v1", status: "applied" }]
+    })
+    vi.mocked(authApi.config).mockResolvedValue({
+      registrationEnabled: true,
+      registrationApprovalRequired: true
+    })
+
+    renderApp("/setup")
+    await user.type(await screen.findByLabelText("SETUP_SECRET"), "s3cret")
+    await user.click(screen.getByRole("button", { name: "初始化数据库" }))
+
+    await user.click(
+      await screen.findByRole("link", { name: "注册首个管理员账号" })
+    )
+
+    // 根门已经从共享 store 里拿到 initialized:true，不会再把人押回 /setup
+    expect(
+      await screen.findByRole("heading", { name: "注册 ciki" })
     ).toBeInTheDocument()
   })
 

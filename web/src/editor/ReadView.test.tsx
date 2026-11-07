@@ -34,6 +34,19 @@ describe("阅读态渲染（与编辑态共用同一套扩展）", () => {
     expect(screen.queryByRole("button", { name: "上传替换" })).toBeNull()
   })
 
+  it("原地址是危险协议时只显示纯文本、不给链接", async () => {
+    render(
+      <ReadView
+        html={
+          '<p><img alt="x" data-original-src="javascript:alert(1)" data-confluence-img="true"></p>'
+        }
+      />
+    )
+    expect(await screen.findByText("未转存的图片")).toBeInTheDocument()
+    expect(screen.queryByRole("link")).toBeNull()
+    expect(screen.getByText("javascript:alert(1)")).toBeInTheDocument()
+  })
+
   it("本站图片直接显示", async () => {
     render(
       <ReadView html={'<p><img src="/api/files/abc.png" alt="示意图"></p>'} />

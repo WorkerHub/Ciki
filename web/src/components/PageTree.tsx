@@ -70,6 +70,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   )
   const [activeId, setActiveId] = useState<string | null>(null)
   const [offsetLeft, setOffsetLeft] = useState(0)
+  const [createOpen, setCreateOpen] = useState(false)
   const [createParent, setCreateParent] = useState<TreeRow | null>(null)
   const [renameTarget, setRenameTarget] = useState<TreeRow | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TreeRow | null>(null)
@@ -83,6 +84,11 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   )
 
   const activeRow = rows.find((row) => row.id === activeId) ?? null
+
+  const openCreate = (parent: TreeRow | null) => {
+    setCreateParent(parent)
+    setCreateOpen(true)
+  }
 
   const openPage = (row: TreeRow) => {
     expandTo(row.id)
@@ -107,7 +113,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
     setActionError("")
     switch (action) {
       case "add-child":
-        setCreateParent(row)
+        openCreate(row)
         break
       case "rename":
         setRenameValue(row.title)
@@ -152,35 +158,26 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
     }
   }
 
-  if (loading && rows.length === 0) {
-    return (
+  const content =
+    loading && rows.length === 0 ? (
       <div className="space-y-2 p-2" role="status" aria-label="页面树加载中">
         {[0, 1, 2, 3].map((index) => (
           <div key={index} className="h-6 animate-pulse rounded bg-muted" />
         ))}
       </div>
-    )
-  }
-
-  if (!loading && tree.length === 0) {
-    return (
+    ) : tree.length === 0 ? (
       <Empty
         icon={<FilePlus2 />}
         title="还没有页面"
         description="从新建一个页面开始，或直接把 Confluence 内容粘贴进编辑器。"
         contents={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCreateParent(null)}
-          >
+          <Button size="sm" variant="outline" onClick={() => openCreate(null)}>
             <FilePlus2 aria-hidden="true" />
             新建页面
           </Button>
         }
       />
-    )
-  }
+    ) : null
 
   return (
     <div className="flex min-h-0 flex-col gap-1">
@@ -192,59 +189,64 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
           {actionError}
         </p>
       ) : null}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragMove={handleDragMove}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => {
-          setActiveId(null)
-          setOffsetLeft(0)
-        }}
-      >
-        <SortableContext
-          items={rows.map((row) => row.id)}
-          strategy={verticalListSortingStrategy}
+      {content}
+      {tree.length > 0 ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => {
+            setActiveId(null)
+            setOffsetLeft(0)
+          }}
         >
-          <ul className="space-y-px">
-            {rows.map((row) => {
-              const siblings = siblingsOf(tree, row.parentId)
-              const index = siblings.findIndex(
-                (sibling) => sibling.id === row.id
-              )
-              return (
-                <PageTreeRow
-                  key={row.id}
-                  row={row}
-                  expanded={expanded.includes(row.id)}
-                  active={params.pageId === row.id}
-                  canMoveUp={index > 0}
-                  canMoveDown={index >= 0 && index < siblings.length - 1}
-                  onToggle={() => toggle(row.id)}
-                  onOpen={() => openPage(row)}
-                  onAction={(action) => handleAction(row, action)}
+          <SortableContext
+            items={rows.map((row) => row.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className="space-y-px">
+              {rows.map((row) => {
+                const siblings = siblingsOf(tree, row.parentId)
+                const index = siblings.findIndex(
+                  (sibling) => sibling.id === row.id
+                )
+                return (
+                  <PageTreeRow
+                    key={row.id}
+                    row={row}
+                    expanded={expanded.includes(row.id)}
+                    active={params.pageId === row.id}
+                    canMoveUp={index > 0}
+                    canMoveDown={index >= 0 && index < siblings.length - 1}
+                    onToggle={() => toggle(row.id)}
+                    onOpen={() => openPage(row)}
+                    onAction={(action) => handleAction(row, action)}
+                  />
+                )
+              })}
+            </ul>
+          </SortableContext>
+          <DragOverlay dropAnimation={null}>
+            {activeRow ? (
+              <div className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] shadow-md">
+                <GripVertical
+                  className="size-3.5 text-muted-foreground"
+                  aria-hidden="true"
                 />
-              )
-            })}
-          </ul>
-        </SortableContext>
-        <DragOverlay dropAnimation={null}>
-          {activeRow ? (
-            <div className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-[13px] shadow-md">
-              <GripVertical
-                className="size-3.5 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <span className="truncate">{activeRow.title}</span>
-            </div>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+                <span className="truncate">{activeRow.title}</span>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : null}
 
+      {/* 弹窗放在提前返回之外：空树状态下「新建页面」也要能打开它 */}
       <CreatePageDialog
-        open={createParent !== null}
+        open={createOpen}
         onOpenChange={(open) => {
+          setCreateOpen(open)
           if (!open) setCreateParent(null)
         }}
         parentId={createParent?.id ?? null}

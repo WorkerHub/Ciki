@@ -10,6 +10,7 @@
  *
  * 注意：前端清洗不是安全边界，服务端保存时还会二次消毒（规格 §5.8）。
  */
+import { isHostedImageSrc, safeExternalUrl } from "@/lib/media"
 
 function parseFragment(html: string): HTMLElement {
   const doc = new DOMParser().parseFromString(
@@ -61,12 +62,7 @@ const PANEL_LABELS: { match: string; label: string }[] = [
   { match: "error", label: "⛔ 错误" }
 ]
 
-/** 本站图片 / 内联图片之外的一切 src 都算「未转存」。 */
-function isHostedImageSrc(src: string): boolean {
-  if (!src) return false
-  if (/^data:image\//i.test(src)) return true
-  return /^\/api\/files\//.test(src)
-}
+// 图片地址白名单与后端契约逐个字符对齐（见 lib/media.ts）
 
 export function cleanConfluenceHtml(html: string): string {
   if (!html?.trim()) return ""
@@ -204,12 +200,17 @@ export function cleanConfluenceHtml(html: string): string {
     })
   })
 
-  // 5) 图片：外链（Confluence 附件或任意外部图）转成「未转存」标记
+  // 5) 图片：本站图床/合规内联图以外的都转成「未转存」标记；
+  //    data-original-src 只留 http(s) 与根相对路径，javascript:/data:text/html 一律丢弃，
+  //    避免读态把它渲染成可点击链接。
   root.querySelectorAll("img").forEach((img) => {
     const src = img.getAttribute("src") || ""
     if (isHostedImageSrc(src)) return
-    const original = img.getAttribute("data-original-src") || src
+    const original = safeExternalUrl(
+      img.getAttribute("data-original-src") || src
+    )
     if (original) img.setAttribute("data-original-src", original)
+    else img.removeAttribute("data-original-src")
     img.setAttribute("data-confluence-img", "true")
     img.removeAttribute("src")
   })

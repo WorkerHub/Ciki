@@ -1,8 +1,9 @@
-import { type ReactNode, Suspense, useEffect, useState } from "react"
+import { type ReactNode, Suspense, useEffect } from "react"
 import { Navigate, Outlet, useLocation } from "react-router"
-import { type SetupState, setUnauthorizedHandler, setupApi } from "@/lib/api"
+import { setUnauthorizedHandler } from "@/lib/api"
 import { watchSystemTheme } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
+import { useSetupGateStore } from "@/stores/setup"
 import { useThemeStore } from "@/stores/theme"
 
 export function FullPageLoader({ label = "加载中…" }: { label?: string }) {
@@ -19,11 +20,14 @@ export function FullPageLoader({ label = "加载中…" }: { label?: string }) {
 /**
  * 全站根门：先确认 setup 状态（未初始化一律去 /setup，规格 §9.7），
  * 同时加载当前用户、挂上 401 兜底与系统主题监听。
+ * setup 状态放在共享 store 里，SetupPage 初始化成功后会重拉，
+ * 根门随即放行，不需要整页刷新。
  */
 export function RootGate() {
   const location = useLocation()
   const load = useAuthStore((state) => state.load)
-  const [setup, setSetup] = useState<SetupState | "error" | null>(null)
+  const setup = useSetupGateStore((state) => state.state)
+  const loadSetup = useSetupGateStore((state) => state.load)
 
   useEffect(() => {
     setUnauthorizedHandler(() => useAuthStore.getState().setUser(null))
@@ -31,15 +35,12 @@ export function RootGate() {
     const stopTheme = watchSystemTheme(() =>
       useThemeStore.getState().syncSystem()
     )
-    setupApi
-      .state()
-      .then(setSetup)
-      .catch(() => setSetup("error"))
+    if (useSetupGateStore.getState().state === null) void loadSetup()
     return () => {
       stopTheme()
       setUnauthorizedHandler(null)
     }
-  }, [load])
+  }, [load, loadSetup])
 
   if (setup === null) return <FullPageLoader />
 
@@ -58,7 +59,10 @@ export function RootGate() {
   )
 }
 
-/** 需要登录；受限会话（被要求配置 2FA）只能进设置页。 */
+/**
+ * 需要登录；受限会话（被要求配置 2FA）只能进设置页。
+ * 配置成功时设置页会调用 setRestricted(false)，此后正常放行。
+ */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const user = useAuthStore((state) => state.user)
   const status = useAuthStore((state) => state.status)

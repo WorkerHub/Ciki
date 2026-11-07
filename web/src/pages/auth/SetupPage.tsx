@@ -10,9 +10,9 @@ import {
   ApiError,
   describeApiError,
   type SetupResult,
-  type SetupState,
   setupApi
 } from "@/lib/api"
+import { useSetupGateStore } from "@/stores/setup"
 
 /**
  * 初始化页（规格 §5A.6）：只认 SETUP_SECRET 请求头，密钥框 id/name 固定为
@@ -20,7 +20,9 @@ import {
  * 不再重复建库；任何情况下都没有删表/清库入口。
  */
 export function SetupPage() {
-  const [state, setState] = useState<SetupState | null>(null)
+  // 与 RootGate 共用同一份状态：初始化成功后重拉一次，根门立刻放行
+  const gateState = useSetupGateStore((state) => state.state)
+  const loadSetup = useSetupGateStore((state) => state.load)
   const [secret, setSecret] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -31,19 +33,8 @@ export function SetupPage() {
   } | null>(null)
 
   useEffect(() => {
-    let alive = true
-    setupApi
-      .state()
-      .then((value) => {
-        if (alive) setState(value)
-      })
-      .catch(() => {
-        if (alive) setState({ initialized: false, enabled: true })
-      })
-    return () => {
-      alive = false
-    }
-  }, [])
+    if (gateState === null) void loadSetup()
+  }, [gateState, loadSetup])
 
   const run = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -53,7 +44,9 @@ export function SetupPage() {
     try {
       const value = await setupApi.run(secret.trim())
       setResult(value)
-      setState({ initialized: true, enabled: false })
+      // 让根门拿到服务端真实状态（initialized: true / enabled: false），
+      // 否则下面的「注册首个管理员」会被重定向回 /setup
+      await loadSetup()
     } catch (runError) {
       if (runError instanceof ApiError && runError.code === "PREFIX_CONFLICT") {
         setConflict({
@@ -73,6 +66,9 @@ export function SetupPage() {
       setBusy(false)
     }
   }
+
+  const state =
+    gateState === "error" ? { initialized: false, enabled: true } : gateState
 
   if (!state) {
     return (

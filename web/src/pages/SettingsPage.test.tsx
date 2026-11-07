@@ -67,6 +67,14 @@ describe("两步验证新增因子的重认证", () => {
 
   beforeEach(() => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
+    vi.mocked(meApi.get).mockResolvedValue({
+      id: "u1",
+      email: "admin@example.com",
+      role: "admin",
+      approvalStatus: "approved",
+      createdAt: "2026-11-07T00:00:00.000Z",
+      twofa: { totpEnabled: true, passkeyEnabled: false, passkeyCount: 0 }
+    })
     vi.mocked(authApi.passkeyRegisterOptions).mockRejectedValue(
       new Error("测试里不真的走 WebAuthn")
     )
@@ -118,5 +126,49 @@ describe("两步验证新增因子的重认证", () => {
     expect(authApi.totpSetup).toHaveBeenCalledWith(undefined)
     expect(screen.queryByLabelText("账号密码")).toBeNull()
     expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument()
+  })
+})
+
+describe("受限会话在配置完成后解除", () => {
+  beforeAll(() => {
+    Object.defineProperty(window, "PublicKeyCredential", {
+      value: function PublicKeyCredential() {},
+      configurable: true,
+      writable: true
+    })
+  })
+
+  beforeEach(() => {
+    vi.mocked(meApi.sessions).mockResolvedValue([])
+    vi.mocked(meApi.get).mockResolvedValue({
+      id: "u1",
+      email: "admin@example.com",
+      role: "admin",
+      approvalStatus: "approved",
+      createdAt: "2026-11-07T00:00:00.000Z",
+      twofa: { totpEnabled: true, passkeyEnabled: false, passkeyCount: 0 }
+    })
+    vi.mocked(authApi.totpSetup).mockResolvedValue({
+      secret: "JBSWY3DPEHPK3PXP",
+      uri: "otpauth://totp/ciki:admin?secret=JBSWY3DPEHPK3PXP"
+    })
+    vi.mocked(authApi.totpEnable).mockResolvedValue({ success: true })
+    useAuthStore.setState({ restricted: true })
+    sessionStorage.setItem("ciki-restricted-session", "1")
+  })
+
+  it("启用 TOTP 成功后清掉受限标记，用户不再被拉回设置页", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "开始配置" }))
+    await screen.findByText("JBSWY3DPEHPK3PXP")
+    await user.type(screen.getByLabelText("6 位验证码"), "123456")
+    await user.click(screen.getByRole("button", { name: "启用" }))
+
+    expect(authApi.totpEnable).toHaveBeenCalledWith("123456", undefined)
+    expect(useAuthStore.getState().restricted).toBe(false)
+    expect(sessionStorage.getItem("ciki-restricted-session")).toBeNull()
   })
 })
