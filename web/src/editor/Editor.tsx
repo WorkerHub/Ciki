@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core"
 import { type Editor, EditorContent, useEditor } from "@tiptap/react"
 import { useMemo, useRef } from "react"
 import { EditorToolbar } from "@/editor/EditorToolbar"
+import { UntransferredImageBridge } from "@/editor/bridge/extension"
 import { createExtensions } from "@/editor/extensions"
 import { ConfluencePaste } from "@/editor/paste/paste-plugin"
 
@@ -50,7 +51,9 @@ export function useWikiEditor({
       ...createExtensions("edit"),
       ConfluencePaste.configure({
         onError: (message) => onErrorRef.current(message)
-      })
+      }),
+      // 插件补抓事件桥：只在编辑页挂（阅读态是只读的，替换必须落在可保存的模型里）
+      UntransferredImageBridge
     ],
     []
   )
