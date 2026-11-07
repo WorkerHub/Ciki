@@ -102,8 +102,44 @@ describe("readCapturedDetail 校验插件递来的字节", () => {
       )
     ).toBeNull()
     expect(
-      readCapturedDetail(capturedEvent({ ...valid, contentType: "image/webp" }))
+      readCapturedDetail(
+        capturedEvent({
+          ...valid,
+          dataUrl: PNG_DATA_URL.replace("image/png", "image/webp"),
+          contentType: "image/webp"
+        })
+      )
     ).toMatchObject({ contentType: "image/webp" })
+  })
+
+  it("dataUrl 与 contentType 必须描述同一份字节", () => {
+    expect(
+      readCapturedDetail(
+        capturedEvent({
+          ...valid,
+          dataUrl: PNG_DATA_URL,
+          contentType: "image/webp"
+        })
+      )
+    ).toBeNull()
+    expect(
+      readCapturedDetail(
+        capturedEvent({
+          ...valid,
+          dataUrl: PNG_DATA_URL.replace("image/png", "image/jpeg")
+        })
+      )
+    ).toBeNull()
+    // image/jpg 与 image/jpeg 是同一个类型，不算冲突
+    expect(
+      readCapturedDetail(
+        capturedEvent({
+          ...valid,
+          dataUrl: PNG_DATA_URL.replace("image/png", "image/jpg"),
+          contentType: "image/jpeg"
+        })
+      )
+    ).toMatchObject({ contentType: "image/jpeg" })
   })
 
   it("字段缺失或 detail 不是对象时返回 null", () => {

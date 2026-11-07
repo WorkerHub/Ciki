@@ -90,6 +90,8 @@ export const UntransferredImageBridge = Extension.create<
   onCreate() {
     const editor = this.editor
     let timer: ReturnType<typeof setTimeout> | null = null
+    // 正在上传的 src：纯上传互斥，与 UI 的 pending 标记分开
+    const inFlight = new Set<string>()
 
     const announce = () => {
       if (editor.isDestroyed) return
@@ -110,11 +112,13 @@ export const UntransferredImageBridge = Extension.create<
       void (async () => {
         const { src, dataUrl, filename, contentType } = detail
         if (editor.isDestroyed || !editor.isEditable) return
-        const store = useImageBridgeStore.getState()
-        // 同一张图已经在传了，或者文档里已经没有这个 src（手动换过/撤销过）就直接丢
-        if (store.pending[src]) return
+        // 上传互斥用自己的集合，不能借 store.pending：那个标记还承担着 UI（补抓中…）
+        // 与「重试自动转存」15 秒超时的职责，点重试时它已经是 true，会把自己的回话全丢掉。
+        if (inFlight.has(src)) return
         if (!hasSource(editor, src)) return
 
+        inFlight.add(src)
+        const store = useImageBridgeStore.getState()
         store.markPending(src)
         try {
           const blob = await blobFromDataUrl(dataUrl)
@@ -130,6 +134,8 @@ export const UntransferredImageBridge = Extension.create<
           useImageBridgeStore.getState().succeed(src)
         } catch (error) {
           useImageBridgeStore.getState().fail(src, describeApiError(error))
+        } finally {
+          inFlight.delete(src)
         }
       })()
     }

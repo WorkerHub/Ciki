@@ -100,6 +100,48 @@ describe("未转存图片占位的两条出路", () => {
     window.removeEventListener(IMAGE_BRIDGE_CAPTURE, listener)
   })
 
+  it("点重试后插件如约回话：占位换成图片，补抓中与错误都收掉", async () => {
+    stubDataUrlFetch()
+    vi.mocked(uploadImage).mockResolvedValue({
+      key: "files/arch.png",
+      url: UPLOADED,
+      contentType: "image/png",
+      size: 70
+    })
+    render(<Harness content={UNTRANSFERRED_HTML} />)
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "重试自动转存" })
+    )
+    expect(
+      await screen.findByRole("button", { name: "补抓中…" })
+    ).toBeDisabled()
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(IMAGE_BRIDGE_CAPTURED, {
+          detail: {
+            src: SRC,
+            dataUrl: PNG_DATA_URL,
+            filename: "arch.png",
+            contentType: "image/png"
+          }
+        })
+      )
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText("未转存的图片")).toBeNull()
+    })
+    expect(screen.getByRole("img", { name: "架构图" })).toHaveAttribute(
+      "src",
+      UPLOADED
+    )
+    const state = useImageBridgeStore.getState()
+    expect(state.pending[SRC]).toBeUndefined()
+    expect(state.errors[SRC]).toBeUndefined()
+  })
+
   it("插件递来字节后占位换成真正的图片", async () => {
     stubDataUrlFetch()
     vi.mocked(uploadImage).mockResolvedValue({

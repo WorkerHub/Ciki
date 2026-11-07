@@ -210,6 +210,23 @@ describe("补抓事件桥：插件递字节 → TipTap 模型里替换", () => {
     })
   })
 
+  it("点了重试（pending 已置位）后插件回话仍会走上传，不被当成重复投递", async () => {
+    const active = await createEditor(untransferredHtml(SRC))
+    // 用户点「重试自动转存」：先立 pending，再派发 capture
+    useImageBridgeStore.getState().requestCapture(SRC)
+    expect(useImageBridgeStore.getState().pending[SRC]).toBe(true)
+
+    dispatchCaptured(captureDetail(SRC))
+
+    await vi.waitFor(() => {
+      expect(imageAttrs(active)[0]?.src).toBe(UPLOADED)
+    })
+    expect(uploadImage).toHaveBeenCalledTimes(1)
+    const state = useImageBridgeStore.getState()
+    expect(state.pending[SRC]).toBeUndefined()
+    expect(state.errors[SRC]).toBeUndefined()
+  })
+
   it("文档里没有这个 src 的节点：不替不存在的图上传", async () => {
     await createEditor(untransferredHtml(SRC))
     dispatchCaptured(captureDetail(OTHER_SRC))

@@ -119,11 +119,23 @@ export function filenameFromSource(src: string, contentType: string): string {
   return /\.[a-z0-9]{2,5}$/i.test(cleaned) ? cleaned : `${cleaned}.${ext}`
 }
 
+/** `data:image/png;base64,…` → `image/png`（拿不到就返回空串）。 */
+function dataUrlMime(dataUrl: string): string {
+  const end = dataUrl.indexOf(";")
+  if (end < 0) return ""
+  return dataUrl.slice("data:".length, end).trim().toLowerCase()
+}
+
+/** image/jpg 与 image/jpeg 是同一个类型，先归一化再比。 */
+function normalizeMime(mime: string): string {
+  return mime === "image/jpg" ? "image/jpeg" : mime
+}
+
 /**
  * 校验插件递来的 `captured` 事件，不合格返回 null：
  * - src 必须是 http(s) 或根相对路径（contentHtml 来自他人编辑，不能顺手递给插件）；
  * - dataUrl 必须是 data:image 白名单里的 base64（拒 svg / data:text/html）；
- * - contentType 必须与上传接口的白名单一致。
+ * - contentType 必须与上传接口的白名单一致，且与 dataUrl 自己的 MIME 一致。
  */
 export function readCapturedDetail(event: Event): BridgeCapturedDetail | null {
   const record = asRecord((event as CustomEvent<unknown>).detail)
@@ -139,6 +151,10 @@ export function readCapturedDetail(event: Event): BridgeCapturedDetail | null {
       contentType as (typeof ACCEPTED_IMAGE_TYPES)[number]
     )
   ) {
+    return null
+  }
+  // 契约要求两个字段描述同一份字节：表头写 png、数据是 webp 的包直接丢
+  if (normalizeMime(dataUrlMime(dataUrl)) !== normalizeMime(contentType)) {
     return null
   }
   const filename =
