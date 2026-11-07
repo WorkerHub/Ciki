@@ -34,17 +34,26 @@ export function insertRevision(
     )
 }
 
+export type RevisionSummaryRow = Pick<
+  RevisionRow,
+  "id" | "title" | "editor_id" | "created_at"
+>
+
+/** 版本列表只需要元数据；正文只在查看单个版本时读。 */
 export async function listRevisions(
   db: D1Database,
   prefix: string,
   pageId: string
-): Promise<RevisionRow[]> {
+): Promise<RevisionSummaryRow[]> {
   const rows = await db
     .prepare(
-      `SELECT * FROM ${revisionsTable(prefix)} WHERE page_id = ? ORDER BY created_at DESC, rowid DESC`
+      `SELECT id, title, editor_id, created_at
+         FROM ${revisionsTable(prefix)}
+        WHERE page_id = ?
+        ORDER BY created_at DESC, rowid DESC`
     )
     .bind(pageId)
-    .all<RevisionRow>()
+    .all<RevisionSummaryRow>()
   return rows.results
 }
 

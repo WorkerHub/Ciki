@@ -375,3 +375,52 @@ describe("页面：作者/管理员权限", () => {
     expect(res.status).toBe(401)
   })
 })
+
+describe("页面：保存体积以消毒后的结果为准", () => {
+  it("外链图片消毒后膨胀超限 → 413 + PAYLOAD_TOO_LARGE", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 原始 ≈390KB（低于粗筛阈值），消毒后每个 img 变成两个属性，膨胀到 >800KB。
+    const html = '<img src="x">'.repeat(30_000)
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "图片很多",
+        parentId: null,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: html,
+        contentText: "图片很多"
+      },
+      admin
+    )
+    expect(res.status).toBe(413)
+    expect(await res.json()).toMatchObject({
+      error: "Payload too large",
+      code: "PAYLOAD_TOO_LARGE"
+    })
+  })
+
+  it("少量外链图片正常保存；contentHtml 已按消毒后结果入库", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "少量图片",
+        parentId: null,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: '<img src="https://confluence.example/a.png">'.repeat(3),
+        contentText: "少量图片"
+      },
+      admin
+    )
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { contentHtml: string }
+    expect((body.contentHtml.match(/data-original-src/g) ?? []).length).toBe(3)
+  })
+})

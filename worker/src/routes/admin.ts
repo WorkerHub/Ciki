@@ -58,12 +58,13 @@ adminRoutes.get("/users", async (c) => {
 
 adminRoutes.post("/users", async (c) => {
   const body = await readJsonBody<{
-    email?: string
-    password?: string
-    role?: string
+    email?: unknown
+    password?: unknown
+    role?: unknown
   }>(c)
-  const email = body?.email?.trim().toLowerCase()
-  const password = body?.password
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
+  const password = typeof body?.password === "string" ? body.password : ""
   if (!email || !password) {
     return c.json({ error: "Email and password required" }, 400)
   }
@@ -97,12 +98,14 @@ adminRoutes.put("/users/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
   const uid = c.req.param("id")
   const body = await readJsonBody<{
-    role?: string
-    isActive?: boolean
-    email?: string
-    password?: string
+    role?: unknown
+    isActive?: unknown
+    email?: unknown
+    password?: unknown
   }>(c)
-  if (!body) return c.json({ error: "Invalid request body" }, 400)
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
 
   const user = await findUserById(c.env.DB, prefix, uid)
   if (!user) return c.json({ error: "User not found" }, 404)
@@ -118,15 +121,24 @@ adminRoutes.put("/users/:id", async (c) => {
 
   const updates: Record<string, unknown> = {}
   if (body.role !== undefined) {
-    if (!["admin", "user"].includes(body.role)) {
+    if (
+      typeof body.role !== "string" ||
+      !["admin", "user"].includes(body.role)
+    ) {
       return c.json({ error: "Invalid role" }, 400)
     }
     updates.role = body.role
   }
   if (body.isActive !== undefined) {
+    if (typeof body.isActive !== "boolean") {
+      return c.json({ error: "isActive must be a boolean" }, 400)
+    }
     updates.is_active = body.isActive ? 1 : 0
   }
   if (body.email !== undefined) {
+    if (typeof body.email !== "string") {
+      return c.json({ error: "Invalid email format" }, 400)
+    }
     const email = body.email.trim().toLowerCase()
     if (!EMAIL_RE.test(email)) {
       return c.json({ error: "Invalid email format" }, 400)
@@ -138,7 +150,7 @@ adminRoutes.put("/users/:id", async (c) => {
     updates.email = email
   }
   if (body.password !== undefined) {
-    if (body.password.length < 8) {
+    if (typeof body.password !== "string" || body.password.length < 8) {
       return c.json({ error: "Password must be at least 8 characters" }, 400)
     }
     updates.password_hash = await hashPassword(body.password)

@@ -61,19 +61,37 @@ function originOf(c: Context<HonoEnv>): string {
   return new URL(c.req.url).origin
 }
 
+/**
+ * 敏感 2FA 操作的重认证：密码校验 + D1 计数表限流。
+ * 被盗会话 Cookie 不能靠无限次试密码绕过登录的限流（(reauth, 用户, IP) 5 次/5 分钟，
+ * 成功即清零）。
+ */
 async function requirePassword(
   c: Context<HonoEnv>,
   password: unknown
 ): Promise<Response | null> {
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const ip = clientIp(c)
+  const attempts = await consumeCounter(c.env.DB, prefix, {
+    action: "reauth",
+    account: userId,
+    ip,
+    windowSeconds: 300
+  })
+  if (attempts.count > 5) {
+    return c.json({ error: "Too many requests", code: "RATE_LIMITED" }, 429)
+  }
+
   if (typeof password !== "string" || !password) {
     return c.json({ error: "Password required" }, 400)
   }
-  const prefix = getTablePrefix(c.env)
-  const user = await findUserById(c.env.DB, prefix, c.get("userId"))
+  const user = await findUserById(c.env.DB, prefix, userId)
   if (!user) return c.json({ error: "User not found" }, 404)
   if (!(await verifyPassword(password, user.password_hash))) {
     return c.json({ error: "Password is incorrect" }, 403)
   }
+  await clearAccountCounters(c.env.DB, prefix, "reauth", userId)
   return null
 }
 
@@ -92,13 +110,13 @@ async function loadActiveUser(
 /** 登录第二步：TOTP。 */
 auth2faRoutes.post("/verify", async (c) => {
   const body = await readJsonBody<{
-    tempToken?: string
-    method?: string
-    code?: string
+    tempToken?: unknown
+    method?: unknown
+    code?: unknown
   }>(c)
-  const tempToken = body?.tempToken
-  const method = body?.method
-  const code = body?.code
+  const tempToken = typeof body?.tempToken === "string" ? body.tempToken : ""
+  const method = typeof body?.method === "string" ? body.method : ""
+  const code = typeof body?.code === "string" ? body.code : ""
   if (!tempToken || !method || !code) {
     return c.json({ error: "tempToken, method, and code required" }, 400)
   }
@@ -226,9 +244,12 @@ auth2faRoutes.post("/passkey/authenticate/options", async (c) => {
 /** passkey 登录：verify。 */
 auth2faRoutes.post("/passkey/authenticate/verify", async (c) => {
   const body = await readJsonBody<
-    Record<string, unknown> & { tempToken?: string }
+    Record<string, unknown> & { tempToken?: unknown }
   >(c)
-  const tempToken = body?.tempToken
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
+  const tempToken = typeof body.tempToken === "string" ? body.tempToken : ""
   if (!tempToken) return c.json({ error: "tempToken required" }, 400)
 
   const prefix = getTablePrefix(c.env)
@@ -319,8 +340,8 @@ auth2faRoutes.post("/totp/setup", async (c) => {
 
 /** 校验并启用 TOTP；成功后把当前受限会话标记清零。 */
 auth2faRoutes.post("/totp/enable", async (c) => {
-  const body = await readJsonBody<{ code?: string }>(c)
-  const code = body?.code?.trim()
+  const body = await readJsonBody<{ code?: unknown }>(c)
+  const code = typeof body?.code === "string" ? body.code.trim() : ""
   if (!code) return c.json({ error: "Code required" }, 400)
 
   const prefix = getTablePrefix(c.env)
@@ -408,7 +429,9 @@ auth2faRoutes.post("/passkey/register/options", async (c) => {
 
 auth2faRoutes.post("/passkey/register/verify", async (c) => {
   const body = await readJsonBody<Record<string, unknown>>(c)
-  if (!body) return c.json({ error: "Invalid request body" }, 400)
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
 
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")

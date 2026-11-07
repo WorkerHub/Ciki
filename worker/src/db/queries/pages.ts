@@ -15,6 +15,22 @@ export interface PageRow {
   deleted_at: string | null
 }
 
+/** 列表/树只用元数据，避免把每页最多 2MB 的正文读进 D1 结果集。 */
+export type PageSummaryRow = Pick<
+  PageRow,
+  "id" | "parent_id" | "title" | "sort_order" | "updated_at"
+>
+export type PageChildRow = Pick<
+  PageRow,
+  "id" | "parent_id" | "sort_order" | "created_at"
+>
+export type TrashRow = Pick<
+  PageRow,
+  "id" | "parent_id" | "title" | "deleted_at" | "updated_at"
+>
+/** 恢复时重建 FTS 索引只需要这几个字段。 */
+export type RestoreRow = Pick<PageRow, "id" | "title" | "content_text">
+
 /** 递归子树 CTE（含根，不按删除状态过滤）。 */
 function subtreeCte(prefix: string): string {
   return `WITH RECURSIVE sub(id) AS (
@@ -27,12 +43,15 @@ function subtreeCte(prefix: string): string {
 export async function listPageRows(
   db: D1Database,
   prefix: string
-): Promise<PageRow[]> {
+): Promise<PageSummaryRow[]> {
   const rows = await db
     .prepare(
-      `SELECT * FROM ${pagesTable(prefix)} WHERE deleted_at IS NULL ORDER BY sort_order, created_at`
+      `SELECT id, parent_id, title, sort_order, updated_at
+         FROM ${pagesTable(prefix)}
+        WHERE deleted_at IS NULL
+        ORDER BY sort_order, created_at`
     )
-    .all<PageRow>()
+    .all<PageSummaryRow>()
   return rows.results
 }
 
@@ -51,17 +70,18 @@ export async function listChildren(
   db: D1Database,
   prefix: string,
   parentId: string | null
-): Promise<PageRow[]> {
+): Promise<PageChildRow[]> {
   const table = pagesTable(prefix)
+  const columns = "id, parent_id, sort_order, created_at"
   const sql =
     parentId === null
-      ? `SELECT * FROM ${table} WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order, created_at`
-      : `SELECT * FROM ${table} WHERE parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at`
+      ? `SELECT ${columns} FROM ${table} WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order, created_at`
+      : `SELECT ${columns} FROM ${table} WHERE parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at`
   const stmt = db.prepare(sql)
   const rows =
     parentId === null
-      ? await stmt.all<PageRow>()
-      : await stmt.bind(parentId).all<PageRow>()
+      ? await stmt.all<PageChildRow>()
+      : await stmt.bind(parentId).all<PageChildRow>()
   return rows.results
 }
 
@@ -185,13 +205,13 @@ export async function listSubtreeDeletedRows(
   prefix: string,
   rootId: string,
   deletedAt: string
-): Promise<PageRow[]> {
+): Promise<RestoreRow[]> {
   const rows = await db
     .prepare(
-      `${subtreeCte(prefix)} SELECT * FROM ${pagesTable(prefix)} WHERE id IN (SELECT id FROM sub) AND deleted_at = ? ORDER BY sort_order`
+      `${subtreeCte(prefix)} SELECT id, title, content_text FROM ${pagesTable(prefix)} WHERE id IN (SELECT id FROM sub) AND deleted_at = ? ORDER BY sort_order`
     )
     .bind(rootId, deletedAt)
-    .all<PageRow>()
+    .all<RestoreRow>()
   return rows.results
 }
 
@@ -262,11 +282,11 @@ export function permanentDeleteSubtree(
 export async function listTrashRoots(
   db: D1Database,
   prefix: string
-): Promise<PageRow[]> {
+): Promise<TrashRow[]> {
   const table = pagesTable(prefix)
   const rows = await db
     .prepare(
-      `SELECT p.* FROM ${table} p
+      `SELECT p.id, p.parent_id, p.title, p.deleted_at, p.updated_at FROM ${table} p
         WHERE p.deleted_at IS NOT NULL
           AND (
             p.parent_id IS NULL
@@ -279,6 +299,6 @@ export async function listTrashRoots(
           )
         ORDER BY p.deleted_at DESC, p.sort_order`
     )
-    .all<PageRow>()
+    .all<TrashRow>()
   return rows.results
 }

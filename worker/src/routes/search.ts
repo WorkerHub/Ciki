@@ -6,6 +6,7 @@ import { Hono } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { pagesFtsTable, pagesTable } from "../lib/tables"
 import { makeSnippet, toMatchQuery } from "../lib/fts"
+import { toPlainText } from "../lib/sanitize"
 import type { HonoEnv } from "../types"
 
 export const searchRoutes = new Hono<HonoEnv>()
@@ -57,7 +58,7 @@ searchRoutes.get("/", async (c) => {
     if (!row) continue
     results.push({
       pageId: row.id,
-      title: row.title,
+      title: toPlainText(row.title),
       snippet: makeSnippet(row.contentText || row.title, query),
       updatedAt: row.updatedAt
     })

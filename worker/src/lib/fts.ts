@@ -7,6 +7,7 @@
  * 同一个 `db.batch()` 事务里，避免表与索引漂移。
  */
 import { pagesFtsTable } from "./tables"
+import { toPlainText } from "./sanitize"
 
 const CJK_CHAR =
   /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\u3040-\u30ff\uac00-\ud7af]/g
@@ -39,7 +40,8 @@ export function toMatchQuery(input: string): string | null {
 
 /** 从原文生成命中附近的纯文本片段（前端自行高亮，返回内容不含 HTML）。 */
 export function makeSnippet(text: string, query: string, max = 160): string {
-  const body = text.replace(/\s+/g, " ").trim()
+  // 片段必须是纯文本（契约）：title/content_text 是客户端输入，剥标签后再返回。
+  const body = toPlainText(text)
   if (!body) return ""
   const terms = query
     .trim()

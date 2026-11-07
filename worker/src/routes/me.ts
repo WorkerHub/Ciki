@@ -35,11 +35,13 @@ meRoutes.get("/", async (c) => {
 
 meRoutes.put("/password", async (c) => {
   const body = await readJsonBody<{
-    currentPassword?: string
-    newPassword?: string
+    currentPassword?: unknown
+    newPassword?: unknown
   }>(c)
-  const currentPassword = body?.currentPassword
-  const newPassword = body?.newPassword
+  const currentPassword =
+    typeof body?.currentPassword === "string" ? body.currentPassword : ""
+  const newPassword =
+    typeof body?.newPassword === "string" ? body.newPassword : ""
   if (!currentPassword || !newPassword) {
     return c.json({ error: "Current and new password required" }, 400)
   }

@@ -144,6 +144,19 @@ export function sanitizePageHtml(html: string): string {
   return filter.process(html)
 }
 
+/**
+ * 规范成纯文本（title / content_text / 搜索片段共用）：
+ * 剥掉标签与残留尖括号，折叠空白。返回内容不含任何 HTML 语法，
+ * 前端再拿去做 innerHTML 高亮也不会形成注入面。
+ */
+export function toPlainText(input: string): string {
+  return input
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[<>]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
 /** 供测试使用：判断一段 src 是否允许原样保留。 */
 export function isAllowedImageSrc(src: string): boolean {
   return FILE_SRC.test(src) || DATA_SRC.test(src)

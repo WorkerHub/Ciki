@@ -299,3 +299,140 @@ describe("权限分层", () => {
     })
   })
 })
+
+describe("会话管理与管理员吊销", () => {
+  it("GET /api/me/sessions 列会话；删除其他会话立即失效；删当前 400", async () => {
+    const { env } = await initializedContext()
+    const first = await adminSession(env)
+    const second = await loginAs(env, "admin@example.com")
+
+    const list = (await (
+      await jsonRequest(env, "GET", "/api/me/sessions", undefined, first)
+    ).json()) as Array<{ id: string; current: boolean }>
+    expect(list).toHaveLength(2)
+    expect(list.filter((session) => session.current)).toHaveLength(1)
+    const other = list.find((session) => !session.current)!
+    const current = list.find((session) => session.current)!
+
+    const removed = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/sessions/${other.id}`,
+      undefined,
+      first
+    )
+    expect(removed.status).toBe(200)
+    expect(
+      (await jsonRequest(env, "GET", "/api/me", undefined, second)).status
+    ).toBe(401)
+
+    const denied = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/sessions/${current.id}`,
+      undefined,
+      first
+    )
+    expect(denied.status).toBe(400)
+  })
+
+  it("管理员停用后会话立即 401；重新启用并拒绝后再次 401", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin)
+    const me = (await (
+      await jsonRequest(env, "GET", "/api/me", undefined, user)
+    ).json()) as { id: string }
+
+    const disable = await jsonRequest(
+      env,
+      "PUT",
+      `/api/admin/users/${me.id}`,
+      { isActive: false },
+      admin
+    )
+    expect(disable.status).toBe(200)
+    expect(
+      (await jsonRequest(env, "GET", "/api/me", undefined, user)).status
+    ).toBe(401)
+
+    await jsonRequest(
+      env,
+      "PUT",
+      `/api/admin/users/${me.id}`,
+      { isActive: true },
+      admin
+    )
+    const again = await loginAs(env, "user@example.com")
+    expect(
+      (await jsonRequest(env, "GET", "/api/me", undefined, again)).status
+    ).toBe(200)
+
+    const reject = await jsonRequest(
+      env,
+      "POST",
+      `/api/admin/users/${me.id}/reject`,
+      undefined,
+      admin
+    )
+    expect(reject.status).toBe(200)
+    expect(
+      (await jsonRequest(env, "GET", "/api/me", undefined, again)).status
+    ).toBe(401)
+  })
+})
+
+describe("外部 JSON 字段类型校验", () => {
+  it("非字符串 email/password 一律 400，且不创建账号", async () => {
+    const { env, db } = await initializedContext()
+    for (const body of [
+      { email: 123, password: "Test-Password-123" },
+      { email: "a@b.c", password: 123 },
+      { email: "a@b.c", password: null },
+      { email: ["a@b.c"], password: "Test-Password-123" }
+    ]) {
+      const res = await jsonRequest(env, "POST", "/api/auth/register", body)
+      expect(res.status).toBe(400)
+    }
+    const count = db.db
+      .prepare("SELECT COUNT(*) AS c FROM ciki_users")
+      .get() as { c: number }
+    expect(count.c).toBe(0)
+  })
+
+  it("登录、改密、TOTP enable 的非字符串字段返回 400 而非 500", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const login = await jsonRequest(env, "POST", "/api/auth/login", {
+      email: 123,
+      password: "Test-Password-123"
+    })
+    expect(login.status).toBe(400)
+
+    const password = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/password",
+      { currentPassword: 1, newPassword: 2 },
+      admin
+    )
+    expect(password.status).toBe(400)
+
+    const enable = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/enable",
+      { code: 123456 },
+      admin
+    )
+    expect(enable.status).toBe(400)
+
+    const verify = await jsonRequest(env, "POST", "/api/auth/2fa/verify", {
+      tempToken: 1,
+      method: "totp",
+      code: 123456
+    })
+    expect(verify.status).toBe(400)
+  })
+})

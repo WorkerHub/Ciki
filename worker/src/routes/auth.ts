@@ -81,9 +81,10 @@ authRoutes.get("/config", async (c) => {
 })
 
 authRoutes.post("/register", async (c) => {
-  const body = await readJsonBody<{ email?: string; password?: string }>(c)
-  const email = body?.email?.trim().toLowerCase()
-  const password = body?.password
+  const body = await readJsonBody<{ email?: unknown; password?: unknown }>(c)
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
+  const password = typeof body?.password === "string" ? body.password : ""
 
   if (!email || !password) {
     return c.json({ error: "Email and password required" }, 400)
@@ -161,9 +162,10 @@ authRoutes.post("/register", async (c) => {
 })
 
 authRoutes.post("/login", async (c) => {
-  const body = await readJsonBody<{ email?: string; password?: string }>(c)
-  const email = body?.email?.trim().toLowerCase()
-  const password = body?.password
+  const body = await readJsonBody<{ email?: unknown; password?: unknown }>(c)
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
+  const password = typeof body?.password === "string" ? body.password : ""
   if (!email || !password) {
     return c.json({ error: "Email and password required" }, 400)
   }

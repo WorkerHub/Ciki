@@ -24,7 +24,8 @@ import {
   updatePageContent,
   updatePagePlacement,
   updatePageSortOrder,
-  type PageRow
+  type PageRow,
+  type PageSummaryRow
 } from "../db/queries/pages"
 import {
   getRevision,
@@ -34,6 +35,7 @@ import {
 import { indexPageStatements } from "../lib/fts"
 import {
   sanitizePageHtml,
+  toPlainText,
   MAX_HTML_BYTES,
   MAX_JSON_BYTES,
   MAX_TEXT_BYTES,
@@ -44,7 +46,7 @@ import type { HonoEnv } from "../types"
 
 export const pageRoutes = new Hono<HonoEnv>()
 
-function toSummary(row: PageRow) {
+function toSummary(row: PageSummaryRow) {
   return {
     id: row.id,
     parentId: row.parent_id,
@@ -81,41 +83,73 @@ interface PageInput {
   contentText: string
 }
 
-/** 校验标题与三件套内容的类型/体积；返回错误信息或清洗后的输入。 */
-function readPageInput(
-  body: Record<string, unknown> | null
-): { ok: true; value: PageInput } | { ok: false; error: string } {
+type PageInputResult =
+  | { ok: true; value: PageInput }
+  | { ok: false; error: string; code?: string }
+
+/** D1 单行上限 2,000,000 B；给三件套合计留出余量。 */
+const MAX_ROW_BYTES = 1_900_000
+
+function payloadTooLarge(): PageInputResult {
+  return {
+    ok: false,
+    error: "Payload too large",
+    code: "PAYLOAD_TOO_LARGE"
+  }
+}
+
+/**
+ * 校验标题与三件套内容；返回错误或“已完成消毒/纯文本规范化”的输入。
+ *
+ * 体积以**消毒后**的字节数为准：外链图片会被改写成 data-original-src +
+ * data-confluence-img，输出可能比输入大数倍，先按原始体积放行会让 2MB 的
+ * D1 单行限制在保存时炸掉。三件套合计也必须在单行上限以内。
+ */
+function readPageInput(body: Record<string, unknown> | null): PageInputResult {
   if (!body) return { ok: false, error: "Invalid request body" }
   const { title, contentJson, contentHtml, contentText } = body
   if (typeof title !== "string") return { ok: false, error: "Title required" }
-  const trimmed = title.trim()
-  if (!trimmed || trimmed.length > MAX_TITLE_LENGTH) {
-    return { ok: false, error: "Title must be 1-255 characters" }
-  }
-  for (const [field, value, limit] of [
-    ["contentJson", contentJson, MAX_JSON_BYTES],
-    ["contentHtml", contentHtml, MAX_HTML_BYTES],
-    ["contentText", contentText, MAX_TEXT_BYTES]
-  ] as const) {
-    if (typeof value !== "string") {
-      return { ok: false, error: `${field} required` }
-    }
-    if (utf8Length(value) > limit) {
-      return { ok: false, error: "Payload too large" }
-    }
+  if (
+    typeof contentJson !== "string" ||
+    typeof contentHtml !== "string" ||
+    typeof contentText !== "string"
+  ) {
+    return { ok: false, error: "contentJson/contentHtml/contentText required" }
   }
   try {
-    JSON.parse(contentJson as string)
+    JSON.parse(contentJson)
   } catch {
     return { ok: false, error: "contentJson must be valid JSON" }
   }
+
+  // 原始体积的粗筛只用于挡住明显超限的请求；最终以消毒/规范化后的体积为准。
+  if (title.length > 4096) return payloadTooLarge()
+  if (utf8Length(contentJson) > MAX_JSON_BYTES) return payloadTooLarge()
+  if (utf8Length(contentHtml) > MAX_HTML_BYTES) return payloadTooLarge()
+  if (contentText.length > MAX_TEXT_BYTES * 4) return payloadTooLarge()
+
+  const plainTitle = toPlainText(title)
+  if (!plainTitle || plainTitle.length > MAX_TITLE_LENGTH) {
+    return { ok: false, error: "Title must be 1-255 characters" }
+  }
+  const safeHtml = sanitizePageHtml(contentHtml)
+  const plainText = toPlainText(contentText)
+  if (utf8Length(safeHtml) > MAX_HTML_BYTES) return payloadTooLarge()
+  if (utf8Length(plainText) > MAX_TEXT_BYTES) return payloadTooLarge()
+  if (
+    utf8Length(safeHtml) + utf8Length(contentJson) + utf8Length(plainText) >
+    MAX_ROW_BYTES
+  ) {
+    return payloadTooLarge()
+  }
+
   return {
     ok: true,
     value: {
-      title: trimmed,
-      contentJson: contentJson as string,
-      contentHtml: sanitizePageHtml(contentHtml as string),
-      contentText: contentText as string
+      title: plainTitle,
+      contentJson,
+      contentHtml: safeHtml,
+      contentText: plainText
     }
   }
 }
@@ -191,8 +225,11 @@ pageRoutes.post("/", async (c) => {
   const body = await readJsonBody<Record<string, unknown>>(c)
   const parsed = readPageInput(body)
   if (!parsed.ok) {
-    const status = parsed.error === "Payload too large" ? 413 : 400
-    return c.json({ error: parsed.error }, status)
+    const status = parsed.code === "PAYLOAD_TOO_LARGE" ? 413 : 400
+    return c.json(
+      { error: parsed.error, ...(parsed.code ? { code: parsed.code } : {}) },
+      status
+    )
   }
 
   const prefix = getTablePrefix(c.env)
@@ -245,8 +282,11 @@ pageRoutes.put("/:id", async (c) => {
   const body = await readJsonBody<Record<string, unknown>>(c)
   const parsed = readPageInput(body)
   if (!parsed.ok) {
-    const status = parsed.error === "Payload too large" ? 413 : 400
-    return c.json({ error: parsed.error }, status)
+    const status = parsed.code === "PAYLOAD_TOO_LARGE" ? 413 : 400
+    return c.json(
+      { error: parsed.error, ...(parsed.code ? { code: parsed.code } : {}) },
+      status
+    )
   }
 
   const prefix = getTablePrefix(c.env)
@@ -337,14 +377,15 @@ pageRoutes.post("/:id/move", async (c) => {
       ? Math.trunc(body.sortOrder)
       : siblings.length
   const index = Math.min(Math.max(requested, 0), siblings.length)
-  siblings.splice(index, 0, page)
+  const ordered = siblings.map((row) => ({ id: row.id, order: row.sort_order }))
+  ordered.splice(index, 0, { id: page.id, order: index })
 
   const now = new Date().toISOString()
   const statements = [
     updatePagePlacement(db, prefix, page.id, parentId, index, now)
   ]
-  siblings.forEach((row, order) => {
-    if (row.sort_order !== order) {
+  ordered.forEach((row, order) => {
+    if (row.order !== order) {
       statements.push(updatePageSortOrder(db, prefix, row.id, order))
     }
   })
@@ -502,10 +543,10 @@ pageRoutes.post("/:id/revisions/:revisionId/restore", async (c) => {
   const now = new Date().toISOString()
   const userId = c.get("userId")
   const input: PageInput = {
-    title: revision.title,
+    title: toPlainText(revision.title),
     contentJson: revision.content_json,
     contentHtml: sanitizePageHtml(revision.content_html),
-    contentText: revision.content_text
+    contentText: toPlainText(revision.content_text)
   }
   await db.batch([
     updatePageContent(db, prefix, {

@@ -8,6 +8,7 @@ import {
   register
 } from "./support/app"
 import { app } from "../src/index"
+import { assertPasskey, createPasskey } from "./support/webauthn"
 
 const PASSWORD = "Test" + "-Password" + "-123"
 
@@ -128,6 +129,33 @@ describe("TOTP：加密落库、登录第二步、防重放", () => {
     expect(after.status).toBe(401)
   })
 
+  it("登录 2FA 挑战 5 分钟过期后被拒", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    await enableTotp(env, admin)
+
+    const login = await jsonRequest(env, "POST", "/api/auth/login", {
+      email: "admin@example.com",
+      password: PASSWORD
+    })
+    const { tempToken } = (await login.json()) as { tempToken: string }
+    db.db
+      .prepare(
+        "UPDATE ciki_auth_challenges SET expires_at = ? WHERE purpose = '2fa_login'"
+      )
+      .run(Math.floor(Date.now() / 1000) - 1)
+
+    const verify = await jsonRequest(env, "POST", "/api/auth/2fa/verify", {
+      tempToken,
+      method: "totp",
+      code: "123456"
+    })
+    expect(verify.status).toBe(401)
+    expect(await verify.json()).toMatchObject({
+      error: "Invalid or expired 2FA session"
+    })
+  })
+
   it("受限会话只放行 2FA 设置，配置完成后自动解除", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
@@ -229,3 +257,215 @@ async function fetch2fa(
     env
   )
 }
+
+const RP_ID = "localhost"
+const ORIGIN = "http://localhost"
+
+async function registerPasskey(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string
+): Promise<{ passkey: Awaited<ReturnType<typeof createPasskey>>["passkey"] }> {
+  const optionsRes = await jsonRequest(
+    env,
+    "POST",
+    "/api/auth/2fa/passkey/register/options",
+    undefined,
+    cookie
+  )
+  expect(optionsRes.status).toBe(200)
+  const options = (await optionsRes.json()) as { challenge: string }
+  const { passkey, response } = await createPasskey({
+    rpID: RP_ID,
+    origin: ORIGIN,
+    challenge: options.challenge
+  })
+  const verify = await jsonRequest(
+    env,
+    "POST",
+    "/api/auth/2fa/passkey/register/verify",
+    response as Record<string, unknown>,
+    cookie
+  )
+  expect(verify.status).toBe(200)
+  return { passkey }
+}
+
+describe("Passkey：注册、认证与挑战一次性", () => {
+  it("注册落库（credential_id/base64 公钥/counter），登录第二步可认证并更新计数", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const { passkey } = await registerPasskey(env, admin)
+
+    const row = db.db
+      .prepare(
+        "SELECT credential_id, public_key, counter FROM ciki_passkey_credentials"
+      )
+      .get() as { credential_id: string; public_key: string; counter: number }
+    expect(row.credential_id).toBe(passkey.credentialId)
+    expect(row.public_key.length).toBeGreaterThan(20)
+    expect(row.counter).toBe(0)
+
+    const login = await jsonRequest(env, "POST", "/api/auth/login", {
+      email: "admin@example.com",
+      password: PASSWORD
+    })
+    const loginBody = (await login.json()) as {
+      requires2fa: boolean
+      tempToken: string
+      availableMethods: string[]
+    }
+    expect(loginBody.requires2fa).toBe(true)
+    expect(loginBody.availableMethods).toContain("passkey")
+
+    const authOptionsRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/authenticate/options",
+      { tempToken: loginBody.tempToken }
+    )
+    expect(authOptionsRes.status).toBe(200)
+    const authOptions = (await authOptionsRes.json()) as { challenge: string }
+
+    const assertion = await assertPasskey({
+      rpID: RP_ID,
+      origin: ORIGIN,
+      challenge: authOptions.challenge,
+      passkey,
+      counter: 1
+    })
+    const verify = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/authenticate/verify",
+      {
+        tempToken: loginBody.tempToken,
+        ...(assertion as Record<string, unknown>)
+      }
+    )
+    expect(verify.status).toBe(200)
+    expect(cookieOf(verify)).toContain("ciki_session=")
+
+    const after = db.db
+      .prepare("SELECT counter FROM ciki_passkey_credentials")
+      .get() as { counter: number }
+    expect(after.counter).toBe(1)
+
+    // 同一断言重放：认证挑战已消费，tempToken 也已作废
+    const replay = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/authenticate/verify",
+      {
+        tempToken: loginBody.tempToken,
+        ...(assertion as Record<string, unknown>)
+      }
+    )
+    expect(replay.status).toBe(401)
+  })
+
+  it("注册挑战过期（5 分钟）后被拒", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const optionsRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/options",
+      undefined,
+      admin
+    )
+    const options = (await optionsRes.json()) as { challenge: string }
+    const { response } = await createPasskey({
+      rpID: RP_ID,
+      origin: ORIGIN,
+      challenge: options.challenge
+    })
+
+    db.db
+      .prepare(
+        "UPDATE ciki_auth_challenges SET expires_at = ? WHERE purpose = 'passkey_register'"
+      )
+      .run(Math.floor(Date.now() / 1000) - 1)
+
+    const verify = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/verify",
+      response as Record<string, unknown>,
+      admin
+    )
+    expect(verify.status).toBe(400)
+    expect(await verify.json()).toMatchObject({ error: "No pending challenge" })
+  })
+
+  it("注册挑战消费即删：同一响应第二次被拒", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const optionsRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/options",
+      undefined,
+      admin
+    )
+    const options = (await optionsRes.json()) as { challenge: string }
+    const { response } = await createPasskey({
+      rpID: RP_ID,
+      origin: ORIGIN,
+      challenge: options.challenge
+    })
+
+    const first = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/verify",
+      response as Record<string, unknown>,
+      admin
+    )
+    expect(first.status).toBe(200)
+
+    const second = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/verify",
+      response as Record<string, unknown>,
+      admin
+    )
+    expect(second.status).toBe(400)
+  })
+})
+
+describe("敏感 2FA 操作的重认证限流", () => {
+  it("连续 5 次错误密码后 429，且不执行因子替换", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    await enableTotp(env, admin)
+
+    for (let i = 0; i < 5; i += 1) {
+      const res = await jsonRequest(
+        env,
+        "POST",
+        "/api/auth/2fa/totp/disable",
+        { password: "wrong-password" },
+        admin
+      )
+      expect(res.status).toBe(403)
+    }
+
+    const blocked = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/disable",
+      { password: PASSWORD },
+      admin
+    )
+    expect(blocked.status).toBe(429)
+    expect(await blocked.json()).toMatchObject({ code: "RATE_LIMITED" })
+
+    const row = db.db
+      .prepare("SELECT totp_enabled FROM ciki_user_2fa")
+      .get() as { totp_enabled: number }
+    expect(row.totp_enabled).toBe(1)
+  })
+})

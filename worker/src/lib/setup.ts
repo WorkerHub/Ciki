@@ -11,6 +11,7 @@
 import { getTablePrefix } from "./table-prefix"
 import {
   migrationsTable,
+  pagesFtsTable,
   pagesTable,
   settingsTable,
   usersTable
@@ -45,7 +46,10 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
 
 /**
  * 从 sqlite_master 的表名里识别“本项目已初始化的前缀”。
- * 判定标准：同一前缀下 `users` 与 `pages` 同时存在；孤立同名表不算。
+ *
+ * 判定依据是 ciki 专属的三件套：同一前缀下 `users` + `pages` +
+ * `pages_fts`（FTS5 虚拟表，其他项目基本不会同名同前缀地凑齐）。只看
+ * users+pages 会在共享 workerhub 库里误伤其他项目，也挡不住误判。
  */
 export function detectTablePrefixes(tableNames: string[]): Set<string> {
   const present = new Set(tableNames)
@@ -58,7 +62,9 @@ export function detectTablePrefixes(tableNames: string[]): Set<string> {
   }
   const detected = new Set<string>()
   for (const prefix of candidates) {
-    if (present.has(pagesTable(prefix))) detected.add(prefix)
+    if (present.has(pagesTable(prefix)) && present.has(pagesFtsTable(prefix))) {
+      detected.add(prefix)
+    }
   }
   return detected
 }
@@ -97,30 +103,81 @@ async function seedDefaultSettings(
   }
 }
 
+export type SetupConflict = {
+  resolvedPrefix: string
+  detectedPrefixes: string[]
+  reason: "foreign-prefix" | "table-collision"
+}
+
 /**
- * 只读前缀冲突探测：库里已在另一个前缀下初始化时返回冲突信息。
- * setup 路由在限流（会建计数表）之前先调它，保证冲突时一个表都不写。
+ * 当前前缀下若已有一张不是 ciki 结构的 users 表，迁移里的
+ * `CREATE TABLE IF NOT EXISTS` 会静默复用它——按冲突处理，不动任何表。
+ * 部分失败的本项目迁移（users 已有 ciki 列但缺 pages）不算冲突，可以续跑修复。
+ */
+async function hasForeignUsersTable(
+  db: D1Database,
+  prefix: string
+): Promise<boolean> {
+  const existing = await db
+    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+    .bind(usersTable(prefix))
+    .first<{ name: string }>()
+  if (!existing) return false
+  const pages = await db
+    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
+    .bind(pagesTable(prefix))
+    .first<{ name: string }>()
+  if (pages) return false
+  const columns = await db
+    .prepare(`PRAGMA table_info(${usersTable(prefix)})`)
+    .all<{ name: string }>()
+  const names = new Set(columns.results.map((column) => column.name))
+  return !(
+    names.has("password_hash") &&
+    names.has("approval_status") &&
+    names.has("role")
+  )
+}
+
+/**
+ * 只读前缀冲突探测：库里已在另一个前缀下初始化、或当前前缀被别人的同名表
+ * 占用时返回冲突信息。setup 路由在限流（会建计数表）之前先调它，保证冲突时
+ * 一个表都不写。
  */
 export async function findForeignPrefixConflict(
   env: Env
-): Promise<{ resolvedPrefix: string; detectedPrefixes: string[] } | null> {
+): Promise<SetupConflict | null> {
   const prefix = getTablePrefix(env)
   const detected = [...detectTablePrefixes(await listTables(env.DB))].sort()
   if (detected.length > 0 && !detected.includes(prefix)) {
-    return { resolvedPrefix: prefix, detectedPrefixes: detected }
+    return {
+      resolvedPrefix: prefix,
+      detectedPrefixes: detected,
+      reason: "foreign-prefix"
+    }
+  }
+  if (await hasForeignUsersTable(env.DB, prefix)) {
+    return {
+      resolvedPrefix: prefix,
+      detectedPrefixes: [prefix],
+      reason: "table-collision"
+    }
   }
   return null
 }
 
-function prefixConflict(
-  resolvedPrefix: string,
-  detectedPrefixes: string[]
-): SetupResult {
+function prefixConflict(conflict: SetupConflict): SetupResult {
+  const { resolvedPrefix, detectedPrefixes, reason } = conflict
   const error =
-    `TABLE_PREFIX mismatch: this database is already initialized under a different ` +
-    `table prefix (detected: ${detectedPrefixes.join(", ")}), but TABLE_PREFIX resolves to ` +
-    `"${resolvedPrefix}". Set TABLE_PREFIX explicitly to keep the existing tables, or migrate ` +
-    `the tables to the new prefix before retrying setup.`
+    reason === "table-collision"
+      ? `TABLE_PREFIX collision: a table "${usersTable(resolvedPrefix)}" already exists ` +
+        `but it is not ciki's schema (missing password_hash/approval_status/role), so ` +
+        `CREATE TABLE IF NOT EXISTS would silently reuse it. Remove or rename that table, ` +
+        `or choose another TABLE_PREFIX, then run setup again.`
+      : `TABLE_PREFIX mismatch: this database is already initialized under a different ` +
+        `table prefix (detected by users+pages+pages_fts: ${detectedPrefixes.join(", ")}), ` +
+        `but TABLE_PREFIX resolves to "${resolvedPrefix}". Set TABLE_PREFIX explicitly to ` +
+        `keep the existing tables, or migrate the tables to the new prefix before retrying setup.`
   return {
     success: false,
     code: "PREFIX_CONFLICT",
@@ -137,7 +194,7 @@ export async function runSetup(env: Env): Promise<SetupResult> {
 
   const conflict = await findForeignPrefixConflict(env)
   if (conflict) {
-    return prefixConflict(conflict.resolvedPrefix, conflict.detectedPrefixes)
+    return prefixConflict(conflict)
   }
 
   const migrations = await runLedgerMigrations(db, prefix)

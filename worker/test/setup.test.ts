@@ -99,10 +99,10 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     })
   })
 
-  it("前缀冲突：库中已有 other_ 前缀的 users+pages → 409，不新建表", async () => {
+  it("前缀冲突（按 ciki 三件套判定）：库中已有 other_ 前缀的表 → 409，不新建表", async () => {
     const { env, db } = makeContext()
     await db.exec(
-      "CREATE TABLE other_users (id TEXT); CREATE TABLE other_pages (id TEXT);"
+      "CREATE TABLE other_users (id TEXT); CREATE TABLE other_pages (id TEXT); CREATE TABLE other_pages_fts (page_id TEXT);"
     )
 
     const res = await setupRequest(env, TEST_SETUP_SECRET)
@@ -122,6 +122,36 @@ describe("setup：初始化、幂等与密钥卫生", () => {
         .all() as Array<{ name: string }>
     ).map((row) => row.name)
     expect(names.filter((name) => name.startsWith("ciki_"))).toEqual([])
+  })
+
+  it("只有 users+pages 没有 pages_fts 的不算本项目（不误伤共享库）", async () => {
+    const { env, db } = makeContext()
+    await db.exec(
+      "CREATE TABLE other_users (id TEXT); CREATE TABLE other_pages (id TEXT);"
+    )
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { success: boolean }
+    expect(body.success).toBe(true)
+  })
+
+  it("当前前缀被别人的同名 users 表占用 → 409，不静默复用", async () => {
+    const { env, db } = makeContext()
+    await db.exec("CREATE TABLE ciki_users (id TEXT, email TEXT);")
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { code: string; error: string }
+    expect(body.code).toBe("PREFIX_CONFLICT")
+    expect(body.error).toContain("not ciki's schema")
+
+    const names = (
+      db.db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+        .all() as Array<{ name: string }>
+    ).map((row) => row.name)
+    expect(names).toEqual(["ciki_users"])
   })
 
   it("setup 按 IP 限流：每 10 分钟 3 次，第 4 次 429", async () => {

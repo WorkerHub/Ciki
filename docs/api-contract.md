@@ -14,7 +14,8 @@
 - **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、429 限流/锁定、500 服务端错误（不回显堆栈）。
 - **时间**：所有时间字段均为 ISO 8601 字符串（`2026-11-07T12:00:00.000Z`），会话过期等内部字段用 Unix 秒但不出现在 DTO 中。
 - **分页**：页面树与用户列表不分页；搜索用 `limit`（默认 20，上限 50）。
-- **内容上限**：标题 1–255 字符；`contentJson`、`contentHtml` 各 ≤ 800,000 字节；`contentText` ≤ 300,000 字节；超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
+- **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；三件套合计 ≤ 1,900,000 字节（D1 单行上限 2 MB）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
+- **纯文本字段**：`title` 与 `contentText` 保存时剥除 HTML 标签并折叠空白，入库与搜索片段都不含 HTML 语法。
 - **脱敏**：任何 DTO 都不返回 `password_hash`、TOTP 密文、passkey `public_key`、会话令牌或挑战原值。
 
 ## 二、数据模型
@@ -96,14 +97,15 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 单条 `INSERT … ON CONFLICT(key) DO UPDATE` 原子自增，窗口过期自动重置；登录成功按账号删除失败/锁定行。
 
-| action          | account | 上限 / 窗口    | 说明                                       |
-| --------------- | ------- | -------------- | ------------------------------------------ |
-| login           | 空      | 10 次 / 5 分钟 | 每 IP                                      |
-| login_fail      | 邮箱    | 5 次 / 15 分钟 | 第 5 次起锁 15 分钟                        |
-| register        | 空      | 5 次 / 5 分钟  | 每 IP                                      |
-| 2fa_verify      | 空      | 5 次 / 5 分钟  | 每 IP；另按 tempToken 记失败，5 次作废令牌 |
-| password_change | 用户 id | 5 次 / 5 分钟  |                                            |
-| setup           | 空      | 3 次 / 10 分钟 | 每 IP，初始化前也生效                      |
+| action          | account | 上限 / 窗口    | 说明                                               |
+| --------------- | ------- | -------------- | -------------------------------------------------- |
+| login           | 空      | 10 次 / 5 分钟 | 每 IP                                              |
+| login_fail      | 邮箱    | 5 次 / 15 分钟 | 第 5 次起锁 15 分钟                                |
+| register        | 空      | 5 次 / 5 分钟  | 每 IP                                              |
+| 2fa_verify      | 空      | 5 次 / 5 分钟  | 每 IP；另按 tempToken 记失败，5 次作废令牌         |
+| password_change | 用户 id | 5 次 / 5 分钟  |                                                    |
+| reauth          | 用户 id | 5 次 / 5 分钟  | 2FA 敏感操作（关 TOTP、删/关 passkey）的密码重认证 |
+| setup           | 空      | 3 次 / 10 分钟 | 每 IP，初始化前也生效                              |
 
 ### system_settings
 
@@ -185,8 +187,9 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 }
 ```
 
-（检测到另一前缀下已有本项目的 `users`+`pages` 时中止，绝不另建第二套表）
+（检测到另一前缀下已初始化，或当前前缀被非 ciki 的 `users` 表占用时中止，绝不另建第二套表、也不静默复用别人的表）
 
+- 409 的判定依据是 ciki 专属三件套 `users` + `pages` + `pages_fts`：另一前缀下三者齐备才算“已在本库初始化”；当前前缀已被一张非 ciki 结构的 `users` 表占用时同样 409（`code` 仍为 `PREFIX_CONFLICT`，`error` 说明冲突表），绝不静默复用别人的表。
 - 429：每 IP 每 10 分钟 3 次。
 - 初始化完成时显式写 `setup_page_enabled=0`（只门控页面，不门控密钥接口）。
 

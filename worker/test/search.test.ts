@@ -129,3 +129,25 @@ describe("搜索：CJK 两字命中、改名/改文更新、软删排除", () =>
     expect((await search(env, admin, "!!!")).results).toEqual([])
   })
 })
+
+describe("搜索：片段与标题必须是纯文本", () => {
+  it("恶意 contentText / title 不会以 HTML 形式回显", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    await createPage(
+      env,
+      admin,
+      "团队页面",
+      "<img src=x onerror=alert(1)>团队知识"
+    )
+
+    const result = await search(env, admin, "团队")
+    expect(result.results).toHaveLength(1)
+    const hit = result.results[0]
+    expect(hit.snippet).not.toContain("<")
+    expect(hit.snippet).not.toContain(">")
+    expect(hit.snippet).not.toContain("onerror")
+    expect(hit.snippet).toContain("团队知识")
+    expect(hit.title).not.toContain("<")
+  })
+})
