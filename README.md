@@ -8,7 +8,49 @@
 - `web/` —— React + Vite + TypeScript；UI 用 shadcn/ui（Nova 风格）+ Kumo + Radix，图标 Lucide、动画 Motion、状态 Zustand、拖拽 dnd-kit、分栏 react-resizable-panels。
 - pnpm monorepo；样式 Tailwind CSS v4。
 
-当前是脚手架阶段：只有可运行的骨架与基础设施，业务功能由后续实现单落地。
+## 功能
+
+- **粘贴保真**：从 Confluence 选中复制，粘进编辑器即保住标题层级、代码块（含阅读页「行号列」形态）、表格合并与列宽比例、嵌套列表与任务勾选、链接与行内样式（规格 §5）。
+- **编辑器**：TipTap 2，代码块浅色高亮 + 语言角标 + 复制按钮（编辑态阅读态一致），表格可拖拽列宽，图片粘贴直传 R2。
+- **页面树**：侧边栏树形组织，拖拽改层级/排序，新建、改名、软删、回收站恢复与彻底删除。
+- **版本**：每次保存生成一条版本记录，可查看旧版并回滚（回滚本身也是一条新版本）。
+- **搜索**：顶栏搜索框，标题与正文都命中，结果页给命中片段。
+- **分区**：设置（主题 / 密码 / 两步验证 / Passkey / 登录设备）、关于（版本与构建信息）、系统管理（用户、应用设置、访问与安全、数据库维护）。
+- **登录**：账号密码 + 两步验证（TOTP 单框 / Passkey），注册审批，setup 初始化引导；主题亮 / 暗 / 自动三档，首屏不闪烁。
+- **两步验证管理**：已经有任一验证方式时，新增另一种（TOTP 或 Passkey）需要再输入一次账号密码重认证；一个都没有时直接配置。
+
+### 界面预览
+
+| 阅读页（代码块与表格）                        | 编辑页（粘贴 Confluence 内容）                |
+| --------------------------------------------- | --------------------------------------------- |
+| ![阅读页](.github/assets/imgs/page-view.webp) | ![编辑页](.github/assets/imgs/page-edit.webp) |
+
+| 页面树（三层）                                | 搜索                                     |
+| --------------------------------------------- | ---------------------------------------- |
+| ![页面树](.github/assets/imgs/page-tree.webp) | ![搜索](.github/assets/imgs/search.webp) |
+
+| 登录                                    | 移动端阅读                                 |
+| --------------------------------------- | ------------------------------------------ |
+| ![登录](.github/assets/imgs/login.webp) | ![移动端](.github/assets/imgs/mobile.webp) |
+
+| 设置（主题与两步验证）                     | 系统管理                                    |
+| ------------------------------------------ | ------------------------------------------- |
+| ![设置](.github/assets/imgs/settings.webp) | ![系统管理](.github/assets/imgs/admin.webp) |
+
+| 深色主题                                             | 关于（构建信息）                        |
+| ---------------------------------------------------- | --------------------------------------- |
+| ![深色主题](.github/assets/imgs/page-view-dark.webp) | ![关于](.github/assets/imgs/about.webp) |
+
+截图是本地真跑（`wrangler dev` + 本地 D1/R2）录的，示例内容全部虚构。
+
+### 粘贴支持与已知限制
+
+完整支持矩阵也放在应用内「帮助」弹窗里：
+
+- 保留：H1–H6、引用、分割线、代码块（语言识别、行号列形态转单一 `pre`）、表格（表头、`colspan`/`rowspan`、源列宽比例、超宽横向滚动）、嵌套列表、任务勾选态、链接、行内代码、粗/斜/下划线/删除线、图片文件。
+- 不保留（已知取舍）：文字颜色与表格背景色；Info / Note / Warning / Success 面板降级为带标签的引用块。
+- Confluence 附件图片只有链接时不会自动转存：即时标黄「未转存」，在编辑页手动上传替换。
+- 源侧限制：某些 Confluence 插件表格的表头在页面上无法被选中、根本不进剪贴板，粘贴后表头会是空的，wiki 侧无法恢复。
 
 ## 本地开发
 
@@ -32,7 +74,7 @@ pnpm lint          # biome lint
 pnpm format:check  # biome format
 pnpm typecheck     # web + worker
 pnpm build         # 前端产物 + worker 类型检查
-pnpm test          # worker 单测（vitest）+ web 单测（vitest + jsdom）
+pnpm test          # worker 单测（vitest）+ web 单测（vitest + jsdom，含粘贴管线 41 条断言）
 pnpm check:deploy  # wrangler deploy --dry-run：校验 wrangler.toml 的绑定与打包
 ```
 
@@ -72,7 +114,7 @@ pnpm check:deploy  # wrangler deploy --dry-run：校验 wrangler.toml 的绑定�
 
 CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABLE_PREFIX` **未设置或留空 → 注入 `ciki`**（GitHub 无法区分这两者），**`none` → 注入空串**（无前缀），**其他值 → 原样注入**；含非法字符（包括 `2026` 这类前导数字、`ci-ki` 这类带连字符的）时部署中止。补尾部下划线只由运行时做，注入值保持原样。
 
-生效前缀必须在数据库初始化前确定：换前缀等于换一套空表。**部署本身不锁前缀**——它每次按当前变量重写注入值；“生效前缀不可更改”依靠后端单的 setup 与 409 前缀冲突守卫（本骨架尚未实现这些接口）。在那之前请勿在已初始化的库上改 `TABLE_PREFIX`：目前没有任何机制会拦住静默换表。
+生效前缀必须在数据库初始化前确定：换前缀等于换一套空表。**部署本身不锁前缀**——它每次按当前变量重写注入值；“生效前缀不可更改”依靠 setup 与 409 前缀冲突守卫：检测到另一前缀下已有本项目的 `users`+`pages` 时会中止，不会静默建第二套表。
 
 ### R2
 
@@ -83,15 +125,13 @@ CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABL
 
 ### 部署之后：还要初始化一次数据库
 
-部署成功只代表 Worker 上线，**表结构要由管理员再触发一次 setup / 数据库维护迁移才会建**——本骨架不含 setup、迁移与 schema（属后端实现单），现在访问 `/api/setup/*` 只会得到 JSON 404。
+部署成功只代表 Worker 上线，**表结构要由管理员再触发一次 setup / 数据库维护迁移才会建**：首次访问站点会被自动引导到 `/setup`，填入 `SETUP_SECRET` 完成初始化后注册的首个账号即管理员。
 
 部署后的待办：
 
-1. 等后端单交付 setup 面后，由管理员在站点上完成初始化（`SETUP_SECRET` 是那一步的令牌）；
-2. 此后每次升级部署，同样由管理员触发一次数据库维护迁移；
+1. 由管理员在站点上完成初始化（`SETUP_SECRET` 是那一步的令牌，只走请求头）；
+2. 此后每次升级部署，同样由管理员在「系统管理 → 数据库维护」触发一次迁移；
 3. 初始化完成时须核对回显的生效表前缀与预期一致。
-
-在本骨架单独上线的情况下，站点只有一个占位页与 `/api/health`，不需要也无法初始化数据库。
 
 ## 目录结构
 
@@ -100,7 +140,14 @@ CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABL
 scripts/             部署期配置解析（表前缀三态、secrets.json、wrangler.toml 占位符）
 web/                 React + Vite 前端（构建产物 web/dist 由 Worker 托管）
 worker/              Hono Worker（D1 / R2 / 静态资源三类绑定）
-prototype/           Confluence 粘贴验证小样（规格 §5 移植蓝本，非产品代码）
 ```
 
-`prototype/` 是立项前的验证小样，不参与 lint / 构建 / 测试；产品侧粘贴管线落地并覆盖其断言后，在前端实现单里整体删除。
+### 前端代码地图
+
+```
+web/src/editor/paste/  Confluence 剪贴板清洗管线（移植自验证小样 v0.4）+ 样本与断言
+web/src/editor/        TipTap 扩展集（编辑/阅读共用）、代码块与图片 NodeView、工具条
+web/src/lib/           API 客户端（唯一 HTTP 出口）、列宽换算、页面树算法、主题、上传
+web/src/stores/        Zustand：会话、页面树、主题
+web/src/pages/         阅读/编辑/搜索/回收站/设置/关于/系统管理/登录注册初始化
+```
