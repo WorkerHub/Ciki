@@ -26,7 +26,7 @@ const wranglerToml = readFileSync(
 )
 
 const VALID_ENV = {
-  JWT_SECRET: "unit-test-jwt",
+  ENCRYPTION_KEY: "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=",
   SETUP_SECRET: "unit-test-setup",
   CLOUDFLARE_API_TOKEN: "unit-test-api-token",
   CLOUDFLARE_ACCOUNT_ID: "acct-unit-test",
@@ -109,7 +109,7 @@ describe("materialize-secrets：三态注入与落盘", () => {
     expect(statSync(res.secretsPath).mode & 0o777).toBe(0o600)
     expect(
       Object.keys(JSON.parse(readFileSync(res.secretsPath, "utf8")))
-    ).toEqual(["JWT_SECRET", "SETUP_SECRET"])
+    ).toEqual(["ENCRYPTION_KEY", "SETUP_SECRET"])
     // 占位符全部被替换，且不再有残留
     expect(res.toml).not.toContain("_PLACEHOLDER")
     expect(res.toml).toContain('account_id = "acct-unit-test"')
@@ -158,10 +158,10 @@ describe("materialize-secrets：三态注入与落盘", () => {
     const output = res.stdout + res.stderr
 
     expect(res.status).toBe(0)
-    expect(output).toContain("JWT_SECRET, SETUP_SECRET")
+    expect(output).toContain("ENCRYPTION_KEY, SETUP_SECRET")
     expect(output).toContain('TABLE_PREFIX="wiki"')
     for (const value of [
-      VALID_ENV.JWT_SECRET,
+      VALID_ENV.ENCRYPTION_KEY,
       VALID_ENV.SETUP_SECRET,
       VALID_ENV.CLOUDFLARE_API_TOKEN,
       VALID_ENV.CLOUDFLARE_ACCOUNT_ID,
@@ -174,14 +174,14 @@ describe("materialize-secrets：三态注入与落盘", () => {
 })
 
 describe("materialize-secrets：不合格配置一律中止且不留半成品", () => {
-  it("缺 JWT_SECRET → 退出 1、点名、不生成 secrets.json", () => {
+  it("缺 ENCRYPTION_KEY → 退出 1、点名、不生成 secrets.json", () => {
     const res = runScript(makeSandbox(), {
       ...VALID_ENV,
-      JWT_SECRET: undefined
+      ENCRYPTION_KEY: undefined
     })
 
     expect(res.status).toBe(1)
-    expect(res.stderr).toContain("JWT_SECRET")
+    expect(res.stderr).toContain("ENCRYPTION_KEY")
     expect(exists(res.secretsPath)).toBe(false)
   })
 
@@ -206,16 +206,29 @@ describe("materialize-secrets：不合格配置一律中止且不留半成品", 
 
   it("模板值（*_PLACEHOLDER / replace-with-*）按未填写处理", () => {
     for (const template of [
-      "JWT_SECRET_PLACEHOLDER",
+      "ENCRYPTION_KEY_PLACEHOLDER",
       "replace-with-a-long-random-string",
       "replace-with-a-long-random-setup-token"
     ]) {
       const res = runScript(makeSandbox(), {
         ...VALID_ENV,
-        JWT_SECRET: template
+        ENCRYPTION_KEY: template
       })
       expect(res.status).toBe(1)
-      expect(res.stderr).toContain("JWT_SECRET")
+      expect(res.stderr).toContain("ENCRYPTION_KEY")
+      expect(exists(res.secretsPath)).toBe(false)
+    }
+  })
+
+  it("ENCRYPTION_KEY 不是 32 字节 → 退出 1、点名、不生成 secrets.json", () => {
+    for (const bad of ["dG9vLXNob3J0", `${"a".repeat(64)}b`]) {
+      const res = runScript(makeSandbox(), {
+        ...VALID_ENV,
+        ENCRYPTION_KEY: bad
+      })
+
+      expect(res.status).toBe(1)
+      expect(res.stderr).toContain("ENCRYPTION_KEY")
       expect(exists(res.secretsPath)).toBe(false)
     }
   })

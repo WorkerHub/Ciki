@@ -62,7 +62,7 @@ jobs:
       # D1_DATABASE_NAME 保持 variable 明文。
       - name: Materialize secrets + wrangler config
         env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           SETUP_SECRET: ${{ secrets.SETUP_SECRET }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
