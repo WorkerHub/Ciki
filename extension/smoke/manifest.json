@@ -1,0 +1,1 @@
+{"action":{"default_popup":"popup.html","default_title":"ciki 冒烟验证"},"description":"一次性验证：带登录态 fetch Confluence REST（storage 正文）与附件原图是否可达。只回报状态与字节数，不显示、不外传正文内容。验证后可直接删除。","manifest_version":3,"name":"ciki 冒烟验证（临时）","optional_host_permissions":["*://*/*"],"optional_permissions":["webRequest"],"permissions":["activeTab","scripting","storage"],"version":"0.1.1"}

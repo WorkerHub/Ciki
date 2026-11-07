@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>ciki 冒烟验证</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", sans-serif; width: 340px; margin: 12px; color: #1a1a1a; }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  p.hint { font-size: 12px; color: #555; margin: 4px 0 10px; line-height: 1.5; }
+  button { font-size: 13px; padding: 6px 14px; border-radius: 6px; border: 1px solid #ccc; background: #f6f8fa; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  #status { font-size: 12px; color: #333; margin: 10px 0 6px; min-height: 16px; }
+  ul { margin: 6px 0; padding-left: 18px; font-size: 12px; line-height: 1.6; word-break: break-all; }
+  li.ok { color: #137333; }
+  li.bad { color: #b3261e; }
+</style>
+</head>
+<body>
+  <h1>ciki 冒烟验证（临时）</h1>
+  <p class="hint">先打开一篇<b>带图片</b>的 Confluence 资料页，保持登录状态，再点下面的按钮。它只发几个只读请求，回报状态码和字节数 —— 不显示、不外传正文内容。</p>
+  <button id="run">开始验证</button>
+  <div id="status"></div>
+  <ul id="results"></ul>
+  <script src="popup.js"></script>
+</body>
+</html>
