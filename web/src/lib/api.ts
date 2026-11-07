@@ -244,6 +244,20 @@ export interface TotpSetup {
   uri: string
 }
 
+/** 导入令牌状态：只回状态与时间，从不回哈希与明文。 */
+export interface ImportTokenStatus {
+  active: boolean
+  createdAt: string | null
+  lastUsedAt: string | null
+  revokedAt: string | null
+}
+
+/** 生成 / 重置时唯一的明文返回，展示一次后即不可再取。 */
+export interface ImportTokenIssued {
+  token: string
+  createdAt: string
+}
+
 export interface PageNode {
   id: string
   parentId: string | null
@@ -417,7 +431,11 @@ export const meApi = {
     }),
   sessions: () => api.get<SessionInfo[]>("/me/sessions"),
   revokeSession: (id: string) =>
-    api.del<{ success: true }>(`/me/sessions/${id}`)
+    api.del<{ success: true }>(`/me/sessions/${id}`),
+  importToken: () => api.get<ImportTokenStatus>("/me/import-token"),
+  // POST 已有令牌时覆盖（即「重置」），明文只在这一个响应里出现
+  createImportToken: () => api.post<ImportTokenIssued>("/me/import-token", {}),
+  revokeImportToken: () => api.del<{ success: true }>("/me/import-token")
 }
 
 export const pagesApi = {

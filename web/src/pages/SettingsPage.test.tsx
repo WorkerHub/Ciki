@@ -22,12 +22,25 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...actual.meApi,
       get: vi.fn(),
       sessions: vi.fn(),
-      changePassword: vi.fn()
+      changePassword: vi.fn(),
+      importToken: vi.fn(),
+      createImportToken: vi.fn(),
+      revokeImportToken: vi.fn()
     }
   }
 })
 
 const { authApi, meApi } = await import("@/lib/api")
+
+// 设置页里的导入令牌卡挂载时会拉一次状态：给默认值，别让旧用例打到真 fetch。
+beforeEach(() => {
+  vi.mocked(meApi.importToken).mockResolvedValue({
+    active: false,
+    createdAt: null,
+    lastUsedAt: null,
+    revokedAt: null
+  })
+})
 
 function setUser(twofa: { totpEnabled: boolean; passkeyCount: number }) {
   useAuthStore.setState({
@@ -170,5 +183,22 @@ describe("受限会话在配置完成后解除", () => {
     expect(authApi.totpEnable).toHaveBeenCalledWith("123456", undefined)
     expect(useAuthStore.getState().restricted).toBe(false)
     expect(sessionStorage.getItem("ciki-restricted-session")).toBeNull()
+  })
+})
+
+describe("导入令牌卡接入", () => {
+  beforeEach(() => {
+    vi.mocked(meApi.sessions).mockResolvedValue([])
+  })
+
+  it("设置页里渲染导入令牌卡并拉一次状态", async () => {
+    setUser({ totpEnabled: true, passkeyCount: 0 })
+    renderSettings()
+
+    expect(await screen.findByText("导入令牌")).toBeInTheDocument()
+    expect(meApi.importToken).toHaveBeenCalledTimes(1)
+    expect(
+      await screen.findByRole("button", { name: "生成令牌" })
+    ).toBeInTheDocument()
   })
 })
