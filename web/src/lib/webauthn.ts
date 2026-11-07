@@ -5,6 +5,7 @@ import {
   startAuthentication,
   startRegistration
 } from "@simplewebauthn/browser"
+import { ApiError, describeApiError } from "@/lib/api"
 
 type JsonRecord = Record<string, unknown>
 
@@ -46,6 +47,9 @@ export function isWebAuthnCancelled(error: unknown): boolean {
 }
 
 export function describeWebAuthnError(error: unknown): string {
+  // 端点自己回的错误（挑战过期、验证未通过）走统一翻译，别把后端的英文原文
+  // 直接摆给用户；只有浏览器侧 WebAuthn 失败才用 error.message。
+  if (error instanceof ApiError) return describeApiError(error)
   if (isWebAuthnCancelled(error)) return "已取消 Passkey 操作"
   const message = error instanceof Error ? error.message : ""
   return message || "Passkey 操作失败，请重试"

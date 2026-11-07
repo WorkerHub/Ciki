@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ApiError } from "@/lib/api"
 import { LoginPage } from "@/pages/auth/LoginPage"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -118,5 +119,96 @@ describe("登录两步表单", () => {
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "验证并登录" })).toBeEnabled()
     })
+  })
+})
+
+/**
+ * QA ciki #4 §9.6：两步验证输错码时提示「登录状态已失效」是误报 ——
+ * 后端的 401 在此处表示「验证码不对」，不是 Cookie 会话过期。
+ */
+describe("两步验证的错误提示", () => {
+  const toTwoFaStep = async () => {
+    const user = userEvent.setup()
+    renderLogin()
+    await user.type(screen.getByLabelText("邮箱"), "a@b.c")
+    await user.type(screen.getByLabelText("密码"), "secret-password")
+    await user.click(screen.getByRole("button", { name: "登录" }))
+    await screen.findByLabelText("动态验证码")
+    return user
+  }
+
+  beforeEach(() => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      availableMethods: ["totp"]
+    })
+  })
+
+  it("输错 6 位码 → 说验证码不对，停在两步表单，不说会话过期", async () => {
+    const user = await toTwoFaStep()
+    vi.mocked(authApi.verifyTotp).mockRejectedValue(
+      new ApiError(
+        401,
+        "Invalid verification code",
+        undefined,
+        undefined,
+        { error: "Invalid verification code" },
+        "/auth/2fa/verify"
+      )
+    )
+
+    await user.type(screen.getByLabelText("动态验证码"), "000000")
+    await user.click(screen.getByRole("button", { name: "验证并登录" }))
+
+    const alert = await screen.findByRole("alert")
+    expect(document.getElementById("twofa-step")?.contains(alert)).toBe(true)
+    expect(alert).toHaveTextContent("验证码不正确")
+    expect(alert).not.toHaveTextContent("登录状态已失效")
+    // 表单还在、输入框还能改：只清错误重输即可，不用回上一步
+    expect(screen.getByLabelText("动态验证码")).toBeEnabled()
+  })
+
+  it("挑战已过期 → 提示回上一步重新登录", async () => {
+    const user = await toTwoFaStep()
+    vi.mocked(authApi.verifyTotp).mockRejectedValue(
+      new ApiError(
+        401,
+        "Invalid or expired 2FA session",
+        undefined,
+        undefined,
+        { error: "Invalid or expired 2FA session" },
+        "/auth/2fa/verify"
+      )
+    )
+
+    await user.type(screen.getByLabelText("动态验证码"), "123456")
+    await user.click(screen.getByRole("button", { name: "验证并登录" }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("两步验证已失效，请返回上一步重新登录。")
+  })
+
+  it("第一步密码错 → 说邮箱或密码不正确", async () => {
+    const user = userEvent.setup()
+    renderLogin()
+    vi.mocked(authApi.login).mockRejectedValue(
+      new ApiError(
+        401,
+        "Invalid credentials",
+        undefined,
+        undefined,
+        { error: "Invalid credentials" },
+        "/auth/login"
+      )
+    )
+
+    await user.type(screen.getByLabelText("邮箱"), "a@b.c")
+    await user.type(screen.getByLabelText("密码"), "wrong-password")
+    await user.click(screen.getByRole("button", { name: "登录" }))
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("邮箱或密码不正确。")
+    expect(alert).not.toHaveTextContent("登录状态已失效")
   })
 })

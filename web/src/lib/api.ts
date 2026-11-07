@@ -22,13 +22,16 @@ export class ApiError extends Error {
   readonly retryAfter?: number
   /** 原始错误体（例如 409 前缀冲突里的 detectedPrefixes）。 */
   readonly details?: ApiErrorBody
+  /** 出错请求的路径（不含 /api 前缀），供 describeApiError 分辨 401 的语义。 */
+  readonly path?: string
 
   constructor(
     status: number,
     message: string,
     code?: string,
     retryAfter?: number,
-    details?: ApiErrorBody
+    details?: ApiErrorBody,
+    path?: string
   ) {
     super(message)
     this.name = "ApiError"
@@ -36,6 +39,7 @@ export class ApiError extends Error {
     this.code = code
     this.retryAfter = retryAfter
     this.details = details
+    this.path = path
   }
 }
 
@@ -141,7 +145,8 @@ async function request<T>(
       error.error || `请求失败（${res.status}）`,
       error.code,
       error.retryAfter,
-      error
+      error,
+      path
     )
   }
   return body as T
@@ -470,6 +475,39 @@ export const adminApi = {
     api.put<{ success: true }>("/admin/settings", patch)
 }
 
+/**
+ * 契约里表达「凭据 / 验证码不对」的失败 —— 它们**都不是会话过期**。
+ *
+ * 后端的 401 一个状态码承载两种含义（见 docs/api-contract.md：登录失败
+ * `Invalid credentials`、两步验证失败「挑战无效/过期/验证码错」），会话中间件
+ * 的 `Unauthorized` 才是真的失效；不改契约，前端按冻结文案分流。
+ * 键为小写后的原文，两侧空白一并忽略。
+ */
+const CREDENTIAL_FAILURE_MESSAGES: Record<string, string> = {
+  "invalid credentials": "邮箱或密码不正确。",
+  "invalid verification code": "验证码不正确，请重新输入。",
+  // /auth/2fa/totp/enable 输错码回 400 Invalid code，与上面的 401 是同一件事
+  "invalid code": "验证码不正确，请重新输入。",
+  "invalid or expired 2fa session": "两步验证已失效，请返回上一步重新登录。",
+  "verification failed": "Passkey 验证未通过，请重试。"
+}
+
+/**
+ * 登录表单自己发的端点：用户在两步页里还没有会话，这里的 401 只可能是
+ * 「这次验证没通过」，不可能是 Cookie 失效。
+ */
+const AUTH_FORM_PATHS = [
+  "/auth/login",
+  "/auth/2fa/verify",
+  "/auth/2fa/passkey/authenticate/options",
+  "/auth/2fa/passkey/authenticate/verify"
+]
+
+function isAuthFormPath(path: string | undefined) {
+  if (!path) return false
+  return AUTH_FORM_PATHS.includes(path.split("?")[0])
+}
+
 /** 把契约错误码翻成可以直接给用户看的句子（组件只管展示返回值）。 */
 export function describeApiError(error: unknown): string {
   if (!(error instanceof ApiError)) return "网络异常，请稍后重试"
@@ -501,13 +539,21 @@ export function describeApiError(error: unknown): string {
     default:
       break
   }
+  const credentialFailure =
+    CREDENTIAL_FAILURE_MESSAGES[error.message.trim().toLowerCase()]
+  if (credentialFailure) return credentialFailure
   if (error.status === 400 && /password required/i.test(error.message)) {
     return "这个操作需要输入账号密码确认身份。"
   }
   if (error.status === 403 && /password is incorrect/i.test(error.message)) {
     return "密码不正确，请重试。"
   }
-  if (error.status === 401) return "登录状态已失效，请重新登录。"
+  if (error.status === 401) {
+    // 登录 / 两步表单的 401 即使文案没命中上表（例如后端改词）也不能说成
+    // 「会话过期」，否则用户会被引导去重新走一遍整个登录。
+    if (isAuthFormPath(error.path)) return "验证未通过，请重试。"
+    return "登录状态已失效，请重新登录。"
+  }
   if (error.status === 403) return error.message || "没有权限执行这个操作。"
   if (error.status === 404) return "对象不存在，或已被删除。"
   if (error.status === 409)
