@@ -1,0 +1,15 @@
+# 本地 `wrangler dev` 的最小 .dev.vars 模板。
+# 复制成 worker/.dev.vars（已 gitignore）后填入真实值——真实密钥绝不进仓库。
+# 线上同名项由 CI 经 `wrangler deploy --secrets-file` 上传（见 .github/workflows/deploy.yml）。
+#
+# JWT_SECRET：会话签名密钥，至少 32 字节随机串，例如 `openssl rand -hex 32`
+# （下面这类 *_PLACEHOLDER / replace-with-* 模板值会被部署脚本当成未填写并拒绝）
+JWT_SECRET=JWT_SECRET_PLACEHOLDER
+# SETUP_SECRET：setup / 数据库维护接口的 X-Setup-Secret 令牌
+SETUP_SECRET=SETUP_SECRET_PLACEHOLDER
+#
+# TABLE_PREFIX（可选，非密钥）：不配置 → 默认 "ciki"（表名 ciki_pages …）；
+# 写成空值 → 无前缀；其他值 → 原样后补尾部下划线。只允许字母、数字、下划线。
+# 注意：保留字 none 只在 CI 侧由 scripts/materialize-secrets.mjs 翻译，本地
+# .dev.vars 不经过它——本地要无前缀就写空值（TABLE_PREFIX=）。
+# TABLE_PREFIX=ciki

@@ -1,0 +1,9 @@
+packages:
+  - web
+  - worker
+allowBuilds:
+  "@biomejs/biome": true
+  esbuild: true
+  workerd: true
+minimumReleaseAgeExclude:
+  - react-resizable-panels@4.19.1
