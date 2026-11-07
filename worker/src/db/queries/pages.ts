@@ -103,6 +103,29 @@ export async function maxSortOrder(
   return (row?.max ?? -1) + 1
 }
 
+/**
+ * 同父级下的同名未删页面（导入 conflict="update" 的冲突判定）：
+ * 同名多页时取排序最前的一条。
+ */
+export async function findSiblingByTitle(
+  db: D1Database,
+  prefix: string,
+  parentId: string | null,
+  title: string
+): Promise<PageRow | null> {
+  const table = pagesTable(prefix)
+  const sql =
+    parentId === null
+      ? `SELECT * FROM ${table} WHERE parent_id IS NULL AND title = ? AND deleted_at IS NULL ORDER BY sort_order, created_at LIMIT 1`
+      : `SELECT * FROM ${table} WHERE parent_id = ? AND title = ? AND deleted_at IS NULL ORDER BY sort_order, created_at LIMIT 1`
+  const stmt = db.prepare(sql)
+  const row =
+    parentId === null
+      ? await stmt.bind(title).first<PageRow>()
+      : await stmt.bind(parentId, title).first<PageRow>()
+  return row ?? null
+}
+
 export function insertPage(
   db: D1Database,
   prefix: string,

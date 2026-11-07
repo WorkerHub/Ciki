@@ -29,6 +29,9 @@ export const settingsTable = (prefix: string) =>
 export const pagesTable = (prefix: string) => tableName(prefix, "pages")
 export const revisionsTable = (prefix: string) =>
   tableName(prefix, "page_revisions")
+/** 个人导入令牌（规格 §12.1）：每用户一枚，只存 SHA-256。 */
+export const importTokensTable = (prefix: string) =>
+  tableName(prefix, "import_tokens")
 /** FTS5 虚拟表同样经前缀 helper 拼名（规格 §6）。 */
 export const pagesFtsTable = (prefix: string) => tableName(prefix, "pages_fts")
 /** 迁移账本：与业务表同一前缀，换前缀即换一套账本。 */

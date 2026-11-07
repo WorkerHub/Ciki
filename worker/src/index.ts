@@ -10,6 +10,7 @@ import { setupRoutes } from "./routes/setup"
 import { pageRoutes } from "./routes/pages"
 import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
+import { importRoutes } from "./routes/import"
 import type { HonoEnv } from "./types"
 
 export const app = new Hono<HonoEnv>()
@@ -61,6 +62,9 @@ function isPublicRoute(method: string, path: string): boolean {
   // setup 整段公开：state 是公开状态端点，POST 只认请求头密钥，
   // 其余方法由 setup 路由自己回 405 JSON（不能掉进会话 401）。
   if (path === "/api/setup" || path.startsWith("/api/setup/")) return true
+  // 导入接口用个人令牌（Bearer）自证，不接受会话 Cookie：整段交给 import 路由
+  // 的中间件校验，不能掉进会话 401。
+  if (path === "/api/import" || path.startsWith("/api/import/")) return true
   return PUBLIC_ROUTES.some(([m, p]) => m === method && p === path)
 }
 
@@ -80,6 +84,7 @@ app.route("/api/setup", setupRoutes)
 app.route("/api/pages", pageRoutes)
 app.route("/api/search", searchRoutes)
 app.route("/api/files", fileRoutes)
+app.route("/api/import", importRoutes)
 
 // 存活探针。生效前缀不在这里暴露——它只经 setup / 管理面的接口回显。
 app.get("/api/health", (c) => c.json({ status: "ok" }))
