@@ -424,3 +424,37 @@ describe("页面：保存体积以消毒后的结果为准", () => {
     expect((body.contentHtml.match(/data-original-src/g) ?? []).length).toBe(3)
   })
 })
+
+describe("页面：原始输入粗筛不误伤消毒后合规的内容", () => {
+  it("原始 HTML / contentText 超过契约上限、但规范化后很小 → 201", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 原始 HTML ≈960KB（> 契约 800KB），注释被消毒剥掉后只剩 <p>ok</p>。
+    const html = `${"<!--x-->".repeat(120_000)}<p>ok</p>`
+    // 原始 contentText ≈1.26M 字符（> 旧的 1.2M 粗筛），全是空标签、规范化后为空。
+    const contentText = "<b></b>".repeat(180_000)
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "大输入小结果",
+        parentId: null,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: html,
+        contentText
+      },
+      admin
+    )
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as {
+      contentHtml: string
+      contentText: string
+    }
+    expect(body.contentHtml).not.toContain("<!--")
+    expect(body.contentHtml).toContain("<p>ok</p>")
+    expect(body.contentText).toBe("")
+  })
+})

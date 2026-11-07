@@ -89,6 +89,12 @@ type PageInputResult =
 
 /** D1 单行上限 2,000,000 B；给三件套合计留出余量。 */
 const MAX_ROW_BYTES = 1_900_000
+/**
+ * 原始输入粗筛上限（明显高于契约里的消毒后上限）：只挡明显超限的请求，
+ * 让“原始很大、消毒后合规”的合法输入仍能保存。契约判定一律以消毒/规范化后为准。
+ */
+const MAX_HTML_INPUT_BYTES = 2_000_000
+const MAX_TEXT_INPUT_CHARS = 2_000_000
 
 function payloadTooLarge(): PageInputResult {
   return {
@@ -125,8 +131,8 @@ function readPageInput(body: Record<string, unknown> | null): PageInputResult {
   // 原始体积的粗筛只用于挡住明显超限的请求；最终以消毒/规范化后的体积为准。
   if (title.length > 4096) return payloadTooLarge()
   if (utf8Length(contentJson) > MAX_JSON_BYTES) return payloadTooLarge()
-  if (utf8Length(contentHtml) > MAX_HTML_BYTES) return payloadTooLarge()
-  if (contentText.length > MAX_TEXT_BYTES * 4) return payloadTooLarge()
+  if (utf8Length(contentHtml) > MAX_HTML_INPUT_BYTES) return payloadTooLarge()
+  if (contentText.length > MAX_TEXT_INPUT_CHARS) return payloadTooLarge()
 
   const plainTitle = toPlainText(title)
   if (!plainTitle || plainTitle.length > MAX_TITLE_LENGTH) {

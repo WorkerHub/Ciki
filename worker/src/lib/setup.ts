@@ -112,7 +112,9 @@ export type SetupConflict = {
 /**
  * 当前前缀下若已有一张不是 ciki 结构的 users 表，迁移里的
  * `CREATE TABLE IF NOT EXISTS` 会静默复用它——按冲突处理，不动任何表。
- * 部分失败的本项目迁移（users 已有 ciki 列但缺 pages）不算冲突，可以续跑修复。
+ * 判定只看 users 本身的三列（password_hash/approval_status/role）：
+ * 三者齐备才可能是本项目部分失败的迁移（可以续跑修复）；**不看 pages 是否
+ * 存在**——别人的 users+pages 凑在同一前缀下同样必须拦住。
  */
 async function hasForeignUsersTable(
   db: D1Database,
@@ -123,11 +125,6 @@ async function hasForeignUsersTable(
     .bind(usersTable(prefix))
     .first<{ name: string }>()
   if (!existing) return false
-  const pages = await db
-    .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`)
-    .bind(pagesTable(prefix))
-    .first<{ name: string }>()
-  if (pages) return false
   const columns = await db
     .prepare(`PRAGMA table_info(${usersTable(prefix)})`)
     .all<{ name: string }>()

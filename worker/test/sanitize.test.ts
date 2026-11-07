@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { isAllowedImageSrc, sanitizePageHtml } from "../src/lib/sanitize"
+import {
+  isAllowedImageSrc,
+  sanitizePageHtml,
+  toPlainText
+} from "../src/lib/sanitize"
 
 const FILE_URL = "/api/files/1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed.png"
 
@@ -72,5 +76,18 @@ describe("服务端二次消毒白名单", () => {
     )
     expect(html).toContain('class="tableWrapper"')
     expect(html).not.toContain("evil")
+  })
+})
+
+describe("纯文本规范化的输入健壮性", () => {
+  it("未闭合标签的病态输入线性返回（无 O(n²) 回溯）", () => {
+    const input = "<a".repeat(300_000)
+    const started = performance.now()
+    const output = toPlainText(input)
+    const elapsed = performance.now() - started
+
+    expect(output.includes("<")).toBe(false)
+    expect(output.includes(">")).toBe(false)
+    expect(elapsed).toBeLessThan(2000)
   })
 })

@@ -136,9 +136,11 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(body.success).toBe(true)
   })
 
-  it("当前前缀被别人的同名 users 表占用 → 409，不静默复用", async () => {
+  it("当前前缀被别人的 users+pages 占用 → 409，不静默复用", async () => {
     const { env, db } = makeContext()
-    await db.exec("CREATE TABLE ciki_users (id TEXT, email TEXT);")
+    await db.exec(
+      "CREATE TABLE ciki_users (id TEXT, email TEXT); CREATE TABLE ciki_pages (id TEXT);"
+    )
 
     const res = await setupRequest(env, TEST_SETUP_SECRET)
     expect(res.status).toBe(409)
@@ -151,7 +153,24 @@ describe("setup：初始化、幂等与密钥卫生", () => {
         .prepare("SELECT name FROM sqlite_master WHERE type='table'")
         .all() as Array<{ name: string }>
     ).map((row) => row.name)
-    expect(names).toEqual(["ciki_users"])
+    expect(names.sort()).toEqual(["ciki_pages", "ciki_users"])
+  })
+
+  it("部分失败的本项目迁移（users 三列齐备）可以续跑修复", async () => {
+    const { env, db } = makeContext()
+    await db.exec(
+      "CREATE TABLE ciki_users (id TEXT PRIMARY KEY, email TEXT, password_hash TEXT, approval_status TEXT, role TEXT);"
+    )
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(200)
+    const names = (
+      db.db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+        .all() as Array<{ name: string }>
+    ).map((row) => row.name)
+    expect(names).toContain("ciki_pages")
+    expect(names).toContain("ciki_system_settings")
   })
 
   it("setup 按 IP 限流：每 10 分钟 3 次，第 4 次 429", async () => {

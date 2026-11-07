@@ -148,10 +148,14 @@ export function sanitizePageHtml(html: string): string {
  * 规范成纯文本（title / content_text / 搜索片段共用）：
  * 剥掉标签与残留尖括号，折叠空白。返回内容不含任何 HTML 语法，
  * 前端再拿去做 innerHTML 高亮也不会形成注入面。
+ *
+ * 标签正则用 `[^<>]*`（而不是 `[^>]*`）：无闭合 `>` 的病态输入下，后者每个
+ * `<` 都会扫到串尾并回溯（O(n²)，30 万字符可耗一分钟），前者在下一个 `<`
+ * 或 `>` 就停，整体线性。
  */
 export function toPlainText(input: string): string {
   return input
-    .replace(/<[^>]*>/g, " ")
+    .replace(/<[^<>]*>/g, " ")
     .replace(/[<>]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
