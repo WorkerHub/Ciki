@@ -61,6 +61,7 @@ export function ImportTokenCard() {
 
   const issue = async () => {
     setError("")
+    setNotice("")
     setCopied(false)
     setConfirm(null)
     setBusy(true)
@@ -86,6 +87,7 @@ export function ImportTokenCard() {
 
   const revoke = async () => {
     setError("")
+    setNotice("")
     setCopied(false)
     setConfirm(null)
     setBusy(true)
@@ -110,6 +112,7 @@ export function ImportTokenCard() {
 
   const copy = async () => {
     if (!issued) return
+    setError("")
     try {
       await navigator.clipboard.writeText(issued)
       setCopied(true)

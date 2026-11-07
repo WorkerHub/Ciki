@@ -111,20 +111,66 @@ describe("导入令牌卡", () => {
     ).toBeInTheDocument()
   })
 
-  it("复制被拒绝时提示手动复制，明文不消失", async () => {
+  it("复制被拒时提示手动复制，重试成功后错误消失", async () => {
     const user = userEvent.setup()
     render(<ImportTokenCard />)
     await user.click(await screen.findByRole("button", { name: "生成令牌" }))
 
-    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
-      new Error("NotAllowedError")
+    const copySpy = vi.spyOn(navigator.clipboard, "writeText")
+    try {
+      copySpy.mockRejectedValueOnce(new Error("NotAllowedError"))
+      await user.click(screen.getByRole("button", { name: "复制令牌" }))
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "复制失败，请手动选中令牌文本复制。"
+      )
+      expect(screen.getByText(TOKEN)).toBeInTheDocument()
+
+      // 再次点击且复制成功：红字错误要被清掉，不能与「已复制」并存
+      await user.click(screen.getByRole("button", { name: "复制令牌" }))
+      expect(
+        await screen.findByRole("button", { name: "已复制" })
+      ).toBeInTheDocument()
+      expect(screen.queryByRole("alert")).toBeNull()
+    } finally {
+      copySpy.mockRestore()
+    }
+  })
+
+  it("重置失败时清掉旧通知，不出现错误与「令牌已生成」并存", async () => {
+    const user = userEvent.setup()
+    render(<ImportTokenCard />)
+    await user.click(await screen.findByRole("button", { name: "生成令牌" }))
+    expect(await screen.findByText("令牌已生成。")).toBeInTheDocument()
+
+    vi.mocked(meApi.createImportToken).mockRejectedValueOnce(
+      new ApiError(429, "Too many requests", "RATE_LIMITED")
     )
-    await user.click(screen.getByRole("button", { name: "复制令牌" }))
+    await user.click(screen.getByRole("button", { name: "重置" }))
+    await user.click(await screen.findByRole("button", { name: "重置令牌" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "复制失败，请手动选中令牌文本复制。"
+      "尝试次数过多，请稍后再试。"
     )
-    expect(screen.getByText(TOKEN)).toBeInTheDocument()
+    expect(screen.queryByText("令牌已生成。")).toBeNull()
+  })
+
+  it("吊销失败时清掉旧通知", async () => {
+    const user = userEvent.setup()
+    render(<ImportTokenCard />)
+    await user.click(await screen.findByRole("button", { name: "生成令牌" }))
+    expect(await screen.findByText("令牌已生成。")).toBeInTheDocument()
+
+    vi.mocked(meApi.revokeImportToken).mockRejectedValueOnce(
+      new ApiError(429, "Too many requests", "RATE_LIMITED")
+    )
+    await user.click(screen.getByRole("button", { name: "吊销" }))
+    await user.click(await screen.findByRole("button", { name: "吊销令牌" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "尝试次数过多，请稍后再试。"
+    )
+    expect(screen.queryByText("令牌已生成。")).toBeNull()
   })
 
   it("重置要二次确认，确认后才发 POST 并给出新明文", async () => {
