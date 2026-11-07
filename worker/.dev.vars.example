@@ -3,9 +3,10 @@
 # 线上同名项由 CI 经 `wrangler deploy --secrets-file` 上传（见 .github/workflows/deploy.yml）。
 #
 # JWT_SECRET：会话签名密钥，至少 32 字节随机串，例如 `openssl rand -hex 32`
-JWT_SECRET=replace-with-a-long-random-string
+# （下面这类 *_PLACEHOLDER / replace-with-* 模板值会被部署脚本当成未填写并拒绝）
+JWT_SECRET=JWT_SECRET_PLACEHOLDER
 # SETUP_SECRET：setup / 数据库维护接口的 X-Setup-Secret 令牌
-SETUP_SECRET=replace-with-a-long-random-setup-token
+SETUP_SECRET=SETUP_SECRET_PLACEHOLDER
 #
 # TABLE_PREFIX（可选，非密钥）：不配置 → 默认 "ciki"（表名 ciki_pages …）；
 # 写成空值 → 无前缀；其他值 → 原样后补尾部下划线。只允许字母、数字、下划线。

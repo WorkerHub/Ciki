@@ -52,8 +52,8 @@ describe("getTablePrefix 三态解析", () => {
 })
 
 describe("isValidTablePrefix 校验非法字符", () => {
-  it("字母、数字、下划线（含空串）合法", () => {
-    for (const ok of ["ciki_", "ciki", "a1_b2", "", "Ciki_"]) {
+  it("字母或下划线开头、只含字母数字下划线（含空串）合法", () => {
+    for (const ok of ["ciki_", "ciki", "a1_b2", "", "Ciki_", "_ciki"]) {
       expect(isValidTablePrefix(ok)).toBe(true)
     }
   })
@@ -68,6 +68,12 @@ describe("isValidTablePrefix 校验非法字符", () => {
       "ciki.",
       "ciki/../x"
     ]) {
+      expect(isValidTablePrefix(bad)).toBe(false)
+    }
+  })
+
+  it("前导数字非法：2026_pages / 1abc_pages 不是合法 SQL 标识符", () => {
+    for (const bad of ["2026", "1abc", "2026_"]) {
       expect(isValidTablePrefix(bad)).toBe(false)
     }
   })

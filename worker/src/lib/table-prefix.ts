@@ -39,10 +39,11 @@ export function getTablePrefix(env: { TABLE_PREFIX?: string | null }): string {
 }
 
 /**
- * 生效前缀是否可安全拼进 SQL 标识符：只允许字母、数字、下划线，
- * 空串（无前缀）合法。非法配置一律 fail closed（见 src/index.ts 的中间件），
+ * 生效前缀是否可安全拼进 SQL 标识符：空串（无前缀）合法；非空时必须以字母或
+ * 下划线开头，其后只允许字母、数字、下划线——`2026_pages`、`1abc_pages` 都不是
+ * 合法 SQL 标识符。非法配置一律 fail closed（见 src/index.ts 的中间件），
  * 绝不放行成畸形表名。
  */
 export function isValidTablePrefix(prefix: string): boolean {
-  return /^[A-Za-z0-9_]*$/.test(prefix)
+  return prefix === "" || /^[A-Za-z_][A-Za-z0-9_]*$/.test(prefix)
 }

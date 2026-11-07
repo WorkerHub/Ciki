@@ -56,7 +56,18 @@ describe("GitHub Variables → 生效前缀", () => {
 
 describe("前缀校验两边同规则", () => {
   it("CI 与运行时接受/拒绝同一批值", () => {
-    const samples = ["ciki_", "", "wiki", "Ciki_1", "ci-ki", "ciki ", "ciki;"]
+    const samples = [
+      "ciki_",
+      "",
+      "wiki",
+      "Ciki_1",
+      "_ciki",
+      "ci-ki",
+      "ciki ",
+      "ciki;",
+      "2026",
+      "1abc"
+    ]
     for (const sample of samples) {
       expect(isUsablePrefix(sample)).toBe(isValidTablePrefix(sample))
     }
@@ -64,5 +75,10 @@ describe("前缀校验两边同规则", () => {
 
   it("CI 在注入前就能拦下非法自定义值", () => {
     expect(isUsablePrefix(resolveForCi("ci-ki"))).toBe(false)
+  })
+
+  it("前导数字在前缀里不可接受（2026 → 2026_pages 不是合法表名）", () => {
+    expect(isUsablePrefix(resolveForCi("2026"))).toBe(false)
+    expect(isValidTablePrefix("2026_")).toBe(false)
   })
 })

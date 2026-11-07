@@ -19,15 +19,27 @@ concurrency:
 
 jobs:
   deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
+    # 只认"main 上 push 触发的 CI 成功"：
+    # - event == 'push' 排除 PR（fork PR 的分支名也可能是 main）；
+    # - head_repository 排除来自其他仓库的 push；
+    # - 检出的是那次 CI 成功的那个 commit（见 checkout 的 ref）。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     env:
       WRANGLER_SEND_METRICS: "false"
     steps:
+      # 显式检出 CI 实际验证过的那个 commit：workflow_run 下的 GITHUB_SHA 是
+      # 默认分支最新提交，等排队期间 main 再前进就会部署未经验证的代码。
       # fetch-depth: 0 是为了版本号——页脚/关于页用 git describe 的结果，
       # 浅克隆里 describe 拿不到 tag。
       - uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v6
@@ -52,6 +64,7 @@ jobs:
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SETUP_SECRET: ${{ secrets.SETUP_SECRET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           D1_DATABASE_NAME: ${{ vars.D1_DATABASE_NAME }}

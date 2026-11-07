@@ -58,21 +58,21 @@ pnpm check:deploy  # wrangler deploy --dry-run：校验 wrangler.toml 的绑定�
 | `JWT_SECRET`   | 会话签名密钥（≥32 字节随机串）            | 是   |
 | `SETUP_SECRET` | setup / 数据库维护接口的 `X-Setup-Secret` | 是   |
 
-缺任何一把，部署工作流会**在上传前中止并点名**，不会用空值或占位值顶替。密钥由 `scripts/materialize-secrets.mjs` 写进 `$RUNNER_TEMP/secrets.json`（权限 0600），再经 `wrangler deploy --secrets-file` 上传——真实值不进仓库、不进日志。
+缺任何一把，或值仍是模板里的占位写法（`*_PLACEHOLDER`、`replace-with-*`），部署工作流会**在上传前中止并点名**，不会用空值或占位值顶替。密钥由 `scripts/materialize-secrets.mjs` 写进 `$RUNNER_TEMP/secrets.json`（权限 0600），再经 `wrangler deploy --secrets-file` 上传——真实值不进仓库、不进日志。
 
 ### 表前缀 TABLE_PREFIX（三态）
 
 所有表名都经 `worker/src/lib/table-prefix.ts` 的 `getTablePrefix()` 拼出，全仓唯一解析点；除该文件的默认常量外，代码里不写死任何部署前缀或最终表名。
 
-| 配置                                                                  | 生效前缀 | 表名示例     |
-| --------------------------------------------------------------------- | -------- | ------------ |
-| 不配置（默认）                                                        | `ciki_`  | `ciki_pages` |
-| 自定义值（如 `wiki`，允许字母/数字/下划线，自动补尾部 `_`）           | `wiki_`  | `wiki_pages` |
-| 显式置空（GitHub Variables 填保留字 `none`；本地 `.dev.vars` 写空值） | 无前缀   | `pages`      |
+| 配置                                                                                            | 生效前缀 | 表名示例     |
+| ----------------------------------------------------------------------------------------------- | -------- | ------------ |
+| 不配置（默认）                                                                                  | `ciki_`  | `ciki_pages` |
+| 自定义值（如 `wiki`：非空时须以字母或下划线开头，其后只允许字母、数字、下划线，自动补尾部 `_`） | `wiki_`  | `wiki_pages` |
+| 显式置空（GitHub Variables 填保留字 `none`；本地 `.dev.vars` 写空值）                           | 无前缀   | `pages`      |
 
-CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABLE_PREFIX` **未设置或留空 → 注入 `ciki`**（GitHub 无法区分这两者），**`none` → 注入空串**（无前缀），**其他值 → 原样注入**；含非法字符时部署中止。补尾部下划线只由运行时做，注入值保持原样。
+CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABLE_PREFIX` **未设置或留空 → 注入 `ciki`**（GitHub 无法区分这两者），**`none` → 注入空串**（无前缀），**其他值 → 原样注入**；含非法字符（包括 `2026` 这类前导数字、`ci-ki` 这类带连字符的）时部署中止。补尾部下划线只由运行时做，注入值保持原样。
 
-生效前缀在数据库初始化前确定，之后不可改：换前缀等于换一套空表。已初始化过的库若与当前配置的前缀不一致，setup 会以 409 中止，绝不另建第二套表。
+生效前缀必须在数据库初始化前确定：换前缀等于换一套空表。**部署本身不锁前缀**——它每次按当前变量重写注入值；“生效前缀不可更改”依靠后端单的 setup 与 409 前缀冲突守卫（本骨架尚未实现这些接口）。在那之前请勿在已初始化的库上改 `TABLE_PREFIX`：目前没有任何机制会拦住静默换表。
 
 ### R2
 
@@ -83,11 +83,15 @@ CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABL
 
 ### 部署之后：还要初始化一次数据库
 
-部署成功只代表 Worker 上线，**表结构要由管理员再触发一次 setup / 数据库维护迁移才会建**：
+部署成功只代表 Worker 上线，**表结构要由管理员再触发一次 setup / 数据库维护迁移才会建**——本骨架不含 setup、迁移与 schema（属后端实现单），现在访问 `/api/setup/*` 只会得到 JSON 404。
 
-1. 打开站点，未初始化时 setup 页恒开（`GET /api/setup/state`，无鉴权、`no-store`），按页面提示用 `SETUP_SECRET` 完成初始化；
-2. 已经初始化过的部署，升级后照常在系统管理里点一次「检查并升级数据库」（或 `POST /api/setup`，`X-Setup-Secret` 请求头）；
-3. 初始化成功会输出实际生效的表前缀，管理面也可查——请核对它与预期一致。
+部署后的待办：
+
+1. 等后端单交付 setup 面后，由管理员在站点上完成初始化（`SETUP_SECRET` 是那一步的令牌）；
+2. 此后每次升级部署，同样由管理员触发一次数据库维护迁移；
+3. 初始化完成时须核对回显的生效表前缀与预期一致。
+
+在本骨架单独上线的情况下，站点只有一个占位页与 `/api/health`，不需要也无法初始化数据库。
 
 ## 目录结构
 

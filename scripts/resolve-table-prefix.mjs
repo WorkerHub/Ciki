@@ -34,10 +34,11 @@ export function resolveForCi(raw) {
 }
 
 /**
- * 前缀是否可用于建表：只允许字母、数字、下划线（空串合法，表示无前缀）。
- * 与运行时 isValidTablePrefix() 同一条规则；CI 在写配置前先拦下来，
- * 免得把畸形前缀部署上线才在运行时 500。
+ * 前缀是否可用于建表：空串合法（表示无前缀）；非空时必须以字母或下划线开头，
+ * 其后只允许字母、数字、下划线——`2026`、`1abc` 这类虽然字符合法，却不是合法 SQL
+ * 标识符，拼进表名会直接语法错误。与运行时 isValidTablePrefix() 同一条规则；
+ * CI 在写配置前先拦下来，免得把畸形前缀部署上线才在运行时 500。
  */
 export function isUsablePrefix(value) {
-  return /^[A-Za-z0-9_]*$/.test(value)
+  return value === "" || /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)
 }
