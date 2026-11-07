@@ -8,6 +8,8 @@
 - `web/` —— React + Vite + TypeScript；UI 用 shadcn/ui（Nova 风格）+ Kumo + Radix，图标 Lucide、动画 Motion、状态 Zustand、拖拽 dnd-kit、分栏 react-resizable-panels。
 - pnpm monorepo；样式 Tailwind CSS v4。
 
+接口与数据模型的冻结契约见 [`docs/api-contract.md`](docs/api-contract.md)；后端已落地鉴权（密码 + Passkey + TOTP）、setup/迁移、页面与版本、FTS5 搜索与图片接口。
+
 ## 功能
 
 - **粘贴保真**：从 Confluence 选中复制，粘进编辑器即保住标题层级、代码块（含阅读页「行号列」形态）、表格合并与列宽比例、嵌套列表与任务勾选、链接与行内样式（规格 §5）。
@@ -56,7 +58,7 @@
 
 ```bash
 pnpm install
-cp worker/.dev.vars.example worker/.dev.vars   # 填入本地 JWT_SECRET / SETUP_SECRET
+cp worker/.dev.vars.example worker/.dev.vars   # 填入本地 ENCRYPTION_KEY / SETUP_SECRET
 pnpm dev
 ```
 
@@ -95,12 +97,14 @@ pnpm check:deploy  # wrangler deploy --dry-run：校验 wrangler.toml 的绑定�
 
 ### 仓库级 Secrets（需在本仓库配置）
 
-| Secret         | 用途                                      | 必需 |
-| -------------- | ----------------------------------------- | ---- |
-| `JWT_SECRET`   | 会话签名密钥（≥32 字节随机串）            | 是   |
-| `SETUP_SECRET` | setup / 数据库维护接口的 `X-Setup-Secret` | 是   |
+| Secret           | 用途                                                    | 必需 |
+| ---------------- | ------------------------------------------------------- | ---- |
+| `ENCRYPTION_KEY` | TOTP 密钥的 AES-GCM 加密钥（`openssl rand -base64 32`） | 是   |
+| `SETUP_SECRET`   | setup / 数据库维护接口的 `X-Setup-Secret`               | 是   |
 
-缺任何一把，或值仍是模板里的占位写法（`*_PLACEHOLDER`、`replace-with-*`），部署工作流会**在上传前中止并点名**，不会用空值或占位值顶替。密钥由 `scripts/materialize-secrets.mjs` 写进 `$RUNNER_TEMP/secrets.json`（权限 0600），再经 `wrangler deploy --secrets-file` 上传——真实值不进仓库、不进日志。
+会话改用不透明令牌后不再签 JWT，旧的 `JWT_SECRET` 已不再读取，可从仓库 Secrets 删除。
+
+缺任何一把，或值仍是模板里的占位写法（`*_PLACEHOLDER`、`replace-with-*`），或 `ENCRYPTION_KEY` 不是 32 字节，部署工作流会**在上传前中止并点名**，不会用空值或占位值顶替。密钥由 `scripts/materialize-secrets.mjs` 写进 `$RUNNER_TEMP/secrets.json`（权限 0600），再经 `wrangler deploy --secrets-file` 上传——真实值不进仓库、不进日志。
 
 ### 表前缀 TABLE_PREFIX（三态）
 
@@ -114,7 +118,7 @@ pnpm check:deploy  # wrangler deploy --dry-run：校验 wrangler.toml 的绑定�
 
 CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABLE_PREFIX` **未设置或留空 → 注入 `ciki`**（GitHub 无法区分这两者），**`none` → 注入空串**（无前缀），**其他值 → 原样注入**；含非法字符（包括 `2026` 这类前导数字、`ci-ki` 这类带连字符的）时部署中止。补尾部下划线只由运行时做，注入值保持原样。
 
-生效前缀必须在数据库初始化前确定：换前缀等于换一套空表。**部署本身不锁前缀**——它每次按当前变量重写注入值；“生效前缀不可更改”依靠 setup 与 409 前缀冲突守卫：检测到另一前缀下已有本项目的 `users`+`pages` 时会中止，不会静默建第二套表。
+生效前缀必须在数据库初始化前确定：换前缀等于换一套空表。**部署本身不锁前缀**——它每次按当前变量重写注入值；“生效前缀不可更改”由 setup 的前缀冲突守卫兜底：检测到库里已在另一前缀下初始化时，初始化接口以 409 中止，不会另建第二套空表。仍请勿在已初始化的库上随意改 `TABLE_PREFIX`。
 
 ### R2
 
@@ -123,15 +127,22 @@ CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABL
 - 组织级 `CLOUDFLARE_API_TOKEN` 需要有 **R2 编辑**权限，否则该步会让本次部署失败（此时尚未部署任何东西）；
 - 也可以先在 Cloudflare 控制台（或本地 `wrangler r2 bucket create ciki-assets`）建好，再重跑部署。
 
-### 部署之后：还要初始化一次数据库
+### 部署之后：初始化数据库
 
-部署成功只代表 Worker 上线，**表结构要由管理员再触发一次 setup / 数据库维护迁移才会建**：首次访问站点会被自动引导到 `/setup`，填入 `SETUP_SECRET` 完成初始化后注册的首个账号即管理员。
+部署成功只代表 Worker 上线；表结构要由管理员触发一次 setup 才会建。未初始化时任意页面会引导到初始化页（`GET /api/setup/state` 公开返回 `{initialized, enabled}`，不含密钥）。
 
-部署后的待办：
+1. 在初始化页填入 `SETUP_SECRET`（请求头 `X-Setup-Secret`，只走请求头、不进 URL），提交 `POST /api/setup`；接口只跑迁移，成功后回显 `{success, tablePrefix, migrations}`，并核对生效前缀与预期一致。
+2. 注册第一个用户：首个注册者自动成为管理员、直接批准并激活（此后注册默认需管理员批准）。
+3. 每次升级部署后，管理员在「系统管理 → 数据库维护」触发同一次迁移（`POST /api/admin/setup`，管理员会话免密钥）；已执行的迁移显示为 `skipped`。
 
-1. 由管理员在站点上完成初始化（`SETUP_SECRET` 是那一步的令牌，只走请求头）；
-2. 此后每次升级部署，同样由管理员在「系统管理 → 数据库维护」触发一次迁移；
-3. 初始化完成时须核对回显的生效表前缀与预期一致。
+同理，可直接用 curl 完成首次初始化（令牌从环境变量读取，不要写进命令历史）：
+
+```bash
+curl -X POST https://<站点域名>/api/setup \
+  -H "X-Setup-Secret: $SETUP_SECRET"
+```
+
+迁移只新增表/索引（`worker/src/lib/migrations.ts` 的 `schema_v1`），不做破坏性变更。回滚是人工操作：在没有数据的库上删除本项目前缀下的表与 `{prefix}schema_migrations` 账本；CI 与 UI 都不提供删表/清库入口。
 
 ## 目录结构
 
