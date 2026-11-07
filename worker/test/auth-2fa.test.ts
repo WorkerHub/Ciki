@@ -469,3 +469,176 @@ describe("敏感 2FA 操作的重认证限流", () => {
     expect(row.totp_enabled).toBe(1)
   })
 })
+
+describe("已有因子时新增/启用因子必须密码重认证", () => {
+  it("已有 TOTP：setup / enable / passkey options / passkey verify 都要求正确密码", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    await enableTotp(env, admin)
+
+    const noPassword = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/setup",
+      undefined,
+      admin
+    )
+    expect(noPassword.status).toBe(400)
+    expect(await noPassword.json()).toMatchObject({
+      error: "Password required"
+    })
+
+    const wrongPassword = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/setup",
+      { password: "wrong-password" },
+      admin
+    )
+    expect(wrongPassword.status).toBe(403)
+    expect(await wrongPassword.json()).toMatchObject({
+      error: "Password is incorrect"
+    })
+
+    const setup = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/setup",
+      { password: PASSWORD },
+      admin
+    )
+    expect(setup.status).toBe(200)
+    const { secret } = (await setup.json()) as { secret: string }
+
+    const enableNoPassword = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/enable",
+      { code: codeAt(secret) },
+      admin
+    )
+    expect(enableNoPassword.status).toBe(400)
+    expect(await enableNoPassword.json()).toMatchObject({
+      error: "Password required"
+    })
+
+    const passkeyNoPassword = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/options",
+      undefined,
+      admin
+    )
+    expect(passkeyNoPassword.status).toBe(400)
+
+    const passkeyOptions = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/options",
+      { password: PASSWORD },
+      admin
+    )
+    expect(passkeyOptions.status).toBe(200)
+    const options = (await passkeyOptions.json()) as { challenge: string }
+    const { response } = await createPasskey({
+      rpID: RP_ID,
+      origin: ORIGIN,
+      challenge: options.challenge
+    })
+
+    const verifyNoPassword = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/verify",
+      response as Record<string, unknown>,
+      admin
+    )
+    expect(verifyNoPassword.status).toBe(400)
+    expect(await verifyNoPassword.json()).toMatchObject({
+      error: "Password required"
+    })
+
+    const verify = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/verify",
+      { ...(response as Record<string, unknown>), password: PASSWORD },
+      admin
+    )
+    expect(verify.status).toBe(200)
+  })
+
+  it("已有 passkey 时，TOTP 首次 setup 也要密码", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    await registerPasskey(env, admin)
+
+    const noPassword = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/setup",
+      undefined,
+      admin
+    )
+    expect(noPassword.status).toBe(400)
+
+    const withPassword = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/setup",
+      { password: PASSWORD },
+      admin
+    )
+    expect(withPassword.status).toBe(200)
+  })
+
+  it("无任何因子时免密码：首次 setup 与 passkey options 直接可用", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const totpSetup = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/setup",
+      undefined,
+      admin
+    )
+    expect(totpSetup.status).toBe(200)
+
+    const passkeyOptions = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/passkey/register/options",
+      undefined,
+      admin
+    )
+    expect(passkeyOptions.status).toBe(200)
+  })
+
+  it("新增因子的重认证复用 reauth 限流：错密码 5 次后 429", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    await enableTotp(env, admin)
+
+    for (let i = 0; i < 5; i += 1) {
+      const res = await jsonRequest(
+        env,
+        "POST",
+        "/api/auth/2fa/totp/setup",
+        { password: "wrong-password" },
+        admin
+      )
+      expect(res.status).toBe(403)
+    }
+
+    const blocked = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/2fa/totp/setup",
+      { password: PASSWORD },
+      admin
+    )
+    expect(blocked.status).toBe(429)
+    expect(await blocked.json()).toMatchObject({ code: "RATE_LIMITED" })
+  })
+})

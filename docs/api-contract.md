@@ -97,15 +97,15 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 单条 `INSERT … ON CONFLICT(key) DO UPDATE` 原子自增，窗口过期自动重置；登录成功按账号删除失败/锁定行。
 
-| action          | account | 上限 / 窗口    | 说明                                               |
-| --------------- | ------- | -------------- | -------------------------------------------------- |
-| login           | 空      | 10 次 / 5 分钟 | 每 IP                                              |
-| login_fail      | 邮箱    | 5 次 / 15 分钟 | 第 5 次起锁 15 分钟                                |
-| register        | 空      | 5 次 / 5 分钟  | 每 IP                                              |
-| 2fa_verify      | 空      | 5 次 / 5 分钟  | 每 IP；另按 tempToken 记失败，5 次作废令牌         |
-| password_change | 用户 id | 5 次 / 5 分钟  |                                                    |
-| reauth          | 用户 id | 5 次 / 5 分钟  | 2FA 敏感操作（关 TOTP、删/关 passkey）的密码重认证 |
-| setup           | 空      | 3 次 / 10 分钟 | 每 IP，初始化前也生效                              |
+| action          | account | 上限 / 窗口    | 说明                                                       |
+| --------------- | ------- | -------------- | ---------------------------------------------------------- |
+| login           | 空      | 10 次 / 5 分钟 | 每 IP                                                      |
+| login_fail      | 邮箱    | 5 次 / 15 分钟 | 第 5 次起锁 15 分钟                                        |
+| register        | 空      | 5 次 / 5 分钟  | 每 IP                                                      |
+| 2fa_verify      | 空      | 5 次 / 5 分钟  | 每 IP；另按 tempToken 记失败，5 次作废令牌                 |
+| password_change | 用户 id | 5 次 / 5 分钟  |                                                            |
+| reauth          | 用户 id | 5 次 / 5 分钟  | 2FA 敏感操作（新增/启用/关闭因子、删 passkey）的密码重认证 |
+| setup           | 空      | 3 次 / 10 分钟 | 每 IP，初始化前也生效                                      |
 
 ### system_settings
 
@@ -321,17 +321,17 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 ### 2FA 管理（均需会话）
 
-| 端点                                          | 请求体                         | 响应                                                                                    |
-| --------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
-| `POST /api/auth/2fa/totp/setup`               | 无                             | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，待确认密钥以密文存挑战行）   |
-| `POST /api/auth/2fa/totp/enable`              | `{"code":"123456"}`            | `{"success":true}`；消费挑战行、解密校验后把密文落 `user_2fa`，并把当前受限会话标记清零 |
-| `POST /api/auth/2fa/totp/disable`             | `{"password":"…"}`             | `{"success":true}`，清空密文与开关                                                      |
-| `POST /api/auth/2fa/passkey/register/options` | 无                             | WebAuthn 注册 options（写 `passkey_register` 挑战行）                                   |
-| `POST /api/auth/2fa/passkey/register/verify`  | WebAuthn registration response | `{"success":true}`；消费挑战行、插 `passkey_credentials`，并把受限会话标记清零          |
-| `DELETE /api/auth/2fa/passkey/:credentialId`  | `{"password":"…"}`             | `{"success":true}`；删除该凭证行                                                        |
-| `POST /api/auth/2fa/passkey/disable`          | `{"password":"…"}`             | `{"success":true}`；删除该用户全部凭证                                                  |
+| 端点                                          | 请求体                          | 响应                                                                                    |
+| --------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
+| `POST /api/auth/2fa/totp/setup`               | `password?`（见下）             | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，待确认密钥以密文存挑战行）   |
+| `POST /api/auth/2fa/totp/enable`              | `{"code":"123456","password"?}` | `{"success":true}`；消费挑战行、解密校验后把密文落 `user_2fa`，并把当前受限会话标记清零 |
+| `POST /api/auth/2fa/totp/disable`             | `{"password":"…"}`              | `{"success":true}`，清空密文与开关                                                      |
+| `POST /api/auth/2fa/passkey/register/options` | `password?`（见下）             | WebAuthn 注册 options（写 `passkey_register` 挑战行）                                   |
+| `POST /api/auth/2fa/passkey/register/verify`  | WebAuthn response + `password?` | `{"success":true}`；消费挑战行、插 `passkey_credentials`，并把受限会话标记清零          |
+| `DELETE /api/auth/2fa/passkey/:credentialId`  | `{"password":"…"}`              | `{"success":true}`；删除该凭证行                                                        |
+| `POST /api/auth/2fa/passkey/disable`          | `{"password":"…"}`              | `{"success":true}`；删除该用户全部凭证                                                  |
 
-所有 2FA 变更在密码错误时返回 403 `{"error":"Password is incorrect"}`。
+**密码重认证规则（新增/启用因子）**：账号**已有任何因子**（`totp_enabled` 为真，或存在 `passkey_credentials` 行）时，上表四个「新增/启用」端点（`totp/setup`、`totp/enable`、`passkey/register/options`、`passkey/register/verify`）必须带 `password`；缺密码 400 `{"error":"Password required"}`、密码错 403 `{"error":"Password is incorrect"}`、失败 5 次/5 分钟 429 `{"error":"Too many requests","code":"RATE_LIMITED"}`，成功清零。**没有任何因子时免密码**（首次设置、刚用密码登录过的账号直接走会话）。前端可用 `GET /api/me` 的 `twofa.totpEnabled` / `twofa.passkeyCount` 判断是否需要弹密码框。关闭 TOTP、删除/关闭 passkey 始终要求 `password`。
 
 ### 管理（全部需管理员，非管理员 403）
 

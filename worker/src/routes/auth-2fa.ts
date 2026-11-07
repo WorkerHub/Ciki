@@ -95,6 +95,27 @@ async function requirePassword(
   return null
 }
 
+/** 账号是否已有任何二步因子（TOTP 已启用，或存在 passkey 行）。 */
+async function hasAnyFactor(c: Context<HonoEnv>): Promise<boolean> {
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const totp = await getTotp(c.env.DB, prefix, userId)
+  if (totp?.totp_enabled) return true
+  return (await countPasskeys(c.env.DB, prefix, userId)) > 0
+}
+
+/**
+ * 新增/启用因子时的重认证：**已有任何因子才要求密码**（首次设置、刚密码登录过的
+ * 账号免密码），复用 disable/delete 的同一套 reauth 限流与错误码（400/403/429）。
+ */
+async function requireFactorReauth(
+  c: Context<HonoEnv>,
+  password: unknown
+): Promise<Response | null> {
+  if (!(await hasAnyFactor(c))) return null
+  return requirePassword(c, password)
+}
+
 async function loadActiveUser(
   c: Context<HonoEnv>,
   userId: string
@@ -317,6 +338,13 @@ auth2faRoutes.post("/passkey/authenticate/verify", async (c) => {
 
 /** 生成 TOTP 密钥：明文只回这一次，待确认密钥加密后存挑战行。 */
 auth2faRoutes.post("/totp/setup", async (c) => {
+  const body = await readJsonBody<{ password?: unknown }>(c)
+  const reauth = await requireFactorReauth(
+    c,
+    typeof body?.password === "string" ? body.password : undefined
+  )
+  if (reauth) return reauth
+
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
   const user = await findUserById(c.env.DB, prefix, userId)
@@ -340,7 +368,12 @@ auth2faRoutes.post("/totp/setup", async (c) => {
 
 /** 校验并启用 TOTP；成功后把当前受限会话标记清零。 */
 auth2faRoutes.post("/totp/enable", async (c) => {
-  const body = await readJsonBody<{ code?: unknown }>(c)
+  const body = await readJsonBody<{ code?: unknown; password?: unknown }>(c)
+  const reauth = await requireFactorReauth(
+    c,
+    typeof body?.password === "string" ? body.password : undefined
+  )
+  if (reauth) return reauth
   const code = typeof body?.code === "string" ? body.code.trim() : ""
   if (!code) return c.json({ error: "Code required" }, 400)
 
@@ -400,6 +433,13 @@ auth2faRoutes.post("/totp/disable", async (c) => {
 })
 
 auth2faRoutes.post("/passkey/register/options", async (c) => {
+  const body = await readJsonBody<{ password?: unknown }>(c)
+  const reauth = await requireFactorReauth(
+    c,
+    typeof body?.password === "string" ? body.password : undefined
+  )
+  if (reauth) return reauth
+
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
   const user = await findUserById(c.env.DB, prefix, userId)
@@ -432,6 +472,11 @@ auth2faRoutes.post("/passkey/register/verify", async (c) => {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return c.json({ error: "Invalid request body" }, 400)
   }
+  const reauth = await requireFactorReauth(
+    c,
+    typeof body.password === "string" ? body.password : undefined
+  )
+  if (reauth) return reauth
 
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
