@@ -11,6 +11,7 @@
 - **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）。
   - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
+- **空间可见性**：站点管理员可见全部空间；普通用户仅可见自己是成员的空间（`admin` / `editor` / `viewer`）。可见性过滤覆盖空间列表、页面树、页面直链、回收站与搜索；非成员访问空间/页面一律 404，不泄露存在性。页面写权限以空间角色为准：`editor` 及以上可写，`viewer` 只读。
 - **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、429 限流/锁定、500 服务端错误（不回显堆栈）。
 - **时间**：所有时间字段均为 ISO 8601 字符串（`2026-11-07T12:00:00.000Z`），会话过期等内部字段用 Unix 秒但不出现在 DTO 中。
 - **分页**：页面树与用户列表不分页；搜索用 `limit`（默认 20，上限 50）。
@@ -20,13 +21,14 @@
 
 ## 二、数据模型
 
-迁移三条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
+迁移四条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
 - `schema_v1`：鉴权、设置、页面、版本与 FTS 的全部表。
 - `schema_v2`：导入令牌表 `{prefix}import_tokens`（v1.1 增补）。
 - `schema_v3`：users 的身份三列（`username` / `public_id` / `avatar_key`）与 `public_id` 的部分唯一索引。SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以加列与存量回填放在该迁移的 `prepare` 步骤（先于 sql 执行）：按 `PRAGMA table_info` 判断缺哪列再补，随后只把新列里**仍为空**的值填上（`username` 取邮箱前缀、`public_id` 用系统生成器并与全表已有值去重），更新都带 `WHERE … = ''`，因此不覆盖任何既有数据、可重复执行、失败后从断点续跑。
+- `schema_v4`：空间与成员（`{prefix}spaces` / `{prefix}space_members`）、`pages.space_id` 与空间索引。`prepare` 幂等补列、建默认空间（id `space-default`、名称「默认空间」、`is_default=1`）、把所有 `space_id` 仍为空/缺失的页面回填到默认空间、把所有现有用户加入默认空间（站点管理员 `admin`、其余 `editor`）。只写空值、成员用 `INSERT OR IGNORE`，重复执行无副作用。
 
-回滚方式：人工删除对应迁移新建的表/索引（`schema_v3` 为 `{prefix}users_public_id`），并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'|'schema_v3'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
+回滚方式：人工删除对应迁移新建的表/索引（`schema_v3` 为 `{prefix}users_public_id`；`schema_v4` 为 `{prefix}spaces`、`{prefix}space_members` 与 `pages` 的空间列/索引），并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'|'schema_v3'|'schema_v4'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
 
 ### users
 
@@ -146,22 +148,47 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 - 失效条件：吊销、重置、用户被停用或未批准。校验每次回表并连 `users` 查激活/审批状态，所以停用立即生效。
 - 令牌只用于 `/api/import/*`，权限等同本人；令牌管理本身仍要会话 Cookie。
 
+### spaces（schema_v4）
+
+| 列                     | 类型                       | 说明                                              |
+| ---------------------- | -------------------------- | ------------------------------------------------- |
+| id                     | TEXT PK                    | 空间 id；默认空间固定为 `space-default`           |
+| name                   | TEXT NOT NULL              | 名称，1–64 码点、不含控制字符                     |
+| description            | TEXT NOT NULL DEFAULT ''   | 描述，≤500 码点（允许换行）                       |
+| is_default             | INTEGER NOT NULL DEFAULT 0 | 1 = 默认空间；部分唯一索引保证全库只有一条        |
+| created_by             | TEXT NOT NULL DEFAULT ''   | 创建者用户 id；默认空间取最早一名站点管理员或空串 |
+| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                          |
+
+默认空间不可删除；其它空间只有在没有任何页面行（含回收站）时才可删除。
+
+### space_members（schema_v4）
+
+| 列         | 类型          | 说明                                   |
+| ---------- | ------------- | -------------------------------------- |
+| space_id   | TEXT NOT NULL | 空间 id                                |
+| user_id    | TEXT NOT NULL | 用户 id                                |
+| role       | TEXT NOT NULL | `admin` / `editor` / `viewer`（CHECK） |
+| created_at | TEXT NOT NULL | ISO 时间                               |
+
+主键 `(space_id, user_id)`；索引 `(user_id)`。空间至少保留一名 `admin`（改角色/移除最后一名 admin → 409 `LAST_SPACE_ADMIN`）。
+
 ### pages
 
-| 列                     | 类型                       | 说明                |
-| ---------------------- | -------------------------- | ------------------- |
-| id                     | TEXT PK                    | UUID                |
-| parent_id              | TEXT NULL                  | 根页为 NULL         |
-| title                  | TEXT NOT NULL              |                     |
-| sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1         |
-| content_json           | TEXT NOT NULL DEFAULT ''   | TipTap JSON 文本    |
-| content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML |
-| content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要         |
-| created_by, updated_by | TEXT NOT NULL              | 用户 id             |
-| created_at, updated_at | TEXT NOT NULL              | ISO 时间            |
-| deleted_at             | TEXT NULL                  | 软删时间            |
+| 列                     | 类型                       | 说明                              |
+| ---------------------- | -------------------------- | --------------------------------- |
+| id                     | TEXT PK                    | UUID                              |
+| space_id               | TEXT NOT NULL DEFAULT ''   | 所属空间；schema_v4 回填默认空间  |
+| parent_id              | TEXT NULL                  | 根页为 NULL；父子关系只在同空间内 |
+| title                  | TEXT NOT NULL              |                                   |
+| sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1                       |
+| content_json           | TEXT NOT NULL DEFAULT ''   | TipTap JSON 文本                  |
+| content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML               |
+| content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要                       |
+| created_by, updated_by | TEXT NOT NULL              | 用户 id                           |
+| created_at, updated_at | TEXT NOT NULL              | ISO 时间                          |
+| deleted_at             | TEXT NULL                  | 软删时间                          |
 
-索引：`(parent_id, sort_order)`、`(deleted_at)`、`(updated_at)`。
+索引：`(space_id, parent_id, sort_order)`、`(space_id, deleted_at)`、`(parent_id, sort_order)`、`(deleted_at)`、`(updated_at)`。
 
 ### page_revisions
 
@@ -427,6 +454,29 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 把用户置为 `rejected` + `isActive: false`，吊销其全部会话。
 
+#### GET /api/admin/spaces
+
+站点管理员的空间总览：
+
+```json
+[
+  {
+    "id": "space-default",
+    "name": "默认空间",
+    "description": "",
+    "isDefault": true,
+    "createdBy": "…",
+    "createdAt": "…",
+    "updatedAt": "…",
+    "memberCount": 3,
+    "pageCount": 12,
+    "trashedPageCount": 1
+  }
+]
+```
+
+`pageCount` 只数未删页面、`trashedPageCount` 数回收站页面（两者只要有一项 >0，该空间不可删除）。
+
 #### GET /api/admin/settings
 
 ```json
@@ -443,11 +493,100 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 同一对象的任意子集：布尔项照旧，`siteName` 为字符串（trim 后 1–32 字符、不含控制字符，否则 400 `siteName must be 1-32 characters`）。200 `{"success":true}`。
 
+### 空间与成员
+
+权限：站点管理员可见/可管理全部空间；普通用户只看得见自己是成员的空间。列表/详情/树/直链/回收站/搜索对非成员一律 404。空间信息与成员管理仅空间 `admin` 或站点管理员可调用（`editor` / `viewer` → 403）。任何登录用户都能建空间，创建者自动成为该空间 `admin`。
+
+```text
+Space        = { id, name, description, myRole: "admin"|"editor"|"viewer",
+                 isDefault, createdAt, updatedAt }
+SpaceMember  = { userId, username, publicId, email, role, createdAt }
+SpaceCandidate = { userId, username, publicId, email }
+```
+
+站点管理员对每个空间的有效 `myRole` 都是 `admin`（不要求是成员）。
+
+#### GET /api/spaces
+
+当前用户可见的空间，默认空间在前：
+
+```json
+[
+  {
+    "id": "space-default",
+    "name": "默认空间",
+    "description": "",
+    "myRole": "editor",
+    "isDefault": true,
+    "createdAt": "…",
+    "updatedAt": "…"
+  }
+]
+```
+
+#### POST /api/spaces
+
+```json
+{ "name": "研发空间", "description": "可选，≤500 字符" }
+```
+
+201 返回 `Space`（`myRole: "admin"`）。名称 trim 后 1–64 码点、不含控制字符（400 `code:"INVALID_SPACE_NAME"`），描述 ≤500 码点、只允许换行（400 `code:"INVALID_SPACE_DESCRIPTION"`）。空间名不要求唯一。
+
+#### GET /api/spaces/:id
+
+返回 `Space`；空间不存在或非成员 404 `code:"SPACE_NOT_FOUND"`。
+
+#### PUT /api/spaces/:id
+
+```json
+{ "name": "新名称", "description": "新描述" }
+```
+
+字段均可选但至少给一个（否则 400 `Nothing to update`）。仅空间 `admin` / 站点管理员；返回更新后的 `Space`。
+
+#### DELETE /api/spaces/:id
+
+仅空间 `admin` / 站点管理员。默认空间 409 `code:"SPACE_DEFAULT_PROTECTED"`；空间内还有任何页面（含回收站）409 `code:"SPACE_NOT_EMPTY"`；成功后删除空间与全部成员行，返回 `{"success":true}`。
+
+#### GET /api/spaces/:id/members
+
+仅空间 `admin` / 站点管理员，返回 `SpaceMember[]`（按 admin → editor → viewer、再按显示名排序）。成员非管理员 403，非成员 404。
+
+#### POST /api/spaces/:id/members
+
+```json
+{ "userId": "…", "role": "viewer" }
+```
+
+201 返回 `SpaceMember`。只能添加已激活且已批准的现有注册用户。错误：400 `code:"INVALID_ROLE"`；404 `code:"USER_NOT_FOUND"`；409 `code:"USER_NOT_ELIGIBLE"` / `code:"ALREADY_MEMBER"`。
+
+#### PUT /api/spaces/:id/members/:userId
+
+```json
+{ "role": "editor" }
+```
+
+200 返回更新后的 `SpaceMember`。成员不存在 404 `code:"MEMBER_NOT_FOUND"`；把最后一名 `admin` 降级 409 `code:"LAST_SPACE_ADMIN"`。
+
+#### DELETE /api/spaces/:id/members/:userId
+
+`{"success":true}`。移除最后一名 `admin` 409 `code:"LAST_SPACE_ADMIN"`；成员不存在 404 `code:"MEMBER_NOT_FOUND"`。
+
+#### GET /api/spaces/:id/member-candidates?q=
+
+仅空间 `admin` / 站点管理员。候选用户（已激活、已批准、尚未加入该空间），按显示名/邮箱/publicId 模糊匹配，最多 20 条：
+
+```json
+[{ "userId": "…", "username": "张三", "publicId": "7FJ2K9QM", "email": "…" }]
+```
+
 ### 页面
+
+页面读写权限以页面所属空间为准：`editor` 及以上可写，`viewer` 只读；非成员对页面/版本一律 404。站点管理员不受成员表限制。页面父子关系只在同一空间内。
 
 #### GET /api/pages
 
-页面树（不含正文，不含回收站）：
+页面树（不含正文，不含回收站）。`spaceId` 可选，空串/缺省表示默认空间；不是成员或空间不存在 404：
 
 ```json
 [
@@ -462,9 +601,9 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 ]
 ```
 
-#### GET /api/pages/trash
+#### GET /api/pages/trash?spaceId=
 
-只列回收站根（父页仍可见或已在更早批次删除的不重复列出）：
+只列该空间（`spaceId` 缺省 = 默认空间）的回收站根（父页仍可见或已在更早批次删除的不重复列出）；非成员 404：
 
 ```json
 [
@@ -483,6 +622,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 ```json
 {
   "id": "…",
+  "spaceId": "…",
   "parentId": null,
   "title": "…",
   "sortOrder": 0,
@@ -496,13 +636,14 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 }
 ```
 
-已软删返回 404。
+已软删、非成员或所属空间不可见均返回 404。
 
 #### POST /api/pages
 
 ```json
 {
   "title": "新页面",
+  "spaceId": "…",
   "parentId": null,
   "contentJson": "…",
   "contentHtml": "<p>…</p>",
@@ -510,7 +651,9 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 }
 ```
 
-201 返回完整详情；新页追加到同级末尾；首次创建同时生成一条 revision。`contentHtml` 由服务端二次消毒后入库。`parentId` 缺省、`null` 或空串都表示根页（不会把空串写进 `parent_id`）。
+201 返回完整详情（含 `spaceId`）；新页追加到同级末尾；首次创建同时生成一条 revision。`contentHtml` 由服务端二次消毒后入库。
+
+`spaceId` 可选：不带 `parentId` 时缺省落默认空间；带 `parentId` 时空间以父页为准，显式 `spaceId` 与父页空间不一致 409 `code:"SPACE_MISMATCH"`。目标空间不可见 404、`viewer` 403。`parentId` 缺省、`null` 或空串都表示根页（不会把空串写进 `parent_id`）。
 
 #### PUT /api/pages/:id
 
@@ -518,27 +661,31 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 { "title": "…", "contentJson": "…", "contentHtml": "…", "contentText": "…" }
 ```
 
-200 完整详情。登录用户可编辑任何页面（wiki 语义）；每次保存生成一条 revision 并同步 FTS。
+200 完整详情。空间 `editor` 及以上可编辑；`viewer` 403、非成员 404。每次保存生成一条 revision 并同步 FTS。
 
 #### POST /api/pages/:id/move
 
 ```json
-{ "parentId": "目标父页或 null", "sortOrder": 0 }
+{
+  "spaceId": "目标空间（缺省 = 当前空间）",
+  "parentId": "目标父页或 null",
+  "sortOrder": 0
+}
 ```
 
-`sortOrder` 可省略（追加到末尾）。只改层级/排序，不生成 revision。移入自身子树 409 `code:"PAGE_MOVE_CYCLE"`；父页已删 409 `code:"PARENT_DELETED"`。
+`sortOrder` 可省略（追加到末尾）。只改层级/排序，不生成 revision。跨空间移动时改 `space_id`：未给 `parentId` 就重挂到目标空间根；给了父页则父页必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。源空间与目标空间都要 `editor` 及以上（目标不可见 404、`viewer` 403）。移入自身子树 409 `code:"PAGE_MOVE_CYCLE"`；父页已删 409 `code:"PARENT_DELETED"`。
 
 #### DELETE /api/pages/:id
 
-软删整棵子树（同一个 `deletedAt`）：`{"success":true}`。限页面 `createdBy` 或管理员。
+软删整棵子树（同一个 `deletedAt`）：`{"success":true}`。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。
 
 #### POST /api/pages/:id/restore
 
-恢复同一批被删的子树：`{"success":true}`。父页仍在回收站时 409 `code:"PARENT_DELETED"`。
+恢复同一批被删的子树：`{"success":true}`。需所属空间 `editor` 及以上。父页仍在回收站时 409 `code:"PARENT_DELETED"`。
 
 #### DELETE /api/pages/:id/permanent
 
-仅对已软删页面生效；删页面、其全部 revision 与 FTS 行：`{"success":true}`；未软删 409 `code:"PAGE_NOT_DELETED"`。
+仅对已软删页面生效；删页面、其全部 revision 与 FTS 行：`{"success":true}`；未软删 409 `code:"PAGE_NOT_DELETED"`。需所属空间 `editor` 及以上。
 
 #### GET /api/pages/:id/revisions
 
@@ -546,7 +693,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 [{ "id": "…", "title": "…", "editorId": "用户 id", "createdAt": "…" }]
 ```
 
-新 → 旧。
+新 → 旧。`viewer` 可读；非成员 404。
 
 #### GET /api/pages/:id/revisions/:revisionId
 
@@ -565,7 +712,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 #### POST /api/pages/:id/revisions/:revisionId/restore
 
-以该快照写回页面并生成新 revision，返回 200 完整页面详情。限页面 `createdBy` 或管理员。
+以该快照写回页面并生成新 revision，返回 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。
 
 ### 搜索
 
@@ -579,13 +726,15 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
       "pageId": "…",
       "title": "团队知识库",
       "snippet": "…命中附近的纯文本片段…",
-      "updatedAt": "…"
+      "updatedAt": "…",
+      "spaceId": "…",
+      "spaceName": "默认空间"
     }
   ]
 }
 ```
 
-`snippet` 是纯文本（不含 HTML），前端自行高亮查询词。空词或只有标点返回 `{"query":"…","results":[]}`。软删页面不出现；`limit` 上限 50。
+搜索范围是当前用户可见的全部空间（站点管理员为全部空间）：非成员空间的标题与片段在 SQL 层就被过滤，不会出现在响应里。`snippet` 是纯文本（不含 HTML），前端自行高亮查询词。空词或只有标点返回 `{"query":"…","results":[]}`。软删页面不出现；`limit` 上限 50。
 
 ### 文件
 
@@ -644,13 +793,22 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 #### 导入接口通用约定
 
 - 鉴权：只认 `Authorization: Bearer <token>`。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。会话 Cookie 与查询参数都不认（职责分离，避免把 Cookie 写操作的 CSRF 面带进插件）。
+- **空间权限**：`space_id` 缺省落默认空间；令牌所属用户必须对目标空间有 `editor` 及以上角色。无权空间明确回 403 `{"error":"Space forbidden","code":"SPACE_FORBIDDEN"}`（插件需要提示用户，这是导入入口与页面直链 404 口径的唯一差别）；空间不存在/父页跨空间见各端点说明。
 - 限流沿用 `auth_counters`：失败按 IP（`import_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`import` 3000 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`，`retryAfter` 是**当前计数窗口的剩余秒数**（不做整窗预留）。成功鉴权一次即清零该 IP 的失败计数。
 - 每次成功调用都刷新令牌的 `lastUsedAt`。
 - **不做服务端外抓**：接口只收插件上传的字节，不接受 URL 让服务端去下载，SSRF 面为零。
 
-#### GET /api/import/parents
+#### GET /api/import/spaces
 
-未删页面的扁平摘要（不含正文），供插件选父页：
+令牌所属用户具备 `editor` 及以上角色的空间（站点管理员为全部空间），默认空间在前：
+
+```json
+[{ "id": "…", "name": "默认空间" }]
+```
+
+#### GET /api/import/parents?space_id=
+
+该空间（`space_id` 缺省 = 默认空间）未删页面的扁平摘要（不含正文），供插件选父页：
 
 ```json
 [{ "id": "…", "title": "首页", "parentId": null }]
@@ -659,10 +817,10 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 #### POST /api/import/check
 
 ```json
-{ "title": "页面标题", "parentId": null }
+{ "title": "页面标题", "parentId": null, "space_id": "可选，缺省 = 默认空间" }
 ```
 
-同父级下是否已有同名未删页面：
+同空间同父级下是否已有同名未删页面：
 
 ```json
 { "exists": true, "pageId": "…" }
@@ -692,15 +850,17 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 ```json
 {
   "title": "页面标题",
+  "space_id": "可选，缺省 = 默认空间",
   "parentId": null,
   "contentJson": "{\"type\":\"doc\",…}",
   "conflict": "update"
 }
 ```
 
-- `parentId`：目标父页 id。缺省、`null` 与空串（含纯空白）都表示根页——根页在库里是 `parent_id IS NULL`，服务端不会写入空串，避免造出游离页；其它类型 400。
+- `space_id`：目标空间。缺省/空串落默认空间；用户对该空间无 `editor` 及以上角色 → 403 `code:"SPACE_FORBIDDEN"`。
+- `parentId`：目标父页 id，必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。缺省、`null` 与空串（含纯空白）都表示根页——根页在库里是 `parent_id IS NULL`，服务端不会写入空串，避免造出游离页；其它类型 400。
 - `contentJson`：TipTap JSON，**字符串或对象均可**（对象由服务端序列化后入库）；只存 JSON，`contentHtml` / `contentText` 一律服务端生成。
-- `conflict` 必填：`"update"` = 同父级同名未删页则覆盖内容并追加一条 revision（与编辑器保存同一条写路径：页面 + revision + FTS 同一 `db.batch()` 事务），不存在则新建；`"create_copy"` = 总是新建，不改写标题。
+- `conflict` 必填：`"update"` = 同空间同父级同名未删页则覆盖内容并追加一条 revision（与编辑器保存同一条写路径：页面 + revision + FTS 同一 `db.batch()` 事务），不存在则新建；`"create_copy"` = 总是新建，不改写标题。
 - 新建 201、更新 200，响应一致：
 
 ```json
@@ -708,7 +868,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 ```
 
 - 渲染与消毒：`contentHtml = sanitizePageHtml(renderTiptapHtml(contentJson))`——用 `@tiptap/html` 的 `generateHTML` 原生渲染（zeed-dom，无 DOM 依赖）再过 §4 同一支白名单消毒；`contentText` 由消毒后的 HTML 生成。插件侧的 HTML/纯文本不被信任，**消毒结果为准**。服务端渲染把表格列宽写成 `col[width]`，读态列宽比例保留；任务项勾选态为 `data-checked="true"|"false"`。
-- 错误：400 参数非法（标题、`parentId` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、三件套合计 ≤1,900,000 B）；409 `code:"PARENT_DELETED"`（父页不存在或已软删）；401；429。
+- 错误：400 参数非法（标题、`parentId` / `space_id` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；403 `code:"SPACE_FORBIDDEN"`；404 `code:"SPACE_NOT_FOUND"`；409 `code:"DEFAULT_SPACE_MISSING"` / `code:"PARENT_DELETED"`（父页不存在或已软删）/ `code:"SPACE_MISMATCH"`；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、三件套合计 ≤1,900,000 B）；401；429。
 
 ### 服务端消毒规则（content_html）
 
@@ -723,7 +883,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，`schema_v3` 的三列还不存在——此时注册/建号会失败，`/api/me` 的 `username` 为空串、`avatarUrl` 为 `null`。先升级再使用身份/资料相关功能。
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，`schema_v3` 的三列与 `schema_v4` 的空间表/`pages.space_id` 还不存在——此时注册/建号/页面接口会失败，`/api/me` 的 `username` 为空串、`avatarUrl` 为 `null`。先升级再使用身份、资料与空间相关功能。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。

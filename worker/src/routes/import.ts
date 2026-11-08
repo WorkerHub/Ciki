@@ -1,6 +1,10 @@
 /**
- * 导入接口（规格 §12.1）：给 Confluence 插件用的四个端点，鉴权只认个人导入令牌
+ * 导入接口（规格 §12.1）：给 Confluence 插件用的端点，鉴权只认个人导入令牌
  * （`Authorization: Bearer`，见 middleware/import-token.ts）。
+ *
+ * 空间（规格「Ciki Space」）：令牌只能操作其所属用户具备 `editor` 及以上角色的
+ * 空间；`space_id` 缺省落默认空间。对无权空间明确回 403（插件需要提示用户），
+ * 而不是按不存在隐藏——这是导入入口与页面直链 404 口径的唯一差别。
  *
  * - 只收插件上传的字节，**不做任何服务端外抓**（不收 URL 让服务端去下载），
  *   SSRF 面为零。
@@ -9,17 +13,25 @@
  *   同批写。导入的 `contentJson` 与编辑器保存的完全同一条路径。
  */
 import { Hono } from "hono"
+import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import {
   findSiblingByTitle,
   getPageRow,
   listPageRows
 } from "../db/queries/pages"
+import {
+  findDefaultSpace,
+  findSpaceById,
+  listAllSpaces,
+  listEditableSpaces
+} from "../db/queries/spaces"
 import { normalizeImportedContent } from "../lib/page-input"
 import { handleImageUpload } from "../lib/upload"
 import { createPage, savePageContent } from "../core/page-write"
+import { canEditPages, resolveSpaceRole } from "../core/space-access"
 import { importTokenMiddleware } from "../middleware/import-token"
-import { readJsonBody, readParentId } from "../lib/http"
+import { readJsonBody, readParentId, readSpaceId } from "../lib/http"
 import { MAX_TITLE_LENGTH, toPlainText } from "../lib/sanitize"
 import type { HonoEnv } from "../types"
 
@@ -28,10 +40,86 @@ export const importRoutes = new Hono<HonoEnv>()
 // 整段只认 Bearer 令牌：会话 Cookie 在这里无效（职责分离，见中间件注释）。
 importRoutes.use("*", importTokenMiddleware)
 
+type ImportSpace =
+  | { ok: true; spaceId: string }
+  | { ok: false; response: Response }
+
+/** 解析 space_id（缺省 = 默认空间），并校验令牌用户对该空间有编辑权。 */
+async function resolveImportSpace(
+  c: Context<HonoEnv>,
+  raw: unknown
+): Promise<ImportSpace> {
+  const parsed = readSpaceId(raw)
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      response: c.json({ error: "space_id must be a string" }, 400)
+    }
+  }
+
+  const prefix = getTablePrefix(c.env)
+  let spaceId = parsed.value
+  if (!spaceId) {
+    const fallback = await findDefaultSpace(c.env.DB, prefix)
+    if (!fallback) {
+      return {
+        ok: false,
+        response: c.json(
+          { error: "Default space missing", code: "DEFAULT_SPACE_MISSING" },
+          409
+        )
+      }
+    }
+    spaceId = fallback.id
+  }
+
+  const space = await findSpaceById(c.env.DB, prefix, spaceId)
+  if (!space) {
+    return {
+      ok: false,
+      response: c.json(
+        { error: "Space not found", code: "SPACE_NOT_FOUND" },
+        404
+      )
+    }
+  }
+
+  const role = await resolveSpaceRole(
+    c.env.DB,
+    prefix,
+    spaceId,
+    c.get("userId"),
+    c.get("role") === "admin"
+  )
+  if (!canEditPages(role)) {
+    return {
+      ok: false,
+      response: c.json(
+        { error: "Space forbidden", code: "SPACE_FORBIDDEN" },
+        403
+      )
+    }
+  }
+  return { ok: true, spaceId }
+}
+
+/** GET /api/import/spaces：令牌用户可编辑（admin/editor）的空间，默认空间在前。 */
+importRoutes.get("/spaces", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const spaces =
+    c.get("role") === "admin"
+      ? await listAllSpaces(c.env.DB, prefix)
+      : await listEditableSpaces(c.env.DB, prefix, c.get("userId"))
+  return c.json(spaces.map((space) => ({ id: space.id, name: space.name })))
+})
+
 /** GET /api/import/parents：未删页面的扁平摘要，插件据此选父页。 */
 importRoutes.get("/parents", async (c) => {
+  const space = await resolveImportSpace(c, c.req.query("space_id"))
+  if (!space.ok) return space.response
+
   const prefix = getTablePrefix(c.env)
-  const rows = await listPageRows(c.env.DB, prefix)
+  const rows = await listPageRows(c.env.DB, prefix, space.spaceId)
   return c.json(
     rows.map((row) => ({
       id: row.id,
@@ -41,7 +129,7 @@ importRoutes.get("/parents", async (c) => {
   )
 })
 
-/** POST /api/import/check：同父级下是否已有同名页（用于决定 update / create_copy）。 */
+/** POST /api/import/check：同空间同父级下是否已有同名页。 */
 importRoutes.post("/check", async (c) => {
   const body = await readJsonBody<Record<string, unknown>>(c)
   if (typeof body?.title !== "string") {
@@ -57,10 +145,14 @@ importRoutes.post("/check", async (c) => {
     return c.json({ error: "parentId must be a string or null" }, 400)
   }
 
+  const space = await resolveImportSpace(c, body.space_id)
+  if (!space.ok) return space.response
+
   const prefix = getTablePrefix(c.env)
   const existing = await findSiblingByTitle(
     c.env.DB,
     prefix,
+    space.spaceId,
     parent.value,
     title
   )
@@ -78,8 +170,9 @@ importRoutes.post("/files", (c) => handleImageUpload(c, c.get("userId")))
 /**
  * POST /api/import/pages：新建或更新页面。
  *
- * - `conflict:"update"`：同父级同名未删页 → 覆盖内容并追加 revision（与正常保存
- *   同一路径）；不存在则新建。`create_copy`：总是新建，不改写标题。
+ * - `conflict:"update"`：同空间同父级同名未删页 → 覆盖内容并追加 revision（与
+ *   正常保存同一路径）；不存在则新建。`create_copy`：总是新建，不改写标题。
+ * - `space_id` 可选：缺省落默认空间；父页必须属于目标空间。
  * - 服务端从 contentJson 渲染 HTML 后再消毒，消毒结果为准。
  */
 importRoutes.post("/pages", async (c) => {
@@ -108,13 +201,22 @@ importRoutes.post("/pages", async (c) => {
     )
   }
 
+  const space = await resolveImportSpace(c, body?.space_id)
+  if (!space.ok) return space.response
+
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   if (parentId) {
-    const parent = await getPageRow(db, prefix, parentId)
-    if (!parent || parent.deleted_at) {
+    const parentRow = await getPageRow(db, prefix, parentId)
+    if (!parentRow || parentRow.deleted_at) {
       return c.json(
         { error: "Parent page is deleted", code: "PARENT_DELETED" },
+        409
+      )
+    }
+    if (parentRow.space_id !== space.spaceId) {
+      return c.json(
+        { error: "Parent page is in another space", code: "SPACE_MISMATCH" },
         409
       )
     }
@@ -127,6 +229,7 @@ importRoutes.post("/pages", async (c) => {
     const existing = await findSiblingByTitle(
       db,
       prefix,
+      space.spaceId,
       parentId,
       parsed.value.title
     )
@@ -141,6 +244,7 @@ importRoutes.post("/pages", async (c) => {
   }
 
   const row = await createPage(db, prefix, {
+    spaceId: space.spaceId,
     parentId,
     content: parsed.value,
     userId,

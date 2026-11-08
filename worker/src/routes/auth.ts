@@ -14,6 +14,7 @@ import {
   findUserById,
   type UserRow
 } from "../db/queries/users"
+import { joinDefaultSpace } from "../db/queries/spaces"
 import { countPasskeys } from "../db/queries/passkeys"
 import { getTotp } from "../db/queries/totp"
 import { hashPassword, randomToken, verifyPassword } from "../core/auth"
@@ -166,6 +167,7 @@ authRoutes.post("/register", async (c) => {
   }
 
   const user = await findUserById(c.env.DB, prefix, id)
+  await joinDefaultSpace(c.env.DB, prefix, id, user?.role ?? "user")
   return c.json(
     {
       success: true,

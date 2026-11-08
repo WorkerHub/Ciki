@@ -8,6 +8,7 @@ import { meRoutes } from "./routes/me"
 import { adminRoutes } from "./routes/admin"
 import { setupRoutes } from "./routes/setup"
 import { pageRoutes } from "./routes/pages"
+import { spaceRoutes } from "./routes/spaces"
 import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
 import { importRoutes } from "./routes/import"
@@ -82,6 +83,7 @@ app.route("/api/me", meRoutes)
 app.route("/api/admin", adminRoutes)
 app.route("/api/setup", setupRoutes)
 app.route("/api/pages", pageRoutes)
+app.route("/api/spaces", spaceRoutes)
 app.route("/api/search", searchRoutes)
 app.route("/api/files", fileRoutes)
 app.route("/api/import", importRoutes)

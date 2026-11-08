@@ -44,14 +44,15 @@ export interface PageWriteOptions {
 export async function createPage(
   db: D1Database,
   prefix: string,
-  options: PageWriteOptions & { parentId: string | null }
+  options: PageWriteOptions & { parentId: string | null; spaceId: string }
 ): Promise<PageRow> {
-  const { content, userId, now, parentId } = options
+  const { content, userId, now, parentId, spaceId } = options
   const row: PageRow = {
     id: crypto.randomUUID(),
+    space_id: spaceId,
     parent_id: parentId,
     title: content.title,
-    sort_order: await maxSortOrder(db, prefix, parentId),
+    sort_order: await maxSortOrder(db, prefix, spaceId, parentId),
     content_json: content.contentJson,
     content_html: content.contentHtml,
     content_text: content.contentText,

@@ -2,6 +2,7 @@ import { pagesFtsTable, pagesTable, revisionsTable } from "../../lib/tables"
 
 export interface PageRow {
   id: string
+  space_id: string
   parent_id: string | null
   title: string
   sort_order: number
@@ -42,15 +43,17 @@ function subtreeCte(prefix: string): string {
 
 export async function listPageRows(
   db: D1Database,
-  prefix: string
+  prefix: string,
+  spaceId: string
 ): Promise<PageSummaryRow[]> {
   const rows = await db
     .prepare(
       `SELECT id, parent_id, title, sort_order, updated_at
          FROM ${pagesTable(prefix)}
-        WHERE deleted_at IS NULL
+        WHERE deleted_at IS NULL AND space_id = ?
         ORDER BY sort_order, created_at`
     )
+    .bind(spaceId)
     .all<PageSummaryRow>()
   return rows.results
 }
@@ -69,37 +72,39 @@ export async function getPageRow(
 export async function listChildren(
   db: D1Database,
   prefix: string,
+  spaceId: string,
   parentId: string | null
 ): Promise<PageChildRow[]> {
   const table = pagesTable(prefix)
   const columns = "id, parent_id, sort_order, created_at"
   const sql =
     parentId === null
-      ? `SELECT ${columns} FROM ${table} WHERE parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order, created_at`
-      : `SELECT ${columns} FROM ${table} WHERE parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at`
+      ? `SELECT ${columns} FROM ${table} WHERE space_id = ? AND parent_id IS NULL AND deleted_at IS NULL ORDER BY sort_order, created_at`
+      : `SELECT ${columns} FROM ${table} WHERE space_id = ? AND parent_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at`
   const stmt = db.prepare(sql)
   const rows =
     parentId === null
-      ? await stmt.all<PageChildRow>()
-      : await stmt.bind(parentId).all<PageChildRow>()
+      ? await stmt.bind(spaceId).all<PageChildRow>()
+      : await stmt.bind(spaceId, parentId).all<PageChildRow>()
   return rows.results
 }
 
 export async function maxSortOrder(
   db: D1Database,
   prefix: string,
+  spaceId: string,
   parentId: string | null
 ): Promise<number> {
   const table = pagesTable(prefix)
   const sql =
     parentId === null
-      ? `SELECT MAX(sort_order) AS max FROM ${table} WHERE parent_id IS NULL`
-      : `SELECT MAX(sort_order) AS max FROM ${table} WHERE parent_id = ?`
+      ? `SELECT MAX(sort_order) AS max FROM ${table} WHERE space_id = ? AND parent_id IS NULL`
+      : `SELECT MAX(sort_order) AS max FROM ${table} WHERE space_id = ? AND parent_id = ?`
   const stmt = db.prepare(sql)
   const row =
     parentId === null
-      ? await stmt.first<{ max: number | null }>()
-      : await stmt.bind(parentId).first<{ max: number | null }>()
+      ? await stmt.bind(spaceId).first<{ max: number | null }>()
+      : await stmt.bind(spaceId, parentId).first<{ max: number | null }>()
   return (row?.max ?? -1) + 1
 }
 
@@ -110,19 +115,20 @@ export async function maxSortOrder(
 export async function findSiblingByTitle(
   db: D1Database,
   prefix: string,
+  spaceId: string,
   parentId: string | null,
   title: string
 ): Promise<PageRow | null> {
   const table = pagesTable(prefix)
   const sql =
     parentId === null
-      ? `SELECT * FROM ${table} WHERE parent_id IS NULL AND title = ? AND deleted_at IS NULL ORDER BY sort_order, created_at LIMIT 1`
-      : `SELECT * FROM ${table} WHERE parent_id = ? AND title = ? AND deleted_at IS NULL ORDER BY sort_order, created_at LIMIT 1`
+      ? `SELECT * FROM ${table} WHERE space_id = ? AND parent_id IS NULL AND title = ? AND deleted_at IS NULL ORDER BY sort_order, created_at LIMIT 1`
+      : `SELECT * FROM ${table} WHERE space_id = ? AND parent_id = ? AND title = ? AND deleted_at IS NULL ORDER BY sort_order, created_at LIMIT 1`
   const stmt = db.prepare(sql)
   const row =
     parentId === null
-      ? await stmt.bind(title).first<PageRow>()
-      : await stmt.bind(parentId, title).first<PageRow>()
+      ? await stmt.bind(spaceId, title).first<PageRow>()
+      : await stmt.bind(spaceId, parentId, title).first<PageRow>()
   return row ?? null
 }
 
@@ -134,11 +140,12 @@ export function insertPage(
   return db
     .prepare(
       `INSERT INTO ${pagesTable(prefix)}
-        (id, parent_id, title, sort_order, content_json, content_html, content_text, created_by, updated_by, created_at, updated_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
+        (id, space_id, parent_id, title, sort_order, content_json, content_html, content_text, created_by, updated_by, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
     )
     .bind(
       page.id,
+      page.space_id,
       page.parent_id,
       page.title,
       page.sort_order,
@@ -187,15 +194,16 @@ export function updatePagePlacement(
   db: D1Database,
   prefix: string,
   id: string,
+  spaceId: string,
   parentId: string | null,
   sortOrder: number,
   updatedAt: string
 ): D1PreparedStatement {
   return db
     .prepare(
-      `UPDATE ${pagesTable(prefix)} SET parent_id = ?, sort_order = ?, updated_at = ? WHERE id = ?`
+      `UPDATE ${pagesTable(prefix)} SET space_id = ?, parent_id = ?, sort_order = ?, updated_at = ? WHERE id = ?`
     )
-    .bind(parentId, sortOrder, updatedAt, id)
+    .bind(spaceId, parentId, sortOrder, updatedAt, id)
 }
 
 export function updatePageSortOrder(
@@ -304,13 +312,14 @@ export function permanentDeleteSubtree(
 /** 回收站根：父页未删、父页为空，或父页属于更早的另一批删除。 */
 export async function listTrashRoots(
   db: D1Database,
-  prefix: string
+  prefix: string,
+  spaceId: string
 ): Promise<TrashRow[]> {
   const table = pagesTable(prefix)
   const rows = await db
     .prepare(
       `SELECT p.id, p.parent_id, p.title, p.deleted_at, p.updated_at FROM ${table} p
-        WHERE p.deleted_at IS NOT NULL
+        WHERE p.deleted_at IS NOT NULL AND p.space_id = ?
           AND (
             p.parent_id IS NULL
             OR NOT EXISTS (
@@ -322,6 +331,7 @@ export async function listTrashRoots(
           )
         ORDER BY p.deleted_at DESC, p.sort_order`
     )
+    .bind(spaceId)
     .all<TrashRow>()
   return rows.results
 }

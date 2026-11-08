@@ -363,19 +363,80 @@ describe("页面：软删级联、回收站、恢复与彻底删", () => {
   })
 })
 
-describe("页面：作者/管理员权限", () => {
-  it("登录用户可编辑任何页面；删除与回滚限作者或管理员", async () => {
+describe("页面：空间角色权限", () => {
+  it("editor 可编辑/删除/回滚他人页面；viewer 只读", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const user = await userSession(env, admin)
+    const viewer = await userSession(env, admin, "viewer@example.com")
+
+    const spaces = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as Array<{ id: string; isDefault: boolean }>
+    const space = spaces.find((row) => row.isDefault)
+    expect(space).toBeTruthy()
+
+    const viewerMe = (await (
+      await jsonRequest(env, "GET", "/api/me", undefined, viewer)
+    ).json()) as { id: string }
+    const added = await jsonRequest(
+      env,
+      "PUT",
+      `/api/spaces/${space?.id}/members/${viewerMe.id}`,
+      { role: "viewer" },
+      admin
+    )
+    expect(added.status).toBe(200)
+
     const page = await createPage(env, admin, { title: "管理员的页面" })
+
+    const viewerEdit = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}`,
+      {
+        title: "viewer 改",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>改过</p>",
+        contentText: "改过"
+      },
+      viewer
+    )
+    expect(viewerEdit.status).toBe(403)
+
+    const viewerDelete = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/pages/${page.id}`,
+      undefined,
+      viewer
+    )
+    expect(viewerDelete.status).toBe(403)
+
+    const viewerRevisions = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${page.id}/revisions`,
+        undefined,
+        viewer
+      )
+    ).json()) as Array<{ id: string }>
+    const viewerRestore = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/revisions/${viewerRevisions[0].id}/restore`,
+      undefined,
+      viewer
+    )
+    expect(viewerRestore.status).toBe(403)
 
     const edit = await jsonRequest(
       env,
       "PUT",
       `/api/pages/${page.id}`,
       {
-        title: "被普通用户编辑",
+        title: "被 editor 编辑",
         contentJson: JSON.stringify({ type: "doc" }),
         contentHtml: "<p>改过</p>",
         contentText: "改过"
@@ -384,14 +445,23 @@ describe("页面：作者/管理员权限", () => {
     )
     expect(edit.status).toBe(200)
 
-    const deleteDenied = await jsonRequest(
+    const deleted = await jsonRequest(
       env,
       "DELETE",
       `/api/pages/${page.id}`,
       undefined,
       user
     )
-    expect(deleteDenied.status).toBe(403)
+    expect(deleted.status).toBe(200)
+
+    const restored = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/restore`,
+      undefined,
+      user
+    )
+    expect(restored.status).toBe(200)
 
     const revisions = (await (
       await jsonRequest(
@@ -402,23 +472,14 @@ describe("页面：作者/管理员权限", () => {
         user
       )
     ).json()) as Array<{ id: string }>
-    const restoreDenied = await jsonRequest(
+    const rolledBack = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${revisions[0].id}/restore`,
+      `/api/pages/${page.id}/revisions/${revisions[revisions.length - 1].id}/restore`,
       undefined,
       user
     )
-    expect(restoreDenied.status).toBe(403)
-
-    const deleteAllowed = await jsonRequest(
-      env,
-      "DELETE",
-      `/api/pages/${page.id}`,
-      undefined,
-      admin
-    )
-    expect(deleteAllowed.status).toBe(200)
+    expect(rolledBack.status).toBe(200)
   })
 
   it("未登录访问页面接口 401", async () => {

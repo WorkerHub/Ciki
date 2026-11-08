@@ -5,6 +5,7 @@ import {
   splitStatements
 } from "../src/lib/migrations-runner"
 import { runSetup } from "../src/lib/setup"
+import { createSession } from "../src/core/session"
 import {
   TEST_SETUP_SECRET,
   adminSession,
@@ -23,6 +24,7 @@ async function legacyContext(applied: number) {
   const prefix = "ciki_"
   const ledger = await ensureLedgerTable(context.env.DB, prefix)
   for (const migration of getMigrations(prefix).slice(0, applied)) {
+    if (migration.prepare) await migration.prepare(context.env.DB, prefix)
     for (const statement of splitStatements(migration.sql)) {
       await context.env.DB.prepare(statement).run()
     }
@@ -60,7 +62,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "applied" },
       { name: "schema_v2", status: "applied" },
-      { name: "schema_v3", status: "applied" }
+      { name: "schema_v3", status: "applied" },
+      { name: "schema_v4", status: "applied" }
     ])
 
     const tables = db.db
@@ -79,6 +82,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       "ciki_page_revisions",
       "ciki_pages_fts",
       "ciki_import_tokens",
+      "ciki_spaces",
+      "ciki_space_members",
       "ciki_schema_migrations"
     ]) {
       expect(names).toContain(name)
@@ -98,7 +103,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
-      { name: "schema_v3", status: "skipped" }
+      { name: "schema_v3", status: "skipped" },
+      { name: "schema_v4", status: "skipped" }
     ])
 
     const row = db.db
@@ -134,7 +140,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "applied" },
-      { name: "schema_v3", status: "applied" }
+      { name: "schema_v3", status: "applied" },
+      { name: "schema_v4", status: "skipped" }
     ])
 
     const page = db.db
@@ -322,7 +329,8 @@ describe("schema_v3：身份列与存量回填", () => {
     expect(result.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
-      { name: "schema_v3", status: "applied" }
+      { name: "schema_v3", status: "applied" },
+      { name: "schema_v4", status: "applied" }
     ])
 
     const columns = (
@@ -353,6 +361,7 @@ describe("schema_v3：身份列与存量回填", () => {
     const again = await runSetup(env)
     if (!again.success) throw new Error(again.error)
     expect(again.migrations.map((migration) => migration.status)).toEqual([
+      "skipped",
       "skipped",
       "skipped",
       "skipped"
@@ -446,5 +455,186 @@ describe("schema_v3：身份列与存量回填", () => {
       expect(row.public_id).toMatch(PUBLIC_ID_RE)
       expect(row.username).toBe(row.email.split("@")[0])
     }
+  })
+})
+
+describe("schema_v4：空间与存量回填", () => {
+  it("v3 存量库升级：建默认空间、回填页面与成员，旧用户可照常读写", async () => {
+    const { env, db } = await legacyContext(3)
+    const now = new Date().toISOString()
+
+    const insertUser = db.db.prepare(
+      `INSERT INTO ciki_users
+        (id, email, username, public_id, password_hash, role, is_active, approval_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'salt:hash', ?, ?, ?, ?, ?)`
+    )
+    insertUser.run(
+      "u-admin",
+      "admin@example.com",
+      "admin",
+      "ADMIN222",
+      "admin",
+      1,
+      "approved",
+      now,
+      now
+    )
+    insertUser.run(
+      "u-editor",
+      "editor@example.com",
+      "editor",
+      "EDITOR22",
+      "user",
+      1,
+      "approved",
+      now,
+      now
+    )
+    insertUser.run(
+      "u-pending",
+      "pending@example.com",
+      "pending",
+      "PENDNG22",
+      "user",
+      0,
+      "pending",
+      now,
+      now
+    )
+
+    const insertPage = db.db.prepare(
+      `INSERT INTO ciki_pages
+        (id, parent_id, title, sort_order, content_json, content_html, content_text,
+         created_by, updated_by, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, '{"type":"doc"}', '<p>存量</p>', '存量', ?, ?, ?, ?, ?)`
+    )
+    insertPage.run(
+      "p-root",
+      null,
+      "存量根页",
+      0,
+      "u-editor",
+      "u-editor",
+      now,
+      now,
+      null
+    )
+    insertPage.run(
+      "p-child",
+      "p-root",
+      "存量子页",
+      0,
+      "u-editor",
+      "u-editor",
+      now,
+      now,
+      null
+    )
+    insertPage.run(
+      "p-trashed",
+      null,
+      "回收站页",
+      1,
+      "u-editor",
+      "u-editor",
+      now,
+      now,
+      now
+    )
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    expect(result.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" },
+      { name: "schema_v4", status: "applied" }
+    ])
+
+    const space = db.db
+      .prepare("SELECT * FROM ciki_spaces WHERE is_default = 1")
+      .get() as {
+      id: string
+      name: string
+      created_by: string
+      is_default: number
+    }
+    expect(space.name).toBe("默认空间")
+    expect(space.created_by).toBe("u-admin")
+    expect(space.is_default).toBe(1)
+
+    const pages = db.db
+      .prepare("SELECT id, space_id FROM ciki_pages ORDER BY id")
+      .all() as unknown as Array<{ id: string; space_id: string }>
+    expect(pages.map((row) => row.space_id)).toEqual([
+      space.id,
+      space.id,
+      space.id
+    ])
+
+    const members = db.db
+      .prepare(
+        "SELECT user_id, role FROM ciki_space_members WHERE space_id = ? ORDER BY user_id"
+      )
+      .all(space.id) as unknown as Array<{ user_id: string; role: string }>
+    expect(members).toEqual([
+      { user_id: "u-admin", role: "admin" },
+      { user_id: "u-editor", role: "editor" },
+      { user_id: "u-pending", role: "editor" }
+    ])
+
+    // 旧用户不需要重登也能读写：会话按用户 id 签发，权限来自迁移出的成员关系。
+    const { token } = await createSession(env.DB, "ciki_", {
+      userId: "u-editor"
+    })
+    const cookie = `ciki_session=${token}`
+    const tree = await jsonRequest(env, "GET", "/api/pages", undefined, cookie)
+    expect(tree.status).toBe(200)
+    const treeBody = (await tree.json()) as Array<{ id: string; title: string }>
+    expect(treeBody).toHaveLength(1)
+    expect(treeBody[0].title).toBe("存量根页")
+
+    const created = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "迁移后新页",
+        parentId: null,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>新页</p>",
+        contentText: "新页"
+      },
+      cookie
+    )
+    expect(created.status).toBe(201)
+    const createdBody = (await created.json()) as { spaceId: string }
+    expect(createdBody.spaceId).toBe(space.id)
+
+    const admin = await createSession(env.DB, "ciki_", { userId: "u-admin" })
+    const spaces = await jsonRequest(
+      env,
+      "GET",
+      "/api/spaces",
+      undefined,
+      `ciki_session=${admin.token}`
+    )
+    expect(spaces.status).toBe(200)
+    const spacesBody = (await spaces.json()) as Array<{
+      id: string
+      myRole: string
+    }>
+    expect(spacesBody).toEqual([
+      { ...spacesBody[0], id: space.id, myRole: "admin" }
+    ])
+
+    // 迁移账本已记账：再跑一次 setup 全部 skipped，不会重复建默认空间。
+    const again = await runSetup(env)
+    if (!again.success) throw new Error(again.error)
+    expect(again.migrations.every((row) => row.status === "skipped")).toBe(true)
+    const count = db.db
+      .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
+      .get() as { count: number }
+    expect(count.count).toBe(1)
   })
 })
