@@ -292,9 +292,6 @@ export function SettingsPage() {
         <h1 className="font-heading text-xl font-semibold tracking-tight">
           设置
         </h1>
-        <p className="text-xs text-muted-foreground">
-          个人偏好与账号安全。主题只影响这台设备的显示。
-        </p>
       </header>
 
       {error ? (
@@ -323,9 +320,6 @@ export function SettingsPage() {
             />
             外观
           </CardTitle>
-          <CardDescription>
-            默认跟随系统；选择会保存在本机，首屏不会闪烁。
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <ThemeSegmented />
@@ -341,7 +335,6 @@ export function SettingsPage() {
             <Lock className="size-4 text-muted-foreground" aria-hidden="true" />
             修改密码
           </CardTitle>
-          <CardDescription>修改后其它设备上的会话会被吊销。</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -405,9 +398,6 @@ export function SettingsPage() {
             />
             两步验证
           </CardTitle>
-          <CardDescription>
-            站点开启强制 2FA 时，登录后需要在这里完成配置。
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           <section className="space-y-2">
@@ -507,7 +497,7 @@ export function SettingsPage() {
                 <p className="text-xs text-muted-foreground">
                   {passkeyCount > 0
                     ? `已登记 ${passkeyCount} 个 Passkey（指纹 / 面容 / 安全钥匙）。`
-                    : "未登记。登录第二步可以用 Passkey 代替动态码。"}
+                    : "未登记。"}
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
@@ -537,10 +527,6 @@ export function SettingsPage() {
                 ) : null}
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              受契约限制，服务端只回 Passkey
-              数量、不提供逐个凭据列表，所以这里只能整体移除。
-            </p>
           </section>
         </CardContent>
       </Card>

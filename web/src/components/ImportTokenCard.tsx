@@ -12,13 +12,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ApiError,
   describeApiError,
@@ -139,10 +133,6 @@ export function ImportTokenCard() {
           />
           导入令牌
         </CardTitle>
-        <CardDescription>
-          浏览器插件用它把页面导入
-          ciki。令牌权限等同你本人，只能调用导入接口，不能用来登录网页。
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {current === null ? (
