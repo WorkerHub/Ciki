@@ -21,6 +21,12 @@ interface IdentityRow {
   public_id: string
 }
 
+/**
+ * D1 的 `db.batch()` 一次能带的语句数有限（远小于“用户数 × 2”的存量规模），
+ * 回填按这个尺寸切片执行；每片自带 `WHERE … = ''` 过滤，重复执行无副作用。
+ */
+const BACKFILL_BATCH_SIZE = 100
+
 /** 补齐 users 的身份列并回填存量行。可重复执行，绝不覆盖已有值。 */
 export async function prepareIdentitySchema(
   db: D1Database,
@@ -75,5 +81,7 @@ export async function prepareIdentitySchema(
       )
     }
   }
-  if (statements.length > 0) await db.batch(statements)
+  for (let i = 0; i < statements.length; i += BACKFILL_BATCH_SIZE) {
+    await db.batch(statements.slice(i, i + BACKFILL_BATCH_SIZE))
+  }
 }

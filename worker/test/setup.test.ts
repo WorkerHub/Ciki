@@ -403,4 +403,48 @@ describe("schema_v3：身份列与存量回填", () => {
     expect(dave?.username).toBe("手动名")
     expect(dave?.public_id).toBe("ZZZZZZZZ")
   })
+
+  it("存量用户数超过单批上限（每位两条更新）时照样全部回填", async () => {
+    const { env, db } = await legacyContext(2)
+    const now = new Date().toISOString()
+    const total = 70
+    const insert = db.db.prepare(
+      "INSERT INTO ciki_users (id, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+    )
+    for (let i = 0; i < total; i += 1) {
+      insert.run(`bulk-${i}`, `user${i}@example.com`, "s:h", now, now)
+    }
+
+    // 记录 db.batch 的每批语句数：70 位 × 2 条更新 = 140 条，应该拆成 2 批。
+    const batchSizes: number[] = []
+    const originalBatch = db.batch.bind(db)
+    db.batch = async (statements) => {
+      batchSizes.push(statements.length)
+      return originalBatch(statements)
+    }
+    const result = await runSetup(env)
+    db.batch = originalBatch
+
+    if (!result.success) throw new Error(result.error)
+    expect(result.migrations[2]).toEqual({
+      name: "schema_v3",
+      status: "applied"
+    })
+    expect(batchSizes.reduce((sum, size) => sum + size, 0)).toBe(total * 2)
+    for (const size of batchSizes) expect(size).toBeLessThanOrEqual(100)
+
+    const rows = db.db
+      .prepare("SELECT email, username, public_id FROM ciki_users")
+      .all() as unknown as Array<{
+      email: string
+      username: string
+      public_id: string
+    }>
+    expect(rows).toHaveLength(total)
+    expect(new Set(rows.map((row) => row.public_id)).size).toBe(total)
+    for (const row of rows) {
+      expect(row.public_id).toMatch(PUBLIC_ID_RE)
+      expect(row.username).toBe(row.email.split("@")[0])
+    }
+  })
 })
