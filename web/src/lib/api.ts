@@ -247,6 +247,21 @@ export interface SetupResult {
   migrations: SetupMigration[]
 }
 
+/** R2 月度清理的一轮日志（与 worker 的 DTO 同形）；页面只展示其中六项。 */
+export interface R2CleanupSummary {
+  startedAt: string
+  finishedAt: string
+  trigger: "cron" | "waker" | "manual"
+  status: "ok" | "failed" | "skipped"
+  dryRun: boolean
+  scanned: number
+  referenced: number
+  deleted: number
+  youngSkipped: number
+  failed: number
+  truncated: boolean
+}
+
 export interface SessionInfo {
   id: string
   createdAt: string
@@ -608,6 +623,9 @@ export const adminApi = {
   reject: (id: string) =>
     api.post<{ success: true }>(`/admin/users/${id}/reject`),
   runAsAdmin: () => api.post<SetupResult>("/admin/setup"),
+  /** 最近一轮真实清理（排除 dry-run 与被防双跑守卫跳过的运行）。 */
+  r2Cleanup: () =>
+    api.get<{ lastRun: R2CleanupSummary | null }>("/admin/r2-cleanup"),
   spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
