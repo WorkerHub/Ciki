@@ -7,7 +7,7 @@
  */
 import { Hono } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
-import { getBooleanSetting } from "../db/queries/settings"
+import { getBooleanSetting, getSetting } from "../db/queries/settings"
 import {
   createUserFirstIsAdmin,
   findUserByEmail,
@@ -34,6 +34,12 @@ import {
 } from "../core/counters"
 import { clientIp, issueSession, readJsonBody } from "../lib/http"
 import { generateId } from "../core/auth"
+import {
+  DEFAULT_SITE_NAME,
+  defaultUsernameFromEmail,
+  insertWithFreshPublicId,
+  isEmailConflict
+} from "../core/identity"
 import type { HonoEnv } from "../types"
 
 const EMAIL_RE =
@@ -59,6 +65,8 @@ authRoutes.get("/config", async (c) => {
   const prefix = getTablePrefix(c.env)
   try {
     return c.json({
+      siteName:
+        (await getSetting(c.env.DB, prefix, "site_name")) ?? DEFAULT_SITE_NAME,
       registrationEnabled: await getBooleanSetting(
         c.env.DB,
         prefix,
@@ -74,6 +82,7 @@ authRoutes.get("/config", async (c) => {
     })
   } catch {
     return c.json({
+      siteName: DEFAULT_SITE_NAME,
       registrationEnabled: true,
       registrationApprovalRequired: true
     })
@@ -134,15 +143,20 @@ authRoutes.post("/register", async (c) => {
     true
   )
   const id = generateId()
+  const passwordHash = await hashPassword(password)
   try {
-    await createUserFirstIsAdmin(c.env.DB, prefix, {
-      id,
-      email,
-      password_hash: await hashPassword(password),
-      approvalStatus: approvalRequired ? "pending" : "approved"
-    })
+    await insertWithFreshPublicId((publicId) =>
+      createUserFirstIsAdmin(c.env.DB, prefix, {
+        id,
+        email,
+        username: defaultUsernameFromEmail(email),
+        public_id: publicId,
+        password_hash: passwordHash,
+        approvalStatus: approvalRequired ? "pending" : "approved"
+      })
+    )
   } catch (err) {
-    if (err instanceof Error && /UNIQUE/i.test(err.message)) {
+    if (isEmailConflict(err)) {
       return c.json(
         { error: "Email already registered", code: "EMAIL_TAKEN" },
         409

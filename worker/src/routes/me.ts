@@ -3,8 +3,10 @@
  */
 import { Hono } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
-import { findUserById, updateUser } from "../db/queries/users"
+import { findUserById, updateUser, type UserRow } from "../db/queries/users"
 import { twofaSummary } from "./auth-2fa"
+import { normalizeUsername } from "../core/identity"
+import { UPLOAD_KEY_RE } from "../lib/upload"
 import {
   deleteSessionById,
   deleteUserSessions,
@@ -23,20 +25,97 @@ import type { HonoEnv } from "../types"
 
 export const meRoutes = new Hono<HonoEnv>()
 
+/** `/api/me` 与 `PUT /api/me/profile` 共用同一份 DTO（头像只给 URL，不暴露 R2 key）。 */
+function meDto(user: UserRow, twofa: Awaited<ReturnType<typeof twofaSummary>>) {
+  return {
+    id: user.id,
+    publicId: user.public_id ?? "",
+    username: user.username ?? "",
+    email: user.email,
+    role: user.role,
+    avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null,
+    approvalStatus: user.approval_status,
+    createdAt: user.created_at,
+    twofa
+  }
+}
+
 meRoutes.get("/", async (c) => {
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
   const user = await findUserById(c.env.DB, prefix, userId)
   if (!user) return c.json({ error: "User not found" }, 404)
 
-  return c.json({
-    id: user.id,
-    email: user.email,
-    role: user.role,
-    approvalStatus: user.approval_status,
-    createdAt: user.created_at,
-    twofa: await twofaSummary(c.env.DB, prefix, userId)
-  })
+  return c.json(meDto(user, await twofaSummary(c.env.DB, prefix, userId)))
+})
+
+/**
+ * 个人资料：只改显示名与头像。id / email / publicId 一律只读，不接受写入；
+ * 头像必须是本人经 /api/files 上传、且 R2 里仍在的 key（null 表示清除）。
+ */
+meRoutes.put("/profile", async (c) => {
+  const body = await readJsonBody<{ username?: unknown; avatarKey?: unknown }>(
+    c
+  )
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
+
+  const hasUsername = body.username !== undefined
+  const hasAvatar = body.avatarKey !== undefined
+  if (!hasUsername && !hasAvatar) {
+    return c.json({ error: "Nothing to update" }, 400)
+  }
+
+  let username: string | undefined
+  if (hasUsername) {
+    const normalized = normalizeUsername(body.username)
+    if (!normalized) {
+      return c.json(
+        { error: "Invalid username", code: "INVALID_USERNAME" },
+        400
+      )
+    }
+    username = normalized
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const user = await findUserById(c.env.DB, prefix, userId)
+  if (!user) return c.json({ error: "User not found" }, 404)
+
+  let avatarKey: string | null | undefined
+  if (hasAvatar) {
+    if (body.avatarKey === null) {
+      avatarKey = null
+    } else {
+      const candidate = typeof body.avatarKey === "string" ? body.avatarKey : ""
+      const object = UPLOAD_KEY_RE.test(candidate)
+        ? await c.env.R2.head(candidate)
+        : null
+      if (!object || object.customMetadata?.uploaderId !== userId) {
+        return c.json({ error: "Invalid avatar", code: "INVALID_AVATAR" }, 400)
+      }
+      avatarKey = candidate
+    }
+  }
+
+  const updates: Record<string, unknown> = {}
+  if (username !== undefined) updates.username = username
+  if (avatarKey !== undefined) updates.avatar_key = avatarKey ?? ""
+  await updateUser(c.env.DB, prefix, userId, updates)
+
+  const previous = user.avatar_key
+  if (avatarKey !== undefined && previous && previous !== avatarKey) {
+    try {
+      await c.env.R2.delete(previous)
+    } catch {
+      // 旧图删不掉不影响资料更新，最多在桶里留一个孤儿对象。
+    }
+  }
+
+  const updated = (await findUserById(c.env.DB, prefix, userId)) ?? user
+  return c.json(meDto(updated, await twofaSummary(c.env.DB, prefix, userId)))
 })
 
 meRoutes.put("/password", async (c) => {

@@ -47,6 +47,19 @@ export class MemoryR2 {
     }
   }
 
+  /** 与 R2 的 head 对齐：只回元数据，不下载正文（头像校验用）。 */
+  async head(key: string) {
+    const object = this.store.get(key)
+    if (!object) return null
+    return {
+      key,
+      size: object.bytes.length,
+      httpEtag: object.httpEtag,
+      httpMetadata: object.httpMetadata,
+      customMetadata: object.customMetadata
+    }
+  }
+
   async delete(key: string): Promise<void> {
     this.store.delete(key)
   }

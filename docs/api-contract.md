@@ -20,25 +20,31 @@
 
 ## 二、数据模型
 
-迁移两条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
+迁移三条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
 - `schema_v1`：鉴权、设置、页面、版本与 FTS 的全部表。
 - `schema_v2`：导入令牌表 `{prefix}import_tokens`（v1.1 增补）。
+- `schema_v3`：users 的身份三列（`username` / `public_id` / `avatar_key`）与 `public_id` 的部分唯一索引。SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以加列与存量回填放在该迁移的 `prepare` 步骤（先于 sql 执行）：按 `PRAGMA table_info` 判断缺哪列再补，随后只把新列里**仍为空**的值填上（`username` 取邮箱前缀、`public_id` 用系统生成器并与全表已有值去重），更新都带 `WHERE … = ''`，因此不覆盖任何既有数据、可重复执行、失败后从断点续跑。
 
-回滚方式：人工删除对应迁移新建的表/索引，并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
+回滚方式：人工删除对应迁移新建的表/索引（`schema_v3` 为 `{prefix}users_public_id`），并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'|'schema_v3'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
 
 ### users
 
-| 列                                                       | 类型                             | 说明                                             |
-| -------------------------------------------------------- | -------------------------------- | ------------------------------------------------ |
-| id                                                       | TEXT PK                          | UUID                                             |
-| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写                               |
-| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex` |
-| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                 |
-| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                              |
-| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`              |
-| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露             |
-| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                         |
+| 列                                                       | 类型                             | 说明                                                      |
+| -------------------------------------------------------- | -------------------------------- | --------------------------------------------------------- |
+| id                                                       | TEXT PK                          | UUID（内部主键，不对外展示为「用户 ID」）                 |
+| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线        |
+| username                                                 | TEXT NOT NULL DEFAULT ''         | 显示名，用户可改、**不要求唯一**；缺省取邮箱前缀          |
+| public_id                                                | TEXT NOT NULL DEFAULT ''         | 8 位系统生成的对外用户 ID，唯一、生成后不可改             |
+| avatar_key                                               | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key，读接口 `/api/files/:key`；空串 = 无头像 |
+| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`          |
+| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                          |
+| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                                       |
+| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                       |
+| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露                      |
+| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                                  |
+
+索引：`{prefix}users_public_id` 是 `public_id` 上的部分唯一索引（`WHERE public_id <> ''`）：未回填的空串不参与唯一性，回填完成后由数据库兜底并发建号的撞键。`public_id` 的字符表为 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`（去掉易混的 0/O/1/I/L），长度固定 8。
 
 ### user_2fa（只存 TOTP）
 
@@ -118,10 +124,13 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 | key                            | 值               | 默认           |
 | ------------------------------ | ---------------- | -------------- |
+| site_name                      | 站点名称         | `Ciki`         |
 | setup_page_enabled             | `0` / `1`        | 初始化后写 `0` |
 | registration_enabled           | `true` / `false` | `true`         |
 | registration_approval_required | `true` / `false` | `true`         |
 | require_2fa                    | `true` / `false` | `false`        |
+
+`site_name` 是站点作用域的单值（浏览器页签标题、品牌区文字、登录页标题），仅管理员可改，长度 1–32 字符、不含控制字符；未播种时读端回退 `Ciki`。
 
 ### import_tokens（个人导入令牌）
 
@@ -221,8 +230,14 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 #### GET /api/auth/config（公开）
 
 ```json
-{ "registrationEnabled": true, "registrationApprovalRequired": true }
+{
+  "siteName": "Ciki",
+  "registrationEnabled": true,
+  "registrationApprovalRequired": true
+}
 ```
+
+`siteName` 未登录也可读（登录页标题要用），不含敏感信息。
 
 #### POST /api/auth/register
 
@@ -232,7 +247,8 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 - 201 `{"success":true,"approvalRequired":false}`。
 - 用户表为空时：首个用户为 `admin`、直接批准并激活；否则按 `registration_approval_required` 落 `pending`（`approvalRequired: true`）或直接批准。
-- 400 校验失败；403 `code:"REGISTRATION_DISABLED"`；409 `code:"EMAIL_TAKEN"`。
+- 服务端自动生成 `public_id`（8 位、唯一）并把 `username` 初始化为邮箱前缀（按码点截断 40），客户端不能指定这两个值。
+- 400 校验失败；403 `code:"REGISTRATION_DISABLED"`；409 `code:"EMAIL_TAKEN"`（唯一约束冲突一律映射成这个 409，含并发撞键）。
 
 #### POST /api/auth/login
 
@@ -301,15 +317,29 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 ```json
 {
   "id": "…",
+  "publicId": "7FJ2K9QM",
+  "username": "alice",
   "email": "…",
   "role": "admin",
+  "avatarUrl": "/api/files/<uuid>.png",
   "approvalStatus": "approved",
   "createdAt": "2026-11-07T12:00:00.000Z",
   "twofa": { "totpEnabled": false, "passkeyEnabled": false, "passkeyCount": 0 }
 }
 ```
 
-受限会话也可访问（前端据此跳 2FA 设置）。
+`publicId` 是对外展示的「用户 ID」（8 位、不可改），`id` 仍是内部 UUID。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。受限会话也可访问（前端据此跳 2FA 设置）。
+
+#### PUT /api/me/profile
+
+```json
+{ "username": "观察者", "avatarKey": "<uuid>.png" }
+```
+
+- 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。
+- `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；不要求唯一。
+- `avatarKey`：必须是本人经 `POST /api/files` 上传、且 R2 中仍存在的 key（`null` 表示清除头像），否则 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
+- `id` / `email` / `publicId` 只读：传了也不生效（只认上面两个字段）。
 
 #### PUT /api/me/password
 
@@ -375,7 +405,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 { "email": "…", "password": "…", "role": "user" }
 ```
 
-201，直接批准并激活。
+201，直接批准并激活；`username` 默认取邮箱前缀、`public_id` 由服务端生成。邮箱已存在 → 409 `code:"EMAIL_TAKEN"`。
 
 #### PUT /api/admin/users/:id
 
@@ -383,7 +413,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 { "role": "admin", "isActive": true, "email": "…", "password": "…" }
 ```
 
-字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话。
+字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。`username` / `public_id` / 头像不在此接口里改。
 
 #### DELETE /api/admin/users/:id
 
@@ -401,6 +431,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 ```json
 {
+  "siteName": "Ciki",
   "setupPageEnabled": false,
   "registrationEnabled": true,
   "registrationApprovalRequired": true,
@@ -410,7 +441,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 #### PUT /api/admin/settings
 
-同一对象的任意子集，值为布尔：200 `{"success":true}`。
+同一对象的任意子集：布尔项照旧，`siteName` 为字符串（trim 后 1–32 字符、不含控制字符，否则 400 `siteName must be 1-32 characters`）。200 `{"success":true}`。
 
 ### 页面
 
@@ -692,6 +723,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ## 四、前端对接要点
 
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，`schema_v3` 的三列还不存在——此时注册/建号会失败，`/api/me` 的 `username` 为空串、`avatarUrl` 为 `null`。先升级再使用身份/资料相关功能。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。

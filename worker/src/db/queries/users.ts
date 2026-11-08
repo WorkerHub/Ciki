@@ -4,6 +4,9 @@ export interface UserRow {
   id: string
   email: string
   password_hash: string
+  username: string
+  public_id: string
+  avatar_key: string
   role: "admin" | "user"
   is_active: number
   approval_status: "pending" | "approved" | "rejected"
@@ -26,6 +29,8 @@ export async function createUserFirstIsAdmin(
   data: {
     id: string
     email: string
+    username: string
+    public_id: string
     password_hash: string
     approvalStatus: "pending" | "approved"
   }
@@ -36,8 +41,8 @@ export async function createUserFirstIsAdmin(
   await db
     .prepare(
       `INSERT INTO ${table}
-        (id, email, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
-       SELECT ?, ?, ?,
+        (id, email, username, public_id, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
+       SELECT ?, ?, ?, ?, ?,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'admin' ELSE 'user' END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'approved' ELSE ? END,
@@ -46,6 +51,8 @@ export async function createUserFirstIsAdmin(
     .bind(
       data.id,
       data.email,
+      data.username,
+      data.public_id,
       data.password_hash,
       active,
       data.approvalStatus,
@@ -62,6 +69,8 @@ export async function createApprovedUser(
   data: {
     id: string
     email: string
+    username: string
+    public_id: string
     password_hash: string
     role: "admin" | "user"
   }
@@ -71,10 +80,19 @@ export async function createApprovedUser(
   await db
     .prepare(
       `INSERT INTO ${table}
-        (id, email, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, 'approved', 0, 'CNY', 'UTC', 'zh', 'system', ?, ?)`
+        (id, email, username, public_id, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 1, 'approved', 0, 'CNY', 'UTC', 'zh', 'system', ?, ?)`
     )
-    .bind(data.id, data.email, data.password_hash, data.role, now, now)
+    .bind(
+      data.id,
+      data.email,
+      data.username,
+      data.public_id,
+      data.password_hash,
+      data.role,
+      now,
+      now
+    )
     .run()
 }
 
@@ -107,7 +125,9 @@ const UPDATABLE = new Set([
   "password_hash",
   "is_active",
   "approval_status",
-  "role"
+  "role",
+  "username",
+  "avatar_key"
 ])
 
 export async function updateUser(

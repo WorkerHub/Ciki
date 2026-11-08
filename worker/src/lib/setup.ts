@@ -20,6 +20,7 @@ import {
   runLedgerMigrations,
   type LedgerMigrationResult
 } from "./migrations-runner"
+import { DEFAULT_SITE_NAME } from "../core/identity"
 import type { Env } from "../types"
 
 export type SetupResult =
@@ -38,6 +39,7 @@ export type SetupResult =
 
 /** 初始化完成后写入的站点设置默认值（INSERT OR IGNORE，不覆盖已有值）。 */
 export const DEFAULT_SETTINGS: Record<string, string> = {
+  site_name: DEFAULT_SITE_NAME,
   setup_page_enabled: "0",
   registration_enabled: "true",
   registration_approval_required: "true",
