@@ -1,13 +1,5 @@
-import { LogIn, ShieldCheck } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 import { useState } from "react"
-import { Link } from "react-router"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DatabaseTab } from "@/pages/admin/DatabaseTab"
 import { SecurityTab } from "@/pages/admin/SecurityTab"
@@ -21,7 +13,7 @@ export function AdminPage() {
 
   return (
     <div className="space-y-4">
-      <header className="space-y-1">
+      <header>
         <h1 className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight">
           <ShieldCheck
             className="size-4 text-muted-foreground"
@@ -29,9 +21,6 @@ export function AdminPage() {
           />
           系统管理
         </h1>
-        <p className="text-xs text-muted-foreground">
-          站点级设置仅管理员可见。改动立即生效，不需要重启服务。
-        </p>
       </header>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -58,27 +47,6 @@ export function AdminPage() {
           <DatabaseTab />
         </TabsContent>
       </Tabs>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <LogIn
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            登录与注册
-          </CardTitle>
-          <CardDescription>
-            登录支持账号密码 + 第二步验证（TOTP 或
-            Passkey）；自助注册受上面的开关与审批控制。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Link to="/trash" className="text-xs underline underline-offset-4">
-            去回收站查看已删除页面
-          </Link>
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { adminApi, describeApiError, type SiteSettings } from "@/lib/api"
 import { SettingRow } from "@/pages/admin/SettingRow"
 
-/** 访问与安全：强制两步验证 + 站点权限模型说明。 */
+/** 访问与安全：强制两步验证、注册与审批开关 + 站点权限模型说明。 */
 export function SecurityTab() {
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [saving, setSaving] = useState(false)
@@ -24,15 +24,16 @@ export function SecurityTab() {
     }
   }, [])
 
-  const toggle = async (checked: boolean) => {
+  const update = async (patch: Partial<SiteSettings>) => {
     if (!settings) return
     setSaving(true)
     setError("")
-    setSettings({ ...settings, require2fa: checked })
+    const previous = settings
+    setSettings({ ...settings, ...patch })
     try {
-      await adminApi.saveSettings({ require2fa: checked })
+      await adminApi.saveSettings(patch)
     } catch (saveError) {
-      setSettings(settings)
+      setSettings(previous)
       setError(describeApiError(saveError))
     } finally {
       setSaving(false)
@@ -52,13 +53,33 @@ export function SecurityTab() {
 
       <div className="rounded-xl border border-border px-4">
         {settings ? (
-          <SettingRow
-            label="强制两步验证"
-            description="开启后，未配置 TOTP 或 Passkey 的账号登录后会先被引导到「设置 → 两步验证」，配置完成前只能访问安全设置。"
-            checked={settings.require2fa}
-            disabled={saving}
-            onChange={(checked) => void toggle(checked)}
-          />
+          <>
+            <SettingRow
+              label="强制两步验证"
+              description="开启后，未配置 TOTP 或 Passkey 的账号登录后会先被引导到「设置 → 两步验证」，配置完成前只能访问安全设置。"
+              checked={settings.require2fa}
+              disabled={saving}
+              onChange={(checked) => void update({ require2fa: checked })}
+            />
+            <SettingRow
+              label="开放注册"
+              description="关闭后新账号只能由管理员在「用户管理」里创建。"
+              checked={settings.registrationEnabled}
+              disabled={saving}
+              onChange={(checked) =>
+                void update({ registrationEnabled: checked })
+              }
+            />
+            <SettingRow
+              label="注册需要管理员批准"
+              description="开启时，自助注册的账号先进入待批准状态，批准后才能登录。"
+              checked={settings.registrationApprovalRequired}
+              disabled={saving || !settings.registrationEnabled}
+              onChange={(checked) =>
+                void update({ registrationApprovalRequired: checked })
+              }
+            />
+          </>
         ) : (
           <div className="h-16 animate-pulse bg-muted/60" />
         )}
@@ -80,7 +101,9 @@ export function SecurityTab() {
           <li>
             删除页面、回滚版本限页面作者本人与管理员；彻底删除只对回收站里的页面生效。
           </li>
-          <li>注册审批、账号停用与密码重置都在「用户管理」里操作。</li>
+          <li>
+            自助注册与「注册需要管理员批准」在上面的开关里；待批准用户的处理、账号停用与密码重置都在「用户管理」里操作。
+          </li>
         </ul>
       </section>
     </div>
