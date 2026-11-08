@@ -163,21 +163,10 @@ function UserMenu() {
             </span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {/* 顺序：个人资料 → 系统管理（仅管理员）→ 回收站 → 设置 → 关于 → 帮助 */}
           <DropdownMenuItem onSelect={() => navigate("/profile")}>
             <UserRound aria-hidden="true" />
             个人资料
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => navigate("/settings")}>
-            <Settings aria-hidden="true" />
-            设置
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => navigate("/trash")}>
-            <Trash2 aria-hidden="true" />
-            回收站
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => navigate("/about")}>
-            <Info aria-hidden="true" />
-            关于
           </DropdownMenuItem>
           {user.role === "admin" ? (
             <DropdownMenuItem onSelect={() => navigate("/admin")}>
@@ -185,6 +174,18 @@ function UserMenu() {
               系统管理
             </DropdownMenuItem>
           ) : null}
+          <DropdownMenuItem onSelect={() => navigate("/trash")}>
+            <Trash2 aria-hidden="true" />
+            回收站
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate("/settings")}>
+            <Settings aria-hidden="true" />
+            设置
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate("/about")}>
+            <Info aria-hidden="true" />
+            关于
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
             <CircleHelp aria-hidden="true" />
             帮助

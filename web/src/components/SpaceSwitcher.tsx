@@ -33,7 +33,17 @@ import { useSpacesStore } from "@/stores/spaces"
  * 底部固定「空间设置」（仅空间管理员 / 站点管理员）与「新建空间」（所有人可建）。
  * 切换空间后回首页，由 AppShell 按新空间重拉页面树。
  */
-export function SpaceSwitcher({ onNavigate }: { onNavigate?: () => void }) {
+export function SpaceSwitcher({
+  onNavigate,
+  navigateOnSwitch = true
+}: {
+  onNavigate?: () => void
+  /**
+   * 切换空间后是否回首页（默认 true）。
+   * 回收站这类系统页传 false：留在原地，由页面自己按新空间重拉列表。
+   */
+  navigateOnSwitch?: boolean
+}) {
   const navigate = useNavigate()
   const spaces = useSpacesStore((state) => state.spaces)
   const status = useSpacesStore((state) => state.status)
@@ -63,8 +73,8 @@ export function SpaceSwitcher({ onNavigate }: { onNavigate?: () => void }) {
   const switchTo = (id: string) => {
     if (id !== currentId) select(id)
     onNavigate?.()
-    // 空间换了，首页会跳到新空间的第一页；不留在旧空间的页面上
-    navigate("/")
+    // 空间换了，首页会跳到新空间的第一页；系统页（回收站）原地按新空间刷新
+    if (navigateOnSwitch) navigate("/")
   }
 
   const submitCreate = async () => {

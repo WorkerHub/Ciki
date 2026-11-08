@@ -2,6 +2,7 @@ import { Empty } from "@cloudflare/kumo/components/empty"
 import { RotateCcw, Trash2, TrashIcon } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router"
+import { SpaceSwitcher } from "@/components/SpaceSwitcher"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,6 +55,11 @@ export function TrashPage() {
   return (
     <div className="space-y-4">
       <header className="space-y-1">
+        {/* 回收站按空间隔离，页头直接给切换入口（切完留在本页按新空间重拉列表）；
+            宽度收窄成控件尺寸，-ml-2 抵消切换器自身的水平内边距，左边缘与标题对齐 */}
+        <div className="-ml-2 max-w-64">
+          <SpaceSwitcher navigateOnSwitch={false} />
+        </div>
         <h1 className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight">
           <Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
           回收站
