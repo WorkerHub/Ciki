@@ -36,6 +36,8 @@ import {
   normalizeSiteName
 } from "../core/identity"
 import { runSetup } from "../lib/setup"
+import { cleanupRunDto, runR2Cleanup } from "../core/r2-cleanup"
+import { lastCleanupRun } from "../db/queries/r2-cleanup"
 import { adminMiddleware } from "../middleware/admin"
 import { readJsonBody } from "../lib/http"
 import type { HonoEnv } from "../types"
@@ -343,4 +345,36 @@ adminRoutes.post("/setup", async (c) => {
     )
     return c.json({ error: "Setup failed" }, 500)
   }
+})
+
+/**
+ * R2 孤儿清理的验收通道（规格 §3）：管理员手动触发，页面不加按钮。
+ *
+ * `{"dryRun": true}` 只算不删（不构成双跑，因此永不被 20 天幂等兜底拦住）；
+ * 不传 / 传 false 则真实删除，此时与两个自动入口同口径：距上次真实成功运行
+ * 不足 20 天会跳过，并记一行 status=skipped 的日志。
+ */
+adminRoutes.post("/r2-cleanup", async (c) => {
+  const body = await readJsonBody<{ dryRun?: unknown }>(c)
+  const dryRun = body?.dryRun === true
+  try {
+    const summary = await runR2Cleanup(c.env, { trigger: "manual", dryRun })
+    return c.json(summary)
+  } catch (err) {
+    console.error(
+      "Admin r2 cleanup failed:",
+      err instanceof Error ? err.message : err
+    )
+    return c.json({ error: "Cleanup failed" }, 500)
+  }
+})
+
+/**
+ * 「数据库维护」页那一行摘要的数据源：最近一轮真实运行（dry_run / skipped 不算）。
+ * 形状对前端冻结，页面渲染见前端单。
+ */
+adminRoutes.get("/r2-cleanup", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const last = await lastCleanupRun(c.env.DB, prefix)
+  return c.json({ lastRun: last === null ? null : cleanupRunDto(last) })
 })

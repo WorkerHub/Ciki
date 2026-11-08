@@ -1,4 +1,4 @@
-import { ApiError, api, type UploadedFile } from "@/lib/api"
+import { ApiError, api, meApi, type Me, type UploadedFile } from "@/lib/api"
 
 /** 规格 §2.4：仅收图片，png/jpg/jpeg/gif/webp，单张上限 10MB。 */
 export const ACCEPTED_IMAGE_TYPES = [
@@ -30,6 +30,17 @@ export async function uploadImage(file: File): Promise<UploadedFile> {
   const invalid = validateImageFile(file)
   if (invalid) throw new ApiError(400, invalid, "INVALID_IMAGE")
   return api.upload(file)
+}
+
+/**
+ * 头像专用上传口（规格 §1）：服务端落 avatars/ 并在同一请求里换掉本人头像、
+ * 删旧图，所以返回的是更新后的完整资料（含新 avatarUrl），不再走
+ * 「先上传拿 key、再 PUT /api/me/profile」两步。
+ */
+export async function uploadAvatar(file: File): Promise<Me> {
+  const invalid = validateImageFile(file)
+  if (invalid) throw new ApiError(400, invalid, "INVALID_IMAGE")
+  return meApi.uploadAvatar(file)
 }
 
 /** 从剪贴板/拖拽事件里挑出图片文件。 */

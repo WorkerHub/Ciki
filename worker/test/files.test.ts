@@ -38,6 +38,8 @@ describe("图片：类型校验、大小上限、会话读取", () => {
       size: number
     }
     expect(body.url).toBe(`/api/files/${body.key}`)
+    // 规格 §1：新上传的 key 带类别前缀，通用上传口固定为 pages/
+    expect(body.key).toMatch(/^pages\/[0-9a-f-]{36}\.png$/)
     expect(body.contentType).toBe("image/png")
     expect(body.size).toBe(PNG.length)
     expect(r2.store.has(body.key)).toBe(true)
@@ -86,6 +88,45 @@ describe("图片：类型校验、大小上限、会话读取", () => {
     const res = await upload(env, admin, formWith(big, "image/png"))
     expect(res.status).toBe(413)
     expect(await res.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+  })
+
+  it("读接口双认：存量平铺 key 与已知前缀 key 都能读", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    const id = "0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b"
+
+    for (const key of [
+      `${id}.png`,
+      `avatars/${id}.png`,
+      `imports/${id}.png`,
+      `pages/${id}.webp`
+    ]) {
+      await r2.put(key, PNG, { httpMetadata: { contentType: "image/png" } })
+      const res = await request(env, `/api/files/${key}`, {
+        headers: { cookie: admin }
+      })
+      expect(res.status).toBe(200)
+      expect(new Uint8Array(await res.arrayBuffer())).toEqual(PNG)
+    }
+  })
+
+  it("未知前缀与形状不符的 key 一律 404（对象存在也不放行）", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    const id = "0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b"
+
+    for (const key of [
+      `misc/${id}.png`,
+      `pages/a/${id}.png`,
+      `avatars/${id}.svg`,
+      `${id.toUpperCase()}.png`
+    ]) {
+      await r2.put(key, PNG, { httpMetadata: { contentType: "image/png" } })
+      const res = await request(env, `/api/files/${key}`, {
+        headers: { cookie: admin }
+      })
+      expect(res.status).toBe(404)
+    }
   })
 
   it("非法 key / 不存在的 key 返回 404", async () => {

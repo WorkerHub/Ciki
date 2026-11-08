@@ -10,6 +10,7 @@
 
 - **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）。
   - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`。
+  - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
 - **空间可见性**：站点管理员可见全部空间；普通用户仅可见自己是成员的空间（`admin` / `editor` / `viewer`）。可见性过滤覆盖空间列表、页面树、页面直链、回收站与搜索；非成员访问空间/页面一律 404，不泄露存在性。页面写权限以空间角色为准：`editor` 及以上可写，`viewer` 只读。
 - **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、429 限流/锁定、500 服务端错误（不回显堆栈）。
@@ -21,30 +22,31 @@
 
 ## 二、数据模型
 
-迁移四条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
+迁移五条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
 - `schema_v1`：鉴权、设置、页面、版本与 FTS 的全部表。
 - `schema_v2`：导入令牌表 `{prefix}import_tokens`（v1.1 增补）。
 - `schema_v3`：users 的身份三列（`username` / `public_id` / `avatar_key`）与 `public_id` 的部分唯一索引。SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以加列与存量回填放在该迁移的 `prepare` 步骤（先于 sql 执行）：按 `PRAGMA table_info` 判断缺哪列再补，随后只把新列里**仍为空**的值填上（`username` 取邮箱前缀、`public_id` 用系统生成器并与全表已有值去重），更新都带 `WHERE … = ''`，因此不覆盖任何既有数据、可重复执行、失败后从断点续跑。
 - `schema_v4`：空间与成员（`{prefix}spaces` / `{prefix}space_members`）、`pages.space_id` 与空间索引。`prepare` 幂等补列、建默认空间（id `space-default`、名称「默认空间」、`is_default=1`）、把所有 `space_id` 仍为空/缺失的页面回填到默认空间、把所有现有用户加入默认空间（站点管理员 `admin`、其余 `editor`）。只写空值、成员用 `INSERT OR IGNORE`，重复执行无副作用。
+- `schema_v5`：R2 孤儿清理的运行日志 `{prefix}r2_cleanup_runs`（每轮一行）与 waker 回调的幂等账本 `{prefix}waker_executions`（列照 waker 客户端 SDK 的 `executionLedgerDdl()`）。纯新增表、无 `prepare`。
 
-回滚方式：人工删除对应迁移新建的表/索引（`schema_v3` 为 `{prefix}users_public_id`；`schema_v4` 为 `{prefix}spaces`、`{prefix}space_members` 与 `pages` 的空间列/索引），并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'|'schema_v3'|'schema_v4'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
+回滚方式：人工删除对应迁移新建的表/索引（`schema_v3` 为 `{prefix}users_public_id`；`schema_v4` 为 `{prefix}spaces`、`{prefix}space_members` 与 `pages` 的空间列/索引；`schema_v5` 为 `{prefix}r2_cleanup_runs`、`{prefix}waker_executions`），并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'|'schema_v3'|'schema_v4'|'schema_v5'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
 
 ### users
 
-| 列                                                       | 类型                             | 说明                                                      |
-| -------------------------------------------------------- | -------------------------------- | --------------------------------------------------------- |
-| id                                                       | TEXT PK                          | UUID（内部主键，不对外展示为「用户 ID」）                 |
-| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线        |
-| username                                                 | TEXT NOT NULL DEFAULT ''         | 显示名，用户可改、**不要求唯一**；缺省取邮箱前缀          |
-| public_id                                                | TEXT NOT NULL DEFAULT ''         | 8 位系统生成的对外用户 ID，唯一、生成后不可改             |
-| avatar_key                                               | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key，读接口 `/api/files/:key`；空串 = 无头像 |
-| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`          |
-| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                          |
-| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                                       |
-| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                       |
-| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露                      |
-| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                                  |
+| 列                                                       | 类型                             | 说明                                                                                                                    |
+| -------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| id                                                       | TEXT PK                          | UUID（内部主键，不对外展示为「用户 ID」）                                                                               |
+| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                      |
+| username                                                 | TEXT NOT NULL DEFAULT ''         | 显示名，用户可改、**不要求唯一**；缺省取邮箱前缀                                                                        |
+| public_id                                                | TEXT NOT NULL DEFAULT ''         | 8 位系统生成的对外用户 ID，唯一、生成后不可改                                                                           |
+| avatar_key                                               | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像 |
+| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                        |
+| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                        |
+| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                     |
+| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                     |
+| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露                                                                                    |
+| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                                                                                                |
 
 索引：`{prefix}users_public_id` 是 `public_id` 上的部分唯一索引（`WHERE public_id <> ''`）：未回填的空串不参与唯一性，回填完成后由数据库兜底并发建号的撞键。`public_id` 的字符表为 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`（去掉易混的 0/O/1/I/L），长度固定 8。
 
@@ -202,6 +204,23 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 **同步方式**（不做触发器）：新建/保存/回滚时在同一个 `db.batch()` 事务里写 pages → 插 revision → `DELETE FROM pages_fts WHERE page_id=?` → 插入新索引行；软删/彻底删同批删除索引行；恢复同批重建。索引与查询都做 CJK 逐字空格化（`团队` → `团 队`）：CJK 词按短语 `"团 队"`、拉丁词按前缀 `"ciki"*`，多词 AND；排序 `bm25(fts, 0, 10, 1)`。
 
+### r2_cleanup_runs（schema_v5）
+
+| 列                                                                  | 类型          | 说明                                                                  |
+| ------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------- |
+| id                                                                  | TEXT PK       | UUID                                                                  |
+| started_at / finished_at                                            | TEXT NOT NULL | ISO 时间                                                              |
+| trigger                                                             | TEXT NOT NULL | `cron` / `waker` / `manual`                                           |
+| status                                                              | TEXT NOT NULL | `ok`（跑完）/ `skipped`（20 天幂等兜底命中）/ `failed`（扫描期异常）  |
+| dry_run                                                             | INTEGER       | 1 = 只算不删；dry_run 行不计入 20 天兜底、也不进「最近一轮」          |
+| scanned / referenced / deleted / young_skipped / failed / truncated | INTEGER       | 扫描数 / 引用数 / 删除数 / 未满 30 天跳过数 / 失败数 / 是否因上限截断 |
+
+索引 `(started_at)`。每轮一行，不含任何对象内容；清理自身不写其它表。
+
+### waker_executions（schema_v5）
+
+waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`job_id`、`job_name`、`scheduled_for` INTEGER、`status`（`claimed` / `succeeded`）、`response_json`、`claimed_at`、`completed_at`。平台重试同一次执行时带同一个 `executionId`，由 SDK 原子认领去重；ciki 只负责建表，不改实现。
+
 ## 三、API
 
 ### setup
@@ -251,6 +270,82 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 #### POST /api/admin/setup（管理员会话，免密钥）
 
 与 `POST /api/setup` 同形状；非管理员 403。
+
+#### POST /api/admin/r2-cleanup（管理员会话）
+
+手动触发一轮 R2 孤儿清理——§3 的验收通道，页面不提供按钮（curl 用）。
+
+请求体可选：`{"dryRun": true}` 只算不删；缺省或 `false` 为真实删除。
+
+- 真实运行与两个自动入口同口径：距上次真实成功运行不足 20 天即跳过，回 `status:"skipped"`（计数全 0），仍记一行日志；`dryRun` 永不受该限制。
+- 200 返回本轮摘要（字段见下）；扫描期异常时失败行已落库，接口回 `500 {"error":"Cleanup failed"}`。
+
+```json
+{
+  "startedAt": "2026-11-08T17:00:00.000Z",
+  "finishedAt": "2026-11-08T17:00:01.500Z",
+  "trigger": "manual",
+  "status": "ok",
+  "dryRun": true,
+  "scanned": 42,
+  "referenced": 30,
+  "deleted": 5,
+  "youngSkipped": 7,
+  "failed": 0,
+  "truncated": false
+}
+```
+
+字段口径：`scanned` = R2 对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数（`users.avatar_key` ∪ 全部页面与历史版本正文里的 `/api/files/<key>`，回收站页面同样计入）；`deleted` = 本轮删除数（`dryRun` 时为「将删数」）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除。
+
+#### GET /api/admin/r2-cleanup（管理员会话）
+
+```json
+{
+  "lastRun": {
+    "startedAt": "…",
+    "finishedAt": "…",
+    "trigger": "cron",
+    "status": "ok",
+    "dryRun": false,
+    "scanned": 42,
+    "referenced": 30,
+    "deleted": 5,
+    "youngSkipped": 7,
+    "failed": 0,
+    "truncated": false
+  }
+}
+```
+
+`lastRun` 是最近一轮**真实**运行（`dry_run=0` 且 `status<>"skipped"`），从未跑过为 `null`。这是「系统管理 → 数据库维护」页那一行摘要的唯一数据源（页面只显示这一行，不加说明文字）。
+
+### waker 回调（`POST /_waker/execute`，不走会话）
+
+月度清理的第二个触发入口：只看 `WAKER_SIGNING_KEY` 配没配，不设 `WAKER_MODE`。
+
+- 已配置：waker 平台回调本入口，验签通过后执行一轮；Worker 内置 Cron 的 `scheduled()` 检测到 key 存在直接跳过（`wrangler.toml` 的 `[triggers] crons` 保留，靠 key 有无让路）。
+- 未配置：本入口 fail closed，回 `500 {"ok":false,"error":{"code":"signing_key_missing"}}`，不碰数据库、不进业务；清理走内置 Cron。
+
+协议按 waker 客户端 SDK 的冻结契约（ciki 不另发明）：头 `X-Waker-Timestamp`（epoch 秒）、`X-Waker-Execution-Id`、`X-Waker-Job-Id`、`X-Waker-Signature`（`v2=<hex>`）；HMAC-SHA256 覆盖 `<timestamp>\n<executionId>\n<jobId>\n<rawBody>`；时间窗 300s；`executionId` 由 `{prefix}waker_executions` 去重，重复投递回 200 `duplicate` 且不再跑业务。
+
+| 状态码 | `error.code`          | 含义                                      |
+| ------ | --------------------- | ----------------------------------------- |
+| 400    | `invalid_request`     | 缺签名头 / 请求体非法 / id 与头不一致     |
+| 401    | `invalid_signature`   | 签名校验失败                              |
+| 401    | `stale_timestamp`     | 时间戳超出 300s 窗口（防重放）            |
+| 404    | `unknown_job`         | 任务名不是 `monthly-r2-orphan-cleanup`    |
+| 500    | `job_failed`          | 业务抛错（平台按同一 executionId 重试）   |
+| 500    | `signing_key_missing` | 未配置 `WAKER_SIGNING_KEY`（fail closed） |
+
+**管理面一次性静态注册**（舰队侧动作，ciki 不代填、不调注册 API）：
+
+| 项       | 值                                                 |
+| -------- | -------------------------------------------------- |
+| 回调 URL | `https://<站点域名>/_waker/execute`                |
+| 任务名   | `monthly-r2-orphan-cleanup`                        |
+| cron     | `0 1 1 * *`                                        |
+| 时区     | `Asia/Shanghai`（= 北京时间每月 1 日 01:00，低峰） |
 
 ### 鉴权
 
@@ -348,7 +443,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
   "username": "alice",
   "email": "…",
   "role": "admin",
-  "avatarUrl": "/api/files/<uuid>.png",
+  "avatarUrl": "/api/files/avatars/<uuid>.png",
   "approvalStatus": "approved",
   "createdAt": "2026-11-07T12:00:00.000Z",
   "twofa": { "totpEnabled": false, "passkeyEnabled": false, "passkeyCount": 0 }
@@ -365,8 +460,30 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 - 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。
 - `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；不要求唯一。
-- `avatarKey`：必须是本人经 `POST /api/files` 上传、且 R2 中仍存在的 key（`null` 表示清除头像），否则 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
+- `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key——平铺 `<uuid>.<ext>` 或带已知前缀（`avatars/` / `pages/` / `imports/`）都收；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
 - `id` / `email` / `publicId` 只读：传了也不生效（只认上面两个字段）。
+
+#### POST /api/me/avatar（需会话）
+
+头像专用上传口。`multipart/form-data`，字段名 `file`，单文件；校验口径与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId` 与 `category:"avatars"`。
+
+同一请求内完成「写入本人 `avatar_key` → 删除旧头像对象」（旧图删不掉只留孤儿对象，不影响响应）。200 返回与 `GET /api/me` 完全相同的对象，前端一次拿到新的 `avatarUrl`：
+
+```json
+{
+  "id": "…",
+  "publicId": "7FJ2K9QM",
+  "username": "alice",
+  "email": "…",
+  "role": "admin",
+  "avatarUrl": "/api/files/avatars/<uuid>.png",
+  "approvalStatus": "approved",
+  "createdAt": "…",
+  "twofa": { "totpEnabled": false, "passkeyEnabled": false, "passkeyCount": 0 }
+}
+```
+
+400 缺少 `file` / 非图片；413 `code:"FILE_TOO_LARGE"`；401 未登录。
 
 #### PUT /api/me/password
 
@@ -738,16 +855,18 @@ SpaceCandidate = { userId, username, publicId, email }
 
 ### 文件
 
+上传的 key 形如 `<类别>/<UUID>.<ext>`，类别按来源分三类：`avatars/`（用户头像，只经 `POST /api/me/avatar` 产生）、`pages/`（编辑器上传、粘贴带入、编辑页手动上传替换）、`imports/`（剪贴板插件经 `POST /api/import/files` 上传）。**存量平铺 key（`<uuid>.<ext>`）及其一切引用不迁移、不改写**，读接口两种形状都认。
+
 #### POST /api/files
 
-`multipart/form-data`，字段名 `file`。仅 png/jpg/jpeg/gif/webp（按魔数校验，拒 svg 与伪装文件），单张上限 10 MB。
+`multipart/form-data`，字段名 `file`。仅 png/jpg/jpeg/gif/webp（按魔数校验，拒 svg 与伪装文件），单张上限 10 MB。落 `pages/<uuid>.<ext>`。
 
 201：
 
 ```json
 {
-  "key": "d025c64d-ffd7-4a13-b6d8-527f88643536.png",
-  "url": "/api/files/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "key": "pages/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "url": "/api/files/pages/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
   "contentType": "image/png",
   "size": 12345
 }
@@ -757,7 +876,9 @@ SpaceCandidate = { userId, username, publicId, email }
 
 #### GET /api/files/:key
 
-需会话；返回图片字节，`Content-Type` 为上传时类型，带 `ETag` 与 `Cache-Control: private, max-age=3600`。不存在 404；未登录 401 + no-store。
+需会话；返回图片字节，`Content-Type` 为上传时类型，带 `ETag` 与 `Cache-Control: private, max-age=3600`。
+
+`key` 可含一个类别前缀（`avatars/` / `pages/` / `imports/`），也可以是存量的平铺 key；未知前缀、多级前缀、大写 hex、`svg` 或其它形状一律 404。不存在 404；未登录 401 + no-store。
 
 ### 导入（个人令牌）
 
@@ -832,12 +953,12 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 #### POST /api/import/files
 
-`multipart/form-data`，字段名 `file`，单文件。校验、R2 落盘与响应形状与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），201：
+`multipart/form-data`，字段名 `file`，单文件。校验、R2 落盘与响应形状与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `imports/<uuid>.<ext>`，201：
 
 ```json
 {
-  "key": "d025c64d-ffd7-4a13-b6d8-527f88643536.png",
-  "url": "/api/files/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "key": "imports/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "url": "/api/files/imports/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
   "contentType": "image/png",
   "size": 12345
 }
@@ -880,16 +1001,18 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 代码：`code[class="language-*"]`。
 - 任务列表：`ul[data-type]`、`li[data-type][data-checked]`、`label`、只读 `input[type=checkbox][checked]`。
 - 链接：`a[href]` 仅 http/https/mailto/相对路径。
-- 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>` 或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
+- 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>`（存量平铺）或 `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀；`avatars/` 只服务资料页，不进正文），或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
 - 一律剥除 `script`/`style`/`iframe`/`object`/`embed`/`form` 及所有 `on*` 事件属性、未列出的 class/attr。
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，`schema_v3` 的三列与 `schema_v4` 的空间表/`pages.space_id` 还不存在——此时注册/建号/页面接口会失败，`/api/me` 的 `username` 为空串、`avatarUrl` 为 `null`。先升级再使用身份、资料与空间相关功能。
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，`schema_v3` 的三列、`schema_v4` 的空间表/`pages.space_id` 与 `schema_v5` 的两张表还不存在——此时注册/建号/页面接口会失败，`/api/me` 的 `username` 为空串、`avatarUrl` 为 `null`。先升级再使用身份、资料与空间相关功能。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。
 - 受限会话（`needs2faSetup`）：只能进 2FA 设置，配置成功后受限标记自动清零，无需重新登录。
 - 页面读态渲染 `contentHtml`；编辑态使用 `contentJson`。外链图片以 `data-original-src` + `data-confluence-img` 呈现「未转存」。文字颜色/高亮/单元格底色在 `contentHtml` 里是 data 载具（见「服务端消毒规则」），由读态扩展还原成内联样式，前端不要另外拼颜色样式。
+- 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
+- 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，只渲染一行（运行时间 + 五个计数），不加说明文字；触发清理没有按钮。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
 - 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、邮件相关端点。

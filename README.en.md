@@ -106,6 +106,7 @@ Open the repository's Settings → Secrets and variables → Actions. Keep resou
 | `D1_DATABASE_ID`        | The D1 Database ID noted in the previous step                                                                                                                                                                                                                          |
 | `ENCRYPTION_KEY`        | AES-GCM key for TOTP secrets, 32 bytes, generated with `openssl rand -base64 32` (64-char hex also works). Store a copy in your password manager first; do not change it after deploying, or every enrolled two-factor setup stops working and users must enroll again |
 | `SETUP_SECRET`          | Token for database initialization, any random string, e.g. `openssl rand -hex 16`                                                                                                                                                                                      |
+| `WAKER_SIGNING_KEY`     | **Optional.** When set, the monthly R2 cleanup is driven by waker platform callbacks; when absent, the Worker's built-in Cron Trigger runs it. The value is shown once by waker when the project is created — keep it in GitHub Secrets, never in the repository       |
 
 **Variables** (Variables tab → New repository variable)
 
@@ -114,7 +115,7 @@ Open the repository's Settings → Secrets and variables → Actions. Keep resou
 | `D1_DATABASE_NAME` | D1 database name (plain text, not a secret)                                                                                             |
 | `TABLE_PREFIX`     | Table prefix, optional. Unset or empty → `ciki_`; `none` → no prefix; any other value (e.g. `wiki`) → `wiki_`. See "Table prefix" below |
 
-These five Secrets and two Variables are everything the deployment needs: `deploy.yml` references only these names. A missing item, a value still in template form (`*_PLACEHOLDER` / `replace-with-*`), or an `ENCRYPTION_KEY` that is not 32 bytes makes the deploy abort before uploading and name the offending item — no empty or placeholder value is ever substituted.
+These five required Secrets (plus the optional `WAKER_SIGNING_KEY`) and two Variables are everything the deployment needs: `deploy.yml` references only these names. A missing required item, a value still in template form (`*_PLACEHOLDER` / `replace-with-*`), or an `ENCRYPTION_KEY` that is not 32 bytes makes the deploy abort before uploading and name the offending item — no empty or placeholder value is ever substituted. A missing `WAKER_SIGNING_KEY` merely means "use the built-in Cron" and never fails the deploy.
 
 ### 4. Deploy
 
@@ -154,6 +155,35 @@ All table names are built by `getTablePrefix()` in `worker/src/lib/table-prefix.
 | `none` (reserved word in GitHub Variables, meaning an explicit empty value)                                                                                 | no prefix        | `pages`       |
 
 Decide the effective prefix before initialization: changing it later means a different, empty set of tables. If the database is already initialized under another prefix, the setup endpoint aborts with 409 instead of creating a second set of tables.
+
+### Monthly R2 cleanup (optional)
+
+Images in R2 are swept once a month: an object is deleted only when it is **not referenced anywhere and was uploaded more than 30 days ago**. The reference set is every user's avatar plus every `/api/files/<key>` found in the current and historical bodies of all pages; pages in the trash still count, so their images are kept until the page is permanently deleted.
+
+There is exactly one switch — whether the GitHub Secret `WAKER_SIGNING_KEY` exists:
+
+- **Absent (default)**: the Worker's built-in Cron Trigger runs it, configured in `worker/wrangler.toml` as `0 17 1 * *` (UTC). Cloudflare cron is always interpreted in UTC and "01:00 Beijing time on the 1st" falls on the previous UTC month's last day, which a 5-field cron cannot express, so this is 17:00 UTC on the 1st = **01:00 Beijing time on the 2nd** (low-traffic, once a month). The waker callback then fails closed with `500 signing_key_missing`.
+- **Present**: waker platform callbacks drive it and `scheduled()` notices the key and steps aside (the `[triggers]` block stays, the key decides). Register one job once in the waker console:
+
+| Field        | Value                                                          |
+| ------------ | -------------------------------------------------------------- |
+| Callback URL | `https://<your-site-domain>/_waker/execute`                    |
+| Job name     | `monthly-r2-orphan-cleanup`                                    |
+| cron         | `0 1 1 * *`                                                    |
+| Timezone     | `Asia/Shanghai` (= 01:00 Beijing time on the 1st, low traffic) |
+
+Delete `WAKER_SIGNING_KEY` and redeploy to fall back to the built-in Cron. Every run appends one row to `{prefix}r2_cleanup_runs` in D1, and a real run that comes less than 20 days after the last successful one is skipped (with a skip row logged) so the two entries can never double-run.
+
+To dry-run it first (admin session; there is no button in the UI):
+
+```bash
+curl -X POST https://<your-site-domain>/api/admin/r2-cleanup \
+  -H 'content-type: application/json' \
+  -H 'cookie: <your session cookie>' \
+  -d '{"dryRun": true}'
+```
+
+Admin → Database Maintenance shows one line summarising the latest real run (run time, scanned, referenced, deleted, skipped for being under 30 days, failed).
 
 ## Local Development
 

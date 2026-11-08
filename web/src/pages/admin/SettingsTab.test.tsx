@@ -55,6 +55,19 @@ describe("系统管理 · 站点名称", () => {
     expect(screen.getByRole("status")).toHaveTextContent("全站即时生效")
   })
 
+  it("应用设置里不再有注册开关（已归位到「访问与安全」）", async () => {
+    render(<SettingsTab />)
+
+    expect(await screen.findByLabelText("站点名称")).toBeInTheDocument()
+    expect(
+      screen.getByRole("switch", { name: "显示初始化页面" })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("switch", { name: "开放注册" })).toBeNull()
+    expect(
+      screen.queryByRole("switch", { name: "注册需要管理员批准" })
+    ).toBeNull()
+  })
+
   it("保存失败时回滚输入并显示错误", async () => {
     const user = userEvent.setup()
     vi.mocked(adminApi.saveSettings).mockRejectedValue(

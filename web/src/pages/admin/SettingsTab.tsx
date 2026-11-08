@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react"
 import {
-  adminApi,
   ApiError,
+  adminApi,
   describeApiError,
   type SiteSettings
 } from "@/lib/api"
 import { SettingRow, SettingTextRow } from "@/pages/admin/SettingRow"
 import { useSiteStore } from "@/stores/site"
 
-/** 应用设置：站点名、注册、审批、初始化页开关（无邮件业务，故没有 SMTP 分区）。 */
+/**
+ * 应用设置：站点名、初始化页开关（无邮件业务，故没有 SMTP 分区）。
+ * 注册与审批开关在「访问与安全」里。
+ */
 export function SettingsTab() {
   const siteName = useSiteStore((state) => state.name)
   const setName = useSiteStore((state) => state.setName)
@@ -125,22 +128,6 @@ export function SettingsTab() {
           maxLength={32}
           disabled={saving}
           onSave={(next) => void saveSiteName(next)}
-        />
-        <SettingRow
-          label="开放注册"
-          description="关闭后新账号只能由管理员在「用户管理」里创建。"
-          checked={settings.registrationEnabled}
-          disabled={saving}
-          onChange={(checked) => void update({ registrationEnabled: checked })}
-        />
-        <SettingRow
-          label="注册需要管理员批准"
-          description="开启时，自助注册的账号先进入待批准状态，批准后才能登录。"
-          checked={settings.registrationApprovalRequired}
-          disabled={saving || !settings.registrationEnabled}
-          onChange={(checked) =>
-            void update({ registrationApprovalRequired: checked })
-          }
         />
         <SettingRow
           label="显示初始化页面"

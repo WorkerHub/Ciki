@@ -16,9 +16,11 @@ import {
   importTokensTable,
   pagesFtsTable,
   pagesTable,
+  r2CleanupRunsTable,
   spaceMembersTable,
   spacesTable,
-  tableName
+  tableName,
+  wakerExecutionsTable
 } from "./tables"
 import { prepareSpaceSchema, spaceSchemaStatements } from "./space-schema"
 
@@ -200,6 +202,45 @@ CREATE UNIQUE INDEX IF NOT EXISTS {prefix}import_tokens_token_hash
 const SCHEMA_V3 = `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}users_public_id
   ON {prefix}users(public_id) WHERE public_id <> ''`
 
+/**
+ * schema_v5 — 月度 R2 孤儿清理（规格 §3）与 waker 回调账本。
+ *
+ * - `r2_cleanup_runs`：每轮一行。为了「最近一轮」与 20 天幂等兜底可直接查，
+ *   计数列全部 NOT NULL DEFAULT 0；`dry_run=1` 的行不代表线上真删过。
+ * - `waker_executions`：waker 客户端 SDK 的 executionId 幂等账本
+ *   （列照 SDK 的 `executionLedgerDdl()`，表名经 tables.ts 的 helper）。
+ *
+ * 与既有迁移一样：只追加、可重复执行（IF NOT EXISTS），语句之间用 `;` 分隔。
+ */
+const SCHEMA_V5 = `CREATE TABLE IF NOT EXISTS {prefix}r2_cleanup_runs (
+  id            TEXT PRIMARY KEY,
+  started_at    TEXT NOT NULL,
+  finished_at   TEXT NOT NULL,
+  trigger       TEXT NOT NULL,
+  status        TEXT NOT NULL,
+  dry_run       INTEGER NOT NULL DEFAULT 0,
+  scanned       INTEGER NOT NULL DEFAULT 0,
+  referenced    INTEGER NOT NULL DEFAULT 0,
+  deleted       INTEGER NOT NULL DEFAULT 0,
+  young_skipped INTEGER NOT NULL DEFAULT 0,
+  failed        INTEGER NOT NULL DEFAULT 0,
+  truncated     INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS {prefix}r2_cleanup_runs_started_at
+  ON {prefix}r2_cleanup_runs(started_at);
+
+CREATE TABLE IF NOT EXISTS {prefix}waker_executions (
+  execution_id   TEXT PRIMARY KEY,
+  job_id         TEXT NOT NULL,
+  job_name       TEXT NOT NULL,
+  scheduled_for  INTEGER NOT NULL,
+  status         TEXT NOT NULL,
+  response_json  TEXT,
+  claimed_at     INTEGER NOT NULL,
+  completed_at   INTEGER
+)`
+
 /** 把迁移里的 `{prefix}` 替换成生效前缀。 */
 function render(sql: string, prefix: string): string {
   return sql.replaceAll("{prefix}", prefix)
@@ -245,10 +286,21 @@ export function getMigrations(prefix: string): Migration[] {
       throw new Error(`migration schema_v4 is missing table ${name}`)
     }
   }
+
+  const sqlV5 = render(SCHEMA_V5, prefix)
+  for (const name of [
+    r2CleanupRunsTable(prefix),
+    wakerExecutionsTable(prefix)
+  ]) {
+    if (!sqlV5.includes(name)) {
+      throw new Error(`migration schema_v5 is missing table ${name}`)
+    }
+  }
   return [
     { name: "schema_v1", sql },
     { name: "schema_v2", sql: sqlV2 },
     { name: "schema_v3", sql: sqlV3, prepare: prepareIdentitySchema },
-    { name: "schema_v4", sql: sqlV4, prepare: prepareSpaceSchema }
+    { name: "schema_v4", sql: sqlV4, prepare: prepareSpaceSchema },
+    { name: "schema_v5", sql: sqlV5 }
   ]
 }

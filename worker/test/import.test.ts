@@ -552,7 +552,7 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     expect(res.status).toBe(201)
     const body = (await res.json()) as { key: string; url: string }
     expect(body.url).toBe(`/api/files/${body.key}`)
-    expect(body.key).toMatch(/^[0-9a-f-]{36}\.png$/)
+    expect(body.key).toMatch(/^imports\/[0-9a-f-]{36}\.png$/)
     expect(r2.store.has(body.key)).toBe(true)
     // 落盘归属是令牌对应的用户（会话用户这里同样可用）。
     expect(r2.store.get(body.key)?.customMetadata?.uploaderId).toBeTruthy()
