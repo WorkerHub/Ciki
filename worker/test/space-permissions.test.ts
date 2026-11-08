@@ -209,6 +209,38 @@ describe("空间权限：非成员隔离", () => {
     )
     expect(removed.status).toBe(404)
 
+    // 用不可见页面当父页的探测：存在与不存在都只能得到 404。
+    const probeCreate = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "探测父页",
+        spaceId: (await listSpaces(env, bob)).find((row) => row.isDefault)?.id,
+        parentId: page.id,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>x</p>",
+        contentText: "x"
+      },
+      bob
+    )
+    expect(probeCreate.status).toBe(404)
+
+    const bobPage = await createPage(
+      env,
+      bob,
+      "bob 的默认页",
+      (await listSpaces(env, bob)).find((row) => row.isDefault)?.id ?? ""
+    )
+    const probeMove = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${bobPage.id}/move`,
+      { parentId: page.id },
+      bob
+    )
+    expect(probeMove.status).toBe(404)
+
     const result = await search(env, bob, "机密词")
     expect(result.results).toEqual([])
     expect(JSON.stringify(result)).not.toContain("机密页")
@@ -519,5 +551,68 @@ describe("空间权限：站点管理员与跨空间移动", () => {
     )
     expect(cycle.status).toBe(409)
     expect(await cycle.json()).toMatchObject({ code: "PAGE_MOVE_CYCLE" })
+
+    // 跨空间移动整棵子树：后代一起改 space_id，之后在目标空间软删能级联。
+    const moveRoot = await createPage(env, admin, "跨空间根", space.id)
+    const moveChild = await createPage(
+      env,
+      admin,
+      "跨空间子页",
+      space.id,
+      "跨空间子页",
+      moveRoot.id
+    )
+    const moveSubtree = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${moveRoot.id}/move`,
+      { spaceId: defaultSpace.id },
+      admin
+    )
+    expect(moveSubtree.status).toBe(200)
+
+    const childDetail = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${moveChild.id}`,
+        undefined,
+        admin
+      )
+    ).json()) as PageDto
+    expect(childDetail.spaceId).toBe(defaultSpace.id)
+
+    const sourceTree = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages?spaceId=${space.id}`,
+        undefined,
+        admin
+      )
+    ).json()) as Array<{ id: string; children: Array<{ id: string }> }>
+    const sourceIds = sourceTree.flatMap((node) => [
+      node.id,
+      ...node.children.map((child) => child.id)
+    ])
+    expect(sourceIds).not.toContain(moveRoot.id)
+    expect(sourceIds).not.toContain(moveChild.id)
+
+    const cascade = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/pages/${moveRoot.id}`,
+      undefined,
+      admin
+    )
+    expect(cascade.status).toBe(200)
+    const childGone = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${moveChild.id}`,
+      undefined,
+      admin
+    )
+    expect(childGone.status).toBe(404)
   })
 })

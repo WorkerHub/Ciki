@@ -140,6 +140,17 @@ describe("空间：创建、可见性与信息维护", () => {
       description: "新的描述"
     })
 
+    // 浏览器 textarea 常提交 CRLF：统一归一成 LF 后接受。
+    const crlf = await jsonRequest(
+      env,
+      "PUT",
+      `/api/spaces/${space.id}`,
+      { description: "第一行\r\n第二行" },
+      alice
+    )
+    expect(crlf.status).toBe(200)
+    expect(await crlf.json()).toMatchObject({ description: "第一行\n第二行" })
+
     const invalidName = await jsonRequest(
       env,
       "PUT",

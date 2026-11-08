@@ -206,9 +206,25 @@ importRoutes.post("/pages", async (c) => {
 
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
+  const userId = c.get("userId")
   if (parentId) {
     const parentRow = await getPageRow(db, prefix, parentId)
-    if (!parentRow || parentRow.deleted_at) {
+    if (!parentRow) {
+      return c.json(
+        { error: "Parent page is deleted", code: "PARENT_DELETED" },
+        409
+      )
+    }
+    // 令牌用户看不见的父页按不存在处理，不泄露它属于哪个空间。
+    const parentRole = await resolveSpaceRole(
+      db,
+      prefix,
+      parentRow.space_id,
+      userId,
+      c.get("role") === "admin"
+    )
+    if (!parentRole) return c.json({ error: "Page not found" }, 404)
+    if (parentRow.deleted_at) {
       return c.json(
         { error: "Parent page is deleted", code: "PARENT_DELETED" },
         409
@@ -223,7 +239,6 @@ importRoutes.post("/pages", async (c) => {
   }
 
   const now = new Date().toISOString()
-  const userId = c.get("userId")
 
   if (conflict === "update") {
     const existing = await findSiblingByTitle(

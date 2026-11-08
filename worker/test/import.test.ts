@@ -830,5 +830,14 @@ describe("导入：空间列表、落点与越权", () => {
     )
     expect(crossParent.status).toBe(409)
     expect(await crossParent.json()).toMatchObject({ code: "SPACE_MISMATCH" })
+
+    // 令牌用户看不见的父页按不存在处理：不能借 409 探测别的空间里的页面。
+    const hiddenParent = await importPage(
+      viewerToken,
+      "探测父页",
+      undefined,
+      editPage.pageId
+    )
+    expect(hiddenParent.status).toBe(404)
   })
 })

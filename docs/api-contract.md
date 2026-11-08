@@ -673,7 +673,7 @@ SpaceCandidate = { userId, username, publicId, email }
 }
 ```
 
-`sortOrder` 可省略（追加到末尾）。只改层级/排序，不生成 revision。跨空间移动时改 `space_id`：未给 `parentId` 就重挂到目标空间根；给了父页则父页必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。源空间与目标空间都要 `editor` 及以上（目标不可见 404、`viewer` 403）。移入自身子树 409 `code:"PAGE_MOVE_CYCLE"`；父页已删 409 `code:"PARENT_DELETED"`。
+`sortOrder` 可省略（追加到末尾）。只改层级/排序，不生成 revision。跨空间移动时改 `space_id`（整棵后代子树一起改，保持父子同空间）：未给 `parentId` 就重挂到目标空间根；给了父页则父页必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。源空间与目标空间都要 `editor` 及以上（目标不可见 404、`viewer` 403）。移入自身子树 409 `code:"PAGE_MOVE_CYCLE"`；父页已删 409 `code:"PARENT_DELETED"`。
 
 #### DELETE /api/pages/:id
 

@@ -24,6 +24,7 @@ import {
   softDeleteSubtree,
   updatePagePlacement,
   updatePageSortOrder,
+  updateSubtreeSpace,
   type PageRow,
   type PageSummaryRow
 } from "../db/queries/pages"
@@ -236,7 +237,17 @@ pageRoutes.post("/", async (c) => {
   const parentId = parent.value
   if (parentId) {
     const parentRow = await getPageRow(db, prefix, parentId)
-    if (!parentRow || parentRow.deleted_at) {
+    if (!parentRow) {
+      return c.json(
+        { error: "Parent page is deleted", code: "PARENT_DELETED" },
+        409
+      )
+    }
+    // 先判权再判空间是否一致：非成员连“父页存在”都不能探测到。
+    const role = await pageSpaceRole(c, parentRow)
+    if (!role) return pageNotFound(c)
+    if (!canEditPages(role)) return forbidden(c)
+    if (parentRow.deleted_at) {
       return c.json(
         { error: "Parent page is deleted", code: "PARENT_DELETED" },
         409
@@ -254,9 +265,6 @@ pageRoutes.post("/", async (c) => {
         409
       )
     }
-    const role = await pageSpaceRole(c, parentRow)
-    if (!role) return pageNotFound(c)
-    if (!canEditPages(role)) return forbidden(c)
     spaceId = parentRow.space_id
   } else {
     const target = await spaceTarget(c, body?.spaceId)
@@ -346,7 +354,16 @@ pageRoutes.post("/:id/move", async (c) => {
   const parentId = parent.value
   if (parentId !== null) {
     const parentRow = await getPageRow(db, prefix, parentId)
-    if (!parentRow || parentRow.deleted_at) {
+    if (!parentRow) {
+      return c.json(
+        { error: "Parent page is deleted", code: "PARENT_DELETED" },
+        409
+      )
+    }
+    // 同一条口径：看不见的父页按不存在处理，不泄露它属于哪个空间。
+    const parentRole = await pageSpaceRole(c, parentRow)
+    if (!parentRole) return pageNotFound(c)
+    if (parentRow.deleted_at) {
       return c.json(
         { error: "Parent page is deleted", code: "PARENT_DELETED" },
         409
@@ -382,7 +399,12 @@ pageRoutes.post("/:id/move", async (c) => {
   ordered.splice(index, 0, { id: page.id, order: index })
 
   const now = new Date().toISOString()
-  const statements = [
+  const statements = []
+  // 跨空间移动必须连同整棵后代子树一起改 space_id，否则父子会跨空间。
+  if (page.space_id !== targetSpaceId) {
+    statements.push(updateSubtreeSpace(db, prefix, page.id, targetSpaceId))
+  }
+  statements.push(
     updatePagePlacement(
       db,
       prefix,
@@ -392,7 +414,7 @@ pageRoutes.post("/:id/move", async (c) => {
       index,
       now
     )
-  ]
+  )
   ordered.forEach((row, order) => {
     if (row.order !== order) {
       statements.push(updatePageSortOrder(db, prefix, row.id, order))

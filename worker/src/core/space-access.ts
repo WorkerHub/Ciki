@@ -59,10 +59,10 @@ export function normalizeSpaceName(value: unknown): string | null {
   return name
 }
 
-/** 描述：trim、≤500 码点、只允许换行；空串合法；非法返回 null。 */
+/** 描述：trim、≤500 码点、只允许换行；CRLF/CR 统一成 LF；非法返回 null。 */
 export function normalizeSpaceDescription(value: unknown): string | null {
   if (typeof value !== "string") return null
-  const description = value.trim()
+  const description = value.replace(/\r\n?/g, "\n").trim()
   if ([...description].length > MAX_SPACE_DESCRIPTION_LENGTH) return null
   if (hasControlChars(description, true)) return null
   return description

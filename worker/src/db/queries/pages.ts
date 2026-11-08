@@ -206,6 +206,23 @@ export function updatePagePlacement(
     .bind(spaceId, parentId, sortOrder, updatedAt, id)
 }
 
+/**
+ * 跨空间移动：整棵后代子树的 space_id 一起改，保持「父子关系只在同空间内」
+ * 的不变量。子树的 parent_id 不变，只改归属空间。
+ */
+export function updateSubtreeSpace(
+  db: D1Database,
+  prefix: string,
+  rootId: string,
+  spaceId: string
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `${subtreeCte(prefix)} UPDATE ${pagesTable(prefix)} SET space_id = ? WHERE id IN (SELECT id FROM sub)`
+    )
+    .bind(rootId, spaceId)
+}
+
 export function updatePageSortOrder(
   db: D1Database,
   prefix: string,
