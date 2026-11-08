@@ -57,6 +57,7 @@ export function SettingTextRow({
   }, [value])
 
   const commit = () => {
+    if (disabled) return
     const next = draft.trim()
     if (!next || next === value) {
       setDraft(value)

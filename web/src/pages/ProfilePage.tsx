@@ -24,6 +24,10 @@ export function ProfilePage() {
   const setUser = useAuthStore((state) => state.setUser)
   const [username, setUsername] = useState(user ? displayUsername(user) : "")
   const [file, setFile] = useState<File | null>(null)
+  // 上传成功但资料更新失败时保留 key：再次保存复用，不重复往 R2 传同一张图
+  const [uploadedAvatarKey, setUploadedAvatarKey] = useState<string | null>(
+    null
+  )
   const [preview, setPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -44,7 +48,8 @@ export function ProfilePage() {
 
   const shownName = displayUsername(user)
   const nameChanged = username.trim() !== (user.username ?? "")
-  const canSave = !saving && (nameChanged || file !== null)
+  const canSave =
+    !saving && (nameChanged || file !== null || uploadedAvatarKey !== null)
 
   const pickFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = event.target.files?.[0] ?? null
@@ -54,12 +59,14 @@ export function ProfilePage() {
     const invalid = validateImageFile(next)
     if (invalid) {
       setFile(null)
+      setUploadedAvatarKey(null)
       setError(invalid)
       return
     }
     setError("")
     setNotice("")
     setFile(next)
+    setUploadedAvatarKey(null)
   }
 
   const save = async () => {
@@ -73,7 +80,13 @@ export function ProfilePage() {
     setError("")
     setNotice("")
     try {
-      const avatarKey = file ? (await uploadImage(file)).key : undefined
+      // 上传成功后先记下 key；后面的资料更新即使失败，重试也直接复用
+      // 这个 key，不会为同一张图反复上传、在 R2 留下孤儿对象。
+      let avatarKey = uploadedAvatarKey
+      if (file && !avatarKey) {
+        avatarKey = (await uploadImage(file)).key
+        setUploadedAvatarKey(avatarKey)
+      }
       const updated = await meApi.updateProfile({
         ...(nameChanged ? { username: trimmed } : {}),
         ...(avatarKey ? { avatarKey } : {})
@@ -81,6 +94,7 @@ export function ProfilePage() {
       setUser(updated)
       setUsername(displayUsername(updated))
       setFile(null)
+      setUploadedAvatarKey(null)
       setNotice("个人资料已保存。")
     } catch (saveError) {
       setError(describeApiError(saveError))

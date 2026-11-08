@@ -107,6 +107,39 @@ describe("个人资料页", () => {
     )
   })
 
+  it("上传成功但资料更新失败后重试，复用已上传的 key，不重复上传", async () => {
+    const browser = userEvent.setup()
+    vi.mocked(api.upload).mockResolvedValue({
+      key: "avatar-key.png",
+      url: "/api/files/avatar-key.png",
+      contentType: "image/png",
+      size: 3
+    })
+    vi.mocked(meApi.updateProfile)
+      .mockRejectedValueOnce(new Error("network down"))
+      .mockResolvedValueOnce({
+        ...user,
+        avatarUrl: "/api/files/avatar-key.png"
+      })
+    render(<ProfilePage />)
+
+    const file = new File(["png"], "avatar.png", { type: "image/png" })
+    await browser.upload(screen.getByLabelText("选择头像"), file)
+
+    await browser.click(screen.getByRole("button", { name: "保存" }))
+    await waitFor(() => expect(meApi.updateProfile).toHaveBeenCalledTimes(1))
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+
+    // 第一次更新失败后文件仍在；再点保存应直接复用 key，而不是再传一次
+    await browser.click(screen.getByRole("button", { name: "保存" }))
+    await waitFor(() => expect(meApi.updateProfile).toHaveBeenCalledTimes(2))
+    expect(api.upload).toHaveBeenCalledTimes(1)
+    expect(meApi.updateProfile).toHaveBeenLastCalledWith({
+      avatarKey: "avatar-key.png"
+    })
+    expect(screen.getByRole("status")).toHaveTextContent("个人资料已保存")
+  })
+
   it("不支持的图片类型在选文件时就报错，不发上传请求", async () => {
     // applyAccept: false —— 绕过 input 的 accept 过滤，验证组件自己的校验
     const browser = userEvent.setup({ applyAccept: false })

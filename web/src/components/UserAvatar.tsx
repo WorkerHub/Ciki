@@ -24,7 +24,7 @@ export function UserAvatar({
     <Avatar className={className}>
       {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
       <AvatarFallback className="bg-primary font-semibold text-primary-foreground">
-        {name.slice(0, 1).toUpperCase()}
+        {Array.from(name)[0]?.toUpperCase() || "用"}
       </AvatarFallback>
     </Avatar>
   )

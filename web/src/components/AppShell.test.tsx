@@ -120,12 +120,12 @@ describe("顶栏、头像菜单与系统页侧栏", () => {
     expect(await screen.findByText("粘贴与编辑说明")).toBeInTheDocument()
   })
 
-  it("系统页不渲染页面树侧栏，普通页侧栏照旧", () => {
+  it("系统页不渲染页面树侧栏，普通页侧栏照旧", async () => {
     const { unmount } = renderShell("/settings")
     expect(screen.queryByText("页面")).toBeNull()
     unmount()
 
     renderShell("/p/abc")
-    expect(screen.getByText("页面")).toBeInTheDocument()
+    expect(await screen.findByText("页面")).toBeInTheDocument()
   })
 })
