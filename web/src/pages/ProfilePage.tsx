@@ -46,7 +46,6 @@ export function ProfilePage() {
 
   if (!user) return null
 
-  const shownName = displayUsername(user)
   const nameChanged = username.trim() !== (user.username ?? "")
   const canSave =
     !saving && (nameChanged || file !== null || uploadedAvatarKey !== null)
@@ -113,9 +112,6 @@ export function ProfilePage() {
           />
           个人资料
         </h1>
-        <p className="text-xs text-muted-foreground">
-          头像与用户名会显示在顶栏和头像菜单里；用户 ID 与邮箱只读。
-        </p>
       </header>
 
       {error ? (
@@ -164,9 +160,6 @@ export function ProfilePage() {
               >
                 更换头像
               </Button>
-              <p className="text-[11px] text-muted-foreground">
-                没有头像时显示用户名首字母。
-              </p>
               <input
                 ref={fileInput}
                 type="file"
@@ -182,7 +175,6 @@ export function ProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">显示信息</CardTitle>
-            <CardDescription>用户名可改，不要求唯一。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
@@ -194,9 +186,6 @@ export function ProfilePage() {
                 onChange={(event) => setUsername(event.target.value)}
                 autoComplete="nickname"
               />
-              <p className="text-[11px] text-muted-foreground">
-                顶栏与头像菜单会显示这个名字（现在显示「{shownName}」）。
-              </p>
             </div>
             <dl className="grid gap-3 text-sm sm:grid-cols-[6rem_1fr] sm:gap-3">
               <dt className="text-xs font-medium text-muted-foreground">
