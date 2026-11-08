@@ -1,35 +1,22 @@
-# ciki
+# Ciki
 
-团队成员用的 wiki：把 Confluence 页面原样粘进来，保真渲染（标题、代码块、表格、嵌套/任务列表、图片）。Cloudflare Workers + D1 + R2，一个部署单元同时托管 API 与前端静态资源。
+[English](./README.en.md) | 中文
 
-## 技术栈
+Ciki 是团队内部使用的 wiki：页面按空间与树形层级组织，支持多成员协作、版本历史与全文检索。一个 Cloudflare Workers 部署单元同时托管 API 与前端静态资源，数据放在 D1，图片放在 R2。
 
-- `worker/` —— Hono + TypeScript，跑在 Cloudflare Workers；数据在共享 D1，图片在专用 R2 bucket。
-- `web/` —— React + Vite + TypeScript；UI 用 shadcn/ui（Nova 风格）+ Kumo + Radix，图标 Lucide、动画 Motion、状态 Zustand、拖拽 dnd-kit、分栏 react-resizable-panels。
-- pnpm monorepo；样式 Tailwind CSS v4。
+## 界面预览
 
-接口与数据模型的冻结契约见 [`docs/api-contract.md`](docs/api-contract.md)；后端已落地鉴权（密码 + Passkey + TOTP）、setup/迁移、页面与版本、FTS5 搜索、图片接口，以及个人导入令牌与四个导入接口（`/api/import/*`，供 Confluence 插件用 Bearer 令牌调用）。
-
-## 功能
-
-- **粘贴保真**：从 Confluence 选中复制，粘进编辑器即保住标题层级、代码块（含阅读页「行号列」形态）、表格合并与列宽比例、嵌套列表与任务勾选、链接与行内样式（规格 §5）。
-- **编辑器**：TipTap 2，代码块浅色高亮 + 语言角标 + 复制按钮（编辑态阅读态一致），表格可拖拽列宽，图片粘贴直传 R2。
-- **页面树**：侧边栏树形组织，拖拽改层级/排序，新建、改名、软删、回收站恢复与彻底删除。
-- **版本**：每次保存生成一条版本记录，可查看旧版并回滚（回滚本身也是一条新版本）。
-- **搜索**：顶栏搜索框，标题与正文都命中，结果页给命中片段。
-- **分区**：设置（主题 / 密码 / 两步验证 / Passkey / 导入令牌 / 登录设备）、关于（版本与构建信息）、系统管理（用户、应用设置、访问与安全、数据库维护）。
-- **登录**：账号密码 + 两步验证（TOTP 单框 / Passkey），注册审批，setup 初始化引导；主题亮 / 暗 / 自动三档，首屏不闪烁。
-- **两步验证管理**：已经有任一验证方式时，新增另一种（TOTP 或 Passkey）需要再输入一次账号密码重认证；一个都没有时直接配置。
-
-### 界面预览
-
-| 阅读页（代码块与表格）                        | 编辑页（粘贴 Confluence 内容）                |
+| 阅读页（代码块与表格）                        | 编辑页                                        |
 | --------------------------------------------- | --------------------------------------------- |
 | ![阅读页](.github/assets/imgs/page-view.webp) | ![编辑页](.github/assets/imgs/page-edit.webp) |
 
 | 页面树（三层）                                | 搜索                                     |
 | --------------------------------------------- | ---------------------------------------- |
 | ![页面树](.github/assets/imgs/page-tree.webp) | ![搜索](.github/assets/imgs/search.webp) |
+
+| 空间切换                                                            | 空间设置与成员                                                      |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| ![空间切换](.github/assets/imgs/spaces/space-switcher-desktop.webp) | ![空间设置](.github/assets/imgs/spaces/space-settings-desktop.webp) |
 
 | 登录                                    | 移动端阅读                                 |
 | --------------------------------------- | ------------------------------------------ |
@@ -45,14 +32,128 @@
 
 截图是本地真跑（`wrangler dev` + 本地 D1/R2）录的，示例内容全部虚构。
 
-### 粘贴支持与已知限制
+## 功能特性
 
-完整支持矩阵也放在应用内「帮助」弹窗里：
+- **多空间与成员权限** — 每个空间有独立的成员名单，角色分 `admin` / `editor` / `viewer`；普通用户只看得见自己加入的空间，站点管理员可见全部。
+- **页面树** — 侧边栏树形组织，拖拽调整层级与顺序；页面可在空间内移动，也可把整棵子树移到别的空间。
+- **编辑器** — TipTap 2；代码块浅色高亮、语言角标与复制按钮（编辑态与阅读态一致），表格可拖拽列宽，图片直接上传到 R2。
+- **版本历史** — 每次保存生成一条版本记录，可查看旧版并回滚；回滚本身也生成一条新版本。
+- **全文检索** — 顶栏搜索框，标题与正文都命中，FTS5 + CJK 分词，结果页给出命中片段。
+- **回收站** — 删除页面时整棵子树一起软删除，可恢复或彻底删除；彻底删除会连版本历史一起清掉。
+- **登录与两步验证** — 账号密码 + TOTP / Passkey；首个注册用户自动成为管理员，之后注册默认需要管理员批准；新增第二种验证方式需要重新输入一次密码。
+- **导入令牌** — 在设置页生成个人令牌，配套浏览器扩展「Ciki助手」用它把源站页面整页剪藏进 Ciki（标题、正文、代码块、表格与图片）；令牌明文只显示一次。
+- **设置** — 外观（亮 / 暗 / 跟随系统，首屏不闪烁）、修改密码、两步验证、导入令牌、登录设备管理。
+- **系统管理** — 用户与注册审批、空间总览、应用设置（站点名称、开放注册、注册审批、初始化页开关）、访问与安全（强制两步验证）、数据库维护。
+- **关于** — 版本号与构建时间，由 CI 在构建时注入。
+- **移动端适配** — 响应式布局，阅读、页面树与空间切换在手机上可用。
 
-- 保留：H1–H6、引用、分割线、代码块（语言识别、行号列形态转单一 `pre`）、表格（表头、`colspan`/`rowspan`、源列宽比例、超宽横向滚动）、嵌套列表、任务勾选态、链接、行内代码、粗/斜/下划线/删除线、图片文件。
-- 不保留（已知取舍）：文字颜色与表格背景色；Info / Note / Warning / Success 面板降级为带标签的引用块。
-- Confluence 附件图片只有链接时不会自动转存：即时标黄「未转存」，在编辑页手动上传替换。
-- 源侧限制：某些 Confluence 插件表格的表头在页面上无法被选中、根本不进剪贴板，粘贴后表头会是空的，wiki 侧无法恢复。
+## 技术栈
+
+- **后端**: Cloudflare Workers + Hono（TypeScript），D1（SQLite）+ FTS5 全文检索
+- **前端**: React 19 + Vite + TypeScript，Tailwind CSS v4，shadcn/ui（Nova 风格）+ Kumo + Radix UI
+- **编辑器**: TipTap 2（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）
+- **存储**: D1 存页面、版本与用户数据，R2 存图片，Worker 同时托管前端静态资源
+- **交互基础**: react-resizable-panels（分栏）、dnd-kit（页面树拖拽）、Zustand（状态）、Lucide（图标）、Motion（动效）
+- **工程与部署**: pnpm monorepo，GitHub Actions + Wrangler
+- **接口契约**: 见 [`docs/api-contract.md`](docs/api-contract.md)
+
+## 部署指南
+
+下面按「克隆 → 建资源 → 配 Secrets → 部署 → 初始化 → 注册管理员」的顺序走一遍。全程只需要一个 Cloudflare 账户和一个 GitHub 仓库，不需要在本地长期跑服务。
+
+### 前置要求
+
+- Cloudflare 账户，已开通 Workers、D1 与 R2（R2 首次使用需在控制台启用）
+- GitHub 账户，并把仓库 fork 或复制到自己的账号下（部署工作流在仓库的 Actions 里跑）
+- 本机安装 Git（只走 GitHub Actions 部署时，本地只需要它来克隆仓库）
+- 本地开发另需 Node.js 22 或更高版本与 pnpm（`corepack enable` 会自动使用仓库锁定的 pnpm 版本）
+
+### 1. 克隆仓库
+
+```bash
+git clone https://github.com/<你的 GitHub 账号>/Ciki.git
+cd Ciki
+```
+
+如果直接使用本仓库（有写权限），把地址换成 `https://github.com/WorkerHub/Ciki.git`。
+
+只走 GitHub Actions 部署时，到这里就够了；想先在本地跑一遍再执行 `pnpm install`（见「本地开发」）。
+
+### 2. 创建 Cloudflare 资源
+
+**D1 数据库**（存页面、版本、用户等数据）
+
+- 打开 Cloudflare 控制台 → Storage & Databases → D1 SQL Database → Create database，名称填 `ciki`（可自定义）。
+- 创建后进入数据库详情页，记下 **Database name** 与 **Database ID**，下一步要填。
+- Ciki 的表名默认带 `ciki_` 前缀，因此也可以复用已有的 D1 库，不会和同库里其它项目串表。
+
+**R2 bucket**（存图片）
+
+- bucket 名固定为 `ciki-assets`（写在 `worker/wrangler.toml` 与部署工作流里）。
+- 部署工作流会幂等补建：不存在就创建，已存在就跳过。也可以先在控制台 → R2 Object Storage → Create bucket 手动建好，名字必须是 `ciki-assets`。
+- 部署用的 `CLOUDFLARE_API_TOKEN` 需要有 **R2 编辑**权限，否则补建 bucket 这一步会让部署失败（此时还没有部署任何东西）。
+
+### 3. 配置 GitHub Secrets 与 Variables
+
+打开仓库的 Settings → Secrets and variables → Actions。资源 ID 放 **Secrets**（GitHub 会自动打码），库名与表前缀这类非机密放 **Variables**。
+
+**Secrets**（切到 Secrets 标签页 → New repository secret，逐个添加）
+
+| Secret                  | 用途                                                                                                                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API Token。可用「Edit Cloudflare Workers」模板，并确认权限里有 Workers Scripts 编辑、D1 编辑与 R2 编辑（缺哪个补哪个）                                                  |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID（控制台首页右侧可复制）                                                                                                                                         |
+| `D1_DATABASE_ID`        | 上一步记下的 D1 Database ID                                                                                                                                                        |
+| `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定 |
+| `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串，例如 `openssl rand -hex 16`                                                                                                                  |
+
+**Variables**（切到 Variables 标签页 → New repository variable）
+
+| Variable           | 用途                                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| `D1_DATABASE_NAME` | D1 数据库名（明文，非机密）                                                                                  |
+| `TABLE_PREFIX`     | 表前缀，可选。不设置或留空 → `ciki_`；填 `none` → 无前缀；填其他值（如 `wiki`）→ `wiki_`。详见下文「表前缀」 |
+
+以上 5 个 Secret 与 2 个 Variable 就是部署需要的全部配置：`deploy.yml` 只引用这些名字。缺任何一项，或值仍是模板里的 `*_PLACEHOLDER` / `replace-with-*`，或 `ENCRYPTION_KEY` 不是 32 字节，部署都会在上传前中止并点名，不会用空值或占位值顶替。
+
+### 4. 部署
+
+把改动推送到 `main`（或合并 Pull Request）后，仓库的自动校验（CI）会先跑一遍，全部通过才自动部署；也可以在仓库的 Actions → Deploy → Run workflow 手动触发。
+
+部署工作流按顺序做四件事：构建前端 → 解析 secrets 与 `wrangler.toml` 占位符 → 补建 R2 bucket → `wrangler deploy`。表结构不在这一步创建，接着做初始化。
+
+### 5. 初始化数据库
+
+部署成功只代表 Worker 上线，表还没有建。打开站点：未初始化时会自动跳转到 `/setup` 初始化页。
+
+1. 填入 `SETUP_SECRET`（只放在请求头 `X-Setup-Secret`，不会进 URL）。
+2. 提交后接口只跑迁移，成功时返回生效的表前缀与已执行的迁移列表，核对前缀与预期一致。
+
+也可以命令行完成（输入不回显、不进命令历史）：
+
+```bash
+read -rs SETUP_SECRET
+curl -X POST https://<你的站点域名>/api/setup -H "X-Setup-Secret: $SETUP_SECRET"
+unset SETUP_SECRET
+```
+
+每次升级部署后，管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」即可补跑迁移（`POST /api/admin/setup`，登录管理员会话即可，不需要 `SETUP_SECRET`）。迁移都是追加式的，已执行的显示为 `skipped`；界面不提供删表 / 清库入口。
+
+### 6. 注册管理员
+
+初始化完成后打开站点首页注册账号。第一个注册用户自动成为管理员、直接批准并激活；此后的注册默认需要管理员批准。可在「系统管理 → 应用设置」调整是否开放注册与是否需要批准。
+
+### 表前缀 TABLE_PREFIX（可选）
+
+所有表名都由 `worker/src/lib/table-prefix.ts` 的 `getTablePrefix()` 拼出；`TABLE_PREFIX` 只影响本项目的表，适合在一个 D1 库里和别的项目共处。
+
+| 配置                                                                                             | 生效前缀 | 表名示例     |
+| ------------------------------------------------------------------------------------------------ | -------- | ------------ |
+| 不设置 / 留空（默认）                                                                            | `ciki_`  | `ciki_pages` |
+| 自定义值（如 `wiki`：非空时须以字母或下划线开头，其后只允许字母、数字、下划线，尾部 `_` 自动补） | `wiki_`  | `wiki_pages` |
+| `none`（GitHub Variables 的保留字，表示显式置空）                                                | 无前缀   | `pages`      |
+
+生效前缀必须在初始化前定好：换前缀等于换一套空表。初始化接口检测到库里已在另一前缀下初始化时，会以 409 中止，不会另建第二套表。
 
 ## 本地开发
 
@@ -64,10 +165,10 @@ pnpm dev
 
 `pnpm dev` 先构建一次前端（`web/dist` 是 Worker 的静态资源目录），再用 `concurrently` 同时起：
 
-- Worker：`wrangler dev`（默认 <http://localhost:8787>，本地 D1/R2 由 miniflare 模拟，不需要云上账号）
-- Web：`vite`（默认 <http://localhost:5173>，`/api` 代理到 8787）
+- Worker：`wrangler dev`，默认 <http://localhost:8787>；本地 D1/R2 由 miniflare 模拟，不需要 Cloudflare 账号。
+- Web：`vite`，默认 <http://localhost:5173>，`/api` 代理到 8787。
 
-`worker/.dev.vars` 已被 gitignore；真实密钥绝不进仓库。
+`worker/.dev.vars` 已被 gitignore，真实密钥不进仓库。`TABLE_PREFIX` 可选：不配置 → `ciki_`，写空值 → 无前缀（保留字 `none` 只在 CI 侧翻译）。
 
 ## 校验
 
@@ -76,78 +177,17 @@ pnpm lint          # biome lint
 pnpm format:check  # biome format
 pnpm typecheck     # web + worker
 pnpm build         # 前端产物 + worker 类型检查
-pnpm test          # worker 单测（vitest）+ web 单测（vitest + jsdom，含粘贴管线 41 条断言）
-pnpm check:deploy  # wrangler deploy --dry-run：校验 wrangler.toml 的绑定与打包
+pnpm test          # worker 单测 + web 单测（vitest + jsdom）
+pnpm check:deploy  # wrangler deploy --dry-run：校验绑定与打包
 ```
 
-## 部署
-
-合并到 `main` 且 CI 通过后，`.github/workflows/deploy.yml` 自动部署 Cloudflare；也可手动触发。**合并与部署关口归用户**，团队不自行合并、不自行部署。
-
-### 组织级配置（WorkerHub，已配置，只引用不新建）
-
-| 名称                    | 类型     | 用途                            |
-| ----------------------- | -------- | ------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | secret   | wrangler 部署（含建 R2 bucket） |
-| `CLOUDFLARE_ACCOUNT_ID` | secret   | Cloudflare 账户                 |
-| `D1_DATABASE_ID`        | secret   | 共享 D1 库 ID                   |
-| `D1_DATABASE_NAME`      | variable | 共享 D1 库名（明文，非机密）    |
-
-共享 D1 是既有的 workerhub 库，本项目**不新建数据库**，只在本项目表前缀下的表里读写。
-
-### 仓库级 Secrets（需在本仓库配置）
-
-| Secret           | 用途                                                    | 必需 |
-| ---------------- | ------------------------------------------------------- | ---- |
-| `ENCRYPTION_KEY` | TOTP 密钥的 AES-GCM 加密钥（`openssl rand -base64 32`） | 是   |
-| `SETUP_SECRET`   | setup / 数据库维护接口的 `X-Setup-Secret`               | 是   |
-
-会话改用不透明令牌后不再签 JWT，旧的 `JWT_SECRET` 已不再读取，可从仓库 Secrets 删除。
-
-缺任何一把，或值仍是模板里的占位写法（`*_PLACEHOLDER`、`replace-with-*`），或 `ENCRYPTION_KEY` 不是 32 字节，部署工作流会**在上传前中止并点名**，不会用空值或占位值顶替。密钥由 `scripts/materialize-secrets.mjs` 写进 `$RUNNER_TEMP/secrets.json`（权限 0600），再经 `wrangler deploy --secrets-file` 上传——真实值不进仓库、不进日志。
-
-### 表前缀 TABLE_PREFIX（三态）
-
-所有表名都经 `worker/src/lib/table-prefix.ts` 的 `getTablePrefix()` 拼出，全仓唯一解析点；除该文件的默认常量外，代码里不写死任何部署前缀或最终表名。
-
-| 配置                                                                                            | 生效前缀 | 表名示例     |
-| ----------------------------------------------------------------------------------------------- | -------- | ------------ |
-| 不配置（默认）                                                                                  | `ciki_`  | `ciki_pages` |
-| 自定义值（如 `wiki`：非空时须以字母或下划线开头，其后只允许字母、数字、下划线，自动补尾部 `_`） | `wiki_`  | `wiki_pages` |
-| 显式置空（GitHub Variables 填保留字 `none`；本地 `.dev.vars` 写空值）                           | 无前缀   | `pages`      |
-
-CI 侧规则（`scripts/materialize-secrets.mjs`）：GitHub Variables 的 `TABLE_PREFIX` **未设置或留空 → 注入 `ciki`**（GitHub 无法区分这两者），**`none` → 注入空串**（无前缀），**其他值 → 原样注入**；含非法字符（包括 `2026` 这类前导数字、`ci-ki` 这类带连字符的）时部署中止。补尾部下划线只由运行时做，注入值保持原样。
-
-生效前缀必须在数据库初始化前确定：换前缀等于换一套空表。**部署本身不锁前缀**——它每次按当前变量重写注入值；“生效前缀不可更改”由 setup 的前缀冲突守卫兜底：检测到库里已在另一前缀下初始化时，初始化接口以 409 中止，不会另建第二套空表。仍请勿在已初始化的库上随意改 `TABLE_PREFIX`。
-
-### R2
-
-图片存在专用 bucket `ciki-assets`（`wrangler.toml` 里绑定名 `R2`——`ASSETS` 已被静态资源占用）。部署工作流会幂等补建该 bucket，只把"已存在"当成成功：
-
-- 组织级 `CLOUDFLARE_API_TOKEN` 需要有 **R2 编辑**权限，否则该步会让本次部署失败（此时尚未部署任何东西）；
-- 也可以先在 Cloudflare 控制台（或本地 `wrangler r2 bucket create ciki-assets`）建好，再重跑部署。
-
-### 部署之后：初始化数据库
-
-部署成功只代表 Worker 上线；表结构要由管理员触发一次 setup 才会建。未初始化时任意页面会引导到初始化页（`GET /api/setup/state` 公开返回 `{initialized, enabled}`，不含密钥）。
-
-1. 在初始化页填入 `SETUP_SECRET`（请求头 `X-Setup-Secret`，只走请求头、不进 URL），提交 `POST /api/setup`；接口只跑迁移，成功后回显 `{success, tablePrefix, migrations}`，并核对生效前缀与预期一致。
-2. 注册第一个用户：首个注册者自动成为管理员、直接批准并激活（此后注册默认需管理员批准）。
-3. 每次升级部署后，管理员在「系统管理 → 数据库维护」触发同一次迁移（`POST /api/admin/setup`，管理员会话免密钥）；已执行的迁移显示为 `skipped`。
-
-同理，可直接用 curl 完成首次初始化（令牌从环境变量读取，不要写进命令历史）：
-
-```bash
-curl -X POST https://<站点域名>/api/setup \
-  -H "X-Setup-Secret: $SETUP_SECRET"
-```
-
-迁移只新增表/索引（`worker/src/lib/migrations.ts` 的 `schema_v1`～`schema_v4`：`schema_v3` 为 users 的身份三列与 `public_id` 唯一索引，`schema_v4` 为空间/成员表与 `pages.space_id` 并回填默认空间，均含只补空值/`INSERT OR IGNORE` 的存量处理），不做破坏性变更。回滚是人工操作：删除对应迁移新建的表/索引并从 `{prefix}schema_migrations` 删掉该迁移行（生产库执行前须经用户批准）；CI 与 UI 都不提供删表/清库入口。
+CI 按顺序跑这六条；其中 `check:deploy` 会在部署前确认 D1 / R2 / 静态资源三类绑定可解析、Worker 能打包，不会真正上传或改动线上资源。
 
 ## 目录结构
 
 ```
-.github/workflows/   CI（校验）与 Deploy（合并即部署）
+.github/workflows/   CI（校验）与 Deploy（部署）
+docs/                API 契约与数据模型
 scripts/             部署期配置解析（表前缀三态、secrets.json、wrangler.toml 占位符）
 web/                 React + Vite 前端（构建产物 web/dist 由 Worker 托管）
 worker/              Hono Worker（D1 / R2 / 静态资源三类绑定）
@@ -156,9 +196,21 @@ worker/              Hono Worker（D1 / R2 / 静态资源三类绑定）
 ### 前端代码地图
 
 ```
-web/src/editor/paste/  Confluence 剪贴板清洗管线（移植自验证小样 v0.4）+ 样本与断言
-web/src/editor/        TipTap 扩展集（编辑/阅读共用）、代码块与图片 NodeView、工具条
+web/src/editor/paste/  外部 HTML 清洗管线（含样本与断言）
+web/src/editor/        TipTap 扩展集（编辑/阅读共用）、代码块与图片 NodeView、工具条、扩展桥
 web/src/lib/           API 客户端（唯一 HTTP 出口）、列宽换算、页面树算法、主题、上传
-web/src/stores/        Zustand：会话、页面树、主题
-web/src/pages/         阅读/编辑/搜索/回收站/设置/关于/系统管理/登录注册初始化
+web/src/stores/        Zustand：会话、页面树、空间、主题
+web/src/pages/         阅读/编辑/搜索/回收站/设置/关于/系统管理/空间设置/登录注册初始化
 ```
+
+## 接口与数据模型
+
+完整的接口、字段、错误码与迁移说明见 [`docs/api-contract.md`](docs/api-contract.md)。
+
+- 除公开端点与导入接口外，所有 `/api/*` 都要带会话 Cookie（`ciki_session`，HttpOnly / Secure / SameSite=Strict，7 天滑动续期）。
+- 导入接口 `/api/import/*` 只认 `Authorization: Bearer <个人导入令牌>`，不接受会话 Cookie。Ciki助手用它查可写空间与父页、检查同名页、上传图片和写页面；令牌在设置页生成，明文只显示一次。
+- 图片经 `/api/files/:key` 读取，必须带登录会话，不提供公开直链。
+
+## 许可证
+
+[MIT](LICENSE)
