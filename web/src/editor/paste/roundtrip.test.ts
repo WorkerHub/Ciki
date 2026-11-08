@@ -4,6 +4,7 @@ import { createExtensions } from "@/editor/extensions"
 import { analyzeHtml } from "@/editor/paste/analyze"
 import { cleanConfluenceHtml } from "@/editor/paste/cleaner"
 import {
+  SAMPLE_COLOR_HTML,
   SAMPLE_CONFLUENCE_HTML,
   SAMPLE_SH_TABLE_HTML
 } from "@/editor/paste/samples"
@@ -114,5 +115,63 @@ describe("清洗后 TipTap 回读（小样 v0.4 断言）", () => {
     expect(html).toContain("data-original-src")
     expect(html).toContain('data-confluence-img="true"')
     expect(html).not.toMatch(/<img[^>]*\ssrc=/)
+  })
+})
+
+/**
+ * 颜色支持批次：清洗后的颜色载具必须能被产品侧真实扩展集读回模型，
+ * 并在序列化时保持契约形态（data 属性 + 小写 #rrggbb）。
+ */
+describe("颜色载具的 TipTap 回读（编辑态扩展集）", () => {
+  let editor: Editor
+
+  beforeAll(() => {
+    installTiptapJsdomShims()
+    const host = document.createElement("div")
+    document.body.appendChild(host)
+    editor = new Editor({ element: host, extensions: createExtensions("edit") })
+  })
+
+  afterAll(() => {
+    editor?.destroy()
+  })
+
+  const load = (html: string) => {
+    editor.commands.setContent(html)
+    return editor
+  }
+
+  it("文字颜色读回 textStyle.color（hex）", () => {
+    load('<p><span data-text-color="#de350b">红</span></p>')
+    const marks = editor.getJSON().content?.[0]?.content?.[0]?.marks ?? []
+    expect(marks).toEqual([{ type: "textStyle", attrs: { color: "#de350b" } }])
+    expect(editor.getHTML()).toContain('data-text-color="#de350b"')
+  })
+
+  it("高亮读回 highlight.color（hex）", () => {
+    load('<p><mark data-color="#ffe58f">亮</mark></p>')
+    const marks = editor.getJSON().content?.[0]?.content?.[0]?.marks ?? []
+    expect(marks).toEqual([{ type: "highlight", attrs: { color: "#ffe58f" } }])
+    expect(editor.getHTML()).toContain('data-color="#ffe58f"')
+  })
+
+  it("单元格底色读回 tableCell / tableHeader 的 backgroundColor", () => {
+    load(
+      '<table><tbody><tr><th data-cell-bg="#f4f5f7">H</th><td data-cell-bg="#fffae6">C</td></tr></tbody></table>'
+    )
+    const row = editor.getJSON().content?.[0]?.content?.[0]?.content ?? []
+    expect(row[0]?.attrs?.backgroundColor).toBe("#f4f5f7")
+    expect(row[1]?.attrs?.backgroundColor).toBe("#fffae6")
+    const html = editor.getHTML()
+    expect(html).toContain('data-cell-bg="#f4f5f7"')
+    expect(html).toContain('data-cell-bg="#fffae6"')
+  })
+
+  it("Confluence 颜色样本整页回读：三样颜色都在", () => {
+    load(applyColWidthsFromColgroup(cleanConfluenceHtml(SAMPLE_COLOR_HTML)))
+    const stats = analyzeHtml(editor.getHTML())
+    expect(stats.textColors).toBeGreaterThanOrEqual(3)
+    expect(stats.highlights).toBe(1)
+    expect(stats.cellBackgrounds).toBe(4)
   })
 })

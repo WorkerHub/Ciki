@@ -21,6 +21,18 @@ const SAFE_ORIGINAL_SRC =
 const COL_STYLE = /^(width|min-width):\s*\d+(\.\d+)?(px|%)\s*;?$/i
 const TABLE_STYLE = /^min-width:\s*\d+(\.\d+)?px\s*;?$/i
 const LENGTH_ATTR = /^\d+(\.\d+)?(px|%)?$/i
+/**
+ * 颜色载具：`span[data-text-color]` / `mark[data-color]`（高亮）/ `td,th[data-cell-bg]`。
+ * 值只收六位十六进制（大小写都收，入库统一小写）——与前端 `web/src/lib/color.ts`、
+ * docs/api-contract.md 同一口径。颜色不走 CSS：style 一律被剥，读态由编辑器扩展
+ * 从 data 属性还原（见 lib/tiptap-html.ts）。
+ */
+const COLOR_ATTR = /^#[0-9a-fA-F]{6}$/
+
+/** 合法颜色载具重新序列化（值统一小写，与库里的形态一致）；非法返回空串即删除。 */
+function colorAttr(name: string, value: string): string {
+  return COLOR_ATTR.test(value) ? `${name}="${value.toLowerCase()}"` : ""
+}
 
 const whitelist = {
   p: [],
@@ -45,6 +57,8 @@ const whitelist = {
   sup: [],
   blockquote: [],
   code: ["class"],
+  span: ["data-text-color"],
+  mark: ["data-color"],
   a: ["title", "href"],
   img: [
     "src",
@@ -60,8 +74,8 @@ const whitelist = {
   tbody: [],
   tfoot: [],
   tr: [],
-  td: ["colspan", "rowspan"],
-  th: ["colspan", "rowspan"],
+  td: ["colspan", "rowspan", "data-cell-bg"],
+  th: ["colspan", "rowspan", "data-cell-bg"],
   colgroup: [],
   col: ["width", "style"],
   ul: ["data-type"],
@@ -130,6 +144,17 @@ const filter = new FilterXSS({
     }
     if (tag === "li" && name === "data-checked") {
       return value === "true" || value === "false" ? undefined : ""
+    }
+    // 颜色载具：合法就重新吐一遍（顺手统一成小写），非法直接删。
+    if (tag === "span" && name === "data-text-color") {
+      return colorAttr(name, value)
+    }
+    if (tag === "mark" && name === "data-color") {
+      return colorAttr(name, value)
+    }
+    // 必须在下面 td/th 的兜底（只认数字）之前，否则 data-cell-bg 会被误删
+    if ((tag === "td" || tag === "th") && name === "data-cell-bg") {
+      return colorAttr(name, value)
     }
     if (tag === "td" || tag === "th") {
       return /^\d{1,3}$/.test(value) ? undefined : ""

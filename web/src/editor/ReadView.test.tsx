@@ -63,3 +63,57 @@ describe("阅读态渲染（与编辑态共用同一套扩展）", () => {
     expect(table.querySelector("col")?.getAttribute("style")).toContain("120px")
   })
 })
+
+/**
+ * 颜色支持批次：入库的 contentHtml 只带 data 载具（消毒层剥掉所有 style），
+ * 读态必须由扩展还原成真实内联样式 —— 这是「保存后阅读一致」的服务端形态证据。
+ */
+describe("阅读态颜色（入库形态 → 渲染）", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  const stored = [
+    '<p><span data-text-color="#de350b">红色警告</span><mark data-color="#ffe58f">高亮</mark></p>',
+    '<table><tbody><tr><th data-cell-bg="#f4f5f7">环境</th><td data-cell-bg="#fffae6">生产</td></tr></tbody></table>'
+  ].join("")
+
+  it("文字颜色渲染成内联 color", async () => {
+    const { container } = render(<ReadView html={stored} />)
+    await screen.findByText("红色警告")
+    const span = container.querySelector("span[data-text-color]")
+    expect(span).not.toBeNull()
+    expect((span as HTMLElement).style.color).toBe("rgb(222, 53, 11)")
+  })
+
+  it("高亮渲染成内联背景色", async () => {
+    const { container } = render(<ReadView html={stored} />)
+    await screen.findByText("高亮")
+    const mark = container.querySelector("mark[data-color]")
+    expect(mark).not.toBeNull()
+    expect((mark as HTMLElement).style.backgroundColor).toBe(
+      "rgb(255, 229, 143)"
+    )
+  })
+
+  it("单元格底色渲染成内联背景色（表头与数据格都算）", async () => {
+    const { container } = render(<ReadView html={stored} />)
+    await screen.findByRole("table")
+    const header = container.querySelector("th[data-cell-bg]")
+    const cell = container.querySelector("td[data-cell-bg]")
+    expect((header as HTMLElement).style.backgroundColor).toBe(
+      "rgb(244, 245, 247)"
+    )
+    expect((cell as HTMLElement).style.backgroundColor).toBe(
+      "rgb(255, 250, 230)"
+    )
+  })
+
+  it("没有颜色载具的内容不产生任何颜色样式", async () => {
+    const { container } = render(<ReadView html={"<p>纯文字</p>"} />)
+    await screen.findByText("纯文字")
+    expect(container.querySelector("[data-text-color]")).toBeNull()
+    expect(container.querySelector("mark")).toBeNull()
+    expect(container.querySelector("[data-cell-bg]")).toBeNull()
+  })
+})

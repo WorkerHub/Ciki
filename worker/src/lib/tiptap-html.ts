@@ -9,8 +9,14 @@
  * （NodeView、Placeholder、lowlight）：基础 codeBlock 已输出 `language-*` 类，
  * 与 §4 消毒白名单一致。
  */
-import { getSchema, type Extensions, type JSONContent } from "@tiptap/core"
+import {
+  Extension,
+  getSchema,
+  type Extensions,
+  type JSONContent
+} from "@tiptap/core"
 import { generateHTML } from "@tiptap/html"
+import Highlight from "@tiptap/extension-highlight"
 import Image from "@tiptap/extension-image"
 import Link from "@tiptap/extension-link"
 import Table from "@tiptap/extension-table"
@@ -19,6 +25,7 @@ import TableHeader from "@tiptap/extension-table-header"
 import TableRow from "@tiptap/extension-table-row"
 import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
+import TextStyle from "@tiptap/extension-text-style"
 import Underline from "@tiptap/extension-underline"
 import StarterKit from "@tiptap/starter-kit"
 import type { DOMOutputSpec, Schema } from "@tiptap/pm/model"
@@ -84,6 +91,55 @@ const ImportTaskItem = TaskItem.extend({
 })
 
 /**
+ * 颜色：与 web 侧同一套 data 载具（`data-text-color` / `data-color` / `data-cell-bg`）。
+ *
+ * 为什么不用 TipTap 原生 Color：它只把颜色写进 `style`，而 zeed-dom 会整段丢 style——
+ * 那样导入路径的颜色就没了。这里只换「序列化成什么属性」，mark 与命令仍由原生扩展提供。
+ */
+const ImportColor = Extension.create({
+  name: "color",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          color: {
+            default: null,
+            renderHTML: (attributes: Record<string, unknown>) =>
+              attributes.color ? { "data-text-color": attributes.color } : {}
+          }
+        }
+      }
+    ]
+  }
+})
+
+/** 单元格底色：与 web 侧 WikiTableCell/WikiTableHeader 同名同形，只渲染 data 载具。 */
+function backgroundColorAttribute() {
+  return {
+    backgroundColor: {
+      default: null,
+      renderHTML: (attributes: Record<string, unknown>) =>
+        attributes.backgroundColor
+          ? { "data-cell-bg": attributes.backgroundColor }
+          : {}
+    }
+  }
+}
+
+const ImportTableCell = TableCell.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...backgroundColorAttribute() }
+  }
+})
+
+const ImportTableHeader = TableHeader.extend({
+  addAttributes() {
+    return { ...this.parent?.(), ...backgroundColorAttribute() }
+  }
+})
+
+/**
  * 表格：ProseMirror 对 `style` 走 `dom.style.cssText`，而 zeed-dom 的 style 是
  * 只读快照，写进去就丢——`@tiptap/html` + zeed-dom 下表格列宽会整段消失。
  * 这里把列宽改写成 HTML 自带的 `col[width]`（等价的像素宽度，且 §4 白名单允许），
@@ -118,6 +174,9 @@ const ImportTable = Table.extend({
 const extensions: Extensions = [
   StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
   Underline,
+  TextStyle,
+  ImportColor,
+  Highlight.configure({ multicolor: true }),
   Link.configure({
     autolink: true,
     HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" }
@@ -126,8 +185,8 @@ const extensions: Extensions = [
   // 始终包一层 .tableWrapper：读态超宽表格要横向滚动（与 web 一致）。
   ImportTable.configure({ renderWrapper: true }),
   TableRow,
-  TableHeader,
-  TableCell,
+  ImportTableHeader,
+  ImportTableCell,
   TaskList,
   ImportTaskItem.configure({ nested: true })
 ]

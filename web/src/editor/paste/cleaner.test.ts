@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { analyzeHtml } from "@/editor/paste/analyze"
 import { cleanConfluenceHtml } from "@/editor/paste/cleaner"
 import {
+  SAMPLE_COLOR_HTML,
   SAMPLE_CONFLUENCE_HTML,
   SAMPLE_SH_TABLE_HTML
 } from "@/editor/paste/samples"
@@ -197,5 +198,112 @@ describe("图片地址：本站图床保留、危险地址丢弃", () => {
     // 自身 src 必须消失；根相对地址仍然可以作为「原地址」保留
     expect(cleaned).not.toMatch(/<img[^>]*\ssrc=/)
     expect(cleaned).toContain('data-confluence-img="true"')
+  })
+})
+
+/**
+ * 颜色支持批次：内联 `color` / `background-color` 放行（仅颜色值，其余样式照旧剥离），
+ * 归一成 `#rrggbb` 后落到契约载具上 —— `span[data-text-color]`、`mark[data-color]`、
+ * `td/th[data-cell-bg]`。载具形态与 Worker 侧消毒白名单、读态解析同一套。
+ */
+describe("颜色：文字颜色 / 高亮 / 单元格底色", () => {
+  const cleaned = cleanConfluenceHtml(SAMPLE_COLOR_HTML)
+  const stats = analyzeHtml(cleaned)
+
+  it("文字颜色：rgb() 与 hex 都归一成 #rrggbb，落在 span 载具上", () => {
+    expect(cleaned).toContain('<span data-text-color="#de350b">红色警告</span>')
+    expect(cleaned).toContain('<span data-text-color="#1f845a">绿色加粗</span>')
+  })
+
+  it("文字颜色：老式 <font color> 也保留，font 本身被解包", () => {
+    expect(cleaned).toContain(
+      '<span data-text-color="#0052cc">老式 font 颜色</span>'
+    )
+    expect(cleaned).not.toContain("<font")
+  })
+
+  it("高亮：background-color 的 span 变成 mark 载具", () => {
+    expect(cleaned).toContain('<mark data-color="#ffe58f">黄色高亮</mark>')
+  })
+
+  it("裸 <mark> 结构保留（无颜色值时不猜色）", () => {
+    expect(cleaned).toContain("<mark>裸高亮</mark>")
+  })
+
+  it("单元格底色：td/th 的 background-color 落到 data-cell-bg", () => {
+    expect(cleaned).toContain('<th data-cell-bg="#f4f5f7">环境</th>')
+    expect(cleaned).toContain('<th data-cell-bg="#deebff">值</th>')
+    expect(cleaned).toContain('<td data-cell-bg="#fffae6">生产</td>')
+  })
+
+  it("单元格里同时有文字颜色与底色：两者都保留", () => {
+    expect(cleaned).toContain(
+      '<td data-cell-bg="#ffebe6"><span data-text-color="#de350b">3000ms</span></td>'
+    )
+  })
+
+  it("归一不出来的颜色（var()）丢弃，其它内联样式照旧剥除", () => {
+    expect(cleaned).toContain("没法归一的行内颜色")
+    expect(cleaned).not.toContain("var(--accent)")
+    expect(cleaned).not.toContain("font-size")
+    expect(cleaned).not.toContain("font-weight")
+    expect(cleaned).not.toContain("border:")
+  })
+
+  it("清洗结果里没有任何内联 style 残留", () => {
+    expect(cleaned).not.toMatch(/\sstyle=/)
+  })
+
+  it("统计口径：三种颜色各按载具计数", () => {
+    // 红色警告 + 绿色加粗 + 老式 font + 数据格里的红字 = 4
+    expect(stats.textColors).toBe(4)
+    // 只有一个带色 mark（裸 <mark> 不计）
+    expect(stats.highlights).toBe(1)
+    // 表头 2 + 数据 2
+    expect(stats.cellBackgrounds).toBe(4)
+    expect(stats.unknownTags).toEqual([])
+  })
+
+  it("v0.4 真实样本里的红字也带过来了", () => {
+    const base = cleanConfluenceHtml(SAMPLE_CONFLUENCE_HTML)
+    expect(base).toContain(
+      '<span data-text-color="#de350b">红色警告文字</span>'
+    )
+  })
+
+  it("幂等：已带载具的 HTML（站内复制粘贴）再清洗一次结果不变", () => {
+    const once = cleanConfluenceHtml(SAMPLE_COLOR_HTML)
+    const twice = cleanConfluenceHtml(
+      once.replace(
+        /<mark data-color="([^"]+)">/g,
+        '<mark data-color="$1" style="background-color: rgb(255, 229, 143); color: inherit;">'
+      )
+    )
+    expect(analyzeHtml(twice).textColors).toBe(stats.textColors)
+    expect(analyzeHtml(twice).highlights).toBe(stats.highlights)
+    expect(analyzeHtml(twice).cellBackgrounds).toBe(stats.cellBackgrounds)
+    expect(twice).not.toMatch(/\sstyle=/)
+  })
+})
+
+describe("颜色：危险与非法值一律丢弃", () => {
+  const inline = (style: string) =>
+    cleanConfluenceHtml(`<p><span style="${style}">文字</span></p>`)
+
+  it("javascript: 与表达式写法不产出载具", () => {
+    expect(inline("color: javascript:alert(1)")).toBe("<p>文字</p>")
+    expect(inline("color: expression(alert(1))")).toBe("<p>文字</p>")
+  })
+
+  it("命名色与半透明色不猜，丢弃但文字保留", () => {
+    expect(inline("color: red")).toBe("<p>文字</p>")
+    expect(inline("color: rgba(222, 53, 11, 0.5)")).toBe("<p>文字</p>")
+  })
+
+  it("只认 background-color，不认 background 简写与渐变", () => {
+    expect(inline("background: #ffe58f")).toBe("<p>文字</p>")
+    expect(inline("background-color: linear-gradient(#fff, #000)")).toBe(
+      "<p>文字</p>"
+    )
   })
 })
