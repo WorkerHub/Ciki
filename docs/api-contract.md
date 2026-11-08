@@ -22,15 +22,13 @@
 
 ## 二、数据模型
 
-迁移五条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
+迁移一条 `schema_v1`，语句全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
-- `schema_v1`：鉴权、设置、页面、版本与 FTS 的全部表。
-- `schema_v2`：导入令牌表 `{prefix}import_tokens`（v1.1 增补）。
-- `schema_v3`：users 的身份三列（`username` / `public_id` / `avatar_key`）与 `public_id` 的部分唯一索引。SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以加列与存量回填放在该迁移的 `prepare` 步骤（先于 sql 执行）：按 `PRAGMA table_info` 判断缺哪列再补，随后只把新列里**仍为空**的值填上（`username` 取邮箱前缀、`public_id` 用系统生成器并与全表已有值去重），更新都带 `WHERE … = ''`，因此不覆盖任何既有数据、可重复执行、失败后从断点续跑。
-- `schema_v4`：空间与成员（`{prefix}spaces` / `{prefix}space_members`）、`pages.space_id` 与空间索引。`prepare` 幂等补列、建默认空间（id `space-default`、名称「默认空间」、`is_default=1`）、把所有 `space_id` 仍为空/缺失的页面回填到默认空间、把所有现有用户加入默认空间（站点管理员 `admin`、其余 `editor`）。只写空值、成员用 `INSERT OR IGNORE`，重复执行无副作用。
-- `schema_v5`：R2 孤儿清理的运行日志 `{prefix}r2_cleanup_runs`（每轮一行）与 waker 回调的幂等账本 `{prefix}waker_executions`（列照 waker 客户端 SDK 的 `executionLedgerDdl()`）。纯新增表、无 `prepare`。
+- `schema_v1`：全新库的全部表——鉴权（`users` 含 `username` / `public_id` / `avatar_key` 三列、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id`、`page_revisions`、`pages_fts`）、导入令牌（`import_tokens`）、空间（`spaces` / `space_members`）、清理日志与回调账本（`r2_cleanup_runs` / `waker_executions`），以及全部索引（含 `users_public_id`、`spaces_is_default` 两个部分唯一索引）。同一迁移末尾播种默认空间（id `space-default`、名称「默认空间」、`is_default=1`、`created_by` 取最早一名站点管理员或空串），并把 `space_id` 仍为空/缺失的页面回填到默认空间、把已有用户加入默认空间（站点管理员 `admin`、其余 `editor`）。播种都是 `INSERT OR IGNORE` / 只写空值的语句，重复执行无副作用；没有 `prepare` 步骤。
 
-回滚方式：人工删除对应迁移新建的表/索引（`schema_v3` 为 `{prefix}users_public_id`；`schema_v4` 为 `{prefix}spaces`、`{prefix}space_members` 与 `pages` 的空间列/索引；`schema_v5` 为 `{prefix}r2_cleanup_runs`、`{prefix}waker_executions`），并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'|'schema_v3'|'schema_v4'|'schema_v5'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
+Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那样的逐版本升级路径：今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，不改动已有迁移。只跑过旧版部分迁移、或 `pages` 缺 `space_id` 的库不在支持范围——`CREATE TABLE IF NOT EXISTS` 不会补列，迁移会失败并报 `Migration "schema_v1" failed`，处置方式是重建库。
+
+回滚方式：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM {prefix}schema_migrations`），即回到未初始化状态（等同整库重建）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
 
 ### users
 
@@ -150,7 +148,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 - 失效条件：吊销、重置、用户被停用或未批准。校验每次回表并连 `users` 查激活/审批状态，所以停用立即生效。
 - 令牌只用于 `/api/import/*`，权限等同本人；令牌管理本身仍要会话 Cookie。
 
-### spaces（schema_v4）
+### spaces
 
 | 列                     | 类型                       | 说明                                              |
 | ---------------------- | -------------------------- | ------------------------------------------------- |
@@ -163,7 +161,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 默认空间不可删除；其它空间只有在没有任何页面行（含回收站）时才可删除。
 
-### space_members（schema_v4）
+### space_members
 
 | 列         | 类型          | 说明                                   |
 | ---------- | ------------- | -------------------------------------- |
@@ -179,7 +177,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | 列                     | 类型                       | 说明                              |
 | ---------------------- | -------------------------- | --------------------------------- |
 | id                     | TEXT PK                    | UUID                              |
-| space_id               | TEXT NOT NULL DEFAULT ''   | 所属空间；schema_v4 回填默认空间  |
+| space_id               | TEXT NOT NULL DEFAULT ''   | 所属空间；初始化迁移回填默认空间  |
 | parent_id              | TEXT NULL                  | 根页为 NULL；父子关系只在同空间内 |
 | title                  | TEXT NOT NULL              |                                   |
 | sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1                       |
@@ -204,7 +202,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 **同步方式**（不做触发器）：新建/保存/回滚时在同一个 `db.batch()` 事务里写 pages → 插 revision → `DELETE FROM pages_fts WHERE page_id=?` → 插入新索引行；软删/彻底删同批删除索引行；恢复同批重建。索引与查询都做 CJK 逐字空格化（`团队` → `团 队`）：CJK 词按短语 `"团 队"`、拉丁词按前缀 `"ciki"*`，多词 AND；排序 `bm25(fts, 0, 10, 1)`。
 
-### r2_cleanup_runs（schema_v5）
+### r2_cleanup_runs
 
 | 列                                                                  | 类型          | 说明                                                                  |
 | ------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------- |
@@ -217,7 +215,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 索引 `(started_at)`。每轮一行，不含任何对象内容；清理自身不写其它表。
 
-### waker_executions（schema_v5）
+### waker_executions
 
 waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`job_id`、`job_name`、`scheduled_for` INTEGER、`status`（`claimed` / `succeeded`）、`response_json`、`claimed_at`、`completed_at`。平台重试同一次执行时带同一个 `executionId`，由 SDK 原子认领去重；ciki 只负责建表，不改实现。
 
@@ -1006,7 +1004,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，`schema_v3` 的三列、`schema_v4` 的空间表/`pages.space_id` 与 `schema_v5` 的两张表还不存在——此时注册/建号/页面接口会失败，`/api/me` 的 `username` 为空串、`avatarUrl` 为 `null`。先升级再使用身份、资料与空间相关功能。
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。
