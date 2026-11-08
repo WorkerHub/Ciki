@@ -4,12 +4,16 @@ import { setUnauthorizedHandler } from "@/lib/api"
 import { watchSystemTheme } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
 import { useSetupGateStore } from "@/stores/setup"
+import { useSiteStore } from "@/stores/site"
 import { useThemeStore } from "@/stores/theme"
 
 export function FullPageLoader({ label = "加载中…" }: { label?: string }) {
+  const siteName = useSiteStore((state) => state.name)
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-2 bg-background">
-      <p className="font-heading text-lg font-semibold tracking-tight">ciki</p>
+      <p className="font-heading text-lg font-semibold tracking-tight">
+        {siteName}
+      </p>
       <p className="text-xs text-muted-foreground" role="status">
         {label}
       </p>
@@ -28,10 +32,13 @@ export function RootGate() {
   const load = useAuthStore((state) => state.load)
   const setup = useSetupGateStore((state) => state.state)
   const loadSetup = useSetupGateStore((state) => state.load)
+  const loadSite = useSiteStore((state) => state.load)
+  const siteName = useSiteStore((state) => state.name)
 
   useEffect(() => {
     setUnauthorizedHandler(() => useAuthStore.getState().setUser(null))
     void load()
+    void loadSite()
     const stopTheme = watchSystemTheme(() =>
       useThemeStore.getState().syncSystem()
     )
@@ -40,7 +47,12 @@ export function RootGate() {
       stopTheme()
       setUnauthorizedHandler(null)
     }
-  }, [load, loadSetup])
+  }, [load, loadSetup, loadSite])
+
+  // 站点改名后页签标题立即跟着变，不需要重新构建或刷新。
+  useEffect(() => {
+    document.title = siteName
+  }, [siteName])
 
   if (setup === null) return <FullPageLoader />
 

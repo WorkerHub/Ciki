@@ -33,6 +33,11 @@ const PageEdit = lazy(() =>
 const PageView = lazy(() =>
   import("@/pages/PageView").then((module) => ({ default: module.PageView }))
 )
+const ProfilePage = lazy(() =>
+  import("@/pages/ProfilePage").then((module) => ({
+    default: module.ProfilePage
+  }))
+)
 const SearchPage = lazy(() =>
   import("@/pages/SearchPage").then((module) => ({
     default: module.SearchPage
@@ -99,6 +104,7 @@ export const routes: RouteObject[] = [
           { path: "p/:pageId/edit", element: <PageEdit /> },
           { path: "search", element: <SearchPage /> },
           { path: "trash", element: <TrashPage /> },
+          { path: "profile", element: <ProfilePage /> },
           { path: "settings", element: <SettingsPage /> },
           { path: "about", element: <AboutPage /> },
           {

@@ -195,6 +195,12 @@ export interface User {
 }
 
 export interface Me extends User {
+  /** 对外展示的用户 ID（8 位，系统生成且不可改）。 */
+  publicId: string
+  /** 显示名，可改、不要求唯一。 */
+  username: string
+  /** 头像地址；没有头像时为 null。 */
+  avatarUrl: string | null
   approvalStatus: ApprovalStatus
   createdAt: string
   twofa: {
@@ -207,6 +213,13 @@ export interface Me extends User {
 export interface AuthConfig {
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
+  /** 站点名（公开读，登录页也要用）；旧后端缺失时由调用方回退。 */
+  siteName: string
+}
+
+/** 公开的站点名读取结果。 */
+export interface SiteInfo {
+  siteName: string
 }
 
 export type LoginResponse =
@@ -336,6 +349,7 @@ export interface AdminUser extends User {
 }
 
 export interface SiteSettings {
+  siteName: string
   setupPageEnabled: boolean
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
@@ -424,6 +438,8 @@ export const authApi = {
 
 export const meApi = {
   get: () => api.get<Me>("/me"),
+  updateProfile: (patch: { username?: string; avatarKey?: string | null }) =>
+    api.put<Me>("/me/profile", patch),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.put<{ success: true }>("/me/password", {
       currentPassword,
@@ -436,6 +452,18 @@ export const meApi = {
   // POST 已有令牌时覆盖（即「重置」），明文只在这一个响应里出现
   createImportToken: () => api.post<ImportTokenIssued>("/me/import-token", {}),
   revokeImportToken: () => api.del<{ success: true }>("/me/import-token")
+}
+
+/**
+ * 站点名的公开读取（未登录的登录页也要用）。
+ * 契约把它挂在公开的 GET /api/auth/config 上，这里只取 siteName，组件不关心
+ * 同一响应里的注册开关。
+ */
+export const siteApi = {
+  get: async (): Promise<SiteInfo> => {
+    const config = await authApi.config()
+    return { siteName: config.siteName }
+  }
 }
 
 export const pagesApi = {
@@ -554,6 +582,10 @@ export function describeApiError(error: unknown): string {
       return "内容或图片超过了单次保存上限，请精简后重试。"
     case "FILE_TOO_LARGE":
       return "图片超过 10MB，请压缩后再上传。"
+    case "INVALID_USERNAME":
+      return "用户名不合法，请检查后重试。"
+    case "INVALID_AVATAR":
+      return "头像无效，请重新上传。"
     default:
       break
   }
@@ -576,6 +608,15 @@ export function describeApiError(error: unknown): string {
   if (error.status === 404) return "对象不存在，或已被删除。"
   if (error.status === 409)
     return error.message || "当前状态冲突，请刷新后重试。"
+  if (error.status === 400 && /site ?name/i.test(error.message)) {
+    return "站点名称需为 1–32 个字符。"
+  }
+  if (error.status === 400 && /invalid username/i.test(error.message)) {
+    return "用户名不合法，请检查后重试。"
+  }
+  if (error.status === 400 && /invalid avatar/i.test(error.message)) {
+    return "头像无效，请重新上传。"
+  }
   if (error.status === 413) return "内容太大，服务器拒绝了这次请求。"
   if (error.status === 429) return "操作太频繁，请稍后再试。"
   return error.message || "请求失败，请稍后重试。"

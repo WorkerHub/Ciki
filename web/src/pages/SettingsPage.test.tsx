@@ -46,6 +46,9 @@ function setUser(twofa: { totpEnabled: boolean; passkeyCount: number }) {
   useAuthStore.setState({
     user: {
       id: "u1",
+      publicId: "AB23CD45",
+      username: "管理员",
+      avatarUrl: null,
       email: "admin@example.com",
       role: "admin",
       approvalStatus: "approved",
@@ -82,6 +85,9 @@ describe("两步验证新增因子的重认证", () => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
     vi.mocked(meApi.get).mockResolvedValue({
       id: "u1",
+      publicId: "AB23CD45",
+      username: "管理员",
+      avatarUrl: null,
       email: "admin@example.com",
       role: "admin",
       approvalStatus: "approved",
@@ -155,6 +161,9 @@ describe("受限会话在配置完成后解除", () => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
     vi.mocked(meApi.get).mockResolvedValue({
       id: "u1",
+      publicId: "AB23CD45",
+      username: "管理员",
+      avatarUrl: null,
       email: "admin@example.com",
       role: "admin",
       approvalStatus: "approved",

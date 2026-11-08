@@ -1,12 +1,9 @@
-import { CircleHelp } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger
+  DialogTitle
 } from "@/components/ui/dialog"
 
 const SUPPORTED = [
@@ -25,31 +22,19 @@ const SUPPORTED = [
   ]
 ]
 
-/** 应用内帮助：粘贴支持矩阵 + 已知限制（规格 §5 要求写在帮助文案里）。 */
-export function HelpButton({ label }: { label?: string }) {
+/**
+ * 应用内帮助：粘贴支持矩阵 + 已知限制（规格 §5 要求写在帮助文案里）。
+ * 入口已经收进头像菜单，弹窗本身受控，由 UserMenu 打开。
+ */
+export function HelpDialog({
+  open,
+  onOpenChange
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        {label ? (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <CircleHelp className="size-3.5" aria-hidden="true" />
-            {label}
-          </button>
-        ) : (
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label="帮助"
-            title="帮助"
-          >
-            <CircleHelp aria-hidden="true" />
-          </Button>
-        )}
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>粘贴与编辑说明</DialogTitle>

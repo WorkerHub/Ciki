@@ -1,5 +1,7 @@
 import type { ReactNode } from "react"
+import { CikiLogo } from "@/components/CikiLogo"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
+import { useSiteStore } from "@/stores/site"
 
 /** 未登录页面的统一外壳：品牌、主题切换、页脚版本号（规格 §8）。 */
 export function AuthShell({
@@ -11,6 +13,7 @@ export function AuthShell({
   subtitle?: ReactNode
   children: ReactNode
 }) {
+  const siteName = useSiteStore((state) => state.name)
   return (
     <div className="relative flex min-h-svh flex-col bg-background">
       <div className="absolute top-3 right-3">
@@ -19,6 +22,7 @@ export function AuthShell({
       <main className="flex flex-1 items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm space-y-6">
           <div className="space-y-2 text-center">
+            <CikiLogo className="mx-auto size-9" />
             <h1 className="font-heading text-xl font-semibold tracking-tight">
               {title}
             </h1>
@@ -32,7 +36,7 @@ export function AuthShell({
         </div>
       </main>
       <footer className="px-4 pb-4 text-center text-[11px] text-muted-foreground">
-        ciki · {__APP_VERSION__}
+        {siteName} · {__APP_VERSION__}
       </footer>
     </div>
   )

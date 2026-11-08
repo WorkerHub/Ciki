@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -7,6 +7,7 @@ import { ApiError, type Me } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSetupGateStore } from "@/stores/setup"
+import { DEFAULT_SITE_NAME, useSiteStore } from "@/stores/site"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -20,6 +21,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       revokeSession: vi.fn()
     },
     pagesApi: { ...actual.pagesApi, tree: vi.fn(), get: vi.fn() },
+    siteApi: { ...actual.siteApi, get: vi.fn() },
     searchApi: { ...actual.searchApi, query: vi.fn() },
     authApi: {
       ...actual.authApi,
@@ -31,12 +33,15 @@ vi.mock("@/lib/api", async (importOriginal) => {
   }
 })
 
-const { setupApi, meApi, pagesApi, adminApi, authApi } = await import(
+const { setupApi, meApi, pagesApi, adminApi, authApi, siteApi } = await import(
   "@/lib/api"
 )
 
 const admin: Me = {
   id: "u1",
+  publicId: "AB23CD45",
+  username: "管理员",
+  avatarUrl: null,
   email: "admin@example.com",
   role: "admin",
   approvalStatus: "approved",
@@ -47,6 +52,8 @@ const admin: Me = {
 const member: Me = {
   ...admin,
   id: "u2",
+  publicId: "EF45GH67",
+  username: "成员",
   email: "member@example.com",
   role: "user"
 }
@@ -62,6 +69,8 @@ describe("路由守卫与初始化门", () => {
     usePagesStore.setState({ tree: [], loading: true, expanded: [] })
     // setup 状态在共享 store 里，用例之间必须复位，否则第二个用例不会再拉
     useSetupGateStore.setState({ state: null, loading: false })
+    useSiteStore.setState({ name: DEFAULT_SITE_NAME, loaded: false })
+    vi.mocked(siteApi.get).mockResolvedValue({ siteName: "Ciki" })
     vi.mocked(setupApi.state).mockResolvedValue({
       initialized: true,
       enabled: true
@@ -69,6 +78,7 @@ describe("路由守卫与初始化门", () => {
     vi.mocked(pagesApi.tree).mockResolvedValue([])
     vi.mocked(adminApi.users).mockResolvedValue([])
     vi.mocked(adminApi.settings).mockResolvedValue({
+      siteName: "Ciki",
       setupPageEnabled: false,
       registrationEnabled: true,
       registrationApprovalRequired: true,
@@ -82,7 +92,7 @@ describe("路由守卫与初始化门", () => {
     renderApp("/")
 
     expect(
-      await screen.findByRole("heading", { name: "登录 ciki" })
+      await screen.findByRole("heading", { name: "登录 Ciki" })
     ).toBeInTheDocument()
     expect(screen.getByText(/test-build/)).toBeInTheDocument()
   })
@@ -96,7 +106,7 @@ describe("路由守卫与初始化门", () => {
     renderApp("/settings")
 
     expect(
-      await screen.findByRole("heading", { name: /ciki 初始化/ })
+      await screen.findByRole("heading", { name: /Ciki 初始化/ })
     ).toBeInTheDocument()
   })
 
@@ -113,7 +123,8 @@ describe("路由守卫与初始化门", () => {
     })
     vi.mocked(authApi.config).mockResolvedValue({
       registrationEnabled: true,
-      registrationApprovalRequired: true
+      registrationApprovalRequired: true,
+      siteName: "Ciki"
     })
 
     renderApp("/setup")
@@ -126,8 +137,19 @@ describe("路由守卫与初始化门", () => {
 
     // 根门已经从共享 store 里拿到 initialized:true，不会再把人押回 /setup
     expect(
-      await screen.findByRole("heading", { name: "注册 ciki" })
+      await screen.findByRole("heading", { name: "注册 Ciki" })
     ).toBeInTheDocument()
+  })
+
+  it("站点名从公开配置读取，页签标题与登录标题同步", async () => {
+    vi.mocked(siteApi.get).mockResolvedValue({ siteName: "团队知识库" })
+    vi.mocked(meApi.get).mockRejectedValue(new ApiError(401, "Unauthorized"))
+    renderApp("/")
+
+    expect(
+      await screen.findByRole("heading", { name: "登录 团队知识库" })
+    ).toBeInTheDocument()
+    await waitFor(() => expect(document.title).toBe("团队知识库"))
   })
 
   it("已登录且没有页面时，首页给新建入口", async () => {
