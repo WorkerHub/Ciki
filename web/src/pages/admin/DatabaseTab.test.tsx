@@ -21,10 +21,7 @@ const { adminApi } = await import("@/lib/api")
 const result: SetupResult = {
   success: true,
   tablePrefix: "ciki_",
-  migrations: [
-    { name: "schema_v1", status: "applied" },
-    { name: "schema_v2", status: "skipped" }
-  ]
+  migrations: [{ name: "schema_v1", status: "applied" }]
 }
 
 const lastRun: R2CleanupSummary = {
@@ -108,8 +105,21 @@ describe("系统管理 · 数据库升级", () => {
     expect(screen.getByText("ciki_")).toBeInTheDocument()
     expect(screen.getByText("schema_v1")).toBeInTheDocument()
     expect(screen.getByText("已应用")).toBeInTheDocument()
-    expect(screen.getByText("已是最新")).toBeInTheDocument()
     await waitFor(() => expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(2))
+  })
+
+  it("已记账的迁移（skipped）显示「已是最新」而非「已应用」", async () => {
+    const user = userEvent.setup()
+    vi.mocked(adminApi.runAsAdmin).mockResolvedValue({
+      ...result,
+      migrations: [{ name: "schema_v1", status: "skipped" }]
+    })
+    render(<DatabaseTab />)
+
+    await user.click(screen.getByRole("button", { name: "检查并升级数据库" }))
+
+    expect(await screen.findByText("已是最新")).toBeInTheDocument()
+    expect(screen.queryByText("已应用")).toBeNull()
   })
 
   it("失败时回显错误且不显示升级结果", async () => {

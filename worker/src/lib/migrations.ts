@@ -1,28 +1,37 @@
 /**
- * 数据库结构的唯一真源：有序迁移列表。
+ * 数据库结构的唯一真源：一个初始化版本，今后的改动只在末尾追加。
  *
- * 规则（移植 eNotify 的账本迁移做法）：
- * - 只允许在末尾追加 `schema_vN`，已合并的迁移不得改名、改内容或调序。
+ * 规则：
+ * - `schema_v1` 是全新库的唯一初始化迁移：一次建出全部表/索引，并播种默认空间。
+ *   Ciki 没有要保留的存量库，因此不提供 v1→v5 那样的逐版本升级路径。
+ * - 今后的结构变化只在末尾追加 `schema_v2`、`schema_v3`…，已合并的迁移不得改名、
+ *   改内容或调序。
  * - 迁移必须可重复执行：`CREATE … IF NOT EXISTS`、`ADD COLUMN`、`INSERT OR IGNORE`；
  *   不做 DROP / RENAME / 数据重写。
- * - 迁移 SQL 字符串里不得出现 `;`：执行器按 `;` 切分后逐条执行。
+ * - 语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）：执行器按 `;`
+ *   切分后逐条执行。
  * - 表名/索引名一律经 src/lib/tables.ts 拼装，本文件只写 `{prefix}` 占位。
  * - SQLite 缺 `ADD COLUMN IF NOT EXISTS` 之类的能力时，可在 `prepare` 里做结构补齐
  *   与数据回填：它先于 sql 执行、只允许补新列里仍为空的值，不得覆盖既有数据，
- *   同样必须可重复执行。
+ *   同样必须可重复执行（当前没有迁移用到 `prepare`）。
  */
-import { prepareIdentitySchema } from "./identity-schema"
 import {
+  challengesTable,
+  countersTable,
   importTokensTable,
   pagesFtsTable,
   pagesTable,
+  passkeysTable,
   r2CleanupRunsTable,
+  revisionsTable,
+  sessionsTable,
+  settingsTable,
   spaceMembersTable,
   spacesTable,
-  tableName,
+  user2faTable,
+  usersTable,
   wakerExecutionsTable
 } from "./tables"
-import { prepareSpaceSchema, spaceSchemaStatements } from "./space-schema"
 
 export interface Migration {
   name: string
@@ -30,6 +39,11 @@ export interface Migration {
   /** 在 sql 之前执行的幂等补齐（加列、回填），见文件头注释。 */
   prepare?: (db: D1Database, prefix: string) => Promise<void>
 }
+
+/** 默认空间的固定 id：初始化迁移建它、导入缺省落它、删除守卫保护它。 */
+export const DEFAULT_SPACE_ID = "space-default"
+
+export const DEFAULT_SPACE_NAME = "默认空间"
 
 /**
  * auth_counters 的建表语句（D1 计数表是限流的唯一权威）。setup 限流器会在迁移
@@ -50,11 +64,15 @@ export const AUTH_COUNTERS_INDEX_DDL = `CREATE INDEX IF NOT EXISTS {prefix}auth_
   ON {prefix}auth_counters(action, account)`
 
 /**
- * schema_v1 — ciki 的全部表。
+ * schema_v1 — 全新库的全部结构 + 默认空间播种。
  *
  * 鉴权部分按 eNotify 移植（users / user_2fa 的密码哈希与 TOTP 存储口径），
  * 但会话改为不透明令牌 + SHA-256 落库、passkey 凭证独立成表、一次性挑战与
  * 限流计数落 D1（仓库没有 KV 绑定，规格补遗定版）。
+ *
+ * 身份三列（username / public_id / avatar_key）与页面所属空间（pages.space_id）
+ * 直接声明在 CREATE 里——全新库没有需要 ALTER 补列的旧表。默认空间的 id/名称由
+ * DEFAULT_SPACE_ID / DEFAULT_SPACE_NAME 插值，避免与导入、删除守卫里的常量漂移。
  */
 const SCHEMA_V1 = `CREATE TABLE IF NOT EXISTS {prefix}users (
   id             TEXT PRIMARY KEY,
@@ -68,6 +86,9 @@ const SCHEMA_V1 = `CREATE TABLE IF NOT EXISTS {prefix}users (
   timezone       TEXT NOT NULL DEFAULT 'UTC',
   language       TEXT NOT NULL DEFAULT 'zh',
   theme          TEXT NOT NULL DEFAULT 'system',
+  username       TEXT NOT NULL DEFAULT '',
+  public_id      TEXT NOT NULL DEFAULT '',
+  avatar_key     TEXT NOT NULL DEFAULT '',
   created_at     TEXT NOT NULL,
   updated_at     TEXT NOT NULL
 );
@@ -136,6 +157,7 @@ CREATE TABLE IF NOT EXISTS {prefix}system_settings (
 
 CREATE TABLE IF NOT EXISTS {prefix}pages (
   id           TEXT PRIMARY KEY,
+  space_id     TEXT NOT NULL DEFAULT '',
   parent_id    TEXT,
   title        TEXT NOT NULL,
   sort_order   INTEGER NOT NULL DEFAULT 0,
@@ -155,6 +177,10 @@ CREATE INDEX IF NOT EXISTS {prefix}pages_deleted_at
   ON {prefix}pages(deleted_at);
 CREATE INDEX IF NOT EXISTS {prefix}pages_updated_at
   ON {prefix}pages(updated_at);
+CREATE INDEX IF NOT EXISTS {prefix}pages_space_parent_sort
+  ON {prefix}pages(space_id, parent_id, sort_order);
+CREATE INDEX IF NOT EXISTS {prefix}pages_space_deleted
+  ON {prefix}pages(space_id, deleted_at);
 
 CREATE TABLE IF NOT EXISTS {prefix}page_revisions (
   id           TEXT PRIMARY KEY,
@@ -171,16 +197,9 @@ CREATE INDEX IF NOT EXISTS {prefix}page_revisions_page_created
   ON {prefix}page_revisions(page_id, created_at);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS {prefix}pages_fts
-  USING fts5(page_id UNINDEXED, title, content_text)`
+  USING fts5(page_id UNINDEXED, title, content_text);
 
-/**
- * schema_v2 — 个人导入令牌（规格 §12.1）。
- *
- * 每用户一行（user_id 主键，生成/重置即覆盖），只存令牌的 SHA-256；
- * `revoked_at` 非空即吊销，校验时回表连 users 一起查（停用/未批准立即失效）。
- * 不设过期列：失效只走吊销 / 重置 / 用户停用，避免“到期需重新生成”的隐性状态。
- */
-const SCHEMA_V2 = `CREATE TABLE IF NOT EXISTS {prefix}import_tokens (
+CREATE TABLE IF NOT EXISTS {prefix}import_tokens (
   user_id      TEXT PRIMARY KEY,
   token_hash   TEXT NOT NULL,
   created_at   TEXT NOT NULL,
@@ -189,30 +208,58 @@ const SCHEMA_V2 = `CREATE TABLE IF NOT EXISTS {prefix}import_tokens (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS {prefix}import_tokens_token_hash
-  ON {prefix}import_tokens(token_hash)`
+  ON {prefix}import_tokens(token_hash);
 
-/**
- * schema_v3 — 身份模型（规格「Ciki UI/身份优化批」）。
- *
- * users 加 username（显示名，可改、不唯一）/ public_id（8 位系统生成、唯一、不可改）/
- * avatar_key（头像在 R2 的 key）；存量行的回填在 prepareIdentitySchema 里，只写
- * 新列的空值。public_id 用部分唯一索引：未回填的空串不参与唯一性，回填完成后
- * 由数据库兜底并发建号的撞键。
- */
-const SCHEMA_V3 = `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}users_public_id
-  ON {prefix}users(public_id) WHERE public_id <> ''`
+CREATE UNIQUE INDEX IF NOT EXISTS {prefix}users_public_id
+  ON {prefix}users(public_id) WHERE public_id <> '';
 
-/**
- * schema_v5 — 月度 R2 孤儿清理（规格 §3）与 waker 回调账本。
- *
- * - `r2_cleanup_runs`：每轮一行。为了「最近一轮」与 20 天幂等兜底可直接查，
- *   计数列全部 NOT NULL DEFAULT 0；`dry_run=1` 的行不代表线上真删过。
- * - `waker_executions`：waker 客户端 SDK 的 executionId 幂等账本
- *   （列照 SDK 的 `executionLedgerDdl()`，表名经 tables.ts 的 helper）。
- *
- * 与既有迁移一样：只追加、可重复执行（IF NOT EXISTS），语句之间用 `;` 分隔。
- */
-const SCHEMA_V5 = `CREATE TABLE IF NOT EXISTS {prefix}r2_cleanup_runs (
+CREATE TABLE IF NOT EXISTS {prefix}spaces (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  is_default  INTEGER NOT NULL DEFAULT 0,
+  created_by  TEXT NOT NULL DEFAULT '',
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS {prefix}spaces_is_default
+  ON {prefix}spaces(is_default) WHERE is_default = 1;
+
+CREATE TABLE IF NOT EXISTS {prefix}space_members (
+  space_id   TEXT NOT NULL,
+  user_id    TEXT NOT NULL,
+  role       TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer')),
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (space_id, user_id)
+);
+
+CREATE INDEX IF NOT EXISTS {prefix}space_members_user_id
+  ON {prefix}space_members(user_id);
+
+INSERT OR IGNORE INTO {prefix}spaces
+  (id, name, description, is_default, created_by, created_at, updated_at)
+VALUES ('${DEFAULT_SPACE_ID}', '${DEFAULT_SPACE_NAME}', '', 1,
+  COALESCE((SELECT id FROM {prefix}users
+             WHERE role = 'admin' ORDER BY rowid LIMIT 1), ''),
+  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+
+UPDATE {prefix}pages SET space_id = COALESCE(
+  (SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1),
+  '${DEFAULT_SPACE_ID}')
+  WHERE space_id IS NULL OR space_id = '';
+
+INSERT OR IGNORE INTO {prefix}space_members
+  (space_id, user_id, role, created_at)
+SELECT COALESCE((SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1),
+                '${DEFAULT_SPACE_ID}'),
+       id,
+       CASE WHEN role = 'admin' THEN 'admin' ELSE 'editor' END,
+       strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  FROM {prefix}users;
+
+CREATE TABLE IF NOT EXISTS {prefix}r2_cleanup_runs (
   id            TEXT PRIMARY KEY,
   started_at    TEXT NOT NULL,
   finished_at   TEXT NOT NULL,
@@ -249,58 +296,28 @@ function render(sql: string, prefix: string): string {
 export function getMigrations(prefix: string): Migration[] {
   // 说明：表名统一由 tables.ts 的 helper 提供；这里只做前缀替换，
   // 并断言 helper 与迁移 SQL 用的是同一套名字（改一处就会在这里暴露）。
-  const expected = [
-    pagesTable(prefix),
-    pagesFtsTable(prefix),
-    tableName(prefix, "users")
-  ]
   const sql = render(SCHEMA_V1, prefix)
+  const expected = [
+    usersTable(prefix),
+    user2faTable(prefix),
+    passkeysTable(prefix),
+    sessionsTable(prefix),
+    challengesTable(prefix),
+    countersTable(prefix),
+    settingsTable(prefix),
+    pagesTable(prefix),
+    revisionsTable(prefix),
+    pagesFtsTable(prefix),
+    importTokensTable(prefix),
+    spacesTable(prefix),
+    spaceMembersTable(prefix),
+    r2CleanupRunsTable(prefix),
+    wakerExecutionsTable(prefix)
+  ]
   for (const name of expected) {
     if (!sql.includes(name)) {
       throw new Error(`migration schema_v1 is missing table ${name}`)
     }
   }
-
-  const sqlV2 = render(SCHEMA_V2, prefix)
-  if (!sqlV2.includes(importTokensTable(prefix))) {
-    throw new Error(
-      `migration schema_v2 is missing table ${importTokensTable(prefix)}`
-    )
-  }
-
-  const sqlV3 = render(SCHEMA_V3, prefix)
-  if (!sqlV3.includes(tableName(prefix, "users"))) {
-    throw new Error(
-      `migration schema_v3 is missing table ${tableName(prefix, "users")}`
-    )
-  }
-
-  // schema_v4 的正文与 prepare 共用 space-schema.ts 的 DDL 常量（单一真源）。
-  const sqlV4 = spaceSchemaStatements(prefix).join(";\n")
-  for (const name of [
-    spacesTable(prefix),
-    spaceMembersTable(prefix),
-    pagesTable(prefix)
-  ]) {
-    if (!sqlV4.includes(name)) {
-      throw new Error(`migration schema_v4 is missing table ${name}`)
-    }
-  }
-
-  const sqlV5 = render(SCHEMA_V5, prefix)
-  for (const name of [
-    r2CleanupRunsTable(prefix),
-    wakerExecutionsTable(prefix)
-  ]) {
-    if (!sqlV5.includes(name)) {
-      throw new Error(`migration schema_v5 is missing table ${name}`)
-    }
-  }
-  return [
-    { name: "schema_v1", sql },
-    { name: "schema_v2", sql: sqlV2 },
-    { name: "schema_v3", sql: sqlV3, prepare: prepareIdentitySchema },
-    { name: "schema_v4", sql: sqlV4, prepare: prepareSpaceSchema },
-    { name: "schema_v5", sql: sqlV5 }
-  ]
+  return [{ name: "schema_v1", sql }]
 }

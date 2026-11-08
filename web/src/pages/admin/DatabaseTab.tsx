@@ -36,7 +36,7 @@ export function DatabaseTab() {
     setError("")
     try {
       setResult(await adminApi.runAsAdmin())
-      // 刚应用 schema_v5 的部署上，摘要接口此前不可用，升级成功后补拉一次
+      // 升级前清理日志表还不存在，摘要接口会失败；升级成功后补拉一次
       void loadCleanup()
     } catch (runError) {
       setError(describeApiError(runError))
