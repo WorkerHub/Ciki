@@ -41,6 +41,9 @@ describe("登录两步表单", () => {
     })
     vi.mocked(meApi.get).mockResolvedValue({
       id: "u1",
+      publicId: "AB23CD45",
+      username: "管理员",
+      avatarUrl: null,
       email: "a@b.c",
       role: "admin",
       approvalStatus: "approved",

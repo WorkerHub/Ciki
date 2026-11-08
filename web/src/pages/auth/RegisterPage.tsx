@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { type AuthConfig, authApi, describeApiError } from "@/lib/api"
+import { useSiteStore } from "@/stores/site"
 
 export function RegisterPage() {
+  const siteName = useSiteStore((state) => state.name)
   const [config, setConfig] = useState<AuthConfig | null>(null)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -26,7 +28,8 @@ export function RegisterPage() {
         if (alive)
           setConfig({
             registrationEnabled: true,
-            registrationApprovalRequired: true
+            registrationApprovalRequired: true,
+            siteName: useSiteStore.getState().name
           })
       })
     return () => {
@@ -75,7 +78,7 @@ export function RegisterPage() {
 
   return (
     <AuthShell
-      title="注册 ciki"
+      title={`注册 ${siteName}`}
       subtitle={
         config?.registrationApprovalRequired
           ? "注册后需要管理员批准才能登录"

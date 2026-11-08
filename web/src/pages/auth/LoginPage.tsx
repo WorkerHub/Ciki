@@ -12,6 +12,7 @@ import {
   webauthnSupported
 } from "@/lib/webauthn"
 import { useAuthStore } from "@/stores/auth"
+import { useSiteStore } from "@/stores/site"
 
 type Step =
   | { kind: "password" }
@@ -26,6 +27,7 @@ type Step =
  */
 export function LoginPage() {
   const navigate = useNavigate()
+  const siteName = useSiteStore((state) => state.name)
   const refreshMe = useAuthStore((state) => state.refreshMe)
   const setRestricted = useAuthStore((state) => state.setRestricted)
   const [step, setStep] = useState<Step>({ kind: "password" })
@@ -107,7 +109,7 @@ export function LoginPage() {
   if (step.kind === "password") {
     return (
       <AuthShell
-        title="登录 ciki"
+        title={`登录 ${siteName}`}
         subtitle="把 Confluence 页面原样搬进来的团队 wiki"
       >
         <form

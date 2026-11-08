@@ -8,7 +8,8 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Trash2
+  Trash2,
+  UserRound
 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { Suspense, useEffect, useState } from "react"
@@ -18,9 +19,10 @@ import {
   Separator,
   useDefaultLayout
 } from "react-resizable-panels"
-import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router"
+import { Link, Outlet, useLocation, useNavigate } from "react-router"
+import { CikiLogo } from "@/components/CikiLogo"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
-import { HelpButton } from "@/components/HelpDialog"
+import { HelpDialog } from "@/components/HelpDialog"
 import { PageTree } from "@/components/PageTree"
 import { SearchBox } from "@/components/SearchBox"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
@@ -39,20 +41,33 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet"
+import { displayUsername, UserAvatar } from "@/components/UserAvatar"
 import { useIsMobile } from "@/hooks/useMediaQuery"
-import { formatDate } from "@/lib/format"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
+import { useSiteStore } from "@/stores/site"
 
-const NAV_ITEMS = [
-  { to: "/trash", label: "回收站", icon: Trash2 },
-  { to: "/settings", label: "设置", icon: Settings },
-  { to: "/about", label: "关于", icon: Info }
+/**
+ * 这些页面不显示页面树侧栏：内容区全宽，移动端也不给抽屉入口。
+ * 与路由表一一对应（/profile 在 App.tsx 里新增）。
+ */
+const SYSTEM_ROUTE_PREFIXES = [
+  "/settings",
+  "/trash",
+  "/about",
+  "/admin",
+  "/profile"
 ] as const
+
+function isSystemPath(pathname: string): boolean {
+  return SYSTEM_ROUTE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
+}
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate()
-  const user = useAuthStore((state) => state.user)
+  const siteName = useSiteStore((state) => state.name)
   const [createOpen, setCreateOpen] = useState(false)
 
   return (
@@ -75,42 +90,8 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-4">
         <PageTree onNavigate={onNavigate} />
       </div>
-      <nav className="border-t border-sidebar-border p-1.5" aria-label="站点">
-        {NAV_ITEMS.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-                isActive && "bg-accent text-accent-foreground"
-              )
-            }
-          >
-            <item.icon className="size-3.5" aria-hidden="true" />
-            {item.label}
-          </NavLink>
-        ))}
-        <HelpButton label="帮助" />
-        {user?.role === "admin" ? (
-          <NavLink
-            to="/admin"
-            onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
-                isActive && "bg-accent text-accent-foreground"
-              )
-            }
-          >
-            <ShieldCheck className="size-3.5" aria-hidden="true" />
-            系统管理
-          </NavLink>
-        ) : null}
-      </nav>
-      <p className="border-t border-sidebar-border px-3 py-2 text-[11px] text-muted-foreground">
-        ciki · {__APP_VERSION__}
+      <p className="truncate border-t border-sidebar-border px-3 py-2 text-[11px] text-muted-foreground">
+        {siteName} · {__APP_VERSION__}
       </p>
 
       <CreatePageDialog
@@ -130,65 +111,98 @@ function UserMenu() {
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
   const navigate = useNavigate()
+  const [helpOpen, setHelpOpen] = useState(false)
+
   if (!user) return null
+  const username = displayUsername(user)
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="max-w-[12rem] gap-1.5"
-          aria-label="账号菜单"
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="max-w-[12rem] gap-1.5"
+            aria-label="账号菜单"
+          >
+            <UserAvatar user={user} className="size-6 text-[11px]" />
+            <span className="max-w-[6rem] truncate text-xs text-muted-foreground sm:max-w-[10rem]">
+              {username}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        {/* 宽度按内容自适应，上限 12.5rem（200px） */}
+        <DropdownMenuContent
+          align="end"
+          className="w-auto min-w-[11rem] max-w-[12.5rem]"
         >
-          <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
-            {user.email.slice(0, 1).toUpperCase()}
-          </span>
-          <span className="hidden truncate text-xs text-muted-foreground sm:inline">
-            {user.email}
-          </span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="truncate">{user.email}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => navigate("/settings")}>
-          设置
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => navigate("/trash")}>
-          回收站
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => navigate("/about")}>
-          关于
-        </DropdownMenuItem>
-        {user.role === "admin" ? (
-          <DropdownMenuItem onSelect={() => navigate("/admin")}>
-            系统管理
+          <DropdownMenuLabel className="flex items-center gap-2 px-1.5 py-1.5">
+            <UserAvatar user={user} className="size-8 shrink-0 text-xs" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-foreground">
+                {username}
+              </span>
+              <span className="block truncate text-[11px] font-normal text-muted-foreground">
+                {user.email}
+              </span>
+            </span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => navigate("/profile")}>
+            <UserRound aria-hidden="true" />
+            个人资料
           </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          onSelect={() => {
-            void logout().then(() => navigate("/login"))
-          }}
-        >
-          <LogOut aria-hidden="true" />
-          退出登录
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <DropdownMenuItem onSelect={() => navigate("/settings")}>
+            <Settings aria-hidden="true" />
+            设置
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate("/trash")}>
+            <Trash2 aria-hidden="true" />
+            回收站
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate("/about")}>
+            <Info aria-hidden="true" />
+            关于
+          </DropdownMenuItem>
+          {user.role === "admin" ? (
+            <DropdownMenuItem onSelect={() => navigate("/admin")}>
+              <ShieldCheck aria-hidden="true" />
+              系统管理
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
+            <CircleHelp aria-hidden="true" />
+            帮助
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => {
+              void logout().then(() => navigate("/login"))
+            }}
+          >
+            <LogOut aria-hidden="true" />
+            退出登录
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+    </>
   )
 }
 
 export function AppShell() {
   const isMobile = useIsMobile()
+  const siteName = useSiteStore((state) => state.name)
   const loadTree = usePagesStore((state) => state.load)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const reduceMotion = useReducedMotion()
+  const isSystemRoute = isSystemPath(location.pathname)
   const layout = useDefaultLayout({
     id: "ciki-shell",
     panelIds: ["sidebar", "main"]
@@ -201,7 +215,12 @@ export function AppShell() {
   // 移动端抽屉在点击树节点/导航项时由 onNavigate 关闭，不需要额外的路由副作用。
 
   const main = (
-    <div className="mx-auto w-full max-w-[1140px] px-4 py-5 sm:px-6 sm:py-6">
+    <div
+      className={cn(
+        "mx-auto w-full px-4 py-5 sm:px-6 sm:py-6",
+        isSystemRoute ? "max-w-[1400px]" : "max-w-[1140px]"
+      )}
+    >
       <Suspense
         fallback={
           <div className="space-y-3" role="status" aria-label="页面加载中">
@@ -215,10 +234,21 @@ export function AppShell() {
     </div>
   )
 
+  const animatedMain = (
+    <motion.div
+      key={location.pathname}
+      initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
+      {main}
+    </motion.div>
+  )
+
   return (
     <div className="flex h-svh flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
-        {isMobile ? (
+        {isMobile && !isSystemRoute ? (
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetTrigger asChild>
               <Button
@@ -239,9 +269,12 @@ export function AppShell() {
 
         <Link
           to="/"
-          className="font-heading text-sm font-semibold tracking-tight"
+          className="flex min-w-0 items-center gap-1.5 font-heading text-sm font-semibold tracking-tight"
         >
-          ciki
+          <CikiLogo />
+          <span className="max-w-[8rem] truncate sm:max-w-[14rem]">
+            {siteName}
+          </span>
         </Link>
 
         {isMobile ? (
@@ -275,7 +308,6 @@ export function AppShell() {
               新建页面
             </Button>
             <div className="ml-auto flex items-center gap-0.5">
-              <HelpButton />
               <ThemeCycleButton />
               <UserMenu />
             </div>
@@ -283,8 +315,8 @@ export function AppShell() {
         )}
       </header>
 
-      {isMobile ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">{main}</div>
+      {isMobile || isSystemRoute ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
       ) : (
         <Group
           orientation="horizontal"
@@ -308,16 +340,7 @@ export function AppShell() {
             aria-label="调整侧边栏宽度"
           />
           <Panel id="main" minSize={360} className="h-full">
-            <div className="h-full overflow-y-auto">
-              <motion.div
-                key={location.pathname}
-                initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-              >
-                {main}
-              </motion.div>
-            </div>
+            <div className="h-full overflow-y-auto">{animatedMain}</div>
           </Panel>
         </Group>
       )}
@@ -328,14 +351,6 @@ export function AppShell() {
         parentId={null}
         onCreated={(page) => navigate(`/p/${page.id}/edit`)}
       />
-
-      <footer className="hidden shrink-0 items-center gap-2 border-t border-border px-3 py-1 text-[11px] text-muted-foreground sm:flex">
-        <CircleHelp className="size-3" aria-hidden="true" />
-        <span>Ctrl/⌘ + S 保存 · 支持从 Confluence 直接粘贴</span>
-        <span className="ml-auto truncate">
-          {__APP_VERSION__} · 构建于 {formatDate(__APP_BUILD_TIME__)}
-        </span>
-      </footer>
     </div>
   )
 }

@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react"
-import { adminApi, describeApiError, type SiteSettings } from "@/lib/api"
-import { SettingRow } from "@/pages/admin/SettingRow"
+import {
+  adminApi,
+  ApiError,
+  describeApiError,
+  type SiteSettings
+} from "@/lib/api"
+import { SettingRow, SettingTextRow } from "@/pages/admin/SettingRow"
+import { useSiteStore } from "@/stores/site"
 
-/** 应用设置：注册、审批、初始化页开关（无邮件业务，故没有 SMTP 分区）。 */
+/** 应用设置：站点名、注册、审批、初始化页开关（无邮件业务，故没有 SMTP 分区）。 */
 export function SettingsTab() {
+  const siteName = useSiteStore((state) => state.name)
+  const setName = useSiteStore((state) => state.setName)
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
 
   useEffect(() => {
     let alive = true
@@ -27,6 +36,7 @@ export function SettingsTab() {
     if (!settings) return
     setSaving(true)
     setError("")
+    setNotice("")
     const previous = settings
     setSettings({ ...settings, ...patch })
     try {
@@ -34,6 +44,43 @@ export function SettingsTab() {
     } catch (saveError) {
       setSettings(previous)
       setError(describeApiError(saveError))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const saveSiteName = async (next: string) => {
+    if (!settings) return
+    if (next.length > 32) {
+      setError("站点名称需为 1–32 个字符。")
+      return
+    }
+    setSaving(true)
+    setError("")
+    setNotice("")
+    const previous = settings
+    setSettings({ ...settings, siteName: next })
+    try {
+      await adminApi.saveSettings({ siteName: next })
+      // 回读一次，确认后端真的落库：旧后端会忽略未知字段并回 200，
+      // 不验证的话界面会假装保存成功。以服务端返回值为准。
+      const saved = await adminApi.settings()
+      if ((saved.siteName ?? "").trim() !== next) {
+        setSettings(previous)
+        setError("站点名称没有保存成功，请刷新后重试。")
+        return
+      }
+      setSettings(saved)
+      // 品牌区、页签标题、登录页都读同一份 store，保存成功即全站更新
+      setName(next)
+      setNotice("站点名称已保存，全站即时生效。")
+    } catch (saveError) {
+      setSettings(previous)
+      setError(
+        saveError instanceof ApiError && saveError.status === 400
+          ? "站点名称需为 1–32 个字符。"
+          : describeApiError(saveError)
+      )
     } finally {
       setSaving(false)
     }
@@ -62,7 +109,23 @@ export function SettingsTab() {
           {error}
         </p>
       ) : null}
+      {notice ? (
+        <p
+          role="status"
+          className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
+        >
+          {notice}
+        </p>
+      ) : null}
       <div className="rounded-xl border border-border px-4">
+        <SettingTextRow
+          label="站点名称"
+          description="显示在浏览器页签、左上品牌区与登录页；保存后全站即时生效，不需要重新部署。"
+          value={settings.siteName || siteName}
+          maxLength={32}
+          disabled={saving}
+          onSave={(next) => void saveSiteName(next)}
+        />
         <SettingRow
           label="开放注册"
           description="关闭后新账号只能由管理员在「用户管理」里创建。"

@@ -13,6 +13,7 @@ import {
   setupApi
 } from "@/lib/api"
 import { useSetupGateStore } from "@/stores/setup"
+import { useSiteStore } from "@/stores/site"
 
 /**
  * 初始化页（规格 §5A.6）：只认 SETUP_SECRET 请求头，密钥框 id/name 固定为
@@ -23,6 +24,7 @@ export function SetupPage() {
   // 与 RootGate 共用同一份状态：初始化成功后重拉一次，根门立刻放行
   const gateState = useSetupGateStore((state) => state.state)
   const loadSetup = useSetupGateStore((state) => state.load)
+  const siteName = useSiteStore((state) => state.name)
   const [secret, setSecret] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -72,7 +74,7 @@ export function SetupPage() {
 
   if (!state) {
     return (
-      <AuthShell title="ciki">
+      <AuthShell title={siteName}>
         <p className="text-center text-sm text-muted-foreground">
           正在检查初始化状态…
         </p>
@@ -90,7 +92,7 @@ export function SetupPage() {
             className="size-5 text-muted-foreground"
             aria-hidden="true"
           />
-          ciki 初始化
+          {siteName} 初始化
         </span>
       }
       subtitle={
