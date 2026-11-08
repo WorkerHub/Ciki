@@ -8,7 +8,12 @@
  * - 迁移 SQL 字符串里不得出现 `;`：执行器按 `;` 切分后逐条执行。
  * - 表名/索引名一律经 src/lib/tables.ts 拼装，本文件只写 `{prefix}` 占位。
  */
-import { pagesFtsTable, pagesTable, tableName } from "./tables"
+import {
+  importTokensTable,
+  pagesFtsTable,
+  pagesTable,
+  tableName
+} from "./tables"
 
 export interface Migration {
   name: string
@@ -157,6 +162,24 @@ CREATE INDEX IF NOT EXISTS {prefix}page_revisions_page_created
 CREATE VIRTUAL TABLE IF NOT EXISTS {prefix}pages_fts
   USING fts5(page_id UNINDEXED, title, content_text)`
 
+/**
+ * schema_v2 — 个人导入令牌（规格 §12.1）。
+ *
+ * 每用户一行（user_id 主键，生成/重置即覆盖），只存令牌的 SHA-256；
+ * `revoked_at` 非空即吊销，校验时回表连 users 一起查（停用/未批准立即失效）。
+ * 不设过期列：失效只走吊销 / 重置 / 用户停用，避免“到期需重新生成”的隐性状态。
+ */
+const SCHEMA_V2 = `CREATE TABLE IF NOT EXISTS {prefix}import_tokens (
+  user_id      TEXT PRIMARY KEY,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS {prefix}import_tokens_token_hash
+  ON {prefix}import_tokens(token_hash)`
+
 /** 把迁移里的 `{prefix}` 替换成生效前缀。 */
 function render(sql: string, prefix: string): string {
   return sql.replaceAll("{prefix}", prefix)
@@ -176,5 +199,15 @@ export function getMigrations(prefix: string): Migration[] {
       throw new Error(`migration schema_v1 is missing table ${name}`)
     }
   }
-  return [{ name: "schema_v1", sql }]
+
+  const sqlV2 = render(SCHEMA_V2, prefix)
+  if (!sqlV2.includes(importTokensTable(prefix))) {
+    throw new Error(
+      `migration schema_v2 is missing table ${importTokensTable(prefix)}`
+    )
+  }
+  return [
+    { name: "schema_v1", sql },
+    { name: "schema_v2", sql: sqlV2 }
+  ]
 }

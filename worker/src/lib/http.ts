@@ -38,3 +38,19 @@ export async function readJsonBody<T>(c: Context<HonoEnv>): Promise<T | null> {
     return null
   }
 }
+
+/**
+ * parentId 入参的统一归一：根页的数据库语义是 `parent_id IS NULL`。
+ *
+ * 只接受「非空字符串 id」或「null / 缺省」；空串与纯空白按根页（null）处理，
+ * 免得把 `""` 写进 parent_id——那样写出来的页面在 `parent_id IS NULL` 的树/子列表
+ * 查询里会漏掉，成了游离页。其它类型（数字、对象等）按非法处理，由调用方回 400。
+ */
+export type ParentIdInput = { ok: true; value: string | null } | { ok: false }
+
+export function readParentId(value: unknown): ParentIdInput {
+  if (value === undefined || value === null) return { ok: true, value: null }
+  if (typeof value !== "string") return { ok: false }
+  const trimmed = value.trim()
+  return { ok: true, value: trimmed === "" ? null : trimmed }
+}

@@ -11,37 +11,29 @@ import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import {
   getPageRow,
-  insertPage,
   listChildren,
   listPageRows,
   listSubtreeDeletedRows,
   listSubtreeIds,
   listTrashRoots,
-  maxSortOrder,
   permanentDeleteSubtree,
   restoreSubtree,
   softDeleteSubtree,
-  updatePageContent,
   updatePagePlacement,
   updatePageSortOrder,
   type PageRow,
   type PageSummaryRow
 } from "../db/queries/pages"
-import {
-  getRevision,
-  insertRevision,
-  listRevisions
-} from "../db/queries/revisions"
+import { getRevision, listRevisions } from "../db/queries/revisions"
 import { indexPageStatements } from "../lib/fts"
+import { sanitizePageHtml, toPlainText } from "../lib/sanitize"
 import {
-  sanitizePageHtml,
-  toPlainText,
-  MAX_HTML_BYTES,
-  MAX_JSON_BYTES,
-  MAX_TEXT_BYTES,
-  MAX_TITLE_LENGTH
-} from "../lib/sanitize"
-import { readJsonBody } from "../lib/http"
+  normalizePageInput,
+  type PageContent,
+  type PageContentResult
+} from "../lib/page-input"
+import { createPage, savePageContent } from "../core/page-write"
+import { readJsonBody, readParentId } from "../lib/http"
 import type { HonoEnv } from "../types"
 
 export const pageRoutes = new Hono<HonoEnv>()
@@ -72,110 +64,16 @@ function canDestruct(c: Context<HonoEnv>, row: PageRow): boolean {
   return c.get("role") === "admin" || row.created_by === c.get("userId")
 }
 
-function utf8Length(value: string): number {
-  return new TextEncoder().encode(value).length
-}
-
-interface PageInput {
-  title: string
-  contentJson: string
-  contentHtml: string
-  contentText: string
-}
-
-type PageInputResult =
-  | { ok: true; value: PageInput }
-  | { ok: false; error: string; code?: string }
-
-/** D1 单行上限 2,000,000 B；给三件套合计留出余量。 */
-const MAX_ROW_BYTES = 1_900_000
-/**
- * 原始输入粗筛上限（明显高于契约里的消毒后上限）：只挡明显超限的请求，
- * 让“原始很大、消毒后合规”的合法输入仍能保存。契约判定一律以消毒/规范化后为准。
- */
-const MAX_HTML_INPUT_BYTES = 2_000_000
-const MAX_TEXT_INPUT_CHARS = 2_000_000
-
-function payloadTooLarge(): PageInputResult {
+/** 校验失败 → 契约里的状态码（体积超限 413，其余 400）。 */
+function badInput(parsed: Extract<PageContentResult, { ok: false }>) {
+  const status = parsed.code === "PAYLOAD_TOO_LARGE" ? 413 : 400
   return {
-    ok: false,
-    error: "Payload too large",
-    code: "PAYLOAD_TOO_LARGE"
-  }
-}
-
-/**
- * 校验标题与三件套内容；返回错误或“已完成消毒/纯文本规范化”的输入。
- *
- * 体积以**消毒后**的字节数为准：外链图片会被改写成 data-original-src +
- * data-confluence-img，输出可能比输入大数倍，先按原始体积放行会让 2MB 的
- * D1 单行限制在保存时炸掉。三件套合计也必须在单行上限以内。
- */
-function readPageInput(body: Record<string, unknown> | null): PageInputResult {
-  if (!body) return { ok: false, error: "Invalid request body" }
-  const { title, contentJson, contentHtml, contentText } = body
-  if (typeof title !== "string") return { ok: false, error: "Title required" }
-  if (
-    typeof contentJson !== "string" ||
-    typeof contentHtml !== "string" ||
-    typeof contentText !== "string"
-  ) {
-    return { ok: false, error: "contentJson/contentHtml/contentText required" }
-  }
-  try {
-    JSON.parse(contentJson)
-  } catch {
-    return { ok: false, error: "contentJson must be valid JSON" }
-  }
-
-  // 原始体积的粗筛只用于挡住明显超限的请求；最终以消毒/规范化后的体积为准。
-  if (title.length > 4096) return payloadTooLarge()
-  if (utf8Length(contentJson) > MAX_JSON_BYTES) return payloadTooLarge()
-  if (utf8Length(contentHtml) > MAX_HTML_INPUT_BYTES) return payloadTooLarge()
-  if (contentText.length > MAX_TEXT_INPUT_CHARS) return payloadTooLarge()
-
-  const plainTitle = toPlainText(title)
-  if (!plainTitle || plainTitle.length > MAX_TITLE_LENGTH) {
-    return { ok: false, error: "Title must be 1-255 characters" }
-  }
-  const safeHtml = sanitizePageHtml(contentHtml)
-  const plainText = toPlainText(contentText)
-  if (utf8Length(safeHtml) > MAX_HTML_BYTES) return payloadTooLarge()
-  if (utf8Length(plainText) > MAX_TEXT_BYTES) return payloadTooLarge()
-  if (
-    utf8Length(safeHtml) + utf8Length(contentJson) + utf8Length(plainText) >
-    MAX_ROW_BYTES
-  ) {
-    return payloadTooLarge()
-  }
-
-  return {
-    ok: true,
-    value: {
-      title: plainTitle,
-      contentJson,
-      contentHtml: safeHtml,
-      contentText: plainText
+    status,
+    body: {
+      error: parsed.error,
+      ...(parsed.code ? { code: parsed.code } : {})
     }
-  }
-}
-
-function newRevision(
-  pageId: string,
-  input: PageInput,
-  editorId: string,
-  createdAt: string
-) {
-  return {
-    id: crypto.randomUUID(),
-    page_id: pageId,
-    title: input.title,
-    content_json: input.contentJson,
-    content_html: input.contentHtml,
-    content_text: input.contentText,
-    editor_id: editorId,
-    created_at: createdAt
-  }
+  } as const
 }
 
 // ── 列表 ────────────────────────────────────────────────────────────────────
@@ -229,21 +127,20 @@ pageRoutes.get("/:id", async (c) => {
 
 pageRoutes.post("/", async (c) => {
   const body = await readJsonBody<Record<string, unknown>>(c)
-  const parsed = readPageInput(body)
+  const parsed = normalizePageInput(body)
   if (!parsed.ok) {
-    const status = parsed.code === "PAYLOAD_TOO_LARGE" ? 413 : 400
-    return c.json(
-      { error: parsed.error, ...(parsed.code ? { code: parsed.code } : {}) },
-      status
-    )
+    const { status, body: errorBody } = badInput(parsed)
+    return c.json(errorBody, status)
   }
 
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const parentId = body?.parentId ?? null
-  if (parentId !== null && typeof parentId !== "string") {
+  // 根页 = null；空串/纯空白同样按根页处理，绝不把 "" 写进 parent_id。
+  const parent = readParentId(body?.parentId)
+  if (!parent.ok) {
     return c.json({ error: "parentId must be a string or null" }, 400)
   }
+  const parentId = parent.value
   if (parentId) {
     const parent = await getPageRow(db, prefix, parentId)
     if (!parent || parent.deleted_at) {
@@ -254,45 +151,22 @@ pageRoutes.post("/", async (c) => {
     }
   }
 
-  const now = new Date().toISOString()
-  const userId = c.get("userId")
-  const row: PageRow = {
-    id: crypto.randomUUID(),
-    parent_id: parentId,
-    title: parsed.value.title,
-    sort_order: await maxSortOrder(db, prefix, parentId),
-    content_json: parsed.value.contentJson,
-    content_html: parsed.value.contentHtml,
-    content_text: parsed.value.contentText,
-    created_by: userId,
-    updated_by: userId,
-    created_at: now,
-    updated_at: now,
-    deleted_at: null
-  }
-
-  await db.batch([
-    insertPage(db, prefix, row),
-    insertRevision(db, prefix, newRevision(row.id, parsed.value, userId, now)),
-    ...indexPageStatements(db, prefix, {
-      id: row.id,
-      title: row.title,
-      contentText: row.content_text
-    })
-  ])
+  const row = await createPage(db, prefix, {
+    parentId,
+    content: parsed.value,
+    userId: c.get("userId"),
+    now: new Date().toISOString()
+  })
 
   return c.json(toDetail(row), 201)
 })
 
 pageRoutes.put("/:id", async (c) => {
   const body = await readJsonBody<Record<string, unknown>>(c)
-  const parsed = readPageInput(body)
+  const parsed = normalizePageInput(body)
   if (!parsed.ok) {
-    const status = parsed.code === "PAYLOAD_TOO_LARGE" ? 413 : 400
-    return c.json(
-      { error: parsed.error, ...(parsed.code ? { code: parsed.code } : {}) },
-      status
-    )
+    const { status, body: errorBody } = badInput(parsed)
+    return c.json(errorBody, status)
   }
 
   const prefix = getTablePrefix(c.env)
@@ -302,41 +176,12 @@ pageRoutes.put("/:id", async (c) => {
     return c.json({ error: "Page not found" }, 404)
   }
 
-  const now = new Date().toISOString()
-  const userId = c.get("userId")
-  await db.batch([
-    updatePageContent(db, prefix, {
-      id: existing.id,
-      title: parsed.value.title,
-      content_json: parsed.value.contentJson,
-      content_html: parsed.value.contentHtml,
-      content_text: parsed.value.contentText,
-      updated_by: userId,
-      updated_at: now
-    }),
-    insertRevision(
-      db,
-      prefix,
-      newRevision(existing.id, parsed.value, userId, now)
-    ),
-    ...indexPageStatements(db, prefix, {
-      id: existing.id,
-      title: parsed.value.title,
-      contentText: parsed.value.contentText
-    })
-  ])
-
-  return c.json(
-    toDetail({
-      ...existing,
-      title: parsed.value.title,
-      content_json: parsed.value.contentJson,
-      content_html: parsed.value.contentHtml,
-      content_text: parsed.value.contentText,
-      updated_by: userId,
-      updated_at: now
-    })
-  )
+  const saved = await savePageContent(db, prefix, existing, {
+    content: parsed.value,
+    userId: c.get("userId"),
+    now: new Date().toISOString()
+  })
+  return c.json(toDetail(saved))
 })
 
 pageRoutes.post("/:id/move", async (c) => {
@@ -351,11 +196,14 @@ pageRoutes.post("/:id/move", async (c) => {
     return c.json({ error: "Page not found" }, 404)
   }
 
-  const parentId = body?.parentId === undefined ? page.parent_id : body.parentId
+  const target = readParentId(
+    body?.parentId === undefined ? page.parent_id : body.parentId
+  )
+  if (!target.ok) {
+    return c.json({ error: "parentId must be a string or null" }, 400)
+  }
+  const parentId = target.value
   if (parentId !== null) {
-    if (typeof parentId !== "string") {
-      return c.json({ error: "parentId must be a string or null" }, 400)
-    }
     const parent = await getPageRow(db, prefix, parentId)
     if (!parent || parent.deleted_at) {
       return c.json(
@@ -546,41 +394,16 @@ pageRoutes.post("/:id/revisions/:revisionId/restore", async (c) => {
   )
   if (!revision) return c.json({ error: "Revision not found" }, 404)
 
-  const now = new Date().toISOString()
-  const userId = c.get("userId")
-  const input: PageInput = {
+  const content: PageContent = {
     title: toPlainText(revision.title),
     contentJson: revision.content_json,
     contentHtml: sanitizePageHtml(revision.content_html),
     contentText: toPlainText(revision.content_text)
   }
-  await db.batch([
-    updatePageContent(db, prefix, {
-      id: page.id,
-      title: input.title,
-      content_json: input.contentJson,
-      content_html: input.contentHtml,
-      content_text: input.contentText,
-      updated_by: userId,
-      updated_at: now
-    }),
-    insertRevision(db, prefix, newRevision(page.id, input, userId, now)),
-    ...indexPageStatements(db, prefix, {
-      id: page.id,
-      title: input.title,
-      contentText: input.contentText
-    })
-  ])
-
-  return c.json(
-    toDetail({
-      ...page,
-      title: input.title,
-      content_json: input.contentJson,
-      content_html: input.contentHtml,
-      content_text: input.contentText,
-      updated_by: userId,
-      updated_at: now
-    })
-  )
+  const saved = await savePageContent(db, prefix, page, {
+    content,
+    userId: c.get("userId"),
+    now: new Date().toISOString()
+  })
+  return c.json(toDetail(saved))
 })

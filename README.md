@@ -8,7 +8,7 @@
 - `web/` —— React + Vite + TypeScript；UI 用 shadcn/ui（Nova 风格）+ Kumo + Radix，图标 Lucide、动画 Motion、状态 Zustand、拖拽 dnd-kit、分栏 react-resizable-panels。
 - pnpm monorepo；样式 Tailwind CSS v4。
 
-接口与数据模型的冻结契约见 [`docs/api-contract.md`](docs/api-contract.md)；后端已落地鉴权（密码 + Passkey + TOTP）、setup/迁移、页面与版本、FTS5 搜索与图片接口。
+接口与数据模型的冻结契约见 [`docs/api-contract.md`](docs/api-contract.md)；后端已落地鉴权（密码 + Passkey + TOTP）、setup/迁移、页面与版本、FTS5 搜索、图片接口，以及个人导入令牌与四个导入接口（`/api/import/*`，供 Confluence 插件用 Bearer 令牌调用）。
 
 ## 功能
 
@@ -142,7 +142,7 @@ curl -X POST https://<站点域名>/api/setup \
   -H "X-Setup-Secret: $SETUP_SECRET"
 ```
 
-迁移只新增表/索引（`worker/src/lib/migrations.ts` 的 `schema_v1`），不做破坏性变更。回滚是人工操作：在没有数据的库上删除本项目前缀下的表与 `{prefix}schema_migrations` 账本；CI 与 UI 都不提供删表/清库入口。
+迁移只新增表/索引（`worker/src/lib/migrations.ts` 的 `schema_v1`、`schema_v2`，后者为导入令牌表 `{prefix}import_tokens`），不做破坏性变更。回滚是人工操作：删除对应迁移新建的表/索引并从 `{prefix}schema_migrations` 删掉该迁移行（生产库执行前须经用户批准）；CI 与 UI 都不提供删表/清库入口。
 
 ## 目录结构
 

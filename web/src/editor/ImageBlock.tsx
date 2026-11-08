@@ -1,15 +1,17 @@
 import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
-import { ImageOff, Upload } from "lucide-react"
+import { ImageOff, RefreshCw, Upload } from "lucide-react"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { describeApiError } from "@/lib/api"
 import { isSafeExternalUrl } from "@/lib/media"
 import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
+import { useImageBridgeStore } from "@/stores/image-bridge"
 
 /**
  * 图片节点：本站 /api/files 的图片直接显示；Confluence 附件或其它外链图在清洗时
- * 已经把 src 换成了 data-original-src，这里渲染成「未转存」占位，并提供上传替换
- * 入口（规格 §5.7）。阅读态只展示提示与原始链接，替换动作在编辑页完成。
+ * 已经把 src 换成了 data-original-src，这里渲染成「未转存」占位，并提供两条出路：
+ * 装了 Ciki 插件就让插件补抓（走 bridge 事件），否则手动上传替换（规格 §5.7）。
+ * 阅读态只展示提示与原始链接，两个替换动作都在编辑页完成。
  */
 export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
   const src = (node.attrs.src as string | null) || ""
@@ -18,6 +20,14 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState("")
+  // 事件桥的补抓状态按原图地址记（同一张图可能在正文里出现多次）
+  const capturePending = useImageBridgeStore((state) =>
+    originalSrc ? Boolean(state.pending[originalSrc]) : false
+  )
+  const captureError = useImageBridgeStore((state) =>
+    originalSrc ? (state.errors[originalSrc] ?? "") : ""
+  )
+  const requestCapture = useImageBridgeStore((state) => state.requestCapture)
 
   if (src) {
     return (
@@ -74,7 +84,8 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
           未转存的图片
         </span>
         <span className="text-xs opacity-80">
-          这份 Confluence 图片没有随剪贴板过来，需要手动上传到图床后再替换。
+          这份 Confluence 图片没有随剪贴板过来。装了 Ciki
+          插件可以自动补抓，也可以手动上传替换。
         </span>
       </div>
       {originalSrc ? (
@@ -98,6 +109,18 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
       ) : null}
       {editor.isEditable ? (
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {originalSrc ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={() => requestCapture(originalSrc)}
+              disabled={uploading || capturePending}
+            >
+              <RefreshCw aria-hidden="true" />
+              {capturePending ? "补抓中…" : "重试自动转存"}
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="xs"
@@ -115,8 +138,10 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
             className="hidden"
             onChange={(event) => void onFile(event.target.files?.[0])}
           />
-          {error ? (
-            <span className="text-xs text-destructive">{error}</span>
+          {error || captureError ? (
+            <span className="text-xs text-destructive">
+              {error || captureError}
+            </span>
           ) : null}
         </div>
       ) : (

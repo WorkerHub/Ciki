@@ -185,6 +185,58 @@ describe("页面：移动与环检测", () => {
   })
 })
 
+describe("页面：parentId 归一（同一类入口）", () => {
+  it('新建传空串按根页入库；移动传空串移到根，绝不写 parent_id=""', async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const created = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "空串父页",
+        parentId: "",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "",
+        contentText: ""
+      },
+      admin
+    )
+    expect(created.status).toBe(201)
+    const page = (await created.json()) as PageDetail
+    expect(page.parentId).toBeNull()
+    const stored = db.db
+      .prepare("SELECT parent_id FROM ciki_pages WHERE id = ?")
+      .get(page.id) as { parent_id: string | null }
+    expect(stored.parent_id).toBeNull()
+
+    const parent = await createPage(env, admin, { title: "父页" })
+    const child = await createPage(env, admin, {
+      title: "子页",
+      parentId: parent.id
+    })
+    const moved = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${child.id}/move`,
+      { parentId: "" },
+      admin
+    )
+    expect(moved.status).toBe(200)
+    const after = db.db
+      .prepare("SELECT parent_id FROM ciki_pages WHERE id = ?")
+      .get(child.id) as { parent_id: string | null }
+    expect(after.parent_id).toBeNull()
+
+    const tree = (await (
+      await jsonRequest(env, "GET", "/api/pages", undefined, admin)
+    ).json()) as Array<{ id: string; children: Array<{ id: string }> }>
+    const root = tree.find((row) => row.id === child.id)
+    expect(root).toBeTruthy()
+  })
+})
+
 describe("页面：软删级联、回收站、恢复与彻底删", () => {
   it("删父页级联子树；回收站只列根；恢复同一批；彻底删清干净", async () => {
     const { env, db } = await initializedContext()
