@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { PageNode } from "@/lib/api"
 import {
+  countNodes,
   findNode,
   findPath,
   firstPageId,
@@ -132,6 +133,11 @@ describe("页面树工具", () => {
       parentId: null,
       sortOrder: 3
     })
+  })
+
+  it("统计整棵树的页面数（含全部子孙）", () => {
+    expect(countNodes([])).toBe(0)
+    expect(countNodes(tree)).toBe(5)
   })
 
   it("同级 sortOrder 不连续或重名时提示需要重排", () => {

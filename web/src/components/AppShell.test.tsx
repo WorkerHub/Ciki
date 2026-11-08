@@ -3,20 +3,22 @@ import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AppShell } from "@/components/AppShell"
-import type { Me } from "@/lib/api"
+import type { Me, Space } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSiteStore } from "@/stores/site"
+import { useSpacesStore } from "@/stores/spaces"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
   return {
     ...actual,
-    pagesApi: { ...actual.pagesApi, tree: vi.fn(), get: vi.fn() }
+    pagesApi: { ...actual.pagesApi, tree: vi.fn(), get: vi.fn() },
+    spacesApi: { ...actual.spacesApi, list: vi.fn() }
   }
 })
 
-const { pagesApi } = await import("@/lib/api")
+const { pagesApi, spacesApi } = await import("@/lib/api")
 
 const admin: Me = {
   id: "u1",
@@ -37,6 +39,16 @@ const member: Me = {
   username: "成员",
   email: "member@example.com",
   role: "user"
+}
+
+const defaultSpace: Space = {
+  id: "space-default",
+  name: "默认空间",
+  description: "",
+  myRole: "editor",
+  isDefault: true,
+  createdAt: "2026-11-08T00:00:00.000Z",
+  updatedAt: "2026-11-08T00:00:00.000Z"
 }
 
 /**
@@ -72,7 +84,14 @@ describe("顶栏、头像菜单与系统页侧栏", () => {
     useAuthStore.setState({ user: admin, status: "ready", restricted: false })
     usePagesStore.setState({ tree: [], loading: false, expanded: [] })
     useSiteStore.setState({ name: "Ciki", loaded: true })
+    useSpacesStore.setState({
+      spaces: [defaultSpace],
+      status: "ready",
+      error: null,
+      currentId: "space-default"
+    })
     vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(spacesApi.list).mockResolvedValue([defaultSpace])
   })
 
   it("账号菜单承载全部入口，顶栏显示头像+用户名而不是邮箱", async () => {
@@ -118,6 +137,28 @@ describe("顶栏、头像菜单与系统页侧栏", () => {
     await user.click(await screen.findByRole("menuitem", { name: "帮助" }))
 
     expect(await screen.findByText("粘贴与编辑说明")).toBeInTheDocument()
+  })
+
+  it("空间切换器只在普通页侧栏出现", async () => {
+    const { unmount } = renderShell("/p/abc")
+    expect(
+      await screen.findByRole("button", { name: "切换空间" })
+    ).toBeInTheDocument()
+    unmount()
+
+    renderShell("/settings")
+    expect(screen.queryByRole("button", { name: "切换空间" })).toBeNull()
+  })
+
+  it("只读空间里顶栏与侧栏都不给新建页面入口", async () => {
+    useAuthStore.setState({ user: member, status: "ready", restricted: false })
+    const viewerSpace: Space = { ...defaultSpace, myRole: "viewer" }
+    useSpacesStore.setState({ spaces: [viewerSpace] })
+    vi.mocked(spacesApi.list).mockResolvedValue([viewerSpace])
+    renderShell("/p/abc")
+
+    expect(await screen.findByText("页面")).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "新建页面" })).toBeNull()
   })
 
   it("系统页不渲染页面树侧栏，普通页侧栏照旧", async () => {

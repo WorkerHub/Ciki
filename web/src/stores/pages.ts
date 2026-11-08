@@ -1,5 +1,10 @@
 import { create } from "zustand"
-import { type PageDetail, type PageNode, pagesApi } from "@/lib/api"
+import {
+  describeApiError,
+  type PageDetail,
+  type PageNode,
+  pagesApi
+} from "@/lib/api"
 import {
   findNode,
   findPath,
@@ -12,10 +17,12 @@ const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] }
 
 interface PagesState {
   tree: PageNode[]
+  /** 当前页面树所属空间；null = 走后端缺省的默认空间。 */
+  spaceId: string | null
   loading: boolean
   error: string | null
   expanded: string[]
-  load: () => Promise<void>
+  load: (spaceId?: string | null) => Promise<void>
   toggle: (id: string) => void
   expand: (id: string) => void
   expandTo: (id: string) => void
@@ -26,6 +33,7 @@ interface PagesState {
     parentId: string | null,
     sortOrder: number
   ) => Promise<void>
+  movePageToSpace: (id: string, targetSpaceId: string) => Promise<void>
   removePage: (id: string) => Promise<void>
   restorePage: (id: string) => Promise<void>
   purgePage: (id: string) => Promise<void>
@@ -49,21 +57,31 @@ export const usePagesStore = create<PagesState>((set, get) => {
     }
   }
 
-  const load = async () => {
-    set({ loading: true, error: null })
+  const load = async (spaceId?: string | null) => {
+    // 省略参数 = 沿用当前空间（写操作后重拉）；显式传 null = 走后端缺省的默认空间
+    const next = spaceId === undefined ? get().spaceId : spaceId
+    const switching = next !== get().spaceId
+    set({
+      loading: true,
+      error: null,
+      spaceId: next,
+      // 换空间时先清掉旧树：不能让 A 空间的页面在 B 空间的标题下露一下
+      ...(switching ? { tree: [], expanded: [] } : {})
+    })
     try {
-      const tree = await pagesApi.tree()
+      const tree = await pagesApi.tree(next)
       set({ tree, loading: false })
     } catch (error) {
       set({
         loading: false,
-        error: error instanceof Error ? error.message : "页面树加载失败"
+        error: describeApiError(error)
       })
     }
   }
 
   return {
     tree: [],
+    spaceId: null,
     loading: true,
     error: null,
     expanded: [],
@@ -99,7 +117,8 @@ export const usePagesStore = create<PagesState>((set, get) => {
         parentId,
         contentJson: JSON.stringify(EMPTY_DOC),
         contentHtml: "",
-        contentText: ""
+        contentText: "",
+        ...(get().spaceId ? { spaceId: get().spaceId as string } : {})
       })
       await load()
       if (parentId) get().expand(parentId)
@@ -127,6 +146,12 @@ export const usePagesStore = create<PagesState>((set, get) => {
       await repairOrder([parentId, before?.parentId ?? null])
       await load()
       if (parentId) get().expand(parentId)
+    },
+
+    movePageToSpace: async (id, targetSpaceId) => {
+      await pagesApi.move(id, null, undefined, targetSpaceId)
+      // 源空间的树先重拉：页面从当前树里消失（目标空间由调用方切换后加载）
+      await load()
     },
 
     removePage: async (id) => {

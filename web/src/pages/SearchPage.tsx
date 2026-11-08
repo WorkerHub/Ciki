@@ -3,6 +3,7 @@ import { SearchX } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router"
 import { SearchBox } from "@/components/SearchBox"
+import { Badge } from "@/components/ui/badge"
 import { describeApiError, type SearchResponse, searchApi } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
 
@@ -123,8 +124,16 @@ export function SearchPage() {
                 className="block px-4 py-3 transition-colors hover:bg-accent/60"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="font-medium">
+                  <span className="flex flex-wrap items-center gap-1.5 font-medium">
                     {highlight(result.title, query)}
+                    {result.spaceName ? (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-normal"
+                      >
+                        {result.spaceName}
+                      </Badge>
+                    ) : null}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
                     {formatRelative(result.updatedAt)}

@@ -129,3 +129,53 @@ describe("describeApiError：会话过期的路径不受影响", () => {
     expect(describeApiError(new Error("boom"))).toBe("网络异常，请稍后重试")
   })
 })
+
+describe("describeApiError：空间相关错误码", () => {
+  it("空间删除 / 重名保护用中文说明，不摆后端英文原文", () => {
+    expect(
+      describeApiError(
+        apiError(409, "Space is not empty", "/spaces/s1", "SPACE_NOT_EMPTY")
+      )
+    ).toBe(
+      "空间里还有页面，请先把页面移动到其他空间，或彻底删除回收站里的页面。"
+    )
+    expect(
+      describeApiError(
+        apiError(
+          409,
+          "Default space protected",
+          "/spaces/s1",
+          "SPACE_DEFAULT_PROTECTED"
+        )
+      )
+    ).toBe("默认空间不能删除。")
+    expect(
+      describeApiError(
+        apiError(
+          409,
+          "Last space admin",
+          "/spaces/s1/members/u2",
+          "LAST_SPACE_ADMIN"
+        )
+      )
+    ).toBe("空间至少需要保留一名管理员。")
+    expect(
+      describeApiError(
+        apiError(404, "Space not found", "/spaces/s1", "SPACE_NOT_FOUND")
+      )
+    ).toBe("空间不存在，或你已不是它的成员。")
+  })
+
+  it("名称与角色校验的文案", () => {
+    expect(
+      describeApiError(
+        apiError(400, "Invalid space name", "/spaces", "INVALID_SPACE_NAME")
+      )
+    ).toBe("空间名称需为 1–64 个字符。")
+    expect(
+      describeApiError(
+        apiError(400, "Invalid role", "/spaces/s1/members", "INVALID_ROLE")
+      )
+    ).toBe("成员角色不合法。")
+  })
+})
