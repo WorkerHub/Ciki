@@ -107,13 +107,18 @@ describe("顶栏、头像菜单与系统页侧栏", () => {
 
     openAccountMenu()
 
-    // 用户信息区（邮箱小字）+ 六个入口 + 红色退出
+    // 用户信息区（邮箱小字）+ 六个入口 + 红色退出，顺序固定
     expect(await screen.findByText("admin@example.com")).toBeInTheDocument()
-    for (const label of ["个人资料", "设置", "回收站", "关于", "系统管理"]) {
-      expect(
-        await screen.findByRole("menuitem", { name: label })
-      ).toBeInTheDocument()
-    }
+    const items = await screen.findAllByRole("menuitem")
+    expect(items.map((item) => item.textContent)).toEqual([
+      "个人资料",
+      "系统管理",
+      "回收站",
+      "设置",
+      "关于",
+      "帮助",
+      "退出登录"
+    ])
     expect(screen.getByRole("menuitem", { name: "退出登录" })).toHaveAttribute(
       "data-variant",
       "destructive"
@@ -127,6 +132,10 @@ describe("顶栏、头像菜单与系统页侧栏", () => {
     openAccountMenu()
     expect(await screen.findByText("member@example.com")).toBeInTheDocument()
     expect(screen.queryByRole("menuitem", { name: "系统管理" })).toBeNull()
+    // 少了系统管理，其余顺序不变
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent)
+    ).toEqual(["个人资料", "回收站", "设置", "关于", "帮助", "退出登录"])
   })
 
   it("帮助入口在菜单里，点开是原来的帮助弹窗", async () => {
