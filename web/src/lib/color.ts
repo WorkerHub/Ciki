@@ -10,9 +10,18 @@
 /** 契约形态：小写六位十六进制。 */
 const HEX_COLOR = /^#[0-9a-f]{6}$/
 
+/**
+ * 颜色字面量的长度上限：合法形态最长也就 `rgba(255, 255, 255, 1)`（22 字符）。
+ * 先挡长度再做正则匹配，畸形超长输入（剪贴板恶意 style 里的几万个连续空格）
+ * 连一次回溯都不发生。
+ */
+const MAX_COLOR_LENGTH = 64
+
 const SHORT_HEX = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/
+// 分隔符写成互斥的「逗号 + 可选空白」或「若干空白」：两种写法不会吃同一批字符，
+// 引擎不需要在同一个空白串上反复回溯（`\s*[,\s]\s*` 那种写法是 O(n²) 的）。
 const RGB =
-  /^rgba?\(\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*[,\s]\s*(\d{1,3})\s*(?:[,/]\s*([\d.]+%?)\s*)?\)$/
+  /^rgba?\(\s*(\d{1,3})(?:\s*,\s*|\s+)(\d{1,3})(?:\s*,\s*|\s+)(\d{1,3})(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/
 
 function channel(raw: string): string {
   const value = Math.min(255, Number.parseInt(raw, 10))
@@ -21,7 +30,7 @@ function channel(raw: string): string {
 
 /** 任意 CSS 颜色写法 → `#rrggbb`；归一不了（或带透明度）返回 null。 */
 export function normalizeColor(raw: string | null | undefined): string | null {
-  if (!raw) return null
+  if (!raw || raw.length > MAX_COLOR_LENGTH) return null
   const value = raw.trim().toLowerCase()
   if (HEX_COLOR.test(value)) return value
   const short = SHORT_HEX.exec(value)

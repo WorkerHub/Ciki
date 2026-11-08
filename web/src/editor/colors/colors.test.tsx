@@ -61,11 +61,25 @@ describe("颜色值归一（写入 JSON 之前）", () => {
     expect(normalizeColor("rgba(222,53,11,1)")).toBe("#de350b")
   })
 
+  it("逗号两侧有空白、纯空格分隔都认", () => {
+    expect(normalizeColor("rgb( 222 , 53 , 11 )")).toBe("#de350b")
+    expect(normalizeColor("rgb(222 53 11)")).toBe("#de350b")
+    expect(normalizeColor("rgba(222 53 11 / 1)")).toBe("#de350b")
+  })
+
   it("归一不出来的写法返回 null（不猜）", () => {
     expect(normalizeColor("red")).toBeNull()
     expect(normalizeColor("var(--accent)")).toBeNull()
     expect(normalizeColor("rgba(222,53,11,0.5)")).toBeNull()
     expect(normalizeColor("")).toBeNull()
+  })
+
+  it("畸形超长输入立即返回 null（分隔符无重叠空白量词，不会 O(n²) 回溯）", () => {
+    const started = performance.now()
+    expect(normalizeColor(`rgba(1${" ".repeat(100_000)}`)).toBeNull()
+    expect(normalizeColor(`rgb(1${" ,".repeat(50_000)}`)).toBeNull()
+    expect(normalizeColor(`rgb(${" ".repeat(100_000)}1`)).toBeNull()
+    expect(performance.now() - started).toBeLessThan(50)
   })
 })
 
