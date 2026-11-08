@@ -5,6 +5,8 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError, type PageDetail } from "@/lib/api"
 import { PageEdit } from "@/pages/PageEdit"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
+import { usePagesStore } from "@/stores/pages"
+import { useSpacesStore } from "@/stores/spaces"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -24,6 +26,7 @@ const { pagesApi } = await import("@/lib/api")
 const page: PageDetail = {
   id: "a",
   parentId: null,
+  spaceId: "space-default",
   title: "支付服务部署手册",
   sortOrder: 0,
   contentJson: JSON.stringify({
@@ -36,6 +39,16 @@ const page: PageDetail = {
   updatedBy: "u1",
   createdAt: "2026-11-07T00:00:00.000Z",
   updatedAt: "2026-11-07T00:00:00.000Z"
+}
+
+const space = {
+  id: "space-default",
+  name: "默认空间",
+  description: "",
+  myRole: "editor" as const,
+  isDefault: true,
+  createdAt: "2026-11-08T00:00:00.000Z",
+  updatedAt: "2026-11-08T00:00:00.000Z"
 }
 
 const routes = [
@@ -57,6 +70,19 @@ describe("编辑页的保存保护", () => {
   })
 
   beforeEach(() => {
+    usePagesStore.setState({
+      tree: [],
+      spaceId: "space-default",
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space],
+      status: "ready",
+      error: null,
+      currentId: "space-default"
+    })
     vi.mocked(pagesApi.tree).mockResolvedValue([])
     vi.mocked(pagesApi.update).mockReset()
   })
@@ -84,6 +110,37 @@ describe("编辑页的保存保护", () => {
     expect(await screen.findByText("boom")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "重新加载" })).toBeInTheDocument()
     expect(screen.queryByLabelText("页面标题")).toBeNull()
+  })
+
+  it("空间列表还在加载时先显示骨架屏，不闪只读提示", async () => {
+    useSpacesStore.setState({
+      spaces: [],
+      status: "loading",
+      error: null,
+      currentId: "space-default"
+    })
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    renderEdit()
+
+    expect(await screen.findByLabelText("页面加载中")).toBeInTheDocument()
+    expect(
+      screen.queryByText("你是这个空间的只读成员，不能编辑页面。")
+    ).toBeNull()
+  })
+
+  it("只读空间直链进编辑页时只给说明，不渲染编辑器", async () => {
+    const user = userEvent.setup()
+    useSpacesStore.setState({ spaces: [{ ...space, myRole: "viewer" }] })
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    renderEdit()
+
+    expect(
+      await screen.findByText("你是这个空间的只读成员，不能编辑页面。")
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText("页面标题")).toBeNull()
+
+    await user.click(screen.getByRole("button", { name: "返回阅读" }))
+    expect(await screen.findByText("阅读页占位")).toBeInTheDocument()
   })
 
   it("「保存并离开」保存失败时留在当前页，不丢内容", async () => {

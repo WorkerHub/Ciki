@@ -2,6 +2,7 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { cn } from "cn"
 import {
+  ArrowRightLeft,
   ChevronRight,
   FileText,
   GripVertical,
@@ -26,22 +27,29 @@ export type TreeRowAction =
   | "delete"
   | "move-up"
   | "move-down"
+  | "move-to-space"
 
 export function PageTreeRow({
   row,
+  readOnly = false,
   expanded,
   active,
   canMoveUp,
   canMoveDown,
+  canMoveToSpace = false,
   onToggle,
   onOpen,
   onAction
 }: {
   row: TreeRow
+  /** 只读空间：不渲染拖拽手柄与行内操作菜单。 */
+  readOnly?: boolean
   expanded: boolean
   active: boolean
   canMoveUp: boolean
   canMoveDown: boolean
+  /** 有别的可编辑空间时才给「移动到空间」入口。 */
+  canMoveToSpace?: boolean
   onToggle: () => void
   onOpen: () => void
   onAction: (action: TreeRowAction) => void
@@ -104,60 +112,70 @@ export function PageTreeRow({
         >
           {row.title || "未命名页面"}
         </button>
-        <button
-          type="button"
-          {...attributes}
-          {...listeners}
-          aria-label="拖动调整位置"
-          title="拖动调整位置"
-          className="cursor-grab touch-none rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
-        >
-          <GripVertical className="size-3.5" aria-hidden="true" />
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
+        {readOnly ? null : (
+          <>
+            <button
               type="button"
-              size="icon-xs"
-              variant="ghost"
-              aria-label={`页面「${row.title}」操作`}
-              className="text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+              {...attributes}
+              {...listeners}
+              aria-label="拖动调整位置"
+              title="拖动调整位置"
+              className="cursor-grab touch-none rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
             >
-              <MoreHorizontal aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-44">
-            <DropdownMenuItem onSelect={() => onAction("add-child")}>
-              <Plus aria-hidden="true" />
-              新建子页面
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onAction("rename")}>
-              <Pencil aria-hidden="true" />
-              重命名
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={!canMoveUp}
-              onSelect={() => onAction("move-up")}
-            >
-              上移
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!canMoveDown}
-              onSelect={() => onAction("move-down")}
-            >
-              下移
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onSelect={() => onAction("delete")}
-            >
-              <Trash2 aria-hidden="true" />
-              删除（含子页面）
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <GripVertical className="size-3.5" aria-hidden="true" />
+            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={`页面「${row.title}」操作`}
+                  className="text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                >
+                  <MoreHorizontal aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-44">
+                <DropdownMenuItem onSelect={() => onAction("add-child")}>
+                  <Plus aria-hidden="true" />
+                  新建子页面
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onAction("rename")}>
+                  <Pencil aria-hidden="true" />
+                  重命名
+                </DropdownMenuItem>
+                {canMoveToSpace ? (
+                  <DropdownMenuItem onSelect={() => onAction("move-to-space")}>
+                    <ArrowRightLeft aria-hidden="true" />
+                    移动到空间…
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={!canMoveUp}
+                  onSelect={() => onAction("move-up")}
+                >
+                  上移
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!canMoveDown}
+                  onSelect={() => onAction("move-down")}
+                >
+                  下移
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => onAction("delete")}
+                >
+                  <Trash2 aria-hidden="true" />
+                  删除（含子页面）
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
       </div>
     </li>
   )

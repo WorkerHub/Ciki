@@ -48,6 +48,11 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage
   }))
 )
+const SpaceSettingsPage = lazy(() =>
+  import("@/pages/SpaceSettingsPage").then((module) => ({
+    default: module.SpaceSettingsPage
+  }))
+)
 const TrashPage = lazy(() =>
   import("@/pages/TrashPage").then((module) => ({ default: module.TrashPage }))
 )
@@ -106,6 +111,7 @@ export const routes: RouteObject[] = [
           { path: "trash", element: <TrashPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "settings", element: <SettingsPage /> },
+          { path: "spaces/:spaceId/settings", element: <SpaceSettingsPage /> },
           { path: "about", element: <AboutPage /> },
           {
             path: "admin",

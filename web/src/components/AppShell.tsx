@@ -25,6 +25,7 @@ import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { HelpDialog } from "@/components/HelpDialog"
 import { PageTree } from "@/components/PageTree"
 import { SearchBox } from "@/components/SearchBox"
+import { SpaceSwitcher } from "@/components/SpaceSwitcher"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -43,20 +44,24 @@ import {
 } from "@/components/ui/sheet"
 import { displayUsername, UserAvatar } from "@/components/UserAvatar"
 import { useIsMobile } from "@/hooks/useMediaQuery"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
+import { canEdit } from "@/lib/space"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSiteStore } from "@/stores/site"
+import { useSpacesStore } from "@/stores/spaces"
 
 /**
  * 这些页面不显示页面树侧栏：内容区全宽，移动端也不给抽屉入口。
- * 与路由表一一对应（/profile 在 App.tsx 里新增）。
+ * 与路由表一一对应（/profile、/spaces 在 App.tsx 里新增）。
  */
 const SYSTEM_ROUTE_PREFIXES = [
   "/settings",
   "/trash",
   "/about",
   "/admin",
-  "/profile"
+  "/profile",
+  "/spaces"
 ] as const
 
 function isSystemPath(pathname: string): boolean {
@@ -68,24 +73,32 @@ function isSystemPath(pathname: string): boolean {
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate()
   const siteName = useSiteStore((state) => state.name)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const role = useSpaceRole(currentSpaceId)
+  const canWrite = canEdit(role)
   const [createOpen, setCreateOpen] = useState(false)
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center justify-between gap-2 px-3 py-3">
+      <div className="border-b border-sidebar-border pt-2">
+        <SpaceSwitcher onNavigate={onNavigate} />
+      </div>
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
         <span className="text-xs font-medium tracking-wide text-muted-foreground">
           页面
         </span>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          aria-label="新建页面"
-          title="新建页面"
-          onClick={() => setCreateOpen(true)}
-        >
-          <Plus aria-hidden="true" />
-        </Button>
+        {canWrite ? (
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label="新建页面"
+            title="新建页面"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus aria-hidden="true" />
+          </Button>
+        ) : null}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-4">
         <PageTree onNavigate={onNavigate} />
@@ -197,6 +210,11 @@ export function AppShell() {
   const isMobile = useIsMobile()
   const siteName = useSiteStore((state) => state.name)
   const loadTree = usePagesStore((state) => state.load)
+  const loadSpaces = useSpacesStore((state) => state.load)
+  const spacesStatus = useSpacesStore((state) => state.status)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const role = useSpaceRole(currentSpaceId)
+  const canWrite = canEdit(role)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const navigate = useNavigate()
@@ -209,8 +227,15 @@ export function AppShell() {
   })
 
   useEffect(() => {
-    void loadTree()
-  }, [loadTree])
+    void loadSpaces()
+  }, [loadSpaces])
+
+  // 空间列表到手后再拉树：默认空间用 null（不带 spaceId 交给后端缺省）；
+  // 列表失败时也退回默认空间的树，应用不白屏。
+  useEffect(() => {
+    if (spacesStatus === "ready") void loadTree(currentSpaceId)
+    else if (spacesStatus === "error") void loadTree(null)
+  }, [loadTree, spacesStatus, currentSpaceId])
 
   // 移动端抽屉在点击树节点/导航项时由 onNavigate 关闭，不需要额外的路由副作用。
 
@@ -288,25 +313,33 @@ export function AppShell() {
             >
               <Search aria-hidden="true" />
             </Button>
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              aria-label="新建页面"
-              onClick={() => setCreateOpen(true)}
-            >
-              <Plus aria-hidden="true" />
-            </Button>
+            {canWrite ? (
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label="新建页面"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus aria-hidden="true" />
+              </Button>
+            ) : null}
             <ThemeCycleButton />
             <UserMenu />
           </div>
         ) : (
           <>
             <SearchBox className="mx-3 max-w-md flex-1" />
-            <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus aria-hidden="true" />
-              新建页面
-            </Button>
+            {canWrite ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+              >
+                <Plus aria-hidden="true" />
+                新建页面
+              </Button>
+            ) : null}
             <div className="ml-auto flex items-center gap-0.5">
               <ThemeCycleButton />
               <UserMenu />

@@ -83,6 +83,11 @@ export function firstPageId(nodes: PageNode[]): string | null {
   return first.id
 }
 
+/** 整棵树的页面总数（空间设置里做「有页面不可删」的判断）。 */
+export function countNodes(nodes: PageNode[]): number {
+  return nodes.reduce((sum, node) => sum + 1 + countNodes(node.children), 0)
+}
+
 /**
  * 拖拽落点投影：行的水平位移换算成缩进层级，再折算成目标父页与同级下标。
  * 与 dnd-kit 官方的 sortable tree 思路一致：只能落到 over 行的同层或下一层。

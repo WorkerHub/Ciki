@@ -15,12 +15,20 @@ import {
 import { Button } from "@/components/ui/button"
 import { describeApiError, pagesApi, type TrashNode } from "@/lib/api"
 import { formatDateTime, formatRelative } from "@/lib/format"
+import { canEdit } from "@/lib/space"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { usePagesStore } from "@/stores/pages"
+import { useSpacesStore } from "@/stores/spaces"
 
 /** 回收站：恢复整批删除的子树，或彻底删除（不可恢复）。 */
 export function TrashPage() {
   const restorePage = usePagesStore((state) => state.restorePage)
   const purgePage = usePagesStore((state) => state.purgePage)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const spaces = useSpacesStore((state) => state.spaces)
+  const spaceName =
+    spaces.find((space) => space.id === currentSpaceId)?.name ?? null
+  const readOnly = !canEdit(useSpaceRole(currentSpaceId))
   const [items, setItems] = useState<TrashNode[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -31,13 +39,13 @@ export function TrashPage() {
     setLoading(true)
     setError("")
     try {
-      setItems(await pagesApi.trash())
+      setItems(await pagesApi.trash(currentSpaceId))
     } catch (loadError) {
       setError(describeApiError(loadError))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [currentSpaceId])
 
   useEffect(() => {
     void load()
@@ -51,7 +59,9 @@ export function TrashPage() {
           回收站
         </h1>
         <p className="text-xs text-muted-foreground">
+          {spaceName ? `当前空间：${spaceName}。` : ""}
           软删除的页面会连同子页面一起停在这里；彻底删除会连版本历史一起清掉，无法恢复。
+          {readOnly ? "你是只读成员，只能查看。" : ""}
         </p>
       </header>
 
@@ -99,35 +109,39 @@ export function TrashPage() {
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true)
-                    setError("")
-                    try {
-                      await restorePage(item.id)
-                      await load()
-                    } catch (restoreError) {
-                      setError(describeApiError(restoreError))
-                    } finally {
-                      setBusy(false)
-                    }
-                  }}
-                >
-                  <RotateCcw aria-hidden="true" />
-                  恢复
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setPurgeTarget(item)}
-                >
-                  彻底删除
-                </Button>
+                {readOnly ? null : (
+                  <>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={async () => {
+                        setBusy(true)
+                        setError("")
+                        try {
+                          await restorePage(item.id)
+                          await load()
+                        } catch (restoreError) {
+                          setError(describeApiError(restoreError))
+                        } finally {
+                          setBusy(false)
+                        }
+                      }}
+                    >
+                      <RotateCcw aria-hidden="true" />
+                      恢复
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setPurgeTarget(item)}
+                    >
+                      彻底删除
+                    </Button>
+                  </>
+                )}
               </div>
             </li>
           ))}

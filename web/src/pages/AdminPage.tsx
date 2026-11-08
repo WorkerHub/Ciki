@@ -12,9 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DatabaseTab } from "@/pages/admin/DatabaseTab"
 import { SecurityTab } from "@/pages/admin/SecurityTab"
 import { SettingsTab } from "@/pages/admin/SettingsTab"
+import { SpacesTab } from "@/pages/admin/SpacesTab"
 import { UsersTab } from "@/pages/admin/UsersTab"
 
-/** 系统管理：用户管理 / 应用设置 / 访问与安全 / 数据库维护（无 SMTP 分区）。 */
+/** 系统管理：用户管理 / 空间总览 / 应用设置 / 访问与安全 / 数据库维护（无 SMTP 分区）。 */
 export function AdminPage() {
   const [tab, setTab] = useState("users")
 
@@ -36,12 +37,16 @@ export function AdminPage() {
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
           <TabsTrigger value="users">用户管理</TabsTrigger>
+          <TabsTrigger value="spaces">空间总览</TabsTrigger>
           <TabsTrigger value="site">应用设置</TabsTrigger>
           <TabsTrigger value="security">访问与安全</TabsTrigger>
           <TabsTrigger value="database">数据库维护</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-3">
           <UsersTab />
+        </TabsContent>
+        <TabsContent value="spaces" className="mt-3">
+          <SpacesTab />
         </TabsContent>
         <TabsContent value="site" className="mt-3">
           <SettingsTab />

@@ -291,6 +291,8 @@ export interface TrashNode {
 export interface PageDetail {
   id: string
   parentId: string | null
+  /** 页面所属空间；读写入口都按它判定角色。 */
+  spaceId: string
   title: string
   sortOrder: number
   contentJson: string
@@ -328,6 +330,9 @@ export interface SearchResult {
   title: string
   snippet: string
   updatedAt: string
+  /** 全空间搜索：结果自带所属空间，前端据此标注。 */
+  spaceId: string
+  spaceName: string
 }
 
 export interface SearchResponse {
@@ -354,6 +359,50 @@ export interface SiteSettings {
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
   require2fa: boolean
+}
+
+/** 空间角色：站点管理员对所有空间的有效角色都是 admin。 */
+export type SpaceRole = "admin" | "editor" | "viewer"
+
+export interface Space {
+  id: string
+  name: string
+  description: string
+  /** 当前用户在该空间的有效角色（站点管理员由前端统一视为 admin）。 */
+  myRole: SpaceRole
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SpaceMember {
+  userId: string
+  username: string
+  publicId: string
+  email: string
+  role: SpaceRole
+  createdAt: string
+}
+
+export interface SpaceCandidate {
+  userId: string
+  username: string
+  publicId: string
+  email: string
+}
+
+/** 系统管理「空间总览」的行：统计字段只在这个端点返回。 */
+export interface AdminSpace {
+  id: string
+  name: string
+  description: string
+  isDefault: boolean
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  memberCount: number
+  pageCount: number
+  trashedPageCount: number
 }
 
 /* ------------------------------------------------------------------ *
@@ -466,18 +515,31 @@ export const siteApi = {
   }
 }
 
+/** 空间参数缺省时后端按默认空间处理（契约里空串/缺省同义）。 */
+function spaceQuery(spaceId?: string | null): string {
+  return spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : ""
+}
+
 export const pagesApi = {
-  tree: () => api.get<PageNode[]>("/pages"),
-  trash: () => api.get<TrashNode[]>("/pages/trash"),
+  tree: (spaceId?: string | null) =>
+    api.get<PageNode[]>(`/pages${spaceQuery(spaceId)}`),
+  trash: (spaceId?: string | null) =>
+    api.get<TrashNode[]>(`/pages/trash${spaceQuery(spaceId)}`),
   get: (id: string) => api.get<PageDetail>(`/pages/${id}`),
-  create: (input: PageInput & { parentId: string | null }) =>
+  create: (input: PageInput & { parentId: string | null; spaceId?: string }) =>
     api.post<PageDetail>("/pages", input),
   update: (id: string, input: PageInput) =>
     api.put<PageDetail>(`/pages/${id}`, input),
-  move: (id: string, parentId: string | null, sortOrder?: number) =>
+  move: (
+    id: string,
+    parentId: string | null,
+    sortOrder?: number,
+    spaceId?: string
+  ) =>
     api.post<{ success: true }>(`/pages/${id}/move`, {
       parentId,
-      ...(sortOrder === undefined ? {} : { sortOrder })
+      ...(sortOrder === undefined ? {} : { sortOrder }),
+      ...(spaceId ? { spaceId } : {})
     }),
   remove: (id: string) => api.del<{ success: true }>(`/pages/${id}`),
   restore: (id: string) => api.post<{ success: true }>(`/pages/${id}/restore`),
@@ -494,6 +556,27 @@ export const pagesApi = {
 export const searchApi = {
   query: (q: string, limit = 20) =>
     api.get<SearchResponse>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`)
+}
+
+export const spacesApi = {
+  list: () => api.get<Space[]>("/spaces"),
+  get: (id: string) => api.get<Space>(`/spaces/${id}`),
+  create: (input: { name: string; description?: string }) =>
+    api.post<Space>("/spaces", input),
+  update: (id: string, input: { name?: string; description?: string }) =>
+    api.put<Space>(`/spaces/${id}`, input),
+  remove: (id: string) => api.del<{ success: true }>(`/spaces/${id}`),
+  members: (id: string) => api.get<SpaceMember[]>(`/spaces/${id}/members`),
+  addMember: (id: string, input: { userId: string; role: SpaceRole }) =>
+    api.post<SpaceMember>(`/spaces/${id}/members`, input),
+  updateMember: (id: string, userId: string, role: SpaceRole) =>
+    api.put<SpaceMember>(`/spaces/${id}/members/${userId}`, { role }),
+  removeMember: (id: string, userId: string) =>
+    api.del<{ success: true }>(`/spaces/${id}/members/${userId}`),
+  candidates: (id: string, q: string) =>
+    api.get<SpaceCandidate[]>(
+      `/spaces/${id}/member-candidates?q=${encodeURIComponent(q)}`
+    )
 }
 
 export const adminApi = {
@@ -516,6 +599,7 @@ export const adminApi = {
   reject: (id: string) =>
     api.post<{ success: true }>(`/admin/users/${id}/reject`),
   runAsAdmin: () => api.post<SetupResult>("/admin/setup"),
+  spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
     api.put<{ success: true }>("/admin/settings", patch)
@@ -586,6 +670,30 @@ export function describeApiError(error: unknown): string {
       return "用户名不合法，请检查后重试。"
     case "INVALID_AVATAR":
       return "头像无效，请重新上传。"
+    case "INVALID_SPACE_NAME":
+      return "空间名称需为 1–64 个字符。"
+    case "INVALID_SPACE_DESCRIPTION":
+      return "空间描述最多 500 个字符。"
+    case "SPACE_NOT_FOUND":
+      return "空间不存在，或你已不是它的成员。"
+    case "SPACE_DEFAULT_PROTECTED":
+      return "默认空间不能删除。"
+    case "SPACE_NOT_EMPTY":
+      return "空间里还有页面，请先把页面移动到其他空间，或彻底删除回收站里的页面。"
+    case "SPACE_MISMATCH":
+      return "目标父页面不在这个空间里。"
+    case "ALREADY_MEMBER":
+      return "该用户已经是这个空间的成员。"
+    case "USER_NOT_ELIGIBLE":
+      return "该用户当前不可加入空间（需处于启用且已批准状态）。"
+    case "LAST_SPACE_ADMIN":
+      return "空间至少需要保留一名管理员。"
+    case "MEMBER_NOT_FOUND":
+      return "这个成员已经不在空间里了。"
+    case "USER_NOT_FOUND":
+      return "找不到这个用户。"
+    case "INVALID_ROLE":
+      return "成员角色不合法。"
     default:
       break
   }

@@ -1,5 +1,5 @@
 import { ArrowLeft, Save } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useBlocker, useNavigate, useParams } from "react-router"
 import {
   AlertDialog,
@@ -26,13 +26,20 @@ import {
   pagesApi
 } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
+import { canEdit } from "@/lib/space"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { usePagesStore } from "@/stores/pages"
+import { useSpacesStore } from "@/stores/spaces"
 
 /** 编辑页：标题 + 正文，Ctrl/⌘+S 保存，未保存离开要确认（规格 §2）。 */
 export function PageEdit() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
   const loadTree = usePagesStore((state) => state.load)
+  const spaces = useSpacesStore((state) => state.spaces)
+  const spacesStatus = useSpacesStore((state) => state.status)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const selectSpace = useSpacesStore((state) => state.select)
   const [page, setPage] = useState<PageDetail | null>(null)
   const [title, setTitle] = useState("")
   const [loading, setLoading] = useState(true)
@@ -43,6 +50,9 @@ export function PageEdit() {
   const [saveError, setSaveError] = useState("")
   const [notFound, setNotFound] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const role = useSpaceRole(page?.spaceId)
+  const readOnly = page !== null && !canEdit(role)
+  const syncedPage = useRef<string | null>(null)
 
   const editor = useWikiEditor({
     contentJson: page?.contentJson ?? "",
@@ -88,6 +98,15 @@ export function PageEdit() {
   const ready = Boolean(
     editor && page && pageId && page.id === pageId && !loading
   )
+
+  // 直链进来时空间跟着页面走（与阅读页同一口径），每个页面只同步一次
+  useEffect(() => {
+    if (!page || spacesStatus !== "ready") return
+    if (!spaces.some((space) => space.id === page.spaceId)) return
+    if (syncedPage.current === page.id) return
+    syncedPage.current = page.id
+    if (page.spaceId !== currentSpaceId) selectSpace(page.spaceId)
+  }, [page, spaces, spacesStatus, currentSpaceId, selectSpace])
 
   const save = useCallback(async (): Promise<boolean> => {
     if (
@@ -148,7 +167,8 @@ export function PageEdit() {
       dirty && currentLocation.pathname !== nextLocation.pathname
   )
 
-  if (loading) {
+  // 空间列表还在路上时角色未知，先别判只读：否则直链/刷新会闪一下「只读成员」
+  if (loading || spacesStatus === "loading") {
     return (
       <div className="space-y-4" role="status" aria-label="页面加载中">
         <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
@@ -194,6 +214,25 @@ export function PageEdit() {
             回到首页
           </Button>
         </div>
+      </div>
+    )
+  }
+
+  // 只读空间：不挂编辑器，只给一句说明和返回阅读的入口
+  if (readOnly && page) {
+    return (
+      <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
+        <p className="text-sm text-muted-foreground">
+          你是这个空间的只读成员，不能编辑页面。
+        </p>
+        <Button
+          className="mt-3"
+          size="sm"
+          variant="outline"
+          onClick={() => navigate(`/p/${page.id}`)}
+        >
+          返回阅读
+        </Button>
       </div>
     )
   }

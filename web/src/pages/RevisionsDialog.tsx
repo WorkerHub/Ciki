@@ -26,11 +26,14 @@ export function RevisionsDialog({
   pageId,
   open,
   onOpenChange,
+  readOnly = false,
   onRestored
 }: {
   pageId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** 只读空间：可以看历史，但不渲染回滚入口。 */
+  readOnly?: boolean
   onRestored: (page: PageDetail) => void
 }) {
   const [revisions, setRevisions] = useState<RevisionSummary[]>([])
@@ -157,17 +160,21 @@ export function RevisionsDialog({
 
         <DialogFooter className="items-center justify-between sm:justify-between">
           <span className="text-xs text-muted-foreground">
-            回滚限页面作者与管理员。
+            {readOnly
+              ? "只读成员可以查看历史，回滚需要编辑权限。"
+              : "回滚会用旧版内容写回页面，并生成一条新记录。"}
           </span>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => void restore()}
-            disabled={!selected || restoring}
-          >
-            <RotateCcw aria-hidden="true" />
-            {restoring ? "回滚中…" : "回滚到这个版本"}
-          </Button>
+          {readOnly ? null : (
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void restore()}
+              disabled={!selected || restoring}
+            >
+              <RotateCcw aria-hidden="true" />
+              {restoring ? "回滚中…" : "回滚到这个版本"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

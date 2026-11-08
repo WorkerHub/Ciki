@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSetupGateStore } from "@/stores/setup"
 import { DEFAULT_SITE_NAME, useSiteStore } from "@/stores/site"
+import { useSpacesStore } from "@/stores/spaces"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -29,13 +30,13 @@ vi.mock("@/lib/api", async (importOriginal) => {
       verifyTotp: vi.fn(),
       config: vi.fn()
     },
-    adminApi: { ...actual.adminApi, users: vi.fn(), settings: vi.fn() }
+    adminApi: { ...actual.adminApi, users: vi.fn(), settings: vi.fn() },
+    spacesApi: { ...actual.spacesApi, list: vi.fn() }
   }
 })
 
-const { setupApi, meApi, pagesApi, adminApi, authApi, siteApi } = await import(
-  "@/lib/api"
-)
+const { setupApi, meApi, pagesApi, adminApi, authApi, siteApi, spacesApi } =
+  await import("@/lib/api")
 
 const admin: Me = {
   id: "u1",
@@ -85,6 +86,25 @@ describe("路由守卫与初始化门", () => {
       require2fa: false
     })
     vi.mocked(meApi.sessions).mockResolvedValue([])
+    useSpacesStore.setState({
+      spaces: [
+        {
+          id: "space-default",
+          name: "默认空间",
+          description: "",
+          myRole: "editor",
+          isDefault: true,
+          createdAt: "2026-11-08T00:00:00.000Z",
+          updatedAt: "2026-11-08T00:00:00.000Z"
+        }
+      ],
+      status: "ready",
+      error: null,
+      currentId: "space-default"
+    })
+    vi.mocked(spacesApi.list).mockResolvedValue(
+      useSpacesStore.getState().spaces
+    )
   })
 
   it("未登录访问任意页面都会跳到登录页，页脚带构建版本号", async () => {
@@ -179,5 +199,6 @@ describe("路由守卫与初始化门", () => {
       await screen.findByRole("heading", { name: "系统管理" })
     ).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "用户管理" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "空间总览" })).toBeInTheDocument()
   })
 })

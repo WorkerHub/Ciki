@@ -1,0 +1,142 @@
+import { Empty } from "@cloudflare/kumo/components/empty"
+import { Boxes, ExternalLink } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { Link } from "react-router"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table"
+import { adminApi, type AdminSpace, describeApiError } from "@/lib/api"
+import { formatDate } from "@/lib/format"
+
+/** 系统管理 · 空间总览：站点管理员看全部空间的成员与页面统计。 */
+export function SpacesTab() {
+  const [spaces, setSpaces] = useState<AdminSpace[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError("")
+    try {
+      setSpaces(await adminApi.spaces())
+    } catch (loadError) {
+      setError(describeApiError(loadError))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-medium">空间总览</h2>
+          <p className="text-xs text-muted-foreground">
+            全部空间的成员数与页面数；页面数只算未删除页面，回收站单独统计。
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => void load()}
+          disabled={loading}
+        >
+          刷新
+        </Button>
+      </div>
+
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      ) : null}
+
+      {loading && spaces.length === 0 ? (
+        <div className="space-y-2" role="status" aria-label="空间总览加载中">
+          {[0, 1, 2].map((index) => (
+            <div key={index} className="h-11 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      ) : spaces.length === 0 ? (
+        <Empty
+          icon={<Boxes />}
+          title="还没有空间"
+          description="完成数据库升级后会自动建出默认空间。"
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>空间</TableHead>
+                <TableHead className="w-40">描述</TableHead>
+                <TableHead className="w-20 text-right">成员</TableHead>
+                <TableHead className="w-20 text-right">页面</TableHead>
+                <TableHead className="w-24 text-right">回收站</TableHead>
+                <TableHead className="w-28">创建时间</TableHead>
+                <TableHead className="w-24 text-right">操作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {spaces.map((space) => (
+                <TableRow key={space.id}>
+                  <TableCell>
+                    <span className="flex flex-wrap items-center gap-1.5 font-medium">
+                      {space.name}
+                      {space.isDefault ? (
+                        <Badge variant="outline" className="text-[10px]">
+                          默认
+                        </Badge>
+                      ) : null}
+                    </span>
+                    <span className="block font-mono text-[11px] text-muted-foreground">
+                      {space.id}
+                    </span>
+                  </TableCell>
+                  <TableCell className="max-w-[12rem] truncate text-xs text-muted-foreground">
+                    {space.description || "—"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {space.memberCount}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {space.pageCount}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {space.trashedPageCount}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDate(space.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild size="sm" variant="ghost">
+                      <Link to={`/spaces/${space.id}/settings`}>
+                        <ExternalLink aria-hidden="true" />
+                        空间设置
+                      </Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </section>
+  )
+}

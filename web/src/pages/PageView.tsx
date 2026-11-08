@@ -1,8 +1,9 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
-import { History, Pencil, Plus, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { ArrowRightLeft, History, Pencil, Plus, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { Link, useNavigate, useParams } from "react-router"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
+import { MovePageDialog } from "@/components/MovePageDialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ import {
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ReadView } from "@/editor/ReadView"
 import {
@@ -31,19 +33,25 @@ import {
   pagesApi
 } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
+import { canEdit, editableSpaces } from "@/lib/space"
 import { findPath } from "@/lib/tree"
 import { RevisionsDialog } from "@/pages/RevisionsDialog"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
+import { useSpacesStore } from "@/stores/spaces"
 
 export function PageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
-  const user = useAuthStore((state) => state.user)
+  const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
   const tree = usePagesStore((state) => state.tree)
   const removePage = usePagesStore((state) => state.removePage)
-  const loadTree = usePagesStore((state) => state.load)
   const expandTo = usePagesStore((state) => state.expandTo)
+  const spaces = useSpacesStore((state) => state.spaces)
+  const spacesStatus = useSpacesStore((state) => state.status)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const selectSpace = useSpacesStore((state) => state.select)
   const [page, setPage] = useState<PageDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -51,11 +59,12 @@ export function PageView() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [createChildOpen, setCreateChildOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [moveOpen, setMoveOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    void loadTree()
-  }, [loadTree])
+  // 每个页面只跟随一次空间：切空间后本页还没卸载时不能把选择抢回去
+  const syncedPage = useRef<string | null>(null)
+  const role = useSpaceRole(page?.spaceId)
+  const canWrite = canEdit(role)
 
   useEffect(() => {
     if (!pageId) return
@@ -88,10 +97,21 @@ export function PageView() {
     if (page) expandTo(page.id)
   }, [page, expandTo])
 
+  // 搜索是全空间范围：点进别的空间的页面时，当前空间跟着切过去，树才对得上。
+  // 只在页面首次载入时同步一次，否则用户切换空间会立刻被这页拉回旧空间。
+  useEffect(() => {
+    if (!page || spacesStatus !== "ready") return
+    if (!spaces.some((space) => space.id === page.spaceId)) return
+    if (syncedPage.current === page.id) return
+    syncedPage.current = page.id
+    if (page.spaceId !== currentSpaceId) selectSpace(page.spaceId)
+  }, [page, spaces, spacesStatus, currentSpaceId, selectSpace])
+
   const path = pageId ? findPath(tree, pageId) : []
-  const canDelete = Boolean(
-    page && user && (user.role === "admin" || user.id === page.createdBy)
-  )
+  const canMoveToSpace =
+    canWrite &&
+    Boolean(page) &&
+    editableSpaces(spaces, isSiteAdmin, page?.spaceId ?? null).length > 0
 
   if (loading) {
     return (
@@ -162,17 +182,46 @@ export function PageView() {
             <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight text-balance break-words">
               {page.title}
             </h1>
-            <p className="text-xs text-muted-foreground tabular-nums">
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
               更新于 {formatRelative(page.updatedAt)}
+              {role === "viewer" ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  只读成员
+                </Badge>
+              ) : null}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Button asChild size="sm">
-              <Link to={`/p/${page.id}/edit`}>
-                <Pencil aria-hidden="true" />
-                编辑
-              </Link>
-            </Button>
+            {canWrite ? (
+              <>
+                <Button asChild size="sm">
+                  <Link to={`/p/${page.id}/edit`}>
+                    <Pencil aria-hidden="true" />
+                    编辑
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCreateChildOpen(true)}
+                >
+                  <Plus aria-hidden="true" />
+                  子页面
+                </Button>
+                {canMoveToSpace ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setMoveOpen(true)}
+                  >
+                    <ArrowRightLeft aria-hidden="true" />
+                    移动到空间
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
             <Button
               type="button"
               size="sm"
@@ -182,16 +231,7 @@ export function PageView() {
               <History aria-hidden="true" />
               历史
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setCreateChildOpen(true)}
-            >
-              <Plus aria-hidden="true" />
-              子页面
-            </Button>
-            {canDelete ? (
+            {canWrite ? (
               <Button
                 type="button"
                 size="sm"
@@ -226,7 +266,21 @@ export function PageView() {
         pageId={page.id}
         open={historyOpen}
         onOpenChange={setHistoryOpen}
+        readOnly={!canWrite}
         onRestored={(restored) => setPage(restored)}
+      />
+
+      <MovePageDialog
+        pageId={page.id}
+        pageTitle={page.title}
+        sourceSpaceId={page.spaceId}
+        open={moveOpen}
+        onOpenChange={setMoveOpen}
+        onMoved={(targetSpaceId) => {
+          // 同一 URL 不会触发重新加载：就地改本地详情的空间，再切换当前空间
+          setPage((prev) => (prev ? { ...prev, spaceId: targetSpaceId } : prev))
+          selectSpace(targetSpaceId)
+        }}
       />
 
       <CreatePageDialog
