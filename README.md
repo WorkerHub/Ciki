@@ -142,7 +142,7 @@ curl -X POST https://<站点域名>/api/setup \
   -H "X-Setup-Secret: $SETUP_SECRET"
 ```
 
-迁移只新增表/索引（`worker/src/lib/migrations.ts` 的 `schema_v1`、`schema_v2`，后者为导入令牌表 `{prefix}import_tokens`），不做破坏性变更。回滚是人工操作：删除对应迁移新建的表/索引并从 `{prefix}schema_migrations` 删掉该迁移行（生产库执行前须经用户批准）；CI 与 UI 都不提供删表/清库入口。
+迁移只新增表/索引（`worker/src/lib/migrations.ts` 的 `schema_v1`、`schema_v2`、`schema_v3`，后者为 users 的身份三列与 `public_id` 唯一索引，含只补空值的存量回填），不做破坏性变更。回滚是人工操作：删除对应迁移新建的表/索引并从 `{prefix}schema_migrations` 删掉该迁移行（生产库执行前须经用户批准）；CI 与 UI 都不提供删表/清库入口。
 
 ## 目录结构
 

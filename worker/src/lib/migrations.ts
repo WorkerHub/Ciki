@@ -7,7 +7,11 @@
  *   不做 DROP / RENAME / 数据重写。
  * - 迁移 SQL 字符串里不得出现 `;`：执行器按 `;` 切分后逐条执行。
  * - 表名/索引名一律经 src/lib/tables.ts 拼装，本文件只写 `{prefix}` 占位。
+ * - SQLite 缺 `ADD COLUMN IF NOT EXISTS` 之类的能力时，可在 `prepare` 里做结构补齐
+ *   与数据回填：它先于 sql 执行、只允许补新列里仍为空的值，不得覆盖既有数据，
+ *   同样必须可重复执行。
  */
+import { prepareIdentitySchema } from "./identity-schema"
 import {
   importTokensTable,
   pagesFtsTable,
@@ -18,6 +22,8 @@ import {
 export interface Migration {
   name: string
   sql: string
+  /** 在 sql 之前执行的幂等补齐（加列、回填），见文件头注释。 */
+  prepare?: (db: D1Database, prefix: string) => Promise<void>
 }
 
 /**
@@ -180,6 +186,17 @@ const SCHEMA_V2 = `CREATE TABLE IF NOT EXISTS {prefix}import_tokens (
 CREATE UNIQUE INDEX IF NOT EXISTS {prefix}import_tokens_token_hash
   ON {prefix}import_tokens(token_hash)`
 
+/**
+ * schema_v3 — 身份模型（规格「Ciki UI/身份优化批」）。
+ *
+ * users 加 username（显示名，可改、不唯一）/ public_id（8 位系统生成、唯一、不可改）/
+ * avatar_key（头像在 R2 的 key）；存量行的回填在 prepareIdentitySchema 里，只写
+ * 新列的空值。public_id 用部分唯一索引：未回填的空串不参与唯一性，回填完成后
+ * 由数据库兜底并发建号的撞键。
+ */
+const SCHEMA_V3 = `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}users_public_id
+  ON {prefix}users(public_id) WHERE public_id <> ''`
+
 /** 把迁移里的 `{prefix}` 替换成生效前缀。 */
 function render(sql: string, prefix: string): string {
   return sql.replaceAll("{prefix}", prefix)
@@ -206,8 +223,16 @@ export function getMigrations(prefix: string): Migration[] {
       `migration schema_v2 is missing table ${importTokensTable(prefix)}`
     )
   }
+
+  const sqlV3 = render(SCHEMA_V3, prefix)
+  if (!sqlV3.includes(tableName(prefix, "users"))) {
+    throw new Error(
+      `migration schema_v3 is missing table ${tableName(prefix, "users")}`
+    )
+  }
   return [
     { name: "schema_v1", sql },
-    { name: "schema_v2", sql: sqlV2 }
+    { name: "schema_v2", sql: sqlV2 },
+    { name: "schema_v3", sql: sqlV3, prepare: prepareIdentitySchema }
   ]
 }

@@ -294,6 +294,7 @@ describe("权限分层", () => {
     const config = await jsonRequest(env, "GET", "/api/auth/config")
     expect(config.status).toBe(200)
     expect(await config.json()).toEqual({
+      siteName: "Ciki",
       registrationEnabled: true,
       registrationApprovalRequired: true
     })

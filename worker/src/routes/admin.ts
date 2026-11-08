@@ -20,8 +20,16 @@ import { generateId, hashPassword } from "../core/auth"
 import {
   getAllSettings,
   getBooleanSetting,
+  getSetting,
   setSetting
 } from "../db/queries/settings"
+import {
+  DEFAULT_SITE_NAME,
+  defaultUsernameFromEmail,
+  insertWithFreshPublicId,
+  isEmailConflict,
+  normalizeSiteName
+} from "../core/identity"
 import { runSetup } from "../lib/setup"
 import { adminMiddleware } from "../middleware/admin"
 import { readJsonBody } from "../lib/http"
@@ -84,12 +92,27 @@ adminRoutes.post("/users", async (c) => {
   }
 
   const id = generateId()
-  await createApprovedUser(c.env.DB, prefix, {
-    id,
-    email,
-    password_hash: await hashPassword(password),
-    role: body?.role === "admin" ? "admin" : "user"
-  })
+  const passwordHash = await hashPassword(password)
+  try {
+    await insertWithFreshPublicId((publicId) =>
+      createApprovedUser(c.env.DB, prefix, {
+        id,
+        email,
+        username: defaultUsernameFromEmail(email),
+        public_id: publicId,
+        password_hash: passwordHash,
+        role: body?.role === "admin" ? "admin" : "user"
+      })
+    )
+  } catch (err) {
+    if (isEmailConflict(err)) {
+      return c.json(
+        { error: "Email already registered", code: "EMAIL_TAKEN" },
+        409
+      )
+    }
+    throw err
+  }
   const user = await findUserById(c.env.DB, prefix, id)
   return c.json(user ? userDto(user) : { success: true }, 201)
 })
@@ -156,7 +179,14 @@ adminRoutes.put("/users/:id", async (c) => {
     updates.password_hash = await hashPassword(body.password)
   }
 
-  await updateUser(c.env.DB, prefix, uid, updates)
+  try {
+    await updateUser(c.env.DB, prefix, uid, updates)
+  } catch (err) {
+    if (updates.email !== undefined && isEmailConflict(err)) {
+      return c.json({ error: "Email already in use", code: "EMAIL_TAKEN" }, 409)
+    }
+    throw err
+  }
 
   const roleChanged = updates.role !== undefined && updates.role !== user.role
   const deactivated = updates.is_active === 0 && user.is_active === 1
@@ -213,6 +243,8 @@ adminRoutes.post("/users/:id/reject", async (c) => {
 adminRoutes.get("/settings", async (c) => {
   const prefix = getTablePrefix(c.env)
   return c.json({
+    siteName:
+      (await getSetting(c.env.DB, prefix, "site_name")) ?? DEFAULT_SITE_NAME,
     setupPageEnabled:
       (await getAllSettings(c.env.DB, prefix)).setup_page_enabled !== "0",
     registrationEnabled: await getBooleanSetting(
@@ -236,6 +268,13 @@ adminRoutes.put("/settings", async (c) => {
   if (!body) return c.json({ error: "Invalid request body" }, 400)
 
   const prefix = getTablePrefix(c.env)
+  if (body.siteName !== undefined) {
+    const siteName = normalizeSiteName(body.siteName)
+    if (!siteName) {
+      return c.json({ error: "siteName must be 1-32 characters" }, 400)
+    }
+    await setSetting(c.env.DB, prefix, "site_name", siteName)
+  }
   const mapping: Array<[string, string]> = [
     ["setupPageEnabled", "setup_page_enabled"],
     ["registrationEnabled", "registration_enabled"],
