@@ -25,12 +25,7 @@ export function DatabaseTab() {
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-border p-4">
-        <h3 className="text-sm font-medium">数据库迁移</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          迁移是追加式的（全部 CREATE … IF NOT
-          EXISTS），重复执行只会把已应用的迁移标成
-          skipped，不会动已有数据。当前部署的表前缀会在执行结果里回显。
-        </p>
+        <h3 className="text-sm font-medium">数据库升级</h3>
         <Button
           type="button"
           size="sm"
@@ -53,7 +48,7 @@ export function DatabaseTab() {
 
         {result ? (
           <div className="mt-3 space-y-2 rounded-lg bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">生效的表前缀</p>
+            <p className="text-xs text-muted-foreground">当前表前缀</p>
             <p className="font-mono text-sm">
               {result.tablePrefix || "（无前缀）"}
             </p>
@@ -79,13 +74,6 @@ export function DatabaseTab() {
             </ul>
           </div>
         ) : null}
-      </section>
-
-      <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
-        <h3 className="text-sm font-medium">没有删表 / 清库入口</h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          按站点约定，界面永远不提供删除表或清空数据库的操作。需要回收历史数据时，走人工评审的运维流程。
-        </p>
       </section>
     </div>
   )
