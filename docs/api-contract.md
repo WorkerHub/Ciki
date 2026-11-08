@@ -8,7 +8,7 @@
 
 ## 一、通用约定
 
-- **鉴权**：全站登录后可见。除下列公开端点外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。
+- **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）。
   - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
 - **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、429 限流/锁定、500 服务端错误（不回显堆栈）。
@@ -20,7 +20,12 @@
 
 ## 二、数据模型
 
-一次性迁移 `schema_v1`（追加式、全部 `CREATE … IF NOT EXISTS`；账本表为 `{prefix}schema_migrations`，记录 `name`、`applied_at`）。回滚方式：人工删除本项目表与账本，生产库执行前必须经用户批准；UI 不提供删表/清库入口。
+迁移两条，均为追加式、全部 `CREATE … IF NOT EXISTS`，账本表为 `{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
+
+- `schema_v1`：鉴权、设置、页面、版本与 FTS 的全部表。
+- `schema_v2`：导入令牌表 `{prefix}import_tokens`（v1.1 增补）。
+
+回滚方式：人工删除对应迁移新建的表/索引，并从账本删掉该迁移行（`DELETE FROM {prefix}schema_migrations WHERE name = 'schema_v1'|'schema_v2'`）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
 
 ### users
 
@@ -117,6 +122,20 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | registration_enabled           | `true` / `false` | `true`         |
 | registration_approval_required | `true` / `false` | `true`         |
 | require_2fa                    | `true` / `false` | `false`        |
+
+### import_tokens（个人导入令牌）
+
+| 列           | 类型          | 说明                                         |
+| ------------ | ------------- | -------------------------------------------- |
+| user_id      | TEXT PK       | 每用户一行；生成/重置即覆盖，不新增行        |
+| token_hash   | TEXT NOT NULL | 令牌的 SHA-256 hex（与会话同口径），唯一索引 |
+| created_at   | TEXT NOT NULL | ISO 时间；重置时刷新                         |
+| last_used_at | TEXT NULL     | 每次通过该令牌调用导入接口时更新             |
+| revoked_at   | TEXT NULL     | 非空即吊销                                   |
+
+- 明文只存于生成/重置响应一次，库内只有哈希；不设过期列。
+- 失效条件：吊销、重置、用户被停用或未批准。校验每次回表并连 `users` 查激活/审批状态，所以停用立即生效。
+- 令牌只用于 `/api/import/*`，权限等同本人；令牌管理本身仍要会话 Cookie。
 
 ### pages
 
@@ -460,7 +479,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 }
 ```
 
-201 返回完整详情；新页追加到同级末尾；首次创建同时生成一条 revision。`contentHtml` 由服务端二次消毒后入库。
+201 返回完整详情；新页追加到同级末尾；首次创建同时生成一条 revision。`contentHtml` 由服务端二次消毒后入库。`parentId` 缺省、`null` 或空串都表示根页（不会把空串写进 `parent_id`）。
 
 #### PUT /api/pages/:id
 
@@ -559,6 +578,106 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 #### GET /api/files/:key
 
 需会话；返回图片字节，`Content-Type` 为上传时类型，带 `ETag` 与 `Cache-Control: private, max-age=3600`。不存在 404；未登录 401 + no-store。
+
+### 导入（个人令牌）
+
+Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，用 `Authorization: Bearer <token>` 调用，不共享登录 Cookie。
+
+#### GET /api/me/import-token（需会话）
+
+```json
+{
+  "active": true,
+  "createdAt": "2026-11-07T12:00:00.000Z",
+  "lastUsedAt": null,
+  "revokedAt": null
+}
+```
+
+从未生成过时三个时间字段均为 `null`、`active` 为 `false`。永不返回哈希或明文。
+
+#### POST /api/me/import-token（需会话）
+
+生成或重置当前用户的令牌（覆盖既有令牌，旧令牌立即失效），200：
+
+```json
+{ "token": "…", "createdAt": "2026-11-07T12:00:00.000Z" }
+```
+
+**明文只在此响应出现一次**。限流 10 次 / 5 分钟（按用户），超出 429 `code:"RATE_LIMITED"`。
+
+#### DELETE /api/me/import-token（需会话）
+
+吊销当前用户的令牌：200 `{"success":true}`。从未生成过 404；已吊销再调用仍 200（幂等）。
+
+#### 导入接口通用约定
+
+- 鉴权：只认 `Authorization: Bearer <token>`。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。会话 Cookie 与查询参数都不认（职责分离，避免把 Cookie 写操作的 CSRF 面带进插件）。
+- 限流沿用 `auth_counters`：失败按 IP（`import_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`import` 3000 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`，`retryAfter` 是**当前计数窗口的剩余秒数**（不做整窗预留）。成功鉴权一次即清零该 IP 的失败计数。
+- 每次成功调用都刷新令牌的 `lastUsedAt`。
+- **不做服务端外抓**：接口只收插件上传的字节，不接受 URL 让服务端去下载，SSRF 面为零。
+
+#### GET /api/import/parents
+
+未删页面的扁平摘要（不含正文），供插件选父页：
+
+```json
+[{ "id": "…", "title": "首页", "parentId": null }]
+```
+
+#### POST /api/import/check
+
+```json
+{ "title": "页面标题", "parentId": null }
+```
+
+同父级下是否已有同名未删页面：
+
+```json
+{ "exists": true, "pageId": "…" }
+```
+
+不存在时 `{"exists":false}`。标题按纯文本规范化后比较，且必须 1–255 字符（否则 400，与保存口径一致）；同名多页时取排序最前的一条。父页不存在或已删也返回 `exists:false`（不报错）。
+
+`parentId` 的取值口径见下节：缺省、`null` 与空串都表示根页。
+
+#### POST /api/import/files
+
+`multipart/form-data`，字段名 `file`，单文件。校验、R2 落盘与响应形状与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），201：
+
+```json
+{
+  "key": "d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "url": "/api/files/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "contentType": "image/png",
+  "size": 12345
+}
+```
+
+插件用 `url` 填进正文图片的 `src`。400 非图片/类型不符；413 `code:"FILE_TOO_LARGE"`。
+
+#### POST /api/import/pages
+
+```json
+{
+  "title": "页面标题",
+  "parentId": null,
+  "contentJson": "{\"type\":\"doc\",…}",
+  "conflict": "update"
+}
+```
+
+- `parentId`：目标父页 id。缺省、`null` 与空串（含纯空白）都表示根页——根页在库里是 `parent_id IS NULL`，服务端不会写入空串，避免造出游离页；其它类型 400。
+- `contentJson`：TipTap JSON，**字符串或对象均可**（对象由服务端序列化后入库）；只存 JSON，`contentHtml` / `contentText` 一律服务端生成。
+- `conflict` 必填：`"update"` = 同父级同名未删页则覆盖内容并追加一条 revision（与编辑器保存同一条写路径：页面 + revision + FTS 同一 `db.batch()` 事务），不存在则新建；`"create_copy"` = 总是新建，不改写标题。
+- 新建 201、更新 200，响应一致：
+
+```json
+{ "pageId": "…", "url": "/p/<pageId>" }
+```
+
+- 渲染与消毒：`contentHtml = sanitizePageHtml(renderTiptapHtml(contentJson))`——用 `@tiptap/html` 的 `generateHTML` 原生渲染（zeed-dom，无 DOM 依赖）再过 §4 同一支白名单消毒；`contentText` 由消毒后的 HTML 生成。插件侧的 HTML/纯文本不被信任，**消毒结果为准**。服务端渲染把表格列宽写成 `col[width]`，读态列宽比例保留；任务项勾选态为 `data-checked="true"|"false"`。
+- 错误：400 参数非法（标题、`parentId` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、三件套合计 ≤1,900,000 B）；409 `code:"PARENT_DELETED"`（父页不存在或已软删）；401；429。
 
 ### 服务端消毒规则（content_html）
 

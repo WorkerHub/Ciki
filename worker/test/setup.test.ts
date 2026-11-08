@@ -33,7 +33,10 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(body.success).toBe(true)
     expect(body.tablePrefix).toBe("ciki_")
-    expect(body.migrations).toEqual([{ name: "schema_v1", status: "applied" }])
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "applied" },
+      { name: "schema_v2", status: "applied" }
+    ])
 
     const tables = db.db
       .prepare("SELECT name FROM sqlite_master WHERE type='table'")
@@ -50,6 +53,7 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       "ciki_pages",
       "ciki_page_revisions",
       "ciki_pages_fts",
+      "ciki_import_tokens",
       "ciki_schema_migrations"
     ]) {
       expect(names).toContain(name)
@@ -66,12 +70,50 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     const body = (await res.json()) as {
       migrations: Array<{ name: string; status: string }>
     }
-    expect(body.migrations).toEqual([{ name: "schema_v1", status: "skipped" }])
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" }
+    ])
 
     const row = db.db
       .prepare("SELECT value FROM ciki_system_settings WHERE key = ?")
       .get("setup_page_enabled") as { value: string }
     expect(row.value).toBe("1")
+  })
+
+  it("存量库升级：只有 schema_v1 时再跑 setup 只补 schema_v2，既有数据不动", async () => {
+    const { env, db } = await initializedContext()
+
+    // 模拟升级前的线上库：v1 已应用、v2 还没跑过（表与账本行都不存在）。
+    db.db.exec("DROP TABLE ciki_import_tokens")
+    db.db
+      .prepare("DELETE FROM ciki_schema_migrations WHERE name = ?")
+      .run("schema_v2")
+    const now = new Date().toISOString()
+    db.db
+      .prepare(
+        "INSERT INTO ciki_pages (id, parent_id, title, sort_order, content_json, content_html, content_text, created_by, updated_by, created_at, updated_at) VALUES (?, NULL, ?, 0, '{}', '<p>x</p>', 'x', 'u1', 'u1', ?, ?)"
+      )
+      .run("keep-me", "存量页", now, now)
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      migrations: Array<{ name: string; status: string }>
+    }
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "applied" }
+    ])
+
+    const page = db.db
+      .prepare("SELECT title FROM ciki_pages WHERE id = ?")
+      .get("keep-me") as { title: string }
+    expect(page.title).toBe("存量页")
+    const table = db.db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+      .get("ciki_import_tokens") as { name: string }
+    expect(table.name).toBe("ciki_import_tokens")
   })
 
   it("初始化完成后显式写关：state 的 initialized=true、enabled=false", async () => {

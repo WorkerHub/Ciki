@@ -90,6 +90,41 @@ export async function consumeCounter(
   return row ?? { count: 1, windowStart: now, lockedUntil: null }
 }
 
+/** 只读窗口内计数（窗口过期视为 0）：用于「先拒后验」的限流。 */
+export async function readCounterWindow(
+  db: D1Database,
+  prefix: string,
+  key: CounterKey,
+  windowSeconds: number
+): Promise<{ count: number; retryAfter: number }> {
+  const row = await db
+    .prepare(
+      `SELECT count, window_start AS windowStart FROM ${countersTable(prefix)} WHERE key = ?`
+    )
+    .bind(keyOf(key))
+    .first<{ count: number; windowStart: number }>()
+  const now = Math.floor(Date.now() / 1000)
+  if (!row || row.windowStart <= now - windowSeconds) {
+    return { count: 0, retryAfter: 0 }
+  }
+  return {
+    count: row.count,
+    retryAfter: Math.max(1, row.windowStart + windowSeconds - now)
+  }
+}
+
+/** 精确重置一个计数键（鉴权成功后清掉该 IP 的失败计数）。 */
+export async function resetCounter(
+  db: D1Database,
+  prefix: string,
+  key: CounterKey
+): Promise<void> {
+  await db
+    .prepare(`DELETE FROM ${countersTable(prefix)} WHERE key = ?`)
+    .bind(keyOf(key))
+    .run()
+}
+
 /** 未过期的锁定时间（Unix 秒）；未锁定返回 null。 */
 export async function lockedUntil(
   db: D1Database,
