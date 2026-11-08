@@ -16,6 +16,11 @@ import {
 import { deleteTotp } from "../db/queries/totp"
 import { deleteUserPasskeys } from "../db/queries/passkeys"
 import { deleteUserSessions } from "../core/session"
+import {
+  deleteSpaceMembershipsForUser,
+  joinDefaultSpace,
+  listSpaceOverviews
+} from "../db/queries/spaces"
 import { generateId, hashPassword } from "../core/auth"
 import {
   getAllSettings,
@@ -52,6 +57,26 @@ function userDto(user: UserRow) {
 export const adminRoutes = new Hono<HonoEnv>()
 
 adminRoutes.use("*", adminMiddleware)
+
+/** 空间总览：站点管理员对全部空间的页面/成员计量（系统管理页用）。 */
+adminRoutes.get("/spaces", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const spaces = await listSpaceOverviews(c.env.DB, prefix)
+  return c.json(
+    spaces.map((space) => ({
+      id: space.id,
+      name: space.name,
+      description: space.description,
+      isDefault: Boolean(space.is_default),
+      createdBy: space.created_by,
+      createdAt: space.created_at,
+      updatedAt: space.updated_at,
+      memberCount: space.member_count,
+      pageCount: space.page_count,
+      trashedPageCount: space.trashed_page_count
+    }))
+  )
+})
 
 adminRoutes.get("/users", async (c) => {
   const prefix = getTablePrefix(c.env)
@@ -114,6 +139,12 @@ adminRoutes.post("/users", async (c) => {
     throw err
   }
   const user = await findUserById(c.env.DB, prefix, id)
+  await joinDefaultSpace(
+    c.env.DB,
+    prefix,
+    id,
+    body?.role === "admin" ? "admin" : "user"
+  )
   return c.json(user ? userDto(user) : { success: true }, 201)
 })
 
@@ -208,6 +239,7 @@ adminRoutes.delete("/users/:id", async (c) => {
   await deleteUserSessions(c.env.DB, prefix, uid)
   await deleteUserPasskeys(c.env.DB, prefix, uid)
   await deleteTotp(c.env.DB, prefix, uid)
+  await deleteSpaceMembershipsForUser(c.env.DB, prefix, uid)
   await deleteUser(c.env.DB, prefix, uid)
   return c.json({ success: true })
 })

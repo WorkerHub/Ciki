@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest"
-import { adminSession, initializedContext, jsonRequest } from "./support/app"
+import {
+  adminSession,
+  initializedContext,
+  jsonRequest,
+  userSession
+} from "./support/app"
 
 interface SearchResult {
   query: string
@@ -8,6 +13,8 @@ interface SearchResult {
     title: string
     snippet: string
     updatedAt: string
+    spaceId: string
+    spaceName: string
   }>
 }
 
@@ -149,5 +156,51 @@ describe("搜索：片段与标题必须是纯文本", () => {
     expect(hit.snippet).not.toContain("onerror")
     expect(hit.snippet).toContain("团队知识")
     expect(hit.title).not.toContain("<")
+  })
+})
+
+describe("搜索：空间过滤与标注", () => {
+  it("非成员空间的命中不出现；成员结果带 spaceId/spaceName", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "机密空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const space = (await spaceRes.json()) as { id: string }
+
+    const pageRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "机密标题",
+        spaceId: space.id,
+        parentId: null,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>专属关键词</p>",
+        contentText: "专属关键词"
+      },
+      admin
+    )
+    expect(pageRes.status).toBe(201)
+
+    const invisible = await search(env, user, "专属关键词")
+    expect(invisible.results).toEqual([])
+    expect(JSON.stringify(invisible)).not.toContain("机密标题")
+
+    const visible = await search(env, admin, "专属关键词")
+    expect(visible.results).toHaveLength(1)
+    expect(visible.results[0]).toMatchObject({
+      title: "机密标题",
+      spaceId: space.id,
+      spaceName: "机密空间"
+    })
   })
 })

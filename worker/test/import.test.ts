@@ -3,7 +3,8 @@ import {
   adminSession,
   initializedContext,
   jsonRequest,
-  request
+  request,
+  userSession
 } from "./support/app"
 
 const PNG = new Uint8Array([
@@ -680,5 +681,163 @@ describe("导入接口：令牌鉴权与四个端点", () => {
       "/api/import/parents"
     )
     expect(blocked.status).toBe(429)
+  })
+})
+
+describe("导入：空间列表、落点与越权", () => {
+  it("按令牌用户可编辑空间列空间；space_id 控制落点，无权空间 403", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const editor = await userSession(env, admin, "importer@example.com")
+    const viewer = await userSession(env, admin, "readonly@example.com")
+
+    const spaces = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as Array<{ id: string; isDefault: boolean }>
+    const defaultSpace = spaces.find((row) => row.isDefault)
+    if (!defaultSpace) throw new Error("default space missing")
+
+    const createSpace = async (name: string): Promise<string> => {
+      const res = await jsonRequest(env, "POST", "/api/spaces", { name }, admin)
+      expect(res.status).toBe(201)
+      return ((await res.json()) as { id: string }).id
+    }
+    const editSpace = await createSpace("导入空间")
+    const viewSpace = await createSpace("只读空间")
+
+    const me = async (cookie: string) =>
+      (await (
+        await jsonRequest(env, "GET", "/api/me", undefined, cookie)
+      ).json()) as { id: string }
+    const addMember = async (spaceId: string, userId: string, role: string) => {
+      const res = await jsonRequest(
+        env,
+        "POST",
+        `/api/spaces/${spaceId}/members`,
+        { userId, role },
+        admin
+      )
+      expect(res.status).toBe(201)
+    }
+    await addMember(editSpace, (await me(editor)).id, "editor")
+    await addMember(viewSpace, (await me(viewer)).id, "viewer")
+
+    const editorToken = await issueToken(env, editor)
+    const viewerToken = await issueToken(env, viewer)
+
+    const editorSpaces = (await (
+      await importRequest(env, editorToken, "GET", "/api/import/spaces")
+    ).json()) as Array<{ id: string; name: string }>
+    expect(editorSpaces.map((row) => row.id)).toEqual([
+      defaultSpace.id,
+      editSpace
+    ])
+    expect(editorSpaces[1].name).toBe("导入空间")
+
+    const viewerSpaces = (await (
+      await importRequest(env, viewerToken, "GET", "/api/import/spaces")
+    ).json()) as Array<{ id: string }>
+    expect(viewerSpaces.map((row) => row.id)).toEqual([defaultSpace.id])
+    expect(viewerSpaces.map((row) => row.id)).not.toContain(viewSpace)
+
+    const importPage = (
+      token: string,
+      title: string,
+      spaceId?: string,
+      parentId: string | null = null
+    ) =>
+      importRequest(env, token, "POST", "/api/import/pages", {
+        title,
+        parentId,
+        space_id: spaceId,
+        contentJson: JSON.stringify({ type: "doc" }),
+        conflict: "create_copy"
+      })
+
+    const byDefault = await importPage(editorToken, "默认落点")
+    expect(byDefault.status).toBe(201)
+    const defaultPage = (await byDefault.json()) as { pageId: string }
+    const defaultDetail = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${defaultPage.pageId}`,
+        undefined,
+        admin
+      )
+    ).json()) as { spaceId: string }
+    expect(defaultDetail.spaceId).toBe(defaultSpace.id)
+
+    const inEditSpace = await importPage(editorToken, "B 落点", editSpace)
+    expect(inEditSpace.status).toBe(201)
+    const editPage = (await inEditSpace.json()) as { pageId: string }
+    const editDetail = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${editPage.pageId}`,
+        undefined,
+        admin
+      )
+    ).json()) as { spaceId: string }
+    expect(editDetail.spaceId).toBe(editSpace)
+
+    const denied = await importPage(editorToken, "越权落点", viewSpace)
+    expect(denied.status).toBe(403)
+    expect(await denied.json()).toMatchObject({ code: "SPACE_FORBIDDEN" })
+
+    // parents 按空间过滤。
+    const parents = (await (
+      await importRequest(
+        env,
+        editorToken,
+        "GET",
+        `/api/import/parents?space_id=${editSpace}`
+      )
+    ).json()) as Array<{ id: string; title: string }>
+    expect(parents.map((row) => row.id)).toEqual([editPage.pageId])
+    expect(parents.map((row) => row.title)).not.toContain("默认落点")
+
+    // check 的同名匹配限定在目标空间内。
+    const checkOther = await importRequest(
+      env,
+      editorToken,
+      "POST",
+      "/api/import/check",
+      { title: "默认落点", parentId: null, space_id: editSpace }
+    )
+    expect(checkOther.status).toBe(200)
+    expect(await checkOther.json()).toEqual({ exists: false })
+
+    const checkSame = await importRequest(
+      env,
+      editorToken,
+      "POST",
+      "/api/import/check",
+      { title: "B 落点", parentId: null, space_id: editSpace }
+    )
+    expect(await checkSame.json()).toEqual({
+      exists: true,
+      pageId: editPage.pageId
+    })
+
+    // 父页属于另一个空间 → 409。
+    const crossParent = await importPage(
+      editorToken,
+      "跨空间父页",
+      editSpace,
+      defaultPage.pageId
+    )
+    expect(crossParent.status).toBe(409)
+    expect(await crossParent.json()).toMatchObject({ code: "SPACE_MISMATCH" })
+
+    // 令牌用户看不见的父页按不存在处理：不能借 409 探测别的空间里的页面。
+    const hiddenParent = await importPage(
+      viewerToken,
+      "探测父页",
+      undefined,
+      editPage.pageId
+    )
+    expect(hiddenParent.status).toBe(404)
   })
 })

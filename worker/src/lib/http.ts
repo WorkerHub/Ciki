@@ -54,3 +54,16 @@ export function readParentId(value: unknown): ParentIdInput {
   const trimmed = value.trim()
   return { ok: true, value: trimmed === "" ? null : trimmed }
 }
+
+/**
+ * spaceId / space_id 的统一归一：缺省、null、空串与纯空白都表示「用默认空间」，
+ * 与 parentId 的口径一致；其它类型按非法处理。
+ */
+export type SpaceIdInput = { ok: true; value: string | null } | { ok: false }
+
+export function readSpaceId(value: unknown): SpaceIdInput {
+  if (value === undefined || value === null) return { ok: true, value: null }
+  if (typeof value !== "string") return { ok: false }
+  const trimmed = value.trim()
+  return { ok: true, value: trimmed === "" ? null : trimmed }
+}

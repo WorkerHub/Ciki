@@ -1,10 +1,13 @@
 /**
  * 页面：树、详情、新建、保存、移动、软删/恢复/彻底删、版本与回滚。
  *
- * - wiki 语义：登录用户可新建/编辑任何页面；删除/恢复/彻底删/回滚限页面作者
- *   （created_by）或管理员。
- * - 每次新建/保存/回滚都追加一条 revision，并在同一个 db.batch() 里同步 FTS，
- *   保证“保存后可搜到、改名/改文后更新、软删不出现”。
+ * 权限以空间角色为准（规格「Ciki Space」）：`editor` 及以上可新建/编辑/移动/
+ * 删除/恢复/回滚，`viewer` 只读；非成员访问页面一律按不存在处理（404），
+ * 不泄露该空间的存在性。站点管理员不受成员表限制。
+ *
+ * - 页面父子关系只能在同一空间内；跨空间移动通过 move 的可选 `spaceId` 完成，
+ *   未指定父页时挂到目标空间根。
+ * - 每次新建/保存/回滚都追加一条 revision，并在同一个 db.batch() 里同步 FTS。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
@@ -21,10 +24,18 @@ import {
   softDeleteSubtree,
   updatePagePlacement,
   updatePageSortOrder,
+  updateSubtreeSpace,
   type PageRow,
   type PageSummaryRow
 } from "../db/queries/pages"
+import { findDefaultSpace } from "../db/queries/spaces"
 import { getRevision, listRevisions } from "../db/queries/revisions"
+import {
+  canEditPages,
+  resolveSpaceAccess,
+  resolveSpaceRole,
+  type SpaceRole
+} from "../core/space-access"
 import { indexPageStatements } from "../lib/fts"
 import { sanitizePageHtml, toPlainText } from "../lib/sanitize"
 import {
@@ -33,7 +44,7 @@ import {
   type PageContentResult
 } from "../lib/page-input"
 import { createPage, savePageContent } from "../core/page-write"
-import { readJsonBody, readParentId } from "../lib/http"
+import { readJsonBody, readParentId, readSpaceId } from "../lib/http"
 import type { HonoEnv } from "../types"
 
 export const pageRoutes = new Hono<HonoEnv>()
@@ -51,6 +62,7 @@ function toSummary(row: PageSummaryRow) {
 function toDetail(row: PageRow) {
   return {
     ...toSummary(row),
+    spaceId: row.space_id,
     contentJson: row.content_json,
     contentHtml: row.content_html,
     contentText: row.content_text,
@@ -60,8 +72,27 @@ function toDetail(row: PageRow) {
   }
 }
 
-function canDestruct(c: Context<HonoEnv>, row: PageRow): boolean {
-  return c.get("role") === "admin" || row.created_by === c.get("userId")
+function isSiteAdmin(c: Context<HonoEnv>): boolean {
+  return c.get("role") === "admin"
+}
+
+function pageNotFound(c: Context<HonoEnv>) {
+  return c.json({ error: "Page not found" }, 404)
+}
+
+function spaceNotFound(c: Context<HonoEnv>) {
+  return c.json({ error: "Space not found", code: "SPACE_NOT_FOUND" }, 404)
+}
+
+function forbidden(c: Context<HonoEnv>) {
+  return c.json({ error: "Forbidden" }, 403)
+}
+
+function defaultSpaceMissing(c: Context<HonoEnv>) {
+  return c.json(
+    { error: "Default space missing", code: "DEFAULT_SPACE_MISSING" },
+    409
+  )
 }
 
 /** 校验失败 → 契约里的状态码（体积超限 413，其余 400）。 */
@@ -76,11 +107,63 @@ function badInput(parsed: Extract<PageContentResult, { ok: false }>) {
   } as const
 }
 
+type SpaceTarget =
+  | { ok: true; spaceId: string; role: SpaceRole }
+  | { ok: false; response: Response }
+
+/** 解析请求里的空间（缺省 = 默认空间），并给出当前用户在该空间的有效角色。 */
+async function spaceTarget(
+  c: Context<HonoEnv>,
+  raw: unknown
+): Promise<SpaceTarget> {
+  const parsed = readSpaceId(raw)
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      response: c.json({ error: "spaceId must be a string or null" }, 400)
+    }
+  }
+
+  const prefix = getTablePrefix(c.env)
+  let spaceId = parsed.value
+  if (!spaceId) {
+    const fallback = await findDefaultSpace(c.env.DB, prefix)
+    if (!fallback) return { ok: false, response: defaultSpaceMissing(c) }
+    spaceId = fallback.id
+  }
+
+  const access = await resolveSpaceAccess(
+    c.env.DB,
+    prefix,
+    spaceId,
+    c.get("userId"),
+    isSiteAdmin(c)
+  )
+  if (!access) return { ok: false, response: spaceNotFound(c) }
+  return { ok: true, spaceId, role: access.role }
+}
+
+async function pageSpaceRole(
+  c: Context<HonoEnv>,
+  page: PageRow
+): Promise<SpaceRole | null> {
+  return resolveSpaceRole(
+    c.env.DB,
+    getTablePrefix(c.env),
+    page.space_id,
+    c.get("userId"),
+    isSiteAdmin(c)
+  )
+}
+
 // ── 列表 ────────────────────────────────────────────────────────────────────
 
 pageRoutes.get("/", async (c) => {
+  const target = await spaceTarget(c, c.req.query("spaceId"))
+  if (!target.ok) return target.response
+
   const prefix = getTablePrefix(c.env)
-  const rows = await listPageRows(c.env.DB, prefix)
+  const rows = await listPageRows(c.env.DB, prefix, target.spaceId)
   const nodes = new Map<
     string,
     ReturnType<typeof toSummary> & { children: unknown[] }
@@ -101,8 +184,11 @@ pageRoutes.get("/", async (c) => {
 
 // 必须注册在 /:id 之前，否则会被当成 id=trash。
 pageRoutes.get("/trash", async (c) => {
+  const target = await spaceTarget(c, c.req.query("spaceId"))
+  if (!target.ok) return target.response
+
   const prefix = getTablePrefix(c.env)
-  const rows = await listTrashRoots(c.env.DB, prefix)
+  const rows = await listTrashRoots(c.env.DB, prefix, target.spaceId)
   return c.json(
     rows.map((row) => ({
       id: row.id,
@@ -116,10 +202,12 @@ pageRoutes.get("/trash", async (c) => {
 
 pageRoutes.get("/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const row = await getPageRow(c.env.DB, prefix, c.req.param("id"))
-  if (!row || row.deleted_at) {
-    return c.json({ error: "Page not found" }, 404)
-  }
+  const db = c.env.DB
+  const row = await getPageRow(db, prefix, c.req.param("id"))
+  if (!row || row.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, row)
+  if (!role) return pageNotFound(c)
   return c.json(toDetail(row))
 })
 
@@ -140,18 +228,53 @@ pageRoutes.post("/", async (c) => {
   if (!parent.ok) {
     return c.json({ error: "parentId must be a string or null" }, 400)
   }
+  const requestedSpace = readSpaceId(body?.spaceId)
+  if (!requestedSpace.ok) {
+    return c.json({ error: "spaceId must be a string or null" }, 400)
+  }
+
+  let spaceId: string
   const parentId = parent.value
   if (parentId) {
-    const parent = await getPageRow(db, prefix, parentId)
-    if (!parent || parent.deleted_at) {
+    const parentRow = await getPageRow(db, prefix, parentId)
+    if (!parentRow) {
       return c.json(
         { error: "Parent page is deleted", code: "PARENT_DELETED" },
         409
       )
     }
+    // 先判权再判空间是否一致：非成员连“父页存在”都不能探测到。
+    const role = await pageSpaceRole(c, parentRow)
+    if (!role) return pageNotFound(c)
+    if (!canEditPages(role)) return forbidden(c)
+    if (parentRow.deleted_at) {
+      return c.json(
+        { error: "Parent page is deleted", code: "PARENT_DELETED" },
+        409
+      )
+    }
+    if (
+      requestedSpace.value !== null &&
+      requestedSpace.value !== parentRow.space_id
+    ) {
+      return c.json(
+        {
+          error: "Parent page is in another space",
+          code: "SPACE_MISMATCH"
+        },
+        409
+      )
+    }
+    spaceId = parentRow.space_id
+  } else {
+    const target = await spaceTarget(c, body?.spaceId)
+    if (!target.ok) return target.response
+    if (!canEditPages(target.role)) return forbidden(c)
+    spaceId = target.spaceId
   }
 
   const row = await createPage(db, prefix, {
+    spaceId,
     parentId,
     content: parsed.value,
     userId: c.get("userId"),
@@ -172,9 +295,11 @@ pageRoutes.put("/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const existing = await getPageRow(db, prefix, c.req.param("id"))
-  if (!existing || existing.deleted_at) {
-    return c.json({ error: "Page not found" }, 404)
-  }
+  if (!existing || existing.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, existing)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
 
   const saved = await savePageContent(db, prefix, existing, {
     content: parsed.value,
@@ -188,26 +313,65 @@ pageRoutes.post("/:id/move", async (c) => {
   const body = await readJsonBody<{
     parentId?: string | null
     sortOrder?: number
+    spaceId?: string | null
   }>(c)
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const page = await getPageRow(db, prefix, c.req.param("id"))
-  if (!page || page.deleted_at) {
-    return c.json({ error: "Page not found" }, 404)
-  }
+  if (!page || page.deleted_at) return pageNotFound(c)
 
-  const target = readParentId(
-    body?.parentId === undefined ? page.parent_id : body.parentId
+  const sourceRole = await pageSpaceRole(c, page)
+  if (!sourceRole) return pageNotFound(c)
+  if (!canEditPages(sourceRole)) return forbidden(c)
+
+  // move 的 spaceId 缺省是「当前页面所在空间」，不是默认空间。
+  const requestedSpace = readSpaceId(body?.spaceId)
+  if (!requestedSpace.ok) {
+    return c.json({ error: "spaceId must be a string or null" }, 400)
+  }
+  const targetSpaceId = requestedSpace.value ?? page.space_id
+  const targetAccess = await resolveSpaceAccess(
+    c.env.DB,
+    prefix,
+    targetSpaceId,
+    c.get("userId"),
+    isSiteAdmin(c)
   )
-  if (!target.ok) {
+  if (!targetAccess) return spaceNotFound(c)
+  if (!canEditPages(targetAccess.role)) return forbidden(c)
+
+  // 跨空间且未指定父页 → 挂到目标空间根；同空间缺省 → 保持当前父页。
+  const rawParent =
+    body?.parentId === undefined
+      ? targetSpaceId === page.space_id
+        ? page.parent_id
+        : null
+      : body.parentId
+  const parent = readParentId(rawParent)
+  if (!parent.ok) {
     return c.json({ error: "parentId must be a string or null" }, 400)
   }
-  const parentId = target.value
+  const parentId = parent.value
   if (parentId !== null) {
-    const parent = await getPageRow(db, prefix, parentId)
-    if (!parent || parent.deleted_at) {
+    const parentRow = await getPageRow(db, prefix, parentId)
+    if (!parentRow) {
       return c.json(
         { error: "Parent page is deleted", code: "PARENT_DELETED" },
+        409
+      )
+    }
+    // 同一条口径：看不见的父页按不存在处理，不泄露它属于哪个空间。
+    const parentRole = await pageSpaceRole(c, parentRow)
+    if (!parentRole) return pageNotFound(c)
+    if (parentRow.deleted_at) {
+      return c.json(
+        { error: "Parent page is deleted", code: "PARENT_DELETED" },
+        409
+      )
+    }
+    if (parentRow.space_id !== targetSpaceId) {
+      return c.json(
+        { error: "Parent page is in another space", code: "SPACE_MISMATCH" },
         409
       )
     }
@@ -223,9 +387,9 @@ pageRoutes.post("/:id/move", async (c) => {
     }
   }
 
-  const siblings = (await listChildren(db, prefix, parentId)).filter(
-    (row) => row.id !== page.id
-  )
+  const siblings = (
+    await listChildren(db, prefix, targetSpaceId, parentId)
+  ).filter((row) => row.id !== page.id)
   const requested =
     typeof body?.sortOrder === "number" && Number.isFinite(body.sortOrder)
       ? Math.trunc(body.sortOrder)
@@ -235,16 +399,34 @@ pageRoutes.post("/:id/move", async (c) => {
   ordered.splice(index, 0, { id: page.id, order: index })
 
   const now = new Date().toISOString()
-  const statements = [
-    updatePagePlacement(db, prefix, page.id, parentId, index, now)
-  ]
+  const statements = []
+  // 跨空间移动必须连同整棵后代子树一起改 space_id，否则父子会跨空间。
+  if (page.space_id !== targetSpaceId) {
+    statements.push(updateSubtreeSpace(db, prefix, page.id, targetSpaceId))
+  }
+  statements.push(
+    updatePagePlacement(
+      db,
+      prefix,
+      page.id,
+      targetSpaceId,
+      parentId,
+      index,
+      now
+    )
+  )
   ordered.forEach((row, order) => {
     if (row.order !== order) {
       statements.push(updatePageSortOrder(db, prefix, row.id, order))
     }
   })
-  if (page.parent_id !== parentId) {
-    const oldSiblings = await listChildren(db, prefix, page.parent_id)
+  if (page.parent_id !== parentId || page.space_id !== targetSpaceId) {
+    const oldSiblings = await listChildren(
+      db,
+      prefix,
+      page.space_id,
+      page.parent_id
+    )
     oldSiblings
       .filter((row) => row.id !== page.id)
       .forEach((row, order) => {
@@ -264,12 +446,11 @@ pageRoutes.delete("/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const page = await getPageRow(db, prefix, c.req.param("id"))
-  if (!page || page.deleted_at) {
-    return c.json({ error: "Page not found" }, 404)
-  }
-  if (!canDestruct(c, page)) {
-    return c.json({ error: "Forbidden" }, 403)
-  }
+  if (!page || page.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
 
   const now = new Date().toISOString()
   await db.batch(softDeleteSubtree(db, prefix, page.id, now))
@@ -280,12 +461,12 @@ pageRoutes.post("/:id/restore", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const page = await getPageRow(db, prefix, c.req.param("id"))
-  if (!page?.deleted_at) {
-    return c.json({ error: "Page not found" }, 404)
-  }
-  if (!canDestruct(c, page)) {
-    return c.json({ error: "Forbidden" }, 403)
-  }
+  if (!page?.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
+
   if (page.parent_id) {
     const parent = await getPageRow(db, prefix, page.parent_id)
     if (parent?.deleted_at) {
@@ -320,10 +501,12 @@ pageRoutes.delete("/:id/permanent", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const page = await getPageRow(db, prefix, c.req.param("id"))
-  if (!page) return c.json({ error: "Page not found" }, 404)
-  if (!canDestruct(c, page)) {
-    return c.json({ error: "Forbidden" }, 403)
-  }
+  if (!page) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
+
   if (!page.deleted_at) {
     return c.json(
       { error: "Page is not in trash", code: "PAGE_NOT_DELETED" },
@@ -340,7 +523,11 @@ pageRoutes.get("/:id/revisions", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const page = await getPageRow(db, prefix, c.req.param("id"))
-  if (!page) return c.json({ error: "Page not found" }, 404)
+  if (!page) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+
   const rows = await listRevisions(db, prefix, page.id)
   return c.json(
     rows.map((row) => ({
@@ -356,7 +543,11 @@ pageRoutes.get("/:id/revisions/:revisionId", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const page = await getPageRow(db, prefix, c.req.param("id"))
-  if (!page) return c.json({ error: "Page not found" }, 404)
+  if (!page) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+
   const revision = await getRevision(
     db,
     prefix,
@@ -380,12 +571,12 @@ pageRoutes.post("/:id/revisions/:revisionId/restore", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const page = await getPageRow(db, prefix, c.req.param("id"))
-  if (!page || page.deleted_at) {
-    return c.json({ error: "Page not found" }, 404)
-  }
-  if (!canDestruct(c, page)) {
-    return c.json({ error: "Forbidden" }, 403)
-  }
+  if (!page || page.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
+
   const revision = await getRevision(
     db,
     prefix,

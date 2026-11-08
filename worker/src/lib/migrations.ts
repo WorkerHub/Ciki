@@ -16,8 +16,11 @@ import {
   importTokensTable,
   pagesFtsTable,
   pagesTable,
+  spaceMembersTable,
+  spacesTable,
   tableName
 } from "./tables"
+import { prepareSpaceSchema, spaceSchemaStatements } from "./space-schema"
 
 export interface Migration {
   name: string
@@ -230,9 +233,22 @@ export function getMigrations(prefix: string): Migration[] {
       `migration schema_v3 is missing table ${tableName(prefix, "users")}`
     )
   }
+
+  // schema_v4 的正文与 prepare 共用 space-schema.ts 的 DDL 常量（单一真源）。
+  const sqlV4 = spaceSchemaStatements(prefix).join(";\n")
+  for (const name of [
+    spacesTable(prefix),
+    spaceMembersTable(prefix),
+    pagesTable(prefix)
+  ]) {
+    if (!sqlV4.includes(name)) {
+      throw new Error(`migration schema_v4 is missing table ${name}`)
+    }
+  }
   return [
     { name: "schema_v1", sql },
     { name: "schema_v2", sql: sqlV2 },
-    { name: "schema_v3", sql: sqlV3, prepare: prepareIdentitySchema }
+    { name: "schema_v3", sql: sqlV3, prepare: prepareIdentitySchema },
+    { name: "schema_v4", sql: sqlV4, prepare: prepareSpaceSchema }
   ]
 }

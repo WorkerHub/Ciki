@@ -26,6 +26,11 @@ export const countersTable = (prefix: string) =>
   tableName(prefix, "auth_counters")
 export const settingsTable = (prefix: string) =>
   tableName(prefix, "system_settings")
+/** 空间（规格「Ciki Space」）：默认空间由 schema_v4 建，`is_default=1`。 */
+export const spacesTable = (prefix: string) => tableName(prefix, "spaces")
+/** 空间成员与角色（admin / editor / viewer），(space_id, user_id) 唯一。 */
+export const spaceMembersTable = (prefix: string) =>
+  tableName(prefix, "space_members")
 export const pagesTable = (prefix: string) => tableName(prefix, "pages")
 export const revisionsTable = (prefix: string) =>
   tableName(prefix, "page_revisions")
