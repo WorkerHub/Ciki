@@ -12,22 +12,23 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { describeApiError, meApi } from "@/lib/api"
-import { ACCEPT_IMAGE_ATTR, uploadImage, validateImageFile } from "@/lib/upload"
+import {
+  ACCEPT_IMAGE_ATTR,
+  uploadAvatar,
+  validateImageFile
+} from "@/lib/upload"
 import { useAuthStore } from "@/stores/auth"
 
 /**
- * 个人资料：可改用户名与头像（走现有 R2 上传通道），用户 ID 与邮箱只读。
- * 头像在点「保存」时才上传，避免选了文件又离开时在 R2 留下孤儿对象。
+ * 个人资料：可改用户名与头像（头像走专用上传口 POST /api/me/avatar，上传即
+ * 换掉本人头像并由服务端删旧图），用户 ID 与邮箱只读。
+ * 头像在点「保存」时才上传：选图阶段只做本地预览，不白发一次改头像的请求。
  */
 export function ProfilePage() {
   const user = useAuthStore((state) => state.user)
   const setUser = useAuthStore((state) => state.setUser)
   const [username, setUsername] = useState(user ? displayUsername(user) : "")
   const [file, setFile] = useState<File | null>(null)
-  // 上传成功但资料更新失败时保留 key：再次保存复用，不重复往 R2 传同一张图
-  const [uploadedAvatarKey, setUploadedAvatarKey] = useState<string | null>(
-    null
-  )
   const [preview, setPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -47,8 +48,7 @@ export function ProfilePage() {
   if (!user) return null
 
   const nameChanged = username.trim() !== (user.username ?? "")
-  const canSave =
-    !saving && (nameChanged || file !== null || uploadedAvatarKey !== null)
+  const canSave = !saving && (nameChanged || file !== null)
 
   const pickFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const next = event.target.files?.[0] ?? null
@@ -58,14 +58,12 @@ export function ProfilePage() {
     const invalid = validateImageFile(next)
     if (invalid) {
       setFile(null)
-      setUploadedAvatarKey(null)
       setError(invalid)
       return
     }
     setError("")
     setNotice("")
     setFile(next)
-    setUploadedAvatarKey(null)
   }
 
   const save = async () => {
@@ -79,21 +77,17 @@ export function ProfilePage() {
     setError("")
     setNotice("")
     try {
-      // 上传成功后先记下 key；后面的资料更新即使失败，重试也直接复用
-      // 这个 key，不会为同一张图反复上传、在 R2 留下孤儿对象。
-      let avatarKey = uploadedAvatarKey
-      if (file && !avatarKey) {
-        avatarKey = (await uploadImage(file)).key
-        setUploadedAvatarKey(avatarKey)
+      // 先存用户名、再传头像：头像走专用口，一次请求就换掉本人头像（服务端
+      // 同一请求里删旧图），所以头像失败时只会剩一张待上传的文件，重试即可。
+      if (nameChanged) {
+        const updated = await meApi.updateProfile({ username: trimmed })
+        setUser(updated)
+        setUsername(displayUsername(updated))
       }
-      const updated = await meApi.updateProfile({
-        ...(nameChanged ? { username: trimmed } : {}),
-        ...(avatarKey ? { avatarKey } : {})
-      })
-      setUser(updated)
-      setUsername(displayUsername(updated))
-      setFile(null)
-      setUploadedAvatarKey(null)
+      if (file) {
+        setUser(await uploadAvatar(file))
+        setFile(null)
+      }
       setNotice("个人资料已保存。")
     } catch (saveError) {
       setError(describeApiError(saveError))

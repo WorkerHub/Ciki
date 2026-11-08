@@ -165,7 +165,9 @@ importRoutes.post("/check", async (c) => {
  * POST /api/import/files：multipart 单文件。
  * 校验与 R2 落盘复用 /api/files 的同一份实现（lib/upload.ts），响应也同一形状。
  */
-importRoutes.post("/files", (c) => handleImageUpload(c, c.get("userId")))
+importRoutes.post("/files", (c) =>
+  handleImageUpload(c, c.get("userId"), "imports")
+)
 
 /**
  * POST /api/import/pages：新建或更新页面。

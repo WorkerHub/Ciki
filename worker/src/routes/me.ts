@@ -2,11 +2,12 @@
  * 我的：资料、改密、会话列表/吊销、个人导入令牌（规格 §12.1）。
  */
 import { Hono } from "hono"
+import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { findUserById, updateUser, type UserRow } from "../db/queries/users"
 import { twofaSummary } from "./auth-2fa"
 import { normalizeUsername } from "../core/identity"
-import { UPLOAD_KEY_RE } from "../lib/upload"
+import { UPLOAD_KEY_RE, storeImageUpload } from "../lib/upload"
 import {
   deleteSessionById,
   deleteUserSessions,
@@ -51,7 +52,8 @@ meRoutes.get("/", async (c) => {
 
 /**
  * 个人资料：只改显示名与头像。id / email / publicId 一律只读，不接受写入；
- * 头像必须是本人经 /api/files 上传、且 R2 里仍在的 key（null 表示清除）。
+ * 头像必须是本人上传过、且 R2 里仍在的 key（null 表示清除）。前端已改走
+ * `POST /api/me/avatar`，这里的 avatarKey 只作兼容保留。
  */
 meRoutes.put("/profile", async (c) => {
   const body = await readJsonBody<{ username?: unknown; avatarKey?: unknown }>(
@@ -106,13 +108,47 @@ meRoutes.put("/profile", async (c) => {
   await updateUser(c.env.DB, prefix, userId, updates)
 
   const previous = user.avatar_key
-  if (avatarKey !== undefined && previous && previous !== avatarKey) {
-    try {
-      await c.env.R2.delete(previous)
-    } catch {
-      // 旧图删不掉不影响资料更新，最多在桶里留一个孤儿对象。
-    }
+  if (avatarKey !== undefined) {
+    await deleteReplacedAvatar(c, previous, avatarKey ?? null)
   }
+
+  const updated = (await findUserById(c.env.DB, prefix, userId)) ?? user
+  return c.json(meDto(updated, await twofaSummary(c.env.DB, prefix, userId)))
+})
+
+/**
+ * 换头像后的旧图清理：写库之后 best-effort 删除，删不掉不影响资料更新，
+ * 最多在桶里留一个孤儿对象。PUT /profile 与 POST /avatar 共用这一份口径。
+ */
+async function deleteReplacedAvatar(
+  c: Context<HonoEnv>,
+  previous: string,
+  next: string | null
+): Promise<void> {
+  if (!previous || previous === next) return
+  try {
+    await c.env.R2.delete(previous)
+  } catch {
+    // 旧图删不掉不影响资料更新，最多在桶里留一个孤儿对象。
+  }
+}
+
+/**
+ * 头像专用上传口（规格 §1）：multipart 单图，校验口径与 /api/files 完全一致，
+ * 落 avatars/；同一请求里更新本人 avatar_key 并删除旧头像对象。响应与
+ * `GET /api/me` 相同，前端一次拿到新的 avatarUrl 与完整资料。
+ */
+meRoutes.post("/avatar", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const user = await findUserById(c.env.DB, prefix, userId)
+  if (!user) return c.json({ error: "User not found" }, 404)
+
+  const stored = await storeImageUpload(c, userId, "avatars")
+  if (!stored.ok) return stored.response
+
+  await updateUser(c.env.DB, prefix, userId, { avatar_key: stored.image.key })
+  await deleteReplacedAvatar(c, user.avatar_key, stored.image.key)
 
   const updated = (await findUserById(c.env.DB, prefix, userId)) ?? user
   return c.json(meDto(updated, await twofaSummary(c.env.DB, prefix, userId)))

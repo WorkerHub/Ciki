@@ -13,8 +13,14 @@ export const MAX_JSON_BYTES = 800_000
 export const MAX_HTML_BYTES = 800_000
 export const MAX_TEXT_BYTES = 300_000
 
+/**
+ * 本站图床地址：`/api/files/<uuid>.<ext>`（存量平铺）或
+ * `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀）——与 lib/upload.ts 的
+ * UPLOAD_KEY_RE 同义，但不收 `avatars/`：头像只服务资料页，正文引用会在
+ * 换头像删旧图时变死链。
+ */
 const FILE_SRC =
-  /^\/api\/files\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp)$/i
+  /^\/api\/files\/(?:(?:pages|imports)\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp)$/i
 const DATA_SRC = /^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+/=\s]+$/i
 const SAFE_ORIGINAL_SRC =
   /^(https?:|data:image\/(png|jpe?g|gif|webp);base64,|\/(?!\/))/i

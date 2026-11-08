@@ -6,9 +6,13 @@
  * 会被渲染成可点击链接，任何可编辑页面的用户都能写入它。
  */
 
-/** 本站图床：/api/files/<uuid>.<png|jpg|jpeg|gif|webp> */
+/**
+ * 本站图床：`/api/files/<uuid>.<png|jpg|jpeg|gif|webp>`（存量平铺）或
+ * `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀，与 worker 的
+ * lib/sanitize.ts 同义）。头像的 avatars/ 不进正文，所以不在白名单里。
+ */
 const HOSTED_FILE_SRC =
-  /^\/api\/files\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp)$/i
+  /^\/api\/files\/(?:(?:pages|imports)\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp)$/i
 
 /** 内联图片：只允许这四种栅格格式的 base64（不收 svg） */
 const HOSTED_DATA_SRC =
