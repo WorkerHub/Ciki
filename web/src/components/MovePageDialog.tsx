@@ -24,7 +24,7 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /**
  * 跨空间移动页面：move API 的可选 spaceId 就是目标空间。
- * 缺省不给 parentId，服务端会把页面重挂到目标空间的顶层。
+ * 缺省不给 parentId，服务端会把页面（连同整棵后代子树）重挂到目标空间的顶层。
  */
 export function MovePageDialog({
   pageId,
@@ -82,7 +82,7 @@ export function MovePageDialog({
         <DialogHeader>
           <DialogTitle>移动「{pageTitle}」</DialogTitle>
           <DialogDescription>
-            页面会移到目标空间的顶层；之后在原空间里就看不到它了。
+            页面连同它的子页面会一起移到目标空间的顶层；之后在原空间里就看不到它们了。
           </DialogDescription>
         </DialogHeader>
         {targets.length === 0 ? (
