@@ -23,6 +23,15 @@ export interface Env {
    * 部署期由 scripts/materialize-config.mjs 注入，不在仓库里写死。
    */
   TABLE_PREFIX?: string
+  /**
+   * waker 项目的回调签名钥（可选，只来自 secrets）。
+   *
+   * 月度 R2 孤儿清理的触发开关就是它配没配（规格 §3：不设 WAKER_MODE）：
+   * 配了 → waker 回调接管、`scheduled()` 自行跳过；没配 → 走 Worker 内置
+   * Cron Trigger，waker 回调口由 SDK fail closed（500 signing_key_missing）。
+   * 解析口径见 src/core/waker-gate.ts（空值 / `*_PLACEHOLDER` 一律算未配置）。
+   */
+  WAKER_SIGNING_KEY?: string
 }
 
 export type HonoEnv = {

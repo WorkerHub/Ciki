@@ -42,3 +42,9 @@ export const pagesFtsTable = (prefix: string) => tableName(prefix, "pages_fts")
 /** 迁移账本：与业务表同一前缀，换前缀即换一套账本。 */
 export const migrationsTable = (prefix: string) =>
   tableName(prefix, "schema_migrations")
+/** R2 孤儿清理的运行日志（规格 §3）：每轮一行，不含任何对象内容。 */
+export const r2CleanupRunsTable = (prefix: string) =>
+  tableName(prefix, "r2_cleanup_runs")
+/** waker SDK 的 executionId 幂等账本（回调协议 v2，列照 SDK 的 executionLedgerDdl）。 */
+export const wakerExecutionsTable = (prefix: string) =>
+  tableName(prefix, "waker_executions")

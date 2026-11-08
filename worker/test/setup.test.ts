@@ -63,7 +63,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "applied" },
       { name: "schema_v2", status: "applied" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
 
     const tables = db.db
@@ -84,6 +85,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       "ciki_import_tokens",
       "ciki_spaces",
       "ciki_space_members",
+      "ciki_r2_cleanup_runs",
+      "ciki_waker_executions",
       "ciki_schema_migrations"
     ]) {
       expect(names).toContain(name)
@@ -104,7 +107,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
 
     const row = db.db
@@ -141,7 +145,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "applied" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
 
     const page = db.db
@@ -330,7 +335,8 @@ describe("schema_v3：身份列与存量回填", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
 
     const columns = (
@@ -361,6 +367,7 @@ describe("schema_v3：身份列与存量回填", () => {
     const again = await runSetup(env)
     if (!again.success) throw new Error(again.error)
     expect(again.migrations.map((migration) => migration.status)).toEqual([
+      "skipped",
       "skipped",
       "skipped",
       "skipped",
@@ -548,7 +555,8 @@ describe("schema_v4：空间与存量回填", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
 
     const space = db.db
