@@ -167,7 +167,8 @@ export function PageEdit() {
       dirty && currentLocation.pathname !== nextLocation.pathname
   )
 
-  if (loading) {
+  // 空间列表还在路上时角色未知，先别判只读：否则直链/刷新会闪一下「只读成员」
+  if (loading || spacesStatus === "loading") {
     return (
       <div className="space-y-4" role="status" aria-label="页面加载中">
         <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />

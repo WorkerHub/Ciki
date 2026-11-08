@@ -47,7 +47,6 @@ export function PageView() {
   const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
   const tree = usePagesStore((state) => state.tree)
   const removePage = usePagesStore((state) => state.removePage)
-  const loadTree = usePagesStore((state) => state.load)
   const expandTo = usePagesStore((state) => state.expandTo)
   const spaces = useSpacesStore((state) => state.spaces)
   const spacesStatus = useSpacesStore((state) => state.status)
@@ -66,10 +65,6 @@ export function PageView() {
   const syncedPage = useRef<string | null>(null)
   const role = useSpaceRole(page?.spaceId)
   const canWrite = canEdit(role)
-
-  useEffect(() => {
-    void loadTree()
-  }, [loadTree])
 
   useEffect(() => {
     if (!pageId) return

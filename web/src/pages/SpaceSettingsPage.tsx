@@ -338,8 +338,9 @@ export function SpaceSettingsPage() {
 
   const adminCount = members.filter((member) => member.role === "admin").length
   const hasPages = pageCount + trashedCount > 0
+  // 统计没拿到时一律不给删除：宁可多一次刷新，也不能在统计失败时放行
   const canDeleteSpace =
-    !space.isDefault && (countsError ? true : !hasPages) && !countsLoading
+    !space.isDefault && !countsLoading && !countsError && !hasPages
 
   return (
     <div className="max-w-[900px] space-y-4">
@@ -633,11 +634,13 @@ export function SpaceSettingsPage() {
           <p className="text-xs text-muted-foreground">
             {space.isDefault
               ? "默认空间不能删除。"
-              : countsLoading
-                ? "正在统计空间内的页面…"
-                : hasPages
-                  ? `空间里还有 ${pageCount} 个页面${trashedCount > 0 ? `，回收站里另有 ${trashedCount} 个` : ""}。请先在页面里用「移动到空间」把页面迁到别的空间，或彻底删除回收站里的页面，再回来删除空间。`
-                  : "空间里没有页面，可以删除。"}
+              : countsError
+                ? "页面统计失败，暂时无法删除空间；请刷新重试。"
+                : countsLoading
+                  ? "正在统计空间内的页面…"
+                  : hasPages
+                    ? `空间里还有 ${pageCount} 个页面${trashedCount > 0 ? `，回收站里另有 ${trashedCount} 个` : ""}。请先在页面里用「移动到空间」把页面迁到别的空间，或彻底删除回收站里的页面，再回来删除空间。`
+                    : "空间里没有页面，可以删除。"}
           </p>
           {deleteError ? (
             <p role="alert" className="text-xs text-destructive">
@@ -672,6 +675,11 @@ export function SpaceSettingsPage() {
               移除后对方会立即失去这个空间的页面访问权限，可以再加回来。
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {membersError ? (
+            <p role="alert" className="text-xs text-destructive">
+              {membersError}
+            </p>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction

@@ -114,6 +114,14 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(screen.getByRole("button", { name: "历史" })).toBeInTheDocument()
   })
 
+  it("挂载时不自己拉页面树，树的加载交给壳层", async () => {
+    vi.mocked(pagesApi.tree).mockClear()
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(pagesApi.tree).not.toHaveBeenCalled()
+  })
+
   it("editor 有编辑、子页面、删除，并在有别的可编辑空间时显示移动入口", async () => {
     useSpacesStore.setState({
       spaces: [space({ myRole: "editor" }), space({ id: "s2", name: "另一个" })]

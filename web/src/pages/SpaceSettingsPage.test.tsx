@@ -2,12 +2,13 @@ import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type {
-  Me,
-  PageNode,
-  Space,
-  SpaceCandidate,
-  SpaceMember
+import {
+  ApiError,
+  type Me,
+  type PageNode,
+  type Space,
+  type SpaceCandidate,
+  type SpaceMember
 } from "@/lib/api"
 import { SpaceSettingsPage } from "@/pages/SpaceSettingsPage"
 import { useAuthStore } from "@/stores/auth"
@@ -264,6 +265,35 @@ describe("空间设置与成员管理", () => {
 
     expect(spacesApi.remove).toHaveBeenCalledWith("s1")
     expect(await screen.findByText("首页占位")).toBeInTheDocument()
+  })
+
+  it("页面统计失败时收紧删除入口，不提示可以删除", async () => {
+    vi.mocked(pagesApi.tree).mockRejectedValue(new ApiError(500, "boom"))
+    renderSettings()
+
+    expect(
+      await screen.findByText("页面统计失败，暂时无法删除空间；请刷新重试。")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("空间里没有页面，可以删除。")).toBeNull()
+    expect(screen.getByRole("button", { name: "删除空间" })).toBeDisabled()
+  })
+
+  it("移除成员失败时在确认弹窗里显示错误", async () => {
+    const user = userEvent.setup()
+    vi.mocked(spacesApi.removeMember).mockRejectedValue(
+      new ApiError(409, "Last space admin", "LAST_SPACE_ADMIN")
+    )
+    renderSettings()
+
+    const row = (await screen.findByText("小红")).closest("tr") as HTMLElement
+    await user.click(within(row).getByRole("button", { name: "移除" }))
+    const dialog = await screen.findByRole("alertdialog")
+    await user.click(within(dialog).getByRole("button", { name: "移除成员" }))
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "空间至少需要保留一名管理员。"
+    )
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument()
   })
 
   it("editor 打开直链只看到无权空状态", async () => {

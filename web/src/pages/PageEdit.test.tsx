@@ -112,6 +112,22 @@ describe("编辑页的保存保护", () => {
     expect(screen.queryByLabelText("页面标题")).toBeNull()
   })
 
+  it("空间列表还在加载时先显示骨架屏，不闪只读提示", async () => {
+    useSpacesStore.setState({
+      spaces: [],
+      status: "loading",
+      error: null,
+      currentId: "space-default"
+    })
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    renderEdit()
+
+    expect(await screen.findByLabelText("页面加载中")).toBeInTheDocument()
+    expect(
+      screen.queryByText("你是这个空间的只读成员，不能编辑页面。")
+    ).toBeNull()
+  })
+
   it("只读空间直链进编辑页时只给说明，不渲染编辑器", async () => {
     const user = userEvent.setup()
     useSpacesStore.setState({ spaces: [{ ...space, myRole: "viewer" }] })

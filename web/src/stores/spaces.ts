@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
-import { type Space, spacesApi } from "@/lib/api"
+import { describeApiError, type Space, spacesApi } from "@/lib/api"
 import { pickInitialSpace } from "@/lib/space"
 
 /**
@@ -42,7 +42,7 @@ export const useSpacesStore = create<SpacesState>()(
         } catch (error) {
           set({
             status: "error",
-            error: error instanceof Error ? error.message : "空间列表加载失败",
+            error: describeApiError(error),
             spaces: []
           })
         }
