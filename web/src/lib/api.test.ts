@@ -164,6 +164,22 @@ describe("describeApiError：空间相关错误码", () => {
         apiError(404, "Space not found", "/spaces/s1", "SPACE_NOT_FOUND")
       )
     ).toBe("空间不存在，或你已不是它的成员。")
+    // 成员在别处被移除 / 候选用户在添加到一半时消失
+    expect(
+      describeApiError(
+        apiError(
+          404,
+          "Member not found",
+          "/spaces/s1/members/u2",
+          "MEMBER_NOT_FOUND"
+        )
+      )
+    ).toBe("这个成员已经不在空间里了。")
+    expect(
+      describeApiError(
+        apiError(404, "User not found", "/spaces/s1/members", "USER_NOT_FOUND")
+      )
+    ).toBe("找不到这个用户。")
   })
 
   it("名称与角色校验的文案", () => {

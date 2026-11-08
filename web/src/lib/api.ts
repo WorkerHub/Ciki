@@ -688,6 +688,10 @@ export function describeApiError(error: unknown): string {
       return "该用户当前不可加入空间（需处于启用且已批准状态）。"
     case "LAST_SPACE_ADMIN":
       return "空间至少需要保留一名管理员。"
+    case "MEMBER_NOT_FOUND":
+      return "这个成员已经不在空间里了。"
+    case "USER_NOT_FOUND":
+      return "找不到这个用户。"
     case "INVALID_ROLE":
       return "成员角色不合法。"
     default:
