@@ -1,20 +1,43 @@
 import { DatabaseZap } from "lucide-react"
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { adminApi, describeApiError, type SetupResult } from "@/lib/api"
+import {
+  adminApi,
+  describeApiError,
+  type R2CleanupSummary,
+  type SetupResult
+} from "@/lib/api"
+import { formatDateTime } from "@/lib/format"
 
-/** 数据库维护：只做「检查并升级」，不提供任何删表/清库入口。 */
+/** 数据库维护：检查并升级；有清理记录时附一行最近一轮摘要。 */
 export function DatabaseTab() {
   const [result, setResult] = useState<SetupResult | null>(null)
+  const [lastRun, setLastRun] = useState<R2CleanupSummary | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+
+  // 摘要只做展示：升级前 schema 还没到 v5 时接口会失败，静默留空即可。
+  const loadCleanup = useCallback(async () => {
+    try {
+      const { lastRun: latest } = await adminApi.r2Cleanup()
+      setLastRun(latest)
+    } catch {
+      // 页面唯一的错误提示留给升级操作，摘要读取失败不打扰用户
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadCleanup()
+  }, [loadCleanup])
 
   const run = async () => {
     setBusy(true)
     setError("")
     try {
       setResult(await adminApi.runAsAdmin())
+      // 刚应用 schema_v5 的部署上，摘要接口此前不可用，升级成功后补拉一次
+      void loadCleanup()
     } catch (runError) {
       setError(describeApiError(runError))
     } finally {
@@ -75,6 +98,14 @@ export function DatabaseTab() {
           </div>
         ) : null}
       </section>
+
+      {lastRun ? (
+        <p className="text-xs text-muted-foreground">
+          最近清理 {formatDateTime(lastRun.startedAt)} · 扫描 {lastRun.scanned}{" "}
+          · 引用 {lastRun.referenced} · 删除 {lastRun.deleted} · 未满 30 天跳过{" "}
+          {lastRun.youngSkipped} · 失败 {lastRun.failed}
+        </p>
+      ) : null}
     </div>
   )
 }
