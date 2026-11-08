@@ -5,7 +5,7 @@
  * 原图字节只有装在本机的插件才拿得到。插件不碰编辑器 DOM，只通过下面四个
  * window 事件和页面协作；上传与节点替换全部由 ciki 自己在 TipTap 模型里完成。
  *
- * 插件侧要实现的事（Ciki-extension 按此实现，改形状须先回 Chief 裁决）：
+ * 插件侧要实现的事（ciki-helper 按此实现，改形状须先回 Chief 裁决）：
  *
  * 1. `ciki:image-bridge:plugin-hello`（插件 → 页面，detail `{}`）：插件脚本就绪时派发一次，
  *    包括 SPA 切路由后重新注入的情况。页面收到后会回一份 hello 清单。
