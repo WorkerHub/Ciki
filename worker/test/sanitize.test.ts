@@ -100,6 +100,48 @@ describe("服务端二次消毒白名单", () => {
   })
 })
 
+describe("颜色载具（文字颜色 / 高亮 / 单元格底色）", () => {
+  it("三种载具原样保留，内联样式一律剥除", () => {
+    const html = sanitizePageHtml(
+      '<p><span data-text-color="#de350b" style="color: rgb(222, 53, 11);">红</span>' +
+        '<mark data-color="#ffe58f" style="background-color: rgb(255, 229, 143); color: inherit;">亮</mark></p>' +
+        '<table><tbody><tr><th colspan="1" rowspan="1" data-cell-bg="#f4f5f7" ' +
+        'style="background-color: rgb(244, 245, 247);">H</th></tr></tbody></table>'
+    )
+    expect(html).toContain('data-text-color="#de350b"')
+    expect(html).toContain('data-color="#ffe58f"')
+    expect(html).toContain('data-cell-bg="#f4f5f7"')
+    expect(html).not.toContain("style=")
+    expect(html).not.toContain("<style")
+  })
+
+  it("非法色值（命名色 / rgb() / 带引号注入）不产出属性，内容不丢", () => {
+    const html = sanitizePageHtml(
+      '<p><span data-text-color="red">一</span>' +
+        '<span data-text-color="rgb(222, 53, 11)">二</span>' +
+        "<span data-text-color='#fff\" onmouseover=\"alert(1)'>三</span>" +
+        '<mark data-color="javascript:alert(1)">四</mark></p>' +
+        '<table><tbody><tr><td data-cell-bg="#12345">五</td></tr></tbody></table>'
+    )
+    expect(html).not.toContain("data-text-color=")
+    expect(html).not.toContain("data-color=")
+    expect(html).not.toContain("data-cell-bg=")
+    expect(html).not.toContain("onmouseover")
+    expect(html).not.toContain("javascript:")
+    for (const text of ["一", "二", "三", "四", "五"]) {
+      expect(html).toContain(text)
+    }
+  })
+
+  it("大写 hex 收下并统一成小写（库里只有一种形态）", () => {
+    const html = sanitizePageHtml(
+      '<p><span data-text-color="#DE350B">红</span></p>'
+    )
+    expect(html).toContain('data-text-color="#de350b"')
+    expect(html).not.toContain("style=")
+  })
+})
+
 describe("纯文本规范化的输入健壮性", () => {
   it("未闭合标签的病态输入线性返回（无 O(n²) 回溯）", () => {
     const input = "<a".repeat(300_000)

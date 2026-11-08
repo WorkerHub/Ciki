@@ -236,6 +236,106 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     expect(search.results.map((row) => row.pageId)).toContain(body.pageId)
   })
 
+  it("颜色：文字颜色/高亮/单元格底色落成 data 载具，非法色值被丢弃", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const token = await issueToken(env, admin)
+
+    const colorDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "红色",
+              marks: [{ type: "textStyle", attrs: { color: "#de350b" } }]
+            },
+            {
+              type: "text",
+              text: "高亮",
+              marks: [{ type: "highlight", attrs: { color: "#ffe58f" } }]
+            },
+            {
+              type: "text",
+              text: "坏色",
+              marks: [{ type: "textStyle", attrs: { color: "red" } }]
+            }
+          ]
+        },
+        {
+          type: "table",
+          content: [
+            {
+              type: "tableRow",
+              content: [
+                {
+                  type: "tableHeader",
+                  attrs: {
+                    colspan: 1,
+                    rowspan: 1,
+                    backgroundColor: "#f4f5f7"
+                  },
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "表头" }]
+                    }
+                  ]
+                },
+                {
+                  type: "tableCell",
+                  attrs: {
+                    colspan: 1,
+                    rowspan: 1,
+                    backgroundColor: "rgb(255, 250, 230)"
+                  },
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "格" }]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+
+    const res = await importRequest(env, token, "POST", "/api/import/pages", {
+      title: "彩色导入",
+      contentJson: colorDoc,
+      conflict: "create_copy"
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { pageId: string }
+
+    const page = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${body.pageId}`,
+        undefined,
+        admin
+      )
+    ).json()) as PageDetail
+
+    // 合法色值：落成与编辑器/粘贴完全同形的 data 载具，且没有任何内联 style。
+    expect(page.contentHtml).toContain('data-text-color="#de350b"')
+    expect(page.contentHtml).toContain('data-color="#ffe58f"')
+    expect(page.contentHtml).toContain('data-cell-bg="#f4f5f7"')
+    expect(page.contentHtml).not.toContain("style=")
+    // 非法色值（命名色 / rgb()）不是契约形态：载具被丢，文字保留。
+    expect(page.contentHtml).toContain("坏色")
+    expect(page.contentHtml).not.toContain("rgb(")
+    // 正文纯文本不受影响。
+    expect(page.contentText).toContain("红色")
+    expect(page.contentText).toContain("坏色")
+  })
+
   it("check 命中同名页；conflict=update 覆盖并追加 revision，create_copy 另建一页", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)

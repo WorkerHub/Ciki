@@ -3,8 +3,6 @@ import Image from "@tiptap/extension-image"
 import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
 import Table from "@tiptap/extension-table"
-import TableCell from "@tiptap/extension-table-cell"
-import TableHeader from "@tiptap/extension-table-header"
 import TableRow from "@tiptap/extension-table-row"
 import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
@@ -13,6 +11,13 @@ import { ReactNodeViewRenderer } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import { common, createLowlight } from "lowlight"
 import { CodeBlockView } from "@/editor/CodeBlockView"
+import {
+  WikiColor,
+  WikiHighlight,
+  WikiTableCell,
+  WikiTableHeader,
+  WikiTextStyle
+} from "@/editor/colors/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
 
 /** lowlight 只在模块加载时建一次；common 覆盖了 Confluence 里常见语言。 */
@@ -92,6 +97,11 @@ export function createExtensions(mode: EditorMode) {
       HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" }
     }),
     WikiImage.configure({ allowBase64: true, inline: false }),
+    // 颜色三件套：文字颜色（TextStyle+Color）、高亮、单元格底色。
+    // HTML 载具一律是 data 属性，详见 colors/extensions.ts 的说明。
+    WikiTextStyle,
+    WikiColor,
+    WikiHighlight.configure({ multicolor: true }),
     Table.configure({
       resizable: isEdit,
       // 始终包一层 .tableWrapper：读态也要横向滚动，否则超宽表格会把正文挤变形
@@ -99,8 +109,8 @@ export function createExtensions(mode: EditorMode) {
       allowTableNodeSelection: true
     }),
     TableRow,
-    TableHeader,
-    TableCell,
+    WikiTableHeader,
+    WikiTableCell,
     TaskList,
     TaskItem.configure({ nested: true }),
     ...(isEdit

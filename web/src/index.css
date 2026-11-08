@@ -404,6 +404,14 @@
   font-weight: 600;
 }
 
+/* 高亮：颜色由 mark 的内联样式给出（Highlight 扩展渲染），这里只管形态。
+   裸 <mark>（粘贴源没带颜色）保留浏览器默认底色，但文字跟随正文色，不再变黑。 */
+.wiki-content mark {
+  padding: 0 0.15em;
+  border-radius: 0.2em;
+  color: inherit;
+}
+
 .wiki-content th > p,
 .wiki-content td > p {
   margin: 0;

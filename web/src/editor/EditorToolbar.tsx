@@ -1,7 +1,9 @@
 import type { Editor } from "@tiptap/react"
 import {
+  Baseline,
   Bold,
   Code2,
+  Highlighter,
   ImagePlus,
   Italic,
   Link2,
@@ -9,6 +11,7 @@ import {
   ListChecks,
   ListOrdered,
   Minus,
+  PaintBucket,
   Quote,
   Redo2,
   Rows3,
@@ -46,6 +49,20 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Toggle } from "@/components/ui/toggle"
+import { ColorMenu } from "@/editor/colors/ColorMenu"
+import {
+  currentCellBackground,
+  currentHighlight,
+  currentTextColor,
+  setCellBackground,
+  setHighlight,
+  setTextColor
+} from "@/editor/colors/commands"
+import {
+  CELL_COLORS,
+  HIGHLIGHT_COLORS,
+  TEXT_COLORS
+} from "@/editor/colors/palette"
 import { describeApiError } from "@/lib/api"
 import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
 
@@ -178,6 +195,20 @@ export function EditorToolbar({
       >
         <Strikethrough aria-hidden="true" />
       </Toggle>
+      <ColorMenu
+        label="文字颜色"
+        icon={Baseline}
+        colors={TEXT_COLORS}
+        activeColor={currentTextColor(editor)}
+        onPick={(color) => setTextColor(editor, color)}
+      />
+      <ColorMenu
+        label="高亮"
+        icon={Highlighter}
+        colors={HIGHLIGHT_COLORS}
+        activeColor={currentHighlight(editor)}
+        onPick={(color) => setHighlight(editor, color)}
+      />
 
       <Separator orientation="vertical" className="mx-1 !h-5" />
 
@@ -301,6 +332,16 @@ export function EditorToolbar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {editor.isActive("table") ? (
+        <ColorMenu
+          label="单元格背景"
+          icon={PaintBucket}
+          colors={CELL_COLORS}
+          activeColor={currentCellBackground(editor)}
+          onPick={(color) => setCellBackground(editor, color)}
+        />
+      ) : null}
 
       <Button
         type="button"

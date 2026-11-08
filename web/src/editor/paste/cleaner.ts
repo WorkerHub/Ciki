@@ -1,7 +1,8 @@
 /**
  * Confluence 剪贴板清洗管线 —— 由粘贴验证小样 v0.4 的 prototype/src/cleaner.js
  * 逐段移植（规格 §5）。输入：剪贴板 text/html；输出：可被 TipTap Schema 吃下的干净 HTML。
- * 原则：保结构（标题/代码/表格合并/列表层级/任务），剥 Confluence 垃圾属性与高亮 span。
+ * 原则：保结构（标题/代码/表格合并/列表层级/任务），剥 Confluence 垃圾属性与高亮 span；
+ * 文本颜色/高亮/单元格底色是例外：颜色值归一成 `#rrggbb` 后落到 data 载具上保留。
  *
  * 相对小样的唯一产品化改动：外链图片（Confluence 附件、任意外部 URL）不再保留 src，
  * 而是把原地址移进 data-original-src 并打 data-confluence-img，交给图片 NodeView 渲染
@@ -11,6 +12,7 @@
  * 注意：前端清洗不是安全边界，服务端保存时还会二次消毒（规格 §5.8）。
  */
 import { isHostedImageSrc, safeExternalUrl } from "@/lib/media"
+import { normalizeColor } from "@/lib/color"
 
 function parseFragment(html: string): HTMLElement {
   const doc = new DOMParser().parseFromString(
@@ -226,7 +228,84 @@ export function cleanConfluenceHtml(html: string): string {
     col.removeAttribute("style")
   })
 
-  // 7) 属性白名单清洗
+  // 7) 颜色：只认内联 `color` 与 `background-color`，归一成 `#rrggbb` 后落到契约载具上
+  // （span[data-text-color] / mark[data-color] / td,th[data-cell-bg]），其余内联样式
+  // 照旧剥干净（整条 style 直接移除）。颜色不走 style 的原因见 colors/extensions.ts：
+  // Worker 的 zeed-dom 渲染会丢 style，只有普通属性才能三路（编辑/粘贴/导入）一致。
+  const INLINE_TAGS = new Set([
+    "SPAN",
+    "FONT",
+    "B",
+    "STRONG",
+    "EM",
+    "I",
+    "U",
+    "S",
+    "DEL",
+    "STRIKE",
+    "A",
+    "CODE",
+    "SUB",
+    "SUP",
+    "MARK"
+  ])
+  const BLOCK_DESCENDANTS = "p,div,ul,ol,table,pre,blockquote,li,figure"
+
+  function wrapChildren(target: Element, wrapper: Element) {
+    Array.from(target.childNodes).forEach((node) => {
+      wrapper.appendChild(node)
+    })
+    target.appendChild(wrapper)
+  }
+
+  root.querySelectorAll("[style], font[color]").forEach((el) => {
+    const style = el.getAttribute("style") || ""
+    let color: string | null = null
+    let background: string | null = null
+    style.split(";").forEach((declaration) => {
+      const colon = declaration.indexOf(":")
+      if (colon < 0) return
+      const property = declaration.slice(0, colon).trim().toLowerCase()
+      // Confluence 会带 !important，去掉再归一
+      const value = declaration
+        .slice(colon + 1)
+        .replace(/!important\s*$/i, "")
+        .trim()
+      if (property === "color") color = normalizeColor(value)
+      else if (property === "background-color")
+        background = normalizeColor(value)
+    })
+    // 老式 <font color="#de350b">
+    if (!color && el.tagName === "FONT") {
+      color = normalizeColor(el.getAttribute("color"))
+    }
+    el.removeAttribute("style")
+
+    if (background) {
+      if (el.tagName === "TD" || el.tagName === "TH") {
+        el.setAttribute("data-cell-bg", background)
+      } else if (el.tagName === "MARK") {
+        el.setAttribute("data-color", background)
+      } else if (INLINE_TAGS.has(el.tagName) && el.childNodes.length) {
+        // 块级内容（如 li 里嵌了列表）不包 mark：会造出非法嵌套
+        const mark = doc.createElement("mark")
+        mark.setAttribute("data-color", background)
+        wrapChildren(el, mark)
+      }
+    }
+
+    if (color) {
+      if (el.tagName === "SPAN") {
+        el.setAttribute("data-text-color", color)
+      } else if (!el.querySelector(BLOCK_DESCENDANTS) && el.childNodes.length) {
+        const span = doc.createElement("span")
+        span.setAttribute("data-text-color", color)
+        wrapChildren(el, span)
+      }
+    }
+  })
+
+  // 8) 属性白名单清洗
   const ALLOWED: Record<string, string[]> = {
     A: ["href", "title"],
     IMG: [
@@ -238,8 +317,10 @@ export function cleanConfluenceHtml(html: string): string {
       "data-confluence-img",
       "data-original-src"
     ],
-    TD: ["colspan", "rowspan"],
-    TH: ["colspan", "rowspan"],
+    TD: ["colspan", "rowspan", "data-cell-bg"],
+    TH: ["colspan", "rowspan", "data-cell-bg"],
+    SPAN: ["data-text-color"],
+    MARK: ["data-color"],
     COL: ["width"],
     CODE: ["class"],
     UL: ["data-type"],
@@ -259,8 +340,8 @@ export function cleanConfluenceHtml(html: string): string {
     })
   })
 
-  // 8) 解包无语义容器：div/section/article/span/font/center/figure/button
-  // 反复执行直到没有可解包元素（处理嵌套）
+  // 9) 解包无语义容器：div/section/article/span/font/center/figure/button
+  // 反复执行直到没有可解包元素（处理嵌套）。带颜色的 span 是载具，不能解包。
   for (let round = 0; round < 8; round += 1) {
     let changed = false
     root
@@ -275,6 +356,7 @@ export function cleanConfluenceHtml(html: string): string {
       })
     root.querySelectorAll("span").forEach((el) => {
       if (!el.parentNode) return
+      if (el.hasAttribute("data-text-color")) return
       Array.from(el.childNodes).forEach((node) => {
         el.parentNode?.insertBefore(node, el)
       })
@@ -284,7 +366,7 @@ export function cleanConfluenceHtml(html: string): string {
     if (!changed) break
   }
 
-  // 9) 清理空段落（保留单个空行结构：连续空段只留一个）
+  // 10) 清理空段落（保留单个空行结构：连续空段只留一个）
   root.querySelectorAll("p").forEach((p) => {
     if (!p.textContent?.trim() && !p.querySelector("img,br,hr")) p.remove()
   })

@@ -36,6 +36,9 @@ export interface HtmlStats {
   maxListDepth: number
   blockquotes: number
   hrs: number
+  textColors: number
+  highlights: number
+  cellBackgrounds: number
   unknownTags: string[]
 }
 
@@ -65,6 +68,9 @@ export function analyzeHtml(html: string): HtmlStats {
     maxListDepth: 0,
     blockquotes: 0,
     hrs: 0,
+    textColors: 0,
+    highlights: 0,
+    cellBackgrounds: 0,
     unknownTags: []
   }
   if (!html?.trim()) return stats
@@ -105,6 +111,7 @@ export function analyzeHtml(html: string): HtmlStats {
     "SUB",
     "SUP",
     "SPAN",
+    "MARK",
     "DIV",
     "COLGROUP",
     "COL",
@@ -188,6 +195,9 @@ export function analyzeHtml(html: string): HtmlStats {
   })
   stats.blockquotes = root.querySelectorAll("blockquote").length
   stats.hrs = root.querySelectorAll("hr").length
+  stats.textColors = root.querySelectorAll("[data-text-color]").length
+  stats.highlights = root.querySelectorAll("mark[data-color]").length
+  stats.cellBackgrounds = root.querySelectorAll("[data-cell-bg]").length
   return stats
 }
 
@@ -213,6 +223,7 @@ export function summarizeHtml(stats: HtmlStats): string {
     `表格 ${stats.tables.length}（${tables}）`,
     `列表项 ${stats.listItems} 最大深度 ${stats.maxListDepth} 任务项 ${stats.taskItems}（已勾 ${stats.taskChecked}）`,
     `链接 ${stats.links} 引用块 ${stats.blockquotes} 分割线 ${stats.hrs}`,
+    `颜色 ${stats.textColors} 高亮 ${stats.highlights} 单元格底色 ${stats.cellBackgrounds}`,
     `图片 ${stats.images.length}`,
     stats.unknownTags.length
       ? `未知标签 ${stats.unknownTags.join(",")}`
