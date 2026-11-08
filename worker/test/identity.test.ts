@@ -1,0 +1,312 @@
+import { describe, expect, it } from "vitest"
+import type { Env } from "../src/types"
+import {
+  adminSession,
+  initializedContext,
+  jsonRequest,
+  register,
+  request,
+  userSession
+} from "./support/app"
+
+const PUBLIC_ID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/
+
+const PNG = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
+  0x48, 0x44, 0x52
+])
+
+interface MeShape {
+  id: string
+  publicId: string
+  username: string
+  email: string
+  role: string
+  avatarUrl: string | null
+  approvalStatus: string
+  createdAt: string
+  twofa: { totpEnabled: boolean; passkeyEnabled: boolean; passkeyCount: number }
+}
+
+async function me(env: Env, cookie: string): Promise<MeShape> {
+  const res = await jsonRequest(env, "GET", "/api/me", undefined, cookie)
+  expect(res.status).toBe(200)
+  return (await res.json()) as MeShape
+}
+
+async function uploadImage(
+  env: Env,
+  cookie: string
+): Promise<{ key: string; url: string }> {
+  const form = new FormData()
+  form.append("file", new File([PNG], "avatar.png", { type: "image/png" }))
+  const res = await request(env, "/api/files", {
+    method: "POST",
+    headers: { cookie },
+    body: form
+  })
+  expect(res.status).toBe(201)
+  return (await res.json()) as { key: string; url: string }
+}
+
+describe("身份模型：public_id 与显示名", () => {
+  it("注册自动生成 8 位 public_id，显示名默认取邮箱前缀", async () => {
+    const { env, db } = await initializedContext()
+    const cookie = await adminSession(env, "alice@example.com")
+
+    const profile = await me(env, cookie)
+    expect(profile.publicId).toMatch(PUBLIC_ID_RE)
+    expect(profile.username).toBe("alice")
+    expect(profile.email).toBe("alice@example.com")
+    expect(profile.avatarUrl).toBeNull()
+
+    const row = db.db
+      .prepare("SELECT username, public_id FROM ciki_users WHERE email = ?")
+      .get("alice@example.com") as { username: string; public_id: string }
+    expect(row).toEqual({
+      username: "alice",
+      public_id: profile.publicId
+    })
+  })
+
+  it("两个用户的 public_id 不同；重复邮箱注册 409 EMAIL_TAKEN", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const other = await userSession(env, admin, "bob@example.com")
+
+    const [first, second] = [await me(env, admin), await me(env, other)]
+    expect(second.username).toBe("bob")
+    expect(second.publicId).not.toBe(first.publicId)
+
+    const duplicate = await register(env, "alice@example.com")
+    expect(duplicate.status).toBe(409)
+    expect(await duplicate.json()).toMatchObject({ code: "EMAIL_TAKEN" })
+  })
+
+  it("PUT /api/me/profile 改显示名；id/email/publicId 只读且不接受写入", async () => {
+    const { env } = await initializedContext()
+    const cookie = await adminSession(env)
+    const before = await me(env, cookie)
+
+    const saved = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { username: "  观察者  " },
+      cookie
+    )
+    expect(saved.status).toBe(200)
+    expect(((await saved.json()) as MeShape).username).toBe("观察者")
+    expect((await me(env, cookie)).username).toBe("观察者")
+
+    const invalid = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { username: "" },
+      cookie
+    )
+    expect(invalid.status).toBe(400)
+    expect(await invalid.json()).toMatchObject({ code: "INVALID_USERNAME" })
+
+    for (const body of [
+      {},
+      { username: "   " },
+      { username: "x".repeat(41) },
+      { username: 123 },
+      { username: "a\nb" }
+    ]) {
+      const res = await jsonRequest(env, "PUT", "/api/me/profile", body, cookie)
+      expect(res.status).toBe(400)
+    }
+
+    const readOnly = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { id: "x", email: "other@example.com", publicId: "AAAAAAAA" },
+      cookie
+    )
+    expect(readOnly.status).toBe(400)
+    const after = await me(env, cookie)
+    expect(after.id).toBe(before.id)
+    expect(after.email).toBe(before.email)
+    expect(after.publicId).toBe(before.publicId)
+  })
+})
+
+describe("Profile 头像", () => {
+  it("本人上传的 key 可设为头像；换头像删旧图；他人 key/虚构 key 400；null 清除", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const other = await userSession(env, admin, "bob@example.com")
+
+    const first = await uploadImage(env, admin)
+    const setFirst = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { avatarKey: first.key },
+      admin
+    )
+    expect(setFirst.status).toBe(200)
+    expect((await setFirst.json()) as MeShape).toMatchObject({
+      avatarUrl: `/api/files/${first.key}`
+    })
+    expect((await me(env, admin)).avatarUrl).toBe(`/api/files/${first.key}`)
+
+    const second = await uploadImage(env, admin)
+    const setSecond = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { avatarKey: second.key },
+      admin
+    )
+    expect(setSecond.status).toBe(200)
+    expect(r2.store.has(first.key)).toBe(false)
+    expect(r2.store.has(second.key)).toBe(true)
+
+    const foreign = await uploadImage(env, other)
+    const steal = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { avatarKey: foreign.key },
+      admin
+    )
+    expect(steal.status).toBe(400)
+    expect(await steal.json()).toMatchObject({ code: "INVALID_AVATAR" })
+    expect((await me(env, admin)).avatarUrl).toBe(`/api/files/${second.key}`)
+
+    for (const avatarKey of [
+      "not-a-key.png",
+      "00000000-0000-0000-0000-000000000000.png",
+      123
+    ]) {
+      const res = await jsonRequest(
+        env,
+        "PUT",
+        "/api/me/profile",
+        { avatarKey },
+        admin
+      )
+      expect(res.status).toBe(400)
+    }
+
+    const cleared = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { avatarKey: null },
+      admin
+    )
+    expect(cleared.status).toBe(200)
+    expect((await me(env, admin)).avatarUrl).toBeNull()
+    expect(r2.store.has(second.key)).toBe(false)
+  })
+})
+
+describe("邮箱唯一：冲突一律 409 而不是 500", () => {
+  it("管理员改邮箱撞已有邮箱 → 409 EMAIL_TAKEN，原值不变", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const other = await userSession(env, admin, "bob@example.com")
+    const bob = await me(env, other)
+
+    const res = await jsonRequest(
+      env,
+      "PUT",
+      `/api/admin/users/${bob.id}`,
+      { email: "alice@example.com" },
+      admin
+    )
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: "EMAIL_TAKEN" })
+    expect((await me(env, other)).email).toBe("bob@example.com")
+  })
+
+  it("管理员建号撞已有邮箱 → 409 EMAIL_TAKEN", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/users",
+      { email: "alice@example.com", password: "another-password" },
+      admin
+    )
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: "EMAIL_TAKEN" })
+  })
+})
+
+describe("站点名称", () => {
+  it("默认 Ciki；管理员改名后管理端与公开配置同时生效", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const initial = (await (
+      await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
+    ).json()) as { siteName: string }
+    expect(initial.siteName).toBe("Ciki")
+    const publicInitial = (await (
+      await request(env, "/api/auth/config")
+    ).json()) as {
+      siteName: string
+    }
+    expect(publicInitial.siteName).toBe("Ciki")
+
+    const saved = await jsonRequest(
+      env,
+      "PUT",
+      "/api/admin/settings",
+      { siteName: "  团队文档  " },
+      admin
+    )
+    expect(saved.status).toBe(200)
+
+    const after = (await (
+      await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
+    ).json()) as { siteName: string }
+    expect(after.siteName).toBe("团队文档")
+    const publicAfter = (await (
+      await request(env, "/api/auth/config")
+    ).json()) as {
+      siteName: string
+    }
+    expect(publicAfter.siteName).toBe("团队文档")
+  })
+
+  it("仅管理员可改；非法站点名 400 且不改值", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin)
+
+    const denied = await jsonRequest(
+      env,
+      "PUT",
+      "/api/admin/settings",
+      { siteName: "别人改的" },
+      user
+    )
+    expect(denied.status).toBe(403)
+
+    for (const siteName of ["", "   ", "x".repeat(33), 123, "a\nb"]) {
+      const res = await jsonRequest(
+        env,
+        "PUT",
+        "/api/admin/settings",
+        { siteName },
+        admin
+      )
+      expect(res.status).toBe(400)
+    }
+
+    const current = (await (
+      await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
+    ).json()) as { siteName: string }
+    expect(current.siteName).toBe("Ciki")
+  })
+})

@@ -42,8 +42,9 @@ function migrationError(name: string, err: unknown): Error {
 }
 
 /**
- * 执行所有未记账的迁移。每条迁移的全部语句执行成功后才记账；失败立即抛出，
- * 不记录该迁移、也不继续后续迁移（下次 setup 会重跑它，语句都是幂等的）。
+ * 执行所有未记账的迁移。每条迁移按「prepare → sql → 记账」执行，三阶段全部成功
+ * 才记账；失败立即抛出，不记录该迁移、也不继续后续迁移（下次 setup 会重跑它，
+ * 各阶段都是幂等的）。
  */
 export async function runLedgerMigrations(
   db: D1Database,
@@ -63,6 +64,7 @@ export async function runLedgerMigrations(
       continue
     }
     try {
+      if (migration.prepare) await migration.prepare(db, prefix)
       for (const statement of splitStatements(migration.sql)) {
         await db.prepare(statement).run()
       }

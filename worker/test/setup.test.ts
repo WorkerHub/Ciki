@@ -1,4 +1,10 @@
 import { describe, expect, it } from "vitest"
+import { getMigrations } from "../src/lib/migrations"
+import {
+  ensureLedgerTable,
+  splitStatements
+} from "../src/lib/migrations-runner"
+import { runSetup } from "../src/lib/setup"
 import {
   TEST_SETUP_SECRET,
   adminSession,
@@ -8,6 +14,24 @@ import {
   request,
   userSession
 } from "./support/app"
+
+const PUBLIC_ID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/
+
+/** 造一个“升级前”的库：只应用前 n 条迁移（SQL 与执行器同口径）。 */
+async function legacyContext(applied: number) {
+  const context = makeContext()
+  const prefix = "ciki_"
+  const ledger = await ensureLedgerTable(context.env.DB, prefix)
+  for (const migration of getMigrations(prefix).slice(0, applied)) {
+    for (const statement of splitStatements(migration.sql)) {
+      await context.env.DB.prepare(statement).run()
+    }
+    await context.env.DB.prepare(`INSERT INTO ${ledger} (name) VALUES (?)`)
+      .bind(migration.name)
+      .run()
+  }
+  return context
+}
 
 function setupRequest(env: Parameters<typeof request>[0], secret: string) {
   return request(env, "/api/setup", {
@@ -35,7 +59,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(body.tablePrefix).toBe("ciki_")
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "applied" },
-      { name: "schema_v2", status: "applied" }
+      { name: "schema_v2", status: "applied" },
+      { name: "schema_v3", status: "applied" }
     ])
 
     const tables = db.db
@@ -72,7 +97,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "skipped" }
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
     ])
 
     const row = db.db
@@ -81,14 +107,18 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(row.value).toBe("1")
   })
 
-  it("存量库升级：只有 schema_v1 时再跑 setup 只补 schema_v2，既有数据不动", async () => {
+  it("存量库升级：只有 schema_v1 时再跑 setup 补 v2/v3，既有数据不动", async () => {
     const { env, db } = await initializedContext()
 
-    // 模拟升级前的线上库：v1 已应用、v2 还没跑过（表与账本行都不存在）。
+    // 模拟升级前的线上库：v1 已应用、v2/v3 还没跑过（表/列与账本行都不存在）。
     db.db.exec("DROP TABLE ciki_import_tokens")
+    db.db.exec("DROP INDEX ciki_users_public_id")
+    db.db.exec("ALTER TABLE ciki_users DROP COLUMN username")
+    db.db.exec("ALTER TABLE ciki_users DROP COLUMN public_id")
+    db.db.exec("ALTER TABLE ciki_users DROP COLUMN avatar_key")
     db.db
-      .prepare("DELETE FROM ciki_schema_migrations WHERE name = ?")
-      .run("schema_v2")
+      .prepare("DELETE FROM ciki_schema_migrations WHERE name IN (?, ?)")
+      .run("schema_v2", "schema_v3")
     const now = new Date().toISOString()
     db.db
       .prepare(
@@ -103,7 +133,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "applied" }
+      { name: "schema_v2", status: "applied" },
+      { name: "schema_v3", status: "applied" }
     ])
 
     const page = db.db
@@ -256,5 +287,120 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(body.success).toBe(true)
     expect(body.tablePrefix).toBe("ciki_")
     expect(body.migrations[0].status).toBe("skipped")
+  })
+})
+
+describe("schema_v3：身份列与存量回填", () => {
+  interface BackfilledRow {
+    id: string
+    email: string
+    username: string
+    public_id: string
+    avatar_key: string
+    password_hash: string
+    role: string
+    created_at: string
+  }
+
+  it("存量库（v1+v2 有用户）升级：补三列并按邮箱前缀/随机串回填，既有列不动", async () => {
+    const { env, db } = await legacyContext(2)
+    const now = new Date().toISOString()
+    const legacy: Array<[string, string, string]> = [
+      ["u1", "alice@example.com", "salt1:hash1"],
+      ["u2", "bob@example.com", "salt2:hash2"]
+    ]
+    for (const [id, email, passwordHash] of legacy) {
+      db.db
+        .prepare(
+          "INSERT INTO ciki_users (id, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+        )
+        .run(id, email, passwordHash, now, now)
+    }
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    expect(result.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "applied" }
+    ])
+
+    const columns = (
+      db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
+        name: string
+      }>
+    ).map((column) => column.name)
+    expect(columns).toEqual(
+      expect.arrayContaining(["username", "public_id", "avatar_key"])
+    )
+
+    const rows = db.db
+      .prepare(
+        "SELECT id, email, username, public_id, avatar_key, password_hash, role, created_at FROM ciki_users ORDER BY id"
+      )
+      .all() as unknown as BackfilledRow[]
+    expect(rows.map((row) => row.username)).toEqual(["alice", "bob"])
+    expect(rows.map((row) => row.avatar_key)).toEqual(["", ""])
+    for (const row of rows) {
+      expect(row.public_id).toMatch(PUBLIC_ID_RE)
+    }
+    expect(new Set(rows.map((row) => row.public_id)).size).toBe(2)
+    expect(rows[0].password_hash).toBe("salt1:hash1")
+    expect(rows[0].role).toBe("user")
+    expect(rows[0].created_at).toBe(now)
+
+    // 再跑一次：全部 skipped，public_id 不被重新生成。
+    const again = await runSetup(env)
+    if (!again.success) throw new Error(again.error)
+    expect(again.migrations.map((migration) => migration.status)).toEqual([
+      "skipped",
+      "skipped",
+      "skipped"
+    ])
+    const after = db.db
+      .prepare("SELECT id, public_id FROM ciki_users ORDER BY id")
+      .all() as unknown as Array<{ id: string; public_id: string }>
+    expect(after).toEqual(
+      rows.map((row) => ({ id: row.id, public_id: row.public_id }))
+    )
+  })
+
+  it("列已存在但账本未记账（跑到一半）：续跑只补空值，不覆盖已有值", async () => {
+    const { env, db } = await initializedContext()
+    db.db
+      .prepare("DELETE FROM ciki_schema_migrations WHERE name = ?")
+      .run("schema_v3")
+    const now = new Date().toISOString()
+    db.db
+      .prepare(
+        "INSERT INTO ciki_users (id, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+      )
+      .run("u9", "carol@example.com", "s:h", now, now)
+    db.db
+      .prepare(
+        "INSERT INTO ciki_users (id, email, username, public_id, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      )
+      .run("u8", "dave@example.com", "手动名", "ZZZZZZZZ", "s:h", now, now)
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    expect(result.migrations[2]).toEqual({
+      name: "schema_v3",
+      status: "applied"
+    })
+
+    const rows = db.db
+      .prepare("SELECT id, username, public_id FROM ciki_users ORDER BY id")
+      .all() as unknown as Array<{
+      id: string
+      username: string
+      public_id: string
+    }>
+    const carol = rows.find((row) => row.id === "u9")
+    const dave = rows.find((row) => row.id === "u8")
+    expect(carol?.username).toBe("carol")
+    expect(carol?.public_id).toMatch(PUBLIC_ID_RE)
+    expect(dave?.username).toBe("手动名")
+    expect(dave?.public_id).toBe("ZZZZZZZZ")
   })
 })
