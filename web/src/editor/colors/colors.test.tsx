@@ -18,6 +18,7 @@ import {
 } from "@/editor/colors/palette"
 import { createExtensions } from "@/editor/extensions"
 import { normalizeColor } from "@/lib/color"
+import { docJson } from "@/test/tiptap-json"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 /**
@@ -40,12 +41,12 @@ function makeEditor(content: string): Editor {
 }
 
 function jsonText(editor: Editor, index = 0) {
-  return editor.getJSON().content?.[index]?.content?.[0]
+  return docJson(editor).content?.[index]?.content?.[0]
 }
 
 /** 表格里每行每格的背景色（按文档顺序）。 */
 function cellBackgrounds(editor: Editor): (string | null)[][] {
-  const rows = editor.getJSON().content?.[0]?.content ?? []
+  const rows = docJson(editor).content?.[0]?.content ?? []
   return rows.map((row) =>
     (row.content ?? []).map(
       (cell) => (cell.attrs?.backgroundColor as string | null) ?? null
@@ -172,7 +173,7 @@ describe("颜色命令（编辑器模型）", () => {
     editor.commands.selectAll()
     setTextColor(editor, "#de350b")
     setHighlight(editor, "#ffe58f")
-    expect(editor.getJSON().content?.[0]?.content?.[0]?.marks).toHaveLength(2)
+    expect(docJson(editor).content?.[0]?.content?.[0]?.marks).toHaveLength(2)
 
     editor.commands.undo()
     expect(jsonText(editor)?.marks ?? []).toHaveLength(1)

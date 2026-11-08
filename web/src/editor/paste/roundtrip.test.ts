@@ -9,6 +9,7 @@ import {
   SAMPLE_SH_TABLE_HTML
 } from "@/editor/paste/samples"
 import { applyColWidthsFromColgroup } from "@/lib/table-columns"
+import { docJson } from "@/test/tiptap-json"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 /**
@@ -143,14 +144,14 @@ describe("颜色载具的 TipTap 回读（编辑态扩展集）", () => {
 
   it("文字颜色读回 textStyle.color（hex）", () => {
     load('<p><span data-text-color="#de350b">红</span></p>')
-    const marks = editor.getJSON().content?.[0]?.content?.[0]?.marks ?? []
+    const marks = docJson(editor).content?.[0]?.content?.[0]?.marks ?? []
     expect(marks).toEqual([{ type: "textStyle", attrs: { color: "#de350b" } }])
     expect(editor.getHTML()).toContain('data-text-color="#de350b"')
   })
 
   it("高亮读回 highlight.color（hex）", () => {
     load('<p><mark data-color="#ffe58f">亮</mark></p>')
-    const marks = editor.getJSON().content?.[0]?.content?.[0]?.marks ?? []
+    const marks = docJson(editor).content?.[0]?.content?.[0]?.marks ?? []
     expect(marks).toEqual([{ type: "highlight", attrs: { color: "#ffe58f" } }])
     expect(editor.getHTML()).toContain('data-color="#ffe58f"')
   })
@@ -159,7 +160,7 @@ describe("颜色载具的 TipTap 回读（编辑态扩展集）", () => {
     load(
       '<table><tbody><tr><th data-cell-bg="#f4f5f7">H</th><td data-cell-bg="#fffae6">C</td></tr></tbody></table>'
     )
-    const row = editor.getJSON().content?.[0]?.content?.[0]?.content ?? []
+    const row = docJson(editor).content?.[0]?.content?.[0]?.content ?? []
     expect(row[0]?.attrs?.backgroundColor).toBe("#f4f5f7")
     expect(row[1]?.attrs?.backgroundColor).toBe("#fffae6")
     const html = editor.getHTML()

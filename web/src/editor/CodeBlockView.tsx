@@ -98,7 +98,11 @@ export function CodeBlockView({
         </div>
       </div>
       <pre>
-        <NodeViewContent
+        {/*
+          v3 的 NodeViewContent 用 NoInfer<T> 拦掉了对 as 的推断，必须显式给泛型参数。
+          保留 <code> 元素：index.css 的 .code-block > pre > code 样式依赖它。
+        */}
+        <NodeViewContent<"code">
           as="code"
           className={language ? `language-${language}` : undefined}
         />
