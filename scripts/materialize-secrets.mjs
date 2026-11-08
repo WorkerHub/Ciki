@@ -52,6 +52,13 @@ const REQUIRED = [
 /** 只上传 Worker 运行时要用的密钥；资源 ID 只用于部署期的 wrangler 配置。 */
 const SECRET_KEYS = ["ENCRYPTION_KEY", "SETUP_SECRET"]
 
+/**
+ * 可选项 `WAKER_SIGNING_KEY`：它是月度 R2 孤儿清理的触发开关（规格 §3），
+ * 不是部署必需项——**绝不能放进 REQUIRED**，否则“删 key 重部署回 Cron”
+ * 这条回退路径会直接部署失败。空缺/占位值 = 未配置，就不往 secrets.json 里写。
+ */
+const OPTIONAL_SECRET_KEYS = ["WAKER_SIGNING_KEY"]
+
 const config = {}
 const problems = []
 for (const [name, where] of REQUIRED) {
@@ -122,6 +129,21 @@ if (toml.includes("_PLACEHOLDER")) {
 const secrets = {}
 for (const key of SECRET_KEYS) secrets[key] = config[key]
 
+// 可选项单独判定：只认“非空且不是占位值”，否则当作未配置（与运行时的
+// wakerSigningKey() 同口径）。日志只说配没配，绝不打印值。
+const optional = []
+for (const name of OPTIONAL_SECRET_KEYS) {
+  const raw = process.env[name]
+  const value = typeof raw === "string" ? raw.trim() : ""
+  if (value === "" || isPlaceholder(value)) {
+    console.log(`${name}: 未配置（月度 R2 清理走 Worker 内置 Cron Trigger）`)
+    continue
+  }
+  secrets[name] = value
+  optional.push(name)
+  console.log(`${name}: 已配置（月度 R2 清理由 waker 回调驱动，Cron 入口让路）`)
+}
+
 const secretsPath = `${process.env.RUNNER_TEMP}/secrets.json`
 // mode 只在创建时生效，先删掉可能残留的旧文件，保证 0600 真正落实。
 rmSync(secretsPath, { force: true })
@@ -130,7 +152,7 @@ writeFileSync(wranglerPath, toml)
 
 // 日志只暴露键名与非机密的表前缀，绝不打印任何密钥/资源 ID 的值。
 console.log(
-  `secrets.json 已写入（${SECRET_KEYS.length} 把：${SECRET_KEYS.join(", ")}，权限 0600）`
+  `secrets.json 已写入（${SECRET_KEYS.length + optional.length} 把：${[...SECRET_KEYS, ...optional].join(", ")}，权限 0600）`
 )
 console.log(
   `wrangler.toml 已解析（已注入 account_id / D1 名称与 ID；TABLE_PREFIX=${JSON.stringify(tablePrefix)}）`

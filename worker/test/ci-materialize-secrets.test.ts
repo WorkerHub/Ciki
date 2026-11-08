@@ -257,3 +257,46 @@ describe("materialize-secrets：不合格配置一律中止且不留半成品", 
     expect(res.toml).toBe(withLeftover)
   })
 })
+
+describe("materialize-secrets：可选的 WAKER_SIGNING_KEY", () => {
+  const secretKeys = (secretsPath: string): string[] =>
+    Object.keys(JSON.parse(readFileSync(secretsPath, "utf8")))
+
+  it("未配置 → 不写进 secrets.json，部署照常成功并说明走 Cron", () => {
+    const res = runScript(makeSandbox(), VALID_ENV)
+
+    expect(res.status).toBe(0)
+    expect(secretKeys(res.secretsPath)).toEqual([
+      "ENCRYPTION_KEY",
+      "SETUP_SECRET"
+    ])
+    expect(res.stdout).toContain("WAKER_SIGNING_KEY: 未配置")
+  })
+
+  it("已配置 → 注入 secrets.json 且日志绝不打印值", () => {
+    const res = runScript(makeSandbox(), {
+      ...VALID_ENV,
+      WAKER_SIGNING_KEY: "{{SECRET_hhdqv3qo}}"
+    })
+
+    expect(res.status).toBe(0)
+    const secrets = JSON.parse(readFileSync(res.secretsPath, "utf8")) as Record<
+      string,
+      string
+    >
+    expect(secrets.WAKER_SIGNING_KEY).toBe("{{SECRET_hhdqv3qo}}")
+    expect(res.stdout).toContain("WAKER_SIGNING_KEY: 已配置")
+    expect(res.stdout + res.stderr).not.toContain("{{SECRET_hhdqv3qo}}")
+  })
+
+  it("占位值一律按未配置处理（不会拿模板值上线）", () => {
+    const res = runScript(makeSandbox(), {
+      ...VALID_ENV,
+      WAKER_SIGNING_KEY: "WAKER_SIGNING_KEY_PLACEHOLDER"
+    })
+
+    expect(res.status).toBe(0)
+    expect(secretKeys(res.secretsPath)).not.toContain("WAKER_SIGNING_KEY")
+    expect(res.stdout).toContain("WAKER_SIGNING_KEY: 未配置")
+  })
+})

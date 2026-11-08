@@ -59,11 +59,13 @@ jobs:
       # secrets.json（0600）+ wrangler.toml 占位符解析，逐键校验；缺任何一把
       # secret/variable 就中止并点名，绝不带空值或占位值部署。
       # 资源 ID 走 secrets.*（GitHub 自动掩码，不需要 add-mask）；
-      # D1_DATABASE_NAME 保持 variable 明文。
+      # D1_DATABASE_NAME 保持 variable 明文；WAKER_SIGNING_KEY 是**可选**项
+      # （配了月度清理走 waker、不配走内置 Cron），所以缺它不会中止部署。
       - name: Materialize secrets + wrangler config
         env:
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
           SETUP_SECRET: ${{ secrets.SETUP_SECRET }}
+          WAKER_SIGNING_KEY: ${{ secrets.WAKER_SIGNING_KEY }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}

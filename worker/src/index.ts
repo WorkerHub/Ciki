@@ -1,6 +1,8 @@
 import { Hono } from "hono"
 import { getTablePrefix, isValidTablePrefix } from "./lib/table-prefix"
 import { isEncryptionKeyUsable } from "./core/secret-box"
+import { isWakerConfigured } from "./core/waker-gate"
+import { runR2Cleanup } from "./core/r2-cleanup"
 import { authMiddleware } from "./middleware/auth"
 import { authRoutes } from "./routes/auth"
 import { auth2faRoutes } from "./routes/auth-2fa"
@@ -12,7 +14,9 @@ import { spaceRoutes } from "./routes/spaces"
 import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
 import { importRoutes } from "./routes/import"
-import type { HonoEnv } from "./types"
+import { wakerRoutes } from "./routes/waker"
+import { CALLBACK_MOUNT_PATH } from "./waker"
+import type { Env, HonoEnv } from "./types"
 
 export const app = new Hono<HonoEnv>()
 
@@ -95,6 +99,10 @@ app.get("/api/health", (c) => c.json({ status: "ok" }))
 // "接口不存在"当成 200 的 HTML 页面。
 app.all("/api/*", (c) => c.json({ error: "Not found" }, 404))
 
+// waker 回调入口（规格 §3）：必须在 SPA 回落之前挂上，否则 `/_waker/execute`
+// 会被回落成 200 的 index.html，平台会把“没跑”当成功。验签与幂等全在 SDK 里。
+app.route(CALLBACK_MOUNT_PATH, wakerRoutes())
+
 // SPA 回落：静态资源命中就直接返回，未命中（客户端路由）返回 index.html。
 app.get("*", async (c) => {
   const res = await c.env.ASSETS.fetch(c.req.raw)
@@ -113,6 +121,35 @@ app.onError((err, c) => {
   return c.json({ error: "Internal server error" }, 500)
 })
 
-export default { fetch: app.fetch } satisfies ExportedHandler<
-  HonoEnv["Bindings"]
->
+export default {
+  fetch: app.fetch,
+  /**
+   * 内置 Cron Trigger（规格 §3）：`wrangler.toml` 里的 `[triggers] crons` 只认 UTC，
+   * 每月跑一次。配了 `WAKER_SIGNING_KEY` 就说明 waker 接管，这里直接让路——
+   * 既不跑也不写日志行（下一轮仍由日志表兜底，不会被当成一次真实运行）。
+   */
+  async scheduled(
+    _event: ScheduledController,
+    env: Env,
+    _ctx: ExecutionContext
+  ): Promise<void> {
+    if (isWakerConfigured(env)) {
+      console.info(
+        "scheduled: WAKER_SIGNING_KEY 已配置，waker 接管，Cron 入口跳过本轮 R2 清理"
+      )
+      return
+    }
+    try {
+      const summary = await runR2Cleanup(env, {
+        trigger: "cron",
+        dryRun: false
+      })
+      console.info("scheduled r2 cleanup run:", summary)
+    } catch (err) {
+      console.error(
+        "scheduled r2 cleanup failed:",
+        err instanceof Error ? err.message : String(err)
+      )
+    }
+  }
+} satisfies ExportedHandler<Env>
