@@ -34,19 +34,19 @@
 
 ### users
 
-| 列                                                       | 类型                             | 说明                                                      |
-| -------------------------------------------------------- | -------------------------------- | --------------------------------------------------------- |
-| id                                                       | TEXT PK                          | UUID（内部主键，不对外展示为「用户 ID」）                 |
-| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线        |
-| username                                                 | TEXT NOT NULL DEFAULT ''         | 显示名，用户可改、**不要求唯一**；缺省取邮箱前缀          |
-| public_id                                                | TEXT NOT NULL DEFAULT ''         | 8 位系统生成的对外用户 ID，唯一、生成后不可改             |
-| avatar_key                                               | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key，读接口 `/api/files/:key`；空串 = 无头像 |
-| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`          |
-| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                          |
-| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                                       |
-| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                       |
-| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露                      |
-| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                                  |
+| 列                                                       | 类型                             | 说明                                                                                                                    |
+| -------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| id                                                       | TEXT PK                          | UUID（内部主键，不对外展示为「用户 ID」）                                                                               |
+| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                      |
+| username                                                 | TEXT NOT NULL DEFAULT ''         | 显示名，用户可改、**不要求唯一**；缺省取邮箱前缀                                                                        |
+| public_id                                                | TEXT NOT NULL DEFAULT ''         | 8 位系统生成的对外用户 ID，唯一、生成后不可改                                                                           |
+| avatar_key                                               | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像 |
+| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                        |
+| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                        |
+| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                     |
+| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                     |
+| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露                                                                                    |
+| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                                                                                                |
 
 索引：`{prefix}users_public_id` 是 `public_id` 上的部分唯一索引（`WHERE public_id <> ''`）：未回填的空串不参与唯一性，回填完成后由数据库兜底并发建号的撞键。`public_id` 的字符表为 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`（去掉易混的 0/O/1/I/L），长度固定 8。
 
@@ -443,7 +443,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "username": "alice",
   "email": "…",
   "role": "admin",
-  "avatarUrl": "/api/files/<uuid>.png",
+  "avatarUrl": "/api/files/avatars/<uuid>.png",
   "approvalStatus": "approved",
   "createdAt": "2026-11-07T12:00:00.000Z",
   "twofa": { "totpEnabled": false, "passkeyEnabled": false, "passkeyCount": 0 }
@@ -460,8 +460,30 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。
 - `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；不要求唯一。
-- `avatarKey`：必须是本人经 `POST /api/files` 上传、且 R2 中仍存在的 key（`null` 表示清除头像），否则 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
+- `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key——平铺 `<uuid>.<ext>` 或带已知前缀（`avatars/` / `pages/` / `imports/`）都收；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
 - `id` / `email` / `publicId` 只读：传了也不生效（只认上面两个字段）。
+
+#### POST /api/me/avatar（需会话）
+
+头像专用上传口。`multipart/form-data`，字段名 `file`，单文件；校验口径与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId` 与 `category:"avatars"`。
+
+同一请求内完成「写入本人 `avatar_key` → 删除旧头像对象」（旧图删不掉只留孤儿对象，不影响响应）。200 返回与 `GET /api/me` 完全相同的对象，前端一次拿到新的 `avatarUrl`：
+
+```json
+{
+  "id": "…",
+  "publicId": "7FJ2K9QM",
+  "username": "alice",
+  "email": "…",
+  "role": "admin",
+  "avatarUrl": "/api/files/avatars/<uuid>.png",
+  "approvalStatus": "approved",
+  "createdAt": "…",
+  "twofa": { "totpEnabled": false, "passkeyEnabled": false, "passkeyCount": 0 }
+}
+```
+
+400 缺少 `file` / 非图片；413 `code:"FILE_TOO_LARGE"`；401 未登录。
 
 #### PUT /api/me/password
 
@@ -833,16 +855,18 @@ SpaceCandidate = { userId, username, publicId, email }
 
 ### 文件
 
+上传的 key 形如 `<类别>/<UUID>.<ext>`，类别按来源分三类：`avatars/`（用户头像，只经 `POST /api/me/avatar` 产生）、`pages/`（编辑器上传、粘贴带入、编辑页手动上传替换）、`imports/`（剪贴板插件经 `POST /api/import/files` 上传）。**存量平铺 key（`<uuid>.<ext>`）及其一切引用不迁移、不改写**，读接口两种形状都认。
+
 #### POST /api/files
 
-`multipart/form-data`，字段名 `file`。仅 png/jpg/jpeg/gif/webp（按魔数校验，拒 svg 与伪装文件），单张上限 10 MB。
+`multipart/form-data`，字段名 `file`。仅 png/jpg/jpeg/gif/webp（按魔数校验，拒 svg 与伪装文件），单张上限 10 MB。落 `pages/<uuid>.<ext>`。
 
 201：
 
 ```json
 {
-  "key": "d025c64d-ffd7-4a13-b6d8-527f88643536.png",
-  "url": "/api/files/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "key": "pages/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "url": "/api/files/pages/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
   "contentType": "image/png",
   "size": 12345
 }
@@ -852,7 +876,9 @@ SpaceCandidate = { userId, username, publicId, email }
 
 #### GET /api/files/:key
 
-需会话；返回图片字节，`Content-Type` 为上传时类型，带 `ETag` 与 `Cache-Control: private, max-age=3600`。不存在 404；未登录 401 + no-store。
+需会话；返回图片字节，`Content-Type` 为上传时类型，带 `ETag` 与 `Cache-Control: private, max-age=3600`。
+
+`key` 可含一个类别前缀（`avatars/` / `pages/` / `imports/`），也可以是存量的平铺 key；未知前缀、多级前缀、大写 hex、`svg` 或其它形状一律 404。不存在 404；未登录 401 + no-store。
 
 ### 导入（个人令牌）
 
@@ -927,12 +953,12 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 #### POST /api/import/files
 
-`multipart/form-data`，字段名 `file`，单文件。校验、R2 落盘与响应形状与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），201：
+`multipart/form-data`，字段名 `file`，单文件。校验、R2 落盘与响应形状与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `imports/<uuid>.<ext>`，201：
 
 ```json
 {
-  "key": "d025c64d-ffd7-4a13-b6d8-527f88643536.png",
-  "url": "/api/files/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "key": "imports/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
+  "url": "/api/files/imports/d025c64d-ffd7-4a13-b6d8-527f88643536.png",
   "contentType": "image/png",
   "size": 12345
 }
@@ -973,7 +999,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 代码：`code[class="language-*"]`。
 - 任务列表：`ul[data-type]`、`li[data-type][data-checked]`、`label`、只读 `input[type=checkbox][checked]`。
 - 链接：`a[href]` 仅 http/https/mailto/相对路径。
-- 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>` 或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
+- 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>`（存量平铺）或 `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀；`avatars/` 只服务资料页，不进正文），或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
 - 一律剥除 `script`/`style`/`iframe`/`object`/`embed`/`form` 及所有 `on*` 事件属性、未列出的 class/attr。
 
 ## 四、前端对接要点
@@ -984,6 +1010,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。
 - 受限会话（`needs2faSetup`）：只能进 2FA 设置，配置成功后受限标记自动清零，无需重新登录。
 - 页面读态渲染 `contentHtml`；编辑态使用 `contentJson`。外链图片以 `data-original-src` + `data-confluence-img` 呈现「未转存」。
+- 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，只渲染一行（运行时间 + 五个计数），不加说明文字；触发清理没有按钮。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
 - 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、邮件相关端点。

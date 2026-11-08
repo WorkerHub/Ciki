@@ -5,7 +5,8 @@ import {
   toPlainText
 } from "../src/lib/sanitize"
 
-const FILE_URL = "/api/files/1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed.png"
+const UUID = "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed"
+const FILE_URL = `/api/files/${UUID}.png`
 
 describe("服务端二次消毒白名单", () => {
   it("剥除脚本、内联事件与样式标签", () => {
@@ -55,6 +56,26 @@ describe("服务端二次消毒白名单", () => {
     expect(html).toContain(`src="${FILE_URL}"`)
     expect(html).toContain("data:image/png;base64")
     expect(isAllowedImageSrc(FILE_URL)).toBe(true)
+  })
+
+  it("新前缀的正文图（pages / imports）原样保留，avatars 与未知前缀转未转存", () => {
+    for (const category of ["pages", "imports"]) {
+      const url = `/api/files/${category}/${UUID}.png`
+      expect(isAllowedImageSrc(url)).toBe(true)
+      expect(sanitizePageHtml(`<img src="${url}" alt="x">`)).toContain(
+        `src="${url}"`
+      )
+    }
+
+    for (const url of [
+      `/api/files/avatars/${UUID}.png`,
+      `/api/files/misc/${UUID}.png`
+    ]) {
+      expect(isAllowedImageSrc(url)).toBe(false)
+      const html = sanitizePageHtml(`<img src="${url}" alt="x">`)
+      expect(html).not.toMatch(/<img[^>]*\ssrc=/)
+      expect(html).toContain(`data-original-src="${url}"`)
+    }
   })
 
   it("外链图片移入 data-original-src 并打未转存标记，不保留可直连 src", () => {

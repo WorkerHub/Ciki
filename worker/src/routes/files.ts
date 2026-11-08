@@ -10,9 +10,11 @@ import type { HonoEnv } from "../types"
 
 export const fileRoutes = new Hono<HonoEnv>()
 
-fileRoutes.post("/", (c) => handleImageUpload(c, c.get("userId")))
+fileRoutes.post("/", (c) => handleImageUpload(c, c.get("userId"), "pages"))
 
-fileRoutes.get("/:key", async (c) => {
+// key 带类别前缀（`pages/<uuid>.png`），所以用正则参数而非单段参数；
+// 解码后的值仍要过 UPLOAD_KEY_RE，非法形状与未知前缀一律 404。
+fileRoutes.get("/:key{.+}", async (c) => {
   const key = c.req.param("key")
   if (!UPLOAD_KEY_RE.test(key)) {
     return c.json({ error: "File not found" }, 404)
