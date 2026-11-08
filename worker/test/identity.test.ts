@@ -49,6 +49,24 @@ async function uploadImage(
   return (await res.json()) as { key: string; url: string }
 }
 
+function avatarForm(bytes: Uint8Array, type = "image/png"): FormData {
+  const form = new FormData()
+  form.append("file", new File([bytes], "avatar.png", { type }))
+  return form
+}
+
+async function postAvatar(
+  env: Env,
+  cookie: string,
+  form: FormData
+): Promise<Response> {
+  return request(env, "/api/me/avatar", {
+    method: "POST",
+    headers: cookie ? { cookie } : {},
+    body: form
+  })
+}
+
 describe("身份模型：public_id 与显示名", () => {
   it("注册自动生成 8 位 public_id，显示名默认取邮箱前缀", async () => {
     const { env, db } = await initializedContext()
@@ -204,6 +222,63 @@ describe("Profile 头像", () => {
     expect(cleared.status).toBe(200)
     expect((await me(env, admin)).avatarUrl).toBeNull()
     expect(r2.store.has(second.key)).toBe(false)
+  })
+})
+
+describe("头像专用上传口", () => {
+  it("一次请求落 avatars/ 并换头像：响应同 GET /api/me、写 uploaderId/category、删旧图", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const first = await postAvatar(env, admin, avatarForm(PNG))
+    expect(first.status).toBe(200)
+    const firstMe = (await first.json()) as MeShape
+    const firstKey = (firstMe.avatarUrl ?? "").replace("/api/files/", "")
+    expect(firstKey).toMatch(/^avatars\/[0-9a-f-]{36}\.png$/)
+    expect(firstMe).toEqual(await me(env, admin))
+    expect(r2.store.get(firstKey)?.customMetadata).toMatchObject({
+      uploaderId: firstMe.id,
+      category: "avatars"
+    })
+
+    // 头像 URL 指向 avatars/ 前缀，带会话可读
+    const read = await request(env, firstMe.avatarUrl ?? "", {
+      headers: { cookie: admin }
+    })
+    expect(read.status).toBe(200)
+
+    const second = await postAvatar(env, admin, avatarForm(PNG))
+    expect(second.status).toBe(200)
+    const secondMe = (await second.json()) as MeShape
+    const secondKey = (secondMe.avatarUrl ?? "").replace("/api/files/", "")
+    expect(secondKey).not.toBe(firstKey)
+    expect(r2.store.has(firstKey)).toBe(false)
+    expect(r2.store.has(secondKey)).toBe(true)
+    expect(await me(env, admin)).toEqual(secondMe)
+  })
+
+  it("校验口径与 /api/files 一致：非图片 400、超 10MB 413、未登录 401", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const fake = await postAvatar(
+      env,
+      admin,
+      avatarForm(new TextEncoder().encode("not really an image"))
+    )
+    expect(fake.status).toBe(400)
+
+    const big = new Uint8Array(10 * 1024 * 1024 + 1)
+    big.set(PNG)
+    const tooLarge = await postAvatar(env, admin, avatarForm(big))
+    expect(tooLarge.status).toBe(413)
+    expect(await tooLarge.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+
+    const anonymous = await postAvatar(env, "", avatarForm(PNG))
+    expect(anonymous.status).toBe(401)
+
+    // 失败一律不落盘、不改头像
+    expect((await me(env, admin)).avatarUrl).toBeNull()
   })
 })
 
