@@ -162,6 +162,19 @@ describe("图片地址：本站图床保留、危险地址丢弃", () => {
     expect(cleaned).not.toContain("data-original-src")
   })
 
+  it("新前缀的本站图床地址同样原样保留，avatars/ 不算正文图", () => {
+    for (const category of ["pages", "imports"]) {
+      const src = `/api/files/${category}/${UUID}.png`
+      const cleaned = img(src)
+      expect(cleaned).toContain(`src="${src}"`)
+      expect(cleaned).not.toContain("data-original-src")
+    }
+
+    const avatar = img(`/api/files/avatars/${UUID}.png`)
+    expect(avatar).not.toMatch(/<img[^>]*\ssrc=/)
+    expect(avatar).toContain('data-confluence-img="true"')
+  })
+
   it("合规内联图（png base64）保留", () => {
     const cleaned = img("data:image/png;base64,iVBORw0KGgo=")
     expect(cleaned).toContain('src="data:image/png;base64,iVBORw0KGgo="')

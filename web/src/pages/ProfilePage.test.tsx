@@ -9,12 +9,15 @@ vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
   return {
     ...actual,
-    api: { ...actual.api, upload: vi.fn() },
-    meApi: { ...actual.meApi, updateProfile: vi.fn() }
+    meApi: {
+      ...actual.meApi,
+      updateProfile: vi.fn(),
+      uploadAvatar: vi.fn()
+    }
   }
 })
 
-const { api, meApi } = await import("@/lib/api")
+const { meApi } = await import("@/lib/api")
 
 const user: Me = {
   id: "u1",
@@ -35,8 +38,8 @@ function setUser(value: Me = user) {
 describe("个人资料页", () => {
   beforeEach(() => {
     setUser()
-    vi.mocked(api.upload).mockReset()
     vi.mocked(meApi.updateProfile).mockReset()
+    vi.mocked(meApi.uploadAvatar).mockReset()
   })
 
   it("只读展示用户 ID 与邮箱，用户名取当前显示名", () => {
@@ -76,18 +79,13 @@ describe("个人资料页", () => {
     expect(useAuthStore.getState().user?.username).toBe("新名字")
   })
 
-  it("选头像后保存时先走 /api/files 上传，再用 key 更新资料", async () => {
+  it("选头像后保存时走头像专用上传口，并用返回资料回写 store", async () => {
     const browser = userEvent.setup()
-    vi.mocked(api.upload).mockResolvedValue({
-      key: "avatar-key.png",
-      url: "/api/files/avatar-key.png",
-      contentType: "image/png",
-      size: 3
-    })
-    vi.mocked(meApi.updateProfile).mockResolvedValue({
+    const withAvatar = {
       ...user,
-      avatarUrl: "/api/files/avatar-key.png"
-    })
+      avatarUrl: "/api/files/avatars/avatar-key.png"
+    }
+    vi.mocked(meApi.uploadAvatar).mockResolvedValue(withAvatar)
     render(<ProfilePage />)
 
     const file = new File(["png"], "avatar.png", { type: "image/png" })
@@ -96,48 +94,44 @@ describe("个人资料页", () => {
 
     await browser.click(screen.getByRole("button", { name: "保存" }))
 
-    await waitFor(() =>
-      expect(meApi.updateProfile).toHaveBeenCalledWith({
-        avatarKey: "avatar-key.png"
-      })
-    )
-    expect(api.upload).toHaveBeenCalledWith(file)
+    await waitFor(() => expect(meApi.uploadAvatar).toHaveBeenCalledWith(file))
+    // 用户名没变：不再额外提交一次资料
+    expect(meApi.updateProfile).not.toHaveBeenCalled()
     expect(useAuthStore.getState().user?.avatarUrl).toBe(
-      "/api/files/avatar-key.png"
+      "/api/files/avatars/avatar-key.png"
     )
+    expect(screen.getByRole("status")).toHaveTextContent("个人资料已保存")
   })
 
-  it("上传成功但资料更新失败后重试，复用已上传的 key，不重复上传", async () => {
+  it("用户名先保存；头像失败时保留已选文件，再次保存只重试头像", async () => {
     const browser = userEvent.setup()
-    vi.mocked(api.upload).mockResolvedValue({
-      key: "avatar-key.png",
-      url: "/api/files/avatar-key.png",
-      contentType: "image/png",
-      size: 3
-    })
-    vi.mocked(meApi.updateProfile)
+    const renamed = { ...user, username: "新名字" }
+    vi.mocked(meApi.updateProfile).mockResolvedValue(renamed)
+    vi.mocked(meApi.uploadAvatar)
       .mockRejectedValueOnce(new Error("network down"))
       .mockResolvedValueOnce({
-        ...user,
-        avatarUrl: "/api/files/avatar-key.png"
+        ...renamed,
+        avatarUrl: "/api/files/avatars/avatar-key.png"
       })
     render(<ProfilePage />)
 
     const file = new File(["png"], "avatar.png", { type: "image/png" })
     await browser.upload(screen.getByLabelText("选择头像"), file)
-
+    await browser.clear(screen.getByLabelText("用户名"))
+    await browser.type(screen.getByLabelText("用户名"), "新名字")
     await browser.click(screen.getByRole("button", { name: "保存" }))
-    await waitFor(() => expect(meApi.updateProfile).toHaveBeenCalledTimes(1))
+
+    await waitFor(() => expect(meApi.uploadAvatar).toHaveBeenCalledTimes(1))
     expect(await screen.findByRole("alert")).toBeInTheDocument()
+    // 头像失败不影响已经成功的用户名
+    expect(useAuthStore.getState().user?.username).toBe("新名字")
 
-    // 第一次更新失败后文件仍在；再点保存应直接复用 key，而不是再传一次
     await browser.click(screen.getByRole("button", { name: "保存" }))
-    await waitFor(() => expect(meApi.updateProfile).toHaveBeenCalledTimes(2))
-    expect(api.upload).toHaveBeenCalledTimes(1)
-    expect(meApi.updateProfile).toHaveBeenLastCalledWith({
-      avatarKey: "avatar-key.png"
-    })
-    expect(screen.getByRole("status")).toHaveTextContent("个人资料已保存")
+    await waitFor(() => expect(meApi.uploadAvatar).toHaveBeenCalledTimes(2))
+    expect(meApi.updateProfile).toHaveBeenCalledTimes(1)
+    expect(useAuthStore.getState().user?.avatarUrl).toBe(
+      "/api/files/avatars/avatar-key.png"
+    )
   })
 
   it("不支持的图片类型在选文件时就报错，不发上传请求", async () => {
@@ -149,6 +143,6 @@ describe("个人资料页", () => {
     await browser.upload(screen.getByLabelText("选择头像"), file)
 
     expect(screen.getByRole("alert")).toHaveTextContent(/只支持 PNG/)
-    expect(api.upload).not.toHaveBeenCalled()
+    expect(meApi.uploadAvatar).not.toHaveBeenCalled()
   })
 })

@@ -156,6 +156,13 @@ function json(body: unknown, method = "POST") {
   return { method, body: JSON.stringify(body) } satisfies RequestInit
 }
 
+/** 单文件上传：字段名固定 `file`，普通图与头像两个入口共用。 */
+async function uploadTo<T>(path: string, file: File): Promise<T> {
+  const form = new FormData()
+  form.append("file", file)
+  return request<T>(path, { method: "POST", body: form })
+}
+
 export const api = {
   get: <T>(path: string, init?: RequestInit & { skipRefresh?: boolean }) =>
     request<T>(path, { ...init, method: "GET" }),
@@ -174,11 +181,8 @@ export const api = {
       path,
       body === undefined ? { method: "DELETE" } : json(body, "DELETE")
     ),
-  upload: async (file: File): Promise<UploadedFile> => {
-    const form = new FormData()
-    form.append("file", file)
-    return request<UploadedFile>("/files", { method: "POST", body: form })
-  }
+  upload: (file: File): Promise<UploadedFile> =>
+    uploadTo<UploadedFile>("/files", file)
 }
 
 /* ------------------------------------------------------------------ *
@@ -504,6 +508,11 @@ export const meApi = {
   get: () => api.get<Me>("/me"),
   updateProfile: (patch: { username?: string; avatarKey?: string | null }) =>
     api.put<Me>("/me/profile", patch),
+  /**
+   * 头像专用上传口（规格 §1）：落 avatars/，服务端同请求里换掉本人头像并删旧图；
+   * 响应是与 GET /api/me 相同的 Me，调用方一次拿到新 avatarUrl。
+   */
+  uploadAvatar: (file: File) => uploadTo<Me>("/me/avatar", file),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.put<{ success: true }>("/me/password", {
       currentPassword,

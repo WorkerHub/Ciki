@@ -8,9 +8,14 @@ import {
 const UUID = "0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b"
 
 describe("图片地址白名单（与后端契约同义）", () => {
-  it("只认 /api/files/<uuid>.<栅格扩展名>", () => {
+  it("认平铺与 pages/imports 前缀的地址，头像与未知前缀不收", () => {
     expect(isHostedImageSrc(`/api/files/${UUID}.png`)).toBe(true)
     expect(isHostedImageSrc(`/api/files/${UUID}.webp`)).toBe(true)
+    expect(isHostedImageSrc(`/api/files/pages/${UUID}.png`)).toBe(true)
+    expect(isHostedImageSrc(`/api/files/imports/${UUID}.jpeg`)).toBe(true)
+    // 头像只服务资料页，不进正文
+    expect(isHostedImageSrc(`/api/files/avatars/${UUID}.png`)).toBe(false)
+    expect(isHostedImageSrc(`/api/files/misc/${UUID}.png`)).toBe(false)
     expect(isHostedImageSrc("/api/files/evil.png")).toBe(false)
     expect(isHostedImageSrc(`/api/files/${UUID}.svg`)).toBe(false)
     expect(isHostedImageSrc(`/api/files/${UUID}.png?x=1`)).toBe(false)

@@ -106,6 +106,7 @@ cd Ciki
 | `D1_DATABASE_ID`        | 上一步记下的 D1 Database ID                                                                                                                                                        |
 | `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定 |
 | `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串，例如 `openssl rand -hex 16`                                                                                                                  |
+| `WAKER_SIGNING_KEY`     | **可选**。配了就把月度 R2 清理交给 waker 平台回调，不配则走 Worker 内置 Cron Trigger。值由 waker 建项目时一次性给出，只写进 GitHub Secrets、不要进仓库                             |
 
 **Variables**（切到 Variables 标签页 → New repository variable）
 
@@ -114,7 +115,7 @@ cd Ciki
 | `D1_DATABASE_NAME` | D1 数据库名（明文，非机密）                                                                                  |
 | `TABLE_PREFIX`     | 表前缀，可选。不设置或留空 → `ciki_`；填 `none` → 无前缀；填其他值（如 `wiki`）→ `wiki_`。详见下文「表前缀」 |
 
-以上 5 个 Secret 与 2 个 Variable 就是部署需要的全部配置：`deploy.yml` 只引用这些名字。缺任何一项，或值仍是模板里的 `*_PLACEHOLDER` / `replace-with-*`，或 `ENCRYPTION_KEY` 不是 32 字节，部署都会在上传前中止并点名，不会用空值或占位值顶替。
+以上 5 个必需 Secret（外加可选的 `WAKER_SIGNING_KEY`）与 2 个 Variable 就是部署需要的全部配置：`deploy.yml` 只引用这些名字。缺任何必需项，或值仍是模板里的 `*_PLACEHOLDER` / `replace-with-*`，或 `ENCRYPTION_KEY` 不是 32 字节，部署都会在上传前中止并点名，不会用空值或占位值顶替；`WAKER_SIGNING_KEY` 留空只表示「走内置 Cron」，不会让部署失败。
 
 ### 4. 部署
 
@@ -154,6 +155,35 @@ unset SETUP_SECRET
 | `none`（GitHub Variables 的保留字，表示显式置空）                                                | 无前缀   | `pages`      |
 
 生效前缀必须在初始化前定好：换前缀等于换一套空表。初始化接口检测到库里已在另一前缀下初始化时，会以 409 中止，不会另建第二套表。
+
+### 月度 R2 清理（可选）
+
+R2 里的图片每月自动清理一轮孤儿对象：只删「不在引用集内、且对象 uploaded 距今超过 30 天」的对象。引用集 = 全部用户头像 ∪ 全部页面当前版本与所有历史版本正文里出现的 `/api/files/<key>`；回收站里的页面在彻底删除前同样计入，它的图一律保留。
+
+触发方式只有一个开关——GitHub Secret 里**有没有** `WAKER_SIGNING_KEY`：
+
+- **没配（默认）**：走 Worker 内置 Cron Trigger，`worker/wrangler.toml` 里是 `0 17 1 * *`（UTC）。Cloudflare Cron 只按 UTC 解释，而「北京时间每月 1 日凌晨」落在 UTC 上个月最后一天、5 字段 cron 表达不了，所以取 UTC 每月 1 日 17:00 = **北京时间每月 2 日 01:00**（凌晨低峰、每月一次）。waker 触发口此时 fail closed（回 `500 signing_key_missing`）。
+- **配了**：由 waker 平台回调驱动，内置 Cron 的 `scheduled()` 检测到 key 存在会自行让路（`[triggers]` 配置保留，靠 key 有无让路）。在 waker 管理面一次性静态注册一项：
+
+| 项       | 值                                                 |
+| -------- | -------------------------------------------------- |
+| 回调 URL | `https://<你的站点域名>/_waker/execute`            |
+| 任务名   | `monthly-r2-orphan-cleanup`                        |
+| cron     | `0 1 1 * *`                                        |
+| 时区     | `Asia/Shanghai`（= 北京时间每月 1 日 01:00，低峰） |
+
+删掉 `WAKER_SIGNING_KEY` 重新部署即回到内置 Cron。每轮结束都会往 D1 的 `{prefix}r2_cleanup_runs` 写一行日志；距上次真实成功运行不足 20 天的触发会被跳过（并记一行跳过日志），避免两个入口双跑。
+
+验收可以只算不删（管理员会话，没有页面按钮）：
+
+```bash
+curl -X POST https://<你的站点域名>/api/admin/r2-cleanup \
+  -H 'content-type: application/json' \
+  -H 'cookie: <你的会话 Cookie>' \
+  -d '{"dryRun": true}'
+```
+
+「系统管理 → 数据库维护」页显示最近一轮真实运行的一行摘要（运行时间、扫描数、引用数、删除数、未满 30 天跳过数、失败数）。
 
 ## 本地开发
 
