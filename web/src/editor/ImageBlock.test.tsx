@@ -63,6 +63,59 @@ function stubDataUrlFetch() {
   )
 }
 
+/**
+ * 剪藏导入的图片 alt 兜底取的是附件文件名（如 image2025-6-24_20-45-27.png）。
+ * alt 只留在 <img> 上做无障碍文本，绝不渲染成 <figcaption> 那种可见图注。
+ */
+describe("插图不显示图片名（alt 只做无障碍文本）", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  it("导入图片的 alt 是文件名时，图下不再出现文件名", async () => {
+    const filename = "image2025-6-24_20-45-27.png"
+    const { container } = render(
+      <Harness
+        content={`<p><img src="${SRC}" alt="${filename}" title="图 1"></p>`}
+      />
+    )
+
+    const image = await screen.findByRole("img", { name: filename })
+    // alt 与 title 两个属性行为不变：只影响无障碍名与悬停提示，不进正文
+    expect(image).toHaveAttribute("src", SRC)
+    expect(image).toHaveAttribute("alt", filename)
+    expect(image).toHaveAttribute("title", "图 1")
+    expect(container.querySelector("figcaption")).toBeNull()
+    expect(screen.queryByText(filename)).toBeNull()
+  })
+
+  it("alt 是普通文字时同样不出图注", async () => {
+    const { container } = render(
+      <Harness content={`<p><img src="${UPLOADED}" alt="示意图"></p>`} />
+    )
+
+    const image = await screen.findByRole("img", { name: "示意图" })
+    expect(image).toHaveAttribute("src", UPLOADED)
+    expect(container.querySelector("figcaption")).toBeNull()
+    expect(screen.queryByText("示意图")).toBeNull()
+  })
+
+  it("没有 alt 的图片渲染不变：figure 里只有一个 img", async () => {
+    const { container } = render(
+      <Harness content={`<p><img src="${UPLOADED}"></p>`} />
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector("img")).not.toBeNull()
+    })
+    const figure = container.querySelector("figure")
+    expect(figure).not.toBeNull()
+    expect(figure?.children).toHaveLength(1)
+    expect(figure?.querySelector("img")?.getAttribute("src")).toBe(UPLOADED)
+    expect(container.querySelector("figcaption")).toBeNull()
+  })
+})
+
 describe("未转存图片占位的两条出路", () => {
   beforeAll(() => {
     installTiptapJsdomShims()

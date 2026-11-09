@@ -49,11 +49,28 @@ describe("阅读态渲染（与编辑态共用同一套扩展）", () => {
   })
 
   it("本站图片直接显示", async () => {
-    render(
+    const { container } = render(
       <ReadView html={'<p><img src="/api/files/abc.png" alt="示意图"></p>'} />
     )
     const image = await screen.findByRole("img", { name: "示意图" })
     expect(image).toHaveAttribute("src", "/api/files/abc.png")
+    // alt 只做无障碍名，不再渲染成图注
+    expect(container.querySelector("figcaption")).toBeNull()
+    expect(screen.queryByText("示意图")).toBeNull()
+  })
+
+  it("导入图片的 alt 是附件文件名时，图下不出现文件名", async () => {
+    const filename = "image2025-6-24_20-45-27.png"
+    const { container } = render(
+      <ReadView
+        html={`<p><img src="/api/files/abc.png" alt="${filename}"></p>`}
+      />
+    )
+
+    const image = await screen.findByRole("img", { name: filename })
+    expect(image).toHaveAttribute("alt", filename)
+    expect(container.querySelector("figcaption")).toBeNull()
+    expect(screen.queryByText(filename)).toBeNull()
   })
 
   it("表格列宽从 colgroup 还原到单元格 colwidth", async () => {

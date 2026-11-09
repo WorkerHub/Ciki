@@ -12,6 +12,9 @@ import { useImageBridgeStore } from "@/stores/image-bridge"
  * 已经把 src 换成了 data-original-src，这里渲染成「未转存」占位，并提供两条出路：
  * 装了 Ciki 插件就让插件补抓（走 bridge 事件），否则手动上传替换（规格 §5.7）。
  * 阅读态只展示提示与原始链接，两个替换动作都在编辑页完成。
+ *
+ * alt 只作为 <img> 的无障碍文本，不再渲染成可见图注：剪藏导入的图片 alt 兜底取的是
+ * 附件文件名，渲染成图注就等于在图下反复念文件名。
  */
 export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
   const src = (node.attrs.src as string | null) || ""
@@ -37,11 +40,6 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
           alt={alt}
           title={(node.attrs.title as string | null) || undefined}
         />
-        {alt ? (
-          <figcaption className="mt-1 text-xs text-muted-foreground">
-            {alt}
-          </figcaption>
-        ) : null}
       </NodeViewWrapper>
     )
   }
