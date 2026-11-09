@@ -19,6 +19,7 @@ import {
   useWikiEditor,
   WikiEditorSurface
 } from "@/editor/Editor"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
 import {
   ApiError,
   describeApiError,
@@ -27,7 +28,6 @@ import {
 } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
 import { canEdit } from "@/lib/space"
-import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -240,38 +240,16 @@ export function PageEdit() {
   return (
     <div className="space-y-3">
       <header className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => navigate(`/p/${pageId}`)}
-            className="text-muted-foreground"
-          >
-            <ArrowLeft aria-hidden="true" />
-            返回阅读
-          </Button>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground" aria-live="polite">
-              {saving
-                ? "保存中…"
-                : dirty
-                  ? "有未保存的更改"
-                  : savedAt
-                    ? `已保存 ${formatDateTime(savedAt).slice(11)}`
-                    : ""}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void save()}
-              disabled={saving || !ready}
-            >
-              <Save aria-hidden="true" />
-              保存
-            </Button>
-          </div>
-        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => navigate(`/p/${pageId}`)}
+          className="text-muted-foreground"
+        >
+          <ArrowLeft aria-hidden="true" />
+          返回阅读
+        </Button>
         <Input
           value={title}
           onChange={(event) => {
@@ -290,10 +268,36 @@ export function PageEdit() {
         </p>
       </header>
 
+      {/* 全页唯一的保存入口：状态与按钮都在吸顶工具条的行尾，长文滚到哪儿都能存。 */}
       <WikiEditorSurface
         editor={editor}
         error={saveError}
         onError={setSaveError}
+        actions={
+          <>
+            <span
+              className="whitespace-nowrap text-xs text-muted-foreground"
+              aria-live="polite"
+            >
+              {saving
+                ? "保存中…"
+                : dirty
+                  ? "有未保存的更改"
+                  : savedAt
+                    ? `已保存 ${formatDateTime(savedAt).slice(11)}`
+                    : ""}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void save()}
+              disabled={saving || !ready}
+            >
+              <Save aria-hidden="true" />
+              保存
+            </Button>
+          </>
+        }
       />
 
       <AlertDialog open={blocker.state === "blocked"}>

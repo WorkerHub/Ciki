@@ -21,7 +21,7 @@ import {
   Underline as UnderlineIcon,
   Undo2
 } from "lucide-react"
-import { useRef, useState } from "react"
+import { type ReactNode, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -78,10 +78,13 @@ function currentHeading(editor: Editor): string {
 /** 编辑器工具条：只放日常会用到的动作，其余交给 Markdown 快捷输入与粘贴。 */
 export function EditorToolbar({
   editor,
-  onError
+  onError,
+  actions
 }: {
   editor: Editor
   onError?: (message: string) => void
+  /** 行尾的额外操作（编辑页的保存状态 + 保存按钮），随工具条一起吸顶 */
+  actions?: ReactNode
 }) {
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkValue, setLinkValue] = useState("")
@@ -395,6 +398,10 @@ export function EditorToolbar({
       >
         <Redo2 aria-hidden="true" />
       </Button>
+
+      {actions ? (
+        <div className="ml-auto flex items-center gap-2 pl-1">{actions}</div>
+      ) : null}
 
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent className="sm:max-w-md">
