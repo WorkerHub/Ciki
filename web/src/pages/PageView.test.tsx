@@ -490,4 +490,55 @@ describe("文章页原地刷新", () => {
     expect(screen.queryByText("A 页的旧结果")).toBeNull()
     expect(screen.getByText("B 页")).toBeInTheDocument()
   })
+
+  it("切页时清掉上一页的刷新报错，并重置自动刷新的节流基准", async () => {
+    const user = userEvent.setup()
+    const pageB: PageDetail = { ...page, id: "b", title: "B 页" }
+    vi.mocked(pagesApi.get).mockImplementation((id) =>
+      Promise.resolve(id === "b" ? pageB : page)
+    )
+    const router = createMemoryRouter(
+      [
+        { path: "/p/:pageId", element: <PageView /> },
+        { path: "/", element: <div>首页占位</div> }
+      ],
+      { initialEntries: ["/p/a"] }
+    )
+    render(<RouterProvider router={router} />)
+    await screen.findByText("支付服务部署手册")
+
+    // A 页刷新失败：页面上留下这次刷新的报错
+    vi.mocked(pagesApi.get).mockRejectedValueOnce(new ApiError(500, "boom"))
+    await user.click(screen.getByRole("button", { name: "刷新" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom")
+
+    // 切到 B 页：残留报错不能跟过来
+    await router.navigate("/p/b")
+    await screen.findByText("B 页")
+    expect(screen.queryByRole("alert")).toBeNull()
+
+    // 节流基准随换页重置：刚加载好的 B 页，立刻切回标签页不应再拉一次
+    const calls = vi.mocked(pagesApi.get).mock.calls.length
+    document.dispatchEvent(new Event("visibilitychange"))
+    window.dispatchEvent(new Event("focus"))
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(vi.mocked(pagesApi.get).mock.calls.length).toBe(calls)
+  })
+
+  it("首屏加载失败后，切回标签页刷新成功即可恢复正文", async () => {
+    vi.mocked(pagesApi.get).mockRejectedValueOnce(new ApiError(500, "boom"))
+    renderView()
+    expect(await screen.findByText("boom")).toBeInTheDocument()
+    expect(screen.queryByText("支付服务部署手册")).toBeNull()
+
+    // 越过节流窗口后切回标签页：自动刷新成功，错误段要让位给正文
+    const started = Date.now()
+    const now = vi.spyOn(Date, "now").mockReturnValue(started + 11_000)
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    document.dispatchEvent(new Event("visibilitychange"))
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.queryByText("boom")).toBeNull()
+    now.mockRestore()
+  })
 })

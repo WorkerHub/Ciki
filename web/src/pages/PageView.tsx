@@ -132,6 +132,10 @@ export function PageView() {
     setLoading(true)
     setError("")
     setNotFound(false)
+    // 换页同样是一次「刚拿到最新数据」：清掉上一页的刷新报错，节流基准也跟着重置，
+    // 否则新页刚加载完就可能被上一页的旧时间戳判定为「早该刷新」
+    setRefreshError("")
+    lastRefreshAt.current = Date.now()
     // 切页先丢掉上一页的正文根元素，索引轨的观察器与 hash 恢复都只认当前页
     setContentRoot(null)
     pagesApi
@@ -171,6 +175,8 @@ export function PageView() {
       if (pageIdRef.current !== pageId) return
       setPage(detail)
       setNotFound(false)
+      // 首屏加载失败留下的 error 会把整页卡在错误段：刷新成功就必须放行正文
+      setError("")
     } catch (refreshFailure: unknown) {
       if (pageIdRef.current !== pageId) return
       // 已被别处删除：走现有「页面不存在」处理
