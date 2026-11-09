@@ -208,8 +208,8 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | 旧（升级前/未转换） | NULL              | 三列正文                                         | 原样读三列（与改前逐字一致）         |
 
 - HTML 与纯文本由 `worker/src/lib/tiptap-html.ts` 一链按需生成（`renderTiptapHtml` → `sanitizePageHtml` → `toPlainText`），与导入接口同一条路径；`pages` 表当前内容的存储不变（仍存三列）。
-- 版本的 JSON 无法按当前编辑器 schema 渲染时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面。
-- 「新 → 旧」的唯一排序口径是 `created_at DESC, rowid DESC`（列表、修剪、最新一条判定共用）。
+- 版本的 JSON 无法按当前编辑器 schema 渲染、或压缩字节本身损坏（脏数据）时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面、也不会漏成 500。
+- 「新 → 旧」的唯一排序口径是 `created_at DESC, id DESC`（列表、修剪、最新一条判定、删除护栏共用）。次键用主键 `id` 而不是隐式 `rowid`：`rowid` 在 VACUUM / 导出再导入等重建环境不保证稳定。为了让「写入次序 = 排序结果」不依赖毫秒精度，写路径给版本 `created_at` 加了单调时钟（同一 isolate 内严格递增，必要时比请求时间多 1ms），并另有硬保证：写入路径的修剪语句把**刚插入的那条 id** 排除在外。
 - 保留数（每页保留多少条）的读写与两处修剪见「GET /api/admin/settings」「PUT /api/admin/settings」「GET /api/admin/revisions/retention」「POST /api/admin/revisions/prune」，以及下方页面版本接口：写入时按设置在同事务里删除该页超出上限的最旧版本。
 
 ### pages_fts（FTS5 虚拟表）

@@ -6,6 +6,7 @@
  * 并逐项确认删除只动版本行：页面当前内容、FTS、R2 对象全不变。
  */
 import { describe, expect, it } from "vitest"
+import { deleteRevision as deleteRevisionQuery } from "../src/db/queries/revisions"
 import { initializedContext, jsonRequest } from "./support/app"
 import {
   adminWithPage,
@@ -151,6 +152,34 @@ describe("手动删除版本：单条", () => {
       trashedRevisions.at(-1)?.id ?? ""
     )
     expect(onTrashed.status).toBe(404)
+  })
+})
+
+describe("手动删除版本：护栏在 SQL 里（不靠先读后写）", () => {
+  it("直接执行删除语句：最新一条删不动（0 行），中间版本删得掉（1 行）", async () => {
+    const context = await initializedContext()
+    const { env, admin, page, revisions } = await pageWithHistory(context)
+
+    // 绕过路由的 409 判断，直接把「最新一条」交给 DELETE：WHERE 里的护栏必须拒掉它。
+    const onLatest = await deleteRevisionQuery(
+      env.DB,
+      "ciki_",
+      page.id,
+      revisions[0].id
+    )
+    expect(onLatest).toBe(0)
+    expect(countRevisionsInDb(context.db, page.id)).toBe(4)
+
+    const onMiddle = await deleteRevisionQuery(
+      env.DB,
+      "ciki_",
+      page.id,
+      revisions[2].id
+    )
+    expect(onMiddle).toBe(1)
+    expect(
+      (await listRevisions(env, admin, page.id)).map((r) => r.id)
+    ).toContain(revisions[0].id)
   })
 })
 

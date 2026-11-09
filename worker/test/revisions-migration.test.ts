@@ -10,7 +10,10 @@
  *   - 页面行（pages）一字未动。
  */
 import { describe, expect, it } from "vitest"
-import { backfillRevisionStatement } from "../src/db/queries/revisions"
+import {
+  backfillRevisionStatement,
+  listLegacyRevisionsBatch
+} from "../src/db/queries/revisions"
 import { gzipText, gunzipText } from "../src/lib/gzip"
 import { runSetup } from "../src/lib/setup"
 import { initializedContext, type TestContext } from "./support/app"
@@ -20,7 +23,8 @@ import {
   listRevisions,
   restoreRevision,
   revisionRows,
-  savePage
+  savePage,
+  simulatePreUpgrade
 } from "./support/revisions"
 import { adminSession } from "./support/app"
 
@@ -33,12 +37,6 @@ interface LegacyRow {
   content_text: string
   editor_id: string
   created_at: string
-}
-
-/** 把库退回「升级前」：没有 content_gzip 列，账本里也还没有 schema_v2。 */
-function simulatePreUpgrade(db: TestContext["db"]): void {
-  db.exec("ALTER TABLE ciki_page_revisions DROP COLUMN content_gzip")
-  db.exec("DELETE FROM _ciki_schema_migrations WHERE name = 'schema_v2'")
 }
 
 function legacyRows(db: TestContext["db"]): LegacyRow[] {
@@ -254,6 +252,32 @@ describe("存量迁移：仓库里的旧版本行逐行压成 gzip", () => {
       )
       expect(row.content_json).toBe("")
     }
+  })
+
+  it("续跑与 id 大小无关：比已转换行更小的 id 只要还是旧形态就照样被捞出来", async () => {
+    const { context } = await legacyDatabase()
+    // 先挑 id 最大的那行转换（模拟上一轮跑到一半就被打断）。
+    const rows = legacyRows(context.db)
+    const biggest = rows[rows.length - 1]
+    if (!biggest) throw new Error("no legacy rows")
+    // 列由迁移先补（模拟「上一轮已跑到补列这一步、数据转换只做了一点」）。
+    await context.env.DB.prepare(
+      "ALTER TABLE ciki_page_revisions ADD COLUMN content_gzip BLOB"
+    ).run()
+    await backfillRevisionStatement(
+      context.env.DB,
+      "ciki_",
+      biggest.id,
+      await gzipText(biggest.content_json)
+    ).run()
+
+    // 下一轮从「当前仍未转换的前 N 行」开始取：比已转换行 id 更小的旧行必须出现，
+    // 用 id 游标（>`上一个 id`）的写法会把这些行跳过。
+    const batch = await listLegacyRevisionsBatch(context.env.DB, "ciki_", 10)
+    const ids = batch.map((row) => row.id)
+    expect(ids).not.toContain(biggest.id)
+    expect(ids.length).toBeGreaterThan(0)
+    expect(ids.every((id) => id < biggest.id)).toBe(true)
   })
 
   it("可中断续跑：已转换的行不动，剩下的行一次补齐", async () => {

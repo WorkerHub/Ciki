@@ -15,7 +15,8 @@ import {
   paragraphDoc,
   restoreRevision,
   revisionRows,
-  savePage
+  savePage,
+  simulatePreUpgrade
 } from "./support/revisions"
 
 /** 一份够长的正文：用来量 gzip 与 JSON 的体积比。 */
@@ -189,8 +190,8 @@ describe("版本正文：新写入只落一份 gzip 的 content_json", () => {
 
   it("部署后到点升级之间（库里还没有 content_gzip 列）：保存、查看、回滚照常可用", async () => {
     const context = await initializedContext()
-    // 模拟升级前的库：schema_v2 还没跑，列不存在。
-    context.db.exec("ALTER TABLE ciki_page_revisions DROP COLUMN content_gzip")
+    // 模拟升级前的库：schema_v2 还没跑，列不存在（顺带清掉探列缓存）。
+    simulatePreUpgrade(context.db)
     const { env, admin, page } = await adminWithPage(context, "未升级页")
 
     const saved = await savePage(env, admin, page.id, {
@@ -225,6 +226,35 @@ describe("版本正文：新写入只落一份 gzip 的 content_json", () => {
     expect(
       ((await restore.json()) as { contentText: string }).contentText
     ).toBe("未升级时保存的正文")
+  })
+
+  it("压缩字节坏掉（脏数据）：查看与回滚回 422，不是 500", async () => {
+    const context = await initializedContext()
+    const { env, admin, page } = await adminWithPage(context, "坏字节页")
+    // 直接塞一条「最新」但字节不是 gzip 的版本行，模拟底层损坏/脏写。
+    context.db.db
+      .prepare(
+        `INSERT INTO ciki_page_revisions
+          (id, page_id, title, content_json, content_html, content_text,
+           editor_id, created_at, content_gzip)
+         VALUES (?, ?, ?, '', '', '', 'u1', ?, ?)`
+      )
+      .run(
+        "11111111-2222-4333-8444-555555555555",
+        page.id,
+        "坏字节页",
+        new Date(Date.now() + 60_000).toISOString(),
+        new Uint8Array([1, 2, 3, 4, 5])
+      )
+
+    const revisions = await listRevisions(env, admin, page.id)
+    const res = await getRevision(env, admin, page.id, revisions[0].id)
+    expect(res.status).toBe(422)
+    expect(((await res.json()) as { code: string }).code).toBe(
+      "REVISION_UNRENDERABLE"
+    )
+    const restore = await restoreRevision(env, admin, page.id, revisions[0].id)
+    expect(restore.status).toBe(422)
   })
 
   it("JSON 渲染不了（未知节点）：查看与回滚都回 422，页面内容不被改写", async () => {

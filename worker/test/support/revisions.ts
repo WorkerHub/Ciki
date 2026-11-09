@@ -5,6 +5,7 @@
  * HTML/纯文本由服务端按需生成，夹具不自洽会让「内容是否一致」的断言失去意义。
  */
 import { expect } from "vitest"
+import { resetGzipColumnCache } from "../../src/db/queries/revisions"
 import { adminSession, jsonRequest, userSession, type TestContext } from "./app"
 
 export interface PageDetail {
@@ -299,6 +300,21 @@ export function pageSnapshot(
     )
     .all(pageId)
   return { page, fts }
+}
+
+/**
+ * 把库退回「升级前」：删掉 `content_gzip` 列、抹掉账本里的 `schema_v2`，并清掉探列缓存。
+ *
+ * 探列结果只缓存「为真」（线上这一列永远不会被删），所以模拟降级必须显式清一次缓存，
+ * 否则写路径会继续按新形态写、撞上不存在的列。
+ */
+export function simulatePreUpgrade(
+  db: TestContext["db"],
+  prefix = "ciki_"
+): void {
+  db.exec(`ALTER TABLE ${prefix}page_revisions DROP COLUMN content_gzip`)
+  db.exec(`DELETE FROM _${prefix}schema_migrations WHERE name = 'schema_v2'`)
+  resetGzipColumnCache()
 }
 
 /** 一个「管理员 + 默认空间里的一页」的最小上下文。 */

@@ -26,8 +26,8 @@
  */
 import {
   backfillRevisionStatement,
-  hasGzipColumn,
-  listLegacyRevisionsBatch
+  listLegacyRevisionsBatch,
+  probeGzipColumn
 } from "../db/queries/revisions"
 import { gzipText, gunzipText } from "./gzip"
 import {
@@ -320,13 +320,14 @@ export const GZIP_BACKFILL_BATCH = 25
  * `schema_v2` 第一步：补 `page_revisions.content_gzip` 列。
  *
  * SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以先 `PRAGMA table_info` 探一下：列已在就
- * 是幂等空操作（中断重跑、全新库的重复 setup 都命中这条）。
+ * 是幂等空操作（中断重跑、全新库的重复 setup 都命中这条）。这里用不走缓存的探列：
+ * 迁移必须自己核实结构，不能因为请求路径缓存了「已就绪」就跳过建列。
  */
 async function ensureRevisionGzipColumn(
   db: D1Database,
   prefix: string
 ): Promise<void> {
-  if (await hasGzipColumn(db, prefix)) return
+  if (await probeGzipColumn(db, prefix)) return
   await db
     .prepare(
       `ALTER TABLE ${revisionsTable(prefix)} ADD COLUMN content_gzip BLOB`
@@ -340,11 +341,16 @@ async function ensureRevisionGzipColumn(
  * 每行：`gzip(content_json)` → **解压回读并与原文逐字节比对** → 一致才写回，并且写回
  * 的语句自己带 `content_gzip IS NULL` 守卫。所以：
  * - 幂等：已转换的行不再出现在待办里（`content_gzip IS NULL`），写回也再拦一道；
- * - 可中断续跑：一行一转、按 id keyset 前进，`prepare` 抛错则整个迁移不记账，下次
+ * - 可中断续跑：每轮只取「还没转换的」前 N 行，`prepare` 抛错则整个迁移不记账，下次
  *   从剩下的行继续；
  * - 不丢内容：压缩失败或回读不一致就中止本轮（不写、不清空），旧文本原样留着；
  * - 元数据不动：只改三个正文列，`title` / `editor_id` / `created_at` / `page_id` 一字不改，
  *   所以迁移前后每页版本条数与元数据必然逐项一致。
+ *
+ * 刻意**不用 id 游标往前扫**：`page_revisions.id` 是随机 UUID，id 的大小与写入先后无关；
+ * 并发保存可能在批量处理期间插进一条旧形态行（它的 id 可能很小），游标会把它跳过，
+ * 直接丢了。这里每轮固定拉「当前仍未转换的最前面 N 行」——转换过的行由 `IS NULL`
+ * 自然排除，不管 id 落在哪里都不会漏。
  *
  * 清空三列文本是有意为之：HTML 与纯文本随时能从 JSON 重新生成（lib/revision-content.ts），
  * 留着它们等于保留 4–5 倍体积，存量就白搬了。回滚代码不再能读回这些版本的正文，
@@ -354,14 +360,8 @@ async function backfillRevisionGzip(
   db: D1Database,
   prefix: string
 ): Promise<void> {
-  let afterId = ""
   for (;;) {
-    const rows = await listLegacyRevisionsBatch(
-      db,
-      prefix,
-      afterId,
-      GZIP_BACKFILL_BATCH
-    )
+    const rows = await listLegacyRevisionsBatch(db, prefix, GZIP_BACKFILL_BATCH)
     if (rows.length === 0) return
 
     const statements: D1PreparedStatement[] = []
@@ -375,8 +375,19 @@ async function backfillRevisionGzip(
       }
       statements.push(backfillRevisionStatement(db, prefix, row.id, gzip))
     }
-    await db.batch(statements)
-    afterId = rows[rows.length - 1].id
+    const results = await db.batch(statements)
+    // 一批一行都没写进去 = 这些行仍满足 `content_gzip IS NULL` 却能没被转换
+    // （只可能是并发把状态改了）。此时重拉会拿到同一批行，不能死循环，也不能静默
+    // 记账，所以中止：迁移不记账，下次 setup 重跑。
+    const changed = results.reduce(
+      (sum, result) => sum + result.meta.changes,
+      0
+    )
+    if (changed === 0) {
+      throw new Error(
+        `gzip backfill made no progress on ${rows.length} revision(s) still pending; nothing was overwritten`
+      )
+    }
   }
 }
 

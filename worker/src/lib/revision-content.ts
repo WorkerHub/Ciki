@@ -9,7 +9,7 @@
  * 库里那三列，与改前的行为逐字一致，保证升级过程中怎么看都还是那一份内容。
  */
 import type { RevisionRow } from "../db/queries/revisions"
-import { gunzipText } from "./gzip"
+import { GzipError, gunzipText } from "./gzip"
 import { normalizeImportedContent, type PageContentResult } from "./page-input"
 import { sanitizePageHtml, toPlainText } from "./sanitize"
 
@@ -19,12 +19,24 @@ import { sanitizePageHtml, toPlainText } from "./sanitize"
  * JSON 无法按当前编辑器 schema 渲染（历史上 `PUT /api/pages` 只校验 JSON 可解析）
  * 时返回 `{ ok: false }`，由路由转成 422：宁可不给预览/不写回页面，也不静默把页面
  * 内容写成残缺版本。
+ *
+ * 压缩字节本身坏掉（脏数据、底层损坏）同样不能变成未捕获异常（那会让接口回 500）：
+ * 解压失败也归为 `{ ok: false }`，让路由统一回 422，同时把原始错误记进日志便于定位。
  */
 export async function revisionContent(
   row: RevisionRow
 ): Promise<PageContentResult> {
   if (row.content_gzip) {
-    const contentJson = await gunzipText(row.content_gzip)
+    let contentJson: string
+    try {
+      contentJson = await gunzipText(row.content_gzip)
+    } catch (err) {
+      console.error(
+        `Revision ${row.id} content cannot be decompressed:`,
+        err instanceof GzipError ? err.message : err
+      )
+      return { ok: false, error: "stored revision content is corrupted" }
+    }
     return normalizeImportedContent({ title: row.title, contentJson })
   }
   // 旧形态：三列文本就是答案，重消毒的口径与改前一致。

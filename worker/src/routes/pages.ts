@@ -632,9 +632,13 @@ pageRoutes.delete("/:id/revisions/:revisionId", async (c) => {
   if (!canEditPages(role)) return forbidden(c)
 
   const revisionId = c.req.param("revisionId")
-  // 先读最新一条再删：即使中间冒出新保存，只会让目标「不再是最新」，不会误删最新一条。
+  // 「最新一条不许删」写在 DELETE 自己的 WHERE 里（见 deleteRevision）：不存在先读后写的
+  // 时间窗，并发保存/回滚也删不到刚写进去的那条。删 0 行才回头查一次，只为在 409
+  // 与 404 之间选一个准确答复。
+  const deleted = await deleteRevision(db, prefix, page.id, revisionId)
+  if (deleted > 0) return c.json({ success: true })
+
   const latest = await latestRevisionId(db, prefix, page.id)
-  if (latest === null) return c.json({ error: "Revision not found" }, 404)
   if (latest === revisionId) {
     return c.json(
       {
@@ -644,10 +648,7 @@ pageRoutes.delete("/:id/revisions/:revisionId", async (c) => {
       409
     )
   }
-
-  const deleted = await deleteRevision(db, prefix, page.id, revisionId)
-  if (deleted === 0) return c.json({ error: "Revision not found" }, 404)
-  return c.json({ success: true })
+  return c.json({ error: "Revision not found" }, 404)
 })
 
 /**
@@ -663,6 +664,12 @@ pageRoutes.post("/:id/revisions/prune", async (c) => {
   if (!role) return pageNotFound(c)
   if (!canEditPages(role)) return forbidden(c)
 
-  const result = await trimPageRevisionStatement(db, prefix, page.id, 1).run()
+  const result = await trimPageRevisionStatement(
+    db,
+    prefix,
+    page.id,
+    1,
+    null
+  ).run()
   return c.json({ deleted: result.meta.changes })
 })
