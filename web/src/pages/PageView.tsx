@@ -149,7 +149,7 @@ export function PageView() {
   }
 
   return (
-    <article className="max-w-[900px] space-y-4">
+    <article className="space-y-4">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>

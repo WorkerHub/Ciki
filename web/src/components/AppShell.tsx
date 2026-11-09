@@ -23,6 +23,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router"
 import { CikiLogo } from "@/components/CikiLogo"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { HelpDialog } from "@/components/HelpDialog"
+import { PageCanvas } from "@/components/PageCanvas"
 import { PageTree } from "@/components/PageTree"
 import { SearchBox } from "@/components/SearchBox"
 import { SpaceSwitcher } from "@/components/SpaceSwitcher"
@@ -68,6 +69,14 @@ function isSystemPath(pathname: string): boolean {
   return SYSTEM_ROUTE_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   )
+}
+
+/**
+ * 文章页（阅读 /p/:id 与编辑 /p/:id/edit）：正文宽度交给 PageCanvas，
+ * 壳层不再套 1140px 上限，否则正文到不了 1600px 封顶。
+ */
+function isArticlePath(pathname: string): boolean {
+  return pathname.startsWith("/p/")
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -222,6 +231,7 @@ export function AppShell() {
   const location = useLocation()
   const reduceMotion = useReducedMotion()
   const isSystemRoute = isSystemPath(location.pathname)
+  const isArticleRoute = isArticlePath(location.pathname)
   const layout = useDefaultLayout({
     id: "ciki-shell",
     panelIds: ["sidebar", "main"]
@@ -240,23 +250,30 @@ export function AppShell() {
 
   // 移动端抽屉在点击树节点/导航项时由 onNavigate 关闭，不需要额外的路由副作用。
 
-  const main = (
+  const content = (
+    <Suspense
+      fallback={
+        <div className="space-y-3" role="status" aria-label="页面加载中">
+          <div className="h-7 w-2/5 animate-pulse rounded bg-muted" />
+          <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  )
+
+  // 文章页读、写两态走同一条分支：宽度只由 PageCanvas 决定，两处不会各写一份。
+  const main = isArticleRoute ? (
+    <PageCanvas>{content}</PageCanvas>
+  ) : (
     <div
       className={cn(
         "mx-auto w-full px-4 py-5 sm:px-6 sm:py-6",
         isSystemRoute ? "max-w-[1400px]" : "max-w-[1140px]"
       )}
     >
-      <Suspense
-        fallback={
-          <div className="space-y-3" role="status" aria-label="页面加载中">
-            <div className="h-7 w-2/5 animate-pulse rounded bg-muted" />
-            <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
-          </div>
-        }
-      >
-        <Outlet />
-      </Suspense>
+      {content}
     </div>
   )
 
