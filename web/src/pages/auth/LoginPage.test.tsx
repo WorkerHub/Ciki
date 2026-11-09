@@ -12,7 +12,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
     authApi: {
       ...actual.authApi,
       login: vi.fn(),
-      verifyTotp: vi.fn(),
+      verifySecondFactor: vi.fn(),
+      sendLoginEmailCode: vi.fn(),
       config: vi.fn()
     },
     meApi: { ...actual.meApi, get: vi.fn() }
@@ -48,7 +49,12 @@ describe("登录两步表单", () => {
       role: "admin",
       approvalStatus: "approved",
       createdAt: "2026-11-07T00:00:00.000Z",
-      twofa: { totpEnabled: true, passkeyEnabled: false, passkeyCount: 0 }
+      twofa: {
+        totpEnabled: true,
+        passkeyEnabled: false,
+        passkeyCount: 0,
+        emailOtpEnabled: false
+      }
     })
   })
 
@@ -150,7 +156,7 @@ describe("两步验证的错误提示", () => {
 
   it("输错 6 位码 → 说验证码不对，停在两步表单，不说会话过期", async () => {
     const user = await toTwoFaStep()
-    vi.mocked(authApi.verifyTotp).mockRejectedValue(
+    vi.mocked(authApi.verifySecondFactor).mockRejectedValue(
       new ApiError(
         401,
         "Invalid verification code",
@@ -174,7 +180,7 @@ describe("两步验证的错误提示", () => {
 
   it("挑战已过期 → 提示回上一步重新登录", async () => {
     const user = await toTwoFaStep()
-    vi.mocked(authApi.verifyTotp).mockRejectedValue(
+    vi.mocked(authApi.verifySecondFactor).mockRejectedValue(
       new ApiError(
         401,
         "Invalid or expired 2FA session",
@@ -213,5 +219,118 @@ describe("两步验证的错误提示", () => {
     const alert = await screen.findByRole("alert")
     expect(alert).toHaveTextContent("邮箱或密码不正确。")
     expect(alert).not.toHaveTextContent("登录状态已失效")
+  })
+})
+
+/**
+ * 邮箱验证码作为第二种登录方式（契约 #48/#50）：
+ * 第二步沿用现有多方式界面，选「邮箱验证码」即向账号邮箱发码，输对放行。
+ */
+describe("登录第二步的邮箱验证码", () => {
+  const user = () => ({
+    id: "u1",
+    publicId: "AB23CD45",
+    username: "管理员",
+    avatarUrl: null,
+    email: "a@b.c",
+    role: "admin" as const,
+    approvalStatus: "approved" as const,
+    createdAt: "2026-11-07T00:00:00.000Z",
+    twofa: {
+      totpEnabled: true,
+      passkeyEnabled: true,
+      passkeyCount: 1,
+      emailOtpEnabled: true
+    }
+  })
+
+  const toSecondStep = async (methods: string[]) => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      availableMethods: methods
+    })
+    const events = userEvent.setup()
+    renderLogin()
+    await events.type(screen.getByLabelText("邮箱"), "a@b.c")
+    await events.type(screen.getByLabelText("密码"), "secret-password")
+    await events.click(screen.getByRole("button", { name: "登录" }))
+    return events
+  }
+
+  beforeEach(() => {
+    vi.mocked(meApi.get).mockResolvedValue(user())
+    vi.mocked(authApi.sendLoginEmailCode).mockResolvedValue({
+      success: true,
+      cooldownSeconds: 60,
+      expiresInSeconds: 600
+    })
+  })
+
+  it("多方式时列出邮箱验证码；选中即发码，输入 6 位码按 email_otp 验证", async () => {
+    const events = await toSecondStep(["totp", "passkey", "email_otp"])
+
+    // 默认落在第一个可用方式（TOTP），三种方式都在切换器里
+    await screen.findByLabelText("动态验证码")
+    expect(
+      screen.getByRole("radio", { name: "验证器 App" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("radio", { name: "邮箱验证码" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "Passkey" })).toBeInTheDocument()
+    expect(authApi.sendLoginEmailCode).not.toHaveBeenCalled()
+
+    await events.click(screen.getByRole("radio", { name: "邮箱验证码" }))
+
+    await waitFor(() => {
+      expect(authApi.sendLoginEmailCode).toHaveBeenCalledWith("temp-token")
+    })
+    const code = await screen.findByLabelText("邮箱验证码")
+    expect(code).toHaveAttribute("type", "text")
+    expect(code).toHaveAttribute("autocomplete", "one-time-code")
+    expect(code.getAttribute("name")).not.toMatch(/password/i)
+    expect(screen.getByText(/验证码已发送到 a@b.c/)).toBeInTheDocument()
+    // 60s 冷却期内不能重发
+    expect(screen.getByRole("button", { name: /后可重发/ })).toBeDisabled()
+
+    await events.type(code, "654321")
+    await events.click(screen.getByRole("button", { name: "验证并登录" }))
+
+    expect(authApi.verifySecondFactor).toHaveBeenCalledWith(
+      "temp-token",
+      "email_otp",
+      "654321"
+    )
+  })
+
+  it("只启用邮箱验证码时自动发一封，不出现切换器", async () => {
+    await toSecondStep(["email_otp"])
+
+    expect(await screen.findByLabelText("邮箱验证码")).toBeInTheDocument()
+    await waitFor(() => {
+      expect(authApi.sendLoginEmailCode).toHaveBeenCalledTimes(1)
+    })
+    expect(screen.queryByRole("radio", { name: "验证器 App" })).toBeNull()
+  })
+
+  it("站点发信未配置时说明原因，不停在一句网络异常", async () => {
+    vi.mocked(authApi.sendLoginEmailCode).mockRejectedValue(
+      new ApiError(
+        503,
+        "Email delivery is not configured",
+        "EMAIL_NOT_CONFIGURED",
+        undefined,
+        {
+          error: "Email delivery is not configured",
+          code: "EMAIL_NOT_CONFIGURED"
+        },
+        "/auth/2fa/email-otp/send-login"
+      )
+    )
+    await toSecondStep(["email_otp"])
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("站点还没有配置发信（SMTP）")
   })
 })

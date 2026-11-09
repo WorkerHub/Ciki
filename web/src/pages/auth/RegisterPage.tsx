@@ -29,7 +29,9 @@ export function RegisterPage() {
           setConfig({
             registrationEnabled: true,
             registrationApprovalRequired: true,
-            siteName: useSiteStore.getState().name
+            siteName: useSiteStore.getState().name,
+            // 配置接口挂了就按「发信未配置」处理：注册页不涉及邮箱验证码
+            emailConfigured: false
           })
       })
     return () => {
