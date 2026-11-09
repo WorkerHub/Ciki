@@ -177,30 +177,89 @@
   scroll-margin-top: 1.5rem;
 }
 
+/*
+ * 标题刻度：阅读态、编辑态与「段落样式」下拉的示范共用这一组值——改这里只有一处生效，
+ * 三处自动一致。下拉只把整块等比缩小（.wiki-style-menu 的基准字号），不另设预览数值。
+ */
+:root {
+  --wiki-heading-1: 1.875em;
+  --wiki-heading-2: 1.5em;
+  --wiki-heading-3: 1.25em;
+  --wiki-heading-4: 1.125em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
 .wiki-content h1 {
-  font-size: 1.55em;
+  font-size: var(--wiki-heading-1);
   text-wrap: balance;
 }
 
 .wiki-content h2 {
-  font-size: 1.3em;
+  font-size: var(--wiki-heading-2);
   text-wrap: balance;
 }
 
 .wiki-content h3 {
-  font-size: 1.12em;
+  font-size: var(--wiki-heading-3);
 }
 
 .wiki-content h4 {
-  font-size: 1.05em;
+  font-size: var(--wiki-heading-4);
 }
 
 .wiki-content h5 {
-  font-size: 1em;
+  font-size: var(--wiki-heading-5);
 }
 
 .wiki-content h6 {
-  font-size: 0.95em;
+  font-size: var(--wiki-heading-6);
+  color: var(--muted-foreground);
+}
+
+/*
+ * 「段落样式」下拉的层级示范：每项的字号直接引用上面的标题刻度（em 相对面板基准解析），
+ * 字重/行高/字距与 .wiki-content 的标题同口径。面板基准字号只决定下拉整体高度。
+ */
+.wiki-style-menu {
+  font-size: 0.8125rem;
+}
+
+.wiki-style-item[data-style^="h"] {
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.wiki-style-item[data-style="p"] {
+  font-size: 1em;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: normal;
+}
+
+.wiki-style-item[data-style="h1"] {
+  font-size: var(--wiki-heading-1);
+}
+
+.wiki-style-item[data-style="h2"] {
+  font-size: var(--wiki-heading-2);
+}
+
+.wiki-style-item[data-style="h3"] {
+  font-size: var(--wiki-heading-3);
+}
+
+.wiki-style-item[data-style="h4"] {
+  font-size: var(--wiki-heading-4);
+}
+
+.wiki-style-item[data-style="h5"] {
+  font-size: var(--wiki-heading-5);
+}
+
+.wiki-style-item[data-style="h6"] {
+  font-size: var(--wiki-heading-6);
   color: var(--muted-foreground);
 }
 

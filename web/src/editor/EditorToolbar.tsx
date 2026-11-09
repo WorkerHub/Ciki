@@ -14,10 +14,7 @@ import {
   PaintBucket,
   Quote,
   Redo2,
-  Rows3,
   Strikethrough,
-  Table2,
-  Trash2,
   Underline as UnderlineIcon,
   Undo2
 } from "lucide-react"
@@ -31,22 +28,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Toggle } from "@/components/ui/toggle"
 import { ColorMenu } from "@/editor/colors/ColorMenu"
@@ -63,17 +45,10 @@ import {
   HIGHLIGHT_COLORS,
   TEXT_COLORS
 } from "@/editor/colors/palette"
+import { ParagraphStyleMenu } from "@/editor/ParagraphStyleMenu"
+import { TableMenu } from "@/editor/table/TableMenu"
 import { describeApiError } from "@/lib/api"
 import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
-
-const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const
-
-function currentHeading(editor: Editor): string {
-  const active = HEADING_LEVELS.find((level) =>
-    editor.isActive("heading", { level })
-  )
-  return active ? `h${active}` : "p"
-}
 
 /** 编辑器工具条：只放日常会用到的动作，其余交给 Markdown 快捷输入与粘贴。 */
 export function EditorToolbar({
@@ -131,34 +106,7 @@ export function EditorToolbar({
       aria-label="编辑器工具条"
       className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-card p-1"
     >
-      <Select
-        value={currentHeading(editor)}
-        onValueChange={(value) => {
-          if (value === "p") editor.chain().focus().setParagraph().run()
-          else {
-            const level = Number(
-              value.slice(1)
-            ) as (typeof HEADING_LEVELS)[number]
-            editor.chain().focus().toggleHeading({ level }).run()
-          }
-        }}
-      >
-        <SelectTrigger
-          size="sm"
-          aria-label="段落样式"
-          className="h-7 w-[6.5rem] border-transparent bg-transparent text-xs"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="p">正文</SelectItem>
-          {HEADING_LEVELS.map((level) => (
-            <SelectItem key={level} value={`h${level}`}>
-              标题 {level}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <ParagraphStyleMenu editor={editor} />
 
       <Separator orientation="vertical" className="mx-1 !h-5" />
 
@@ -273,68 +221,7 @@ export function EditorToolbar({
 
       <Separator orientation="vertical" className="mx-1 !h-5" />
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant={editor.isActive("table") ? "secondary" : "ghost"}
-            aria-label="表格"
-            title="表格"
-          >
-            <Table2 aria-hidden="true" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          <DropdownMenuItem
-            onSelect={() =>
-              editor
-                .chain()
-                .focus()
-                .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-                .run()
-            }
-          >
-            <Table2 aria-hidden="true" />
-            插入表格（3×3）
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel>当前表格</DropdownMenuLabel>
-          <DropdownMenuItem
-            disabled={!editor.can().addRowAfter()}
-            onSelect={() => editor.chain().focus().addRowAfter().run()}
-          >
-            <Rows3 aria-hidden="true" />
-            在下方插入行
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!editor.can().addColumnAfter()}
-            onSelect={() => editor.chain().focus().addColumnAfter().run()}
-          >
-            在右侧插入列
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!editor.isActive("table")}
-            onSelect={() => editor.chain().focus().deleteRow().run()}
-          >
-            删除当前行
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!editor.isActive("table")}
-            onSelect={() => editor.chain().focus().deleteColumn().run()}
-          >
-            删除当前列
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={!editor.isActive("table")}
-            variant="destructive"
-            onSelect={() => editor.chain().focus().deleteTable().run()}
-          >
-            <Trash2 aria-hidden="true" />
-            删除表格
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <TableMenu editor={editor} />
 
       {editor.isActive("table") ? (
         <ColorMenu
