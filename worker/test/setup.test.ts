@@ -6,6 +6,7 @@ import {
 } from "../src/lib/migrations"
 import { splitStatements } from "../src/lib/migrations-runner"
 import { runSetup } from "../src/lib/setup"
+import type { SqliteD1 } from "./support/sqlite-d1"
 import {
   TEST_SETUP_SECRET,
   adminSession,
@@ -62,10 +63,12 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       "ciki_space_members",
       "ciki_r2_cleanup_runs",
       "ciki_waker_executions",
-      "ciki_schema_migrations"
+      "_ciki_schema_migrations"
     ]) {
       expect(names).toContain(name)
     }
+    // 旧版账本名（无前导下划线）不得再建出来。
+    expect(names).not.toContain("ciki_schema_migrations")
   })
 
   it("重复 setup 只做幂等检查：全部 skipped，且不覆盖已有设置", async () => {
@@ -281,7 +284,7 @@ describe("初始化迁移：默认空间与播种", () => {
     expect(members.count).toBe(0)
 
     const ledger = db.db
-      .prepare("SELECT name FROM ciki_schema_migrations")
+      .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
     expect(ledger).toEqual([{ name: "schema_v1" }])
 
@@ -346,5 +349,166 @@ describe("初始化迁移：默认空间与播种", () => {
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
       .get() as { count: number }
     expect(count.count).toBe(1)
+  })
+})
+
+describe("迁移账本改名承接（规格 §4.4）", () => {
+  function tableNames(db: SqliteD1): string[] {
+    return (
+      db.db
+        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+        .all() as Array<{ name: string }>
+    ).map((row) => row.name)
+  }
+
+  /** 建一张旧版账本（无前导下划线）并记下已应用的迁移名。 */
+  async function createLegacyLedger(
+    db: SqliteD1,
+    legacy: string,
+    applied: string[]
+  ) {
+    await db.exec(
+      `CREATE TABLE ${legacy} (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL DEFAULT (unixepoch()))`
+    )
+    for (const name of applied) {
+      await db.db.prepare(`INSERT INTO ${legacy} (name) VALUES (?)`).run(name)
+    }
+  }
+
+  /** 复现旧版部署留下的库：业务表已由 schema_v1 建好、账本仍是旧名。 */
+  async function legacyDatabase(prefix: string, legacy: string) {
+    const context = makeContext()
+    for (const statement of splitStatements(getMigrations(prefix)[0].sql)) {
+      await context.env.DB.prepare(statement).run()
+    }
+    await createLegacyLedger(context.db, legacy, ["schema_v1"])
+    return context
+  }
+
+  it("显式空前缀（TABLE_PREFIX=''）：新装账本为 _schema_migrations，业务表不带前缀", async () => {
+    const { env, db } = makeContext({ TABLE_PREFIX: "" })
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      tablePrefix: string
+      migrations: Array<{ name: string; status: string }>
+    }
+    expect(body.tablePrefix).toBe("")
+    expect(body.migrations).toEqual([{ name: "schema_v1", status: "applied" }])
+
+    const names = tableNames(db)
+    expect(names).toContain("_schema_migrations")
+    expect(names).toContain("users")
+    expect(names).toContain("pages")
+    expect(names).not.toContain("schema_migrations")
+    expect(names).not.toContain("_ciki_schema_migrations")
+  })
+
+  it("旧账本含 schema_v1 记录 → 升级改名承接，记录保留且迁移全 skipped", async () => {
+    const { env, db } = await legacyDatabase("ciki_", "ciki_schema_migrations")
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      success: boolean
+      migrations: Array<{ name: string; status: string }>
+    }
+    expect(body.success).toBe(true)
+    // 账本里的记录被认出来：迁移没有被重跑，也没有重复建表/播种。
+    expect(body.migrations).toEqual([{ name: "schema_v1", status: "skipped" }])
+
+    const names = tableNames(db)
+    expect(names).toContain("_ciki_schema_migrations")
+    expect(names).not.toContain("ciki_schema_migrations")
+
+    const ledger = db.db
+      .prepare("SELECT name FROM _ciki_schema_migrations")
+      .all() as Array<{ name: string }>
+    expect(ledger).toEqual([{ name: "schema_v1" }])
+    const spaces = db.db
+      .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
+      .get() as { count: number }
+    expect(spaces.count).toBe(1)
+  })
+
+  it("承接动作幂等：重复 setup 不重复改名、不丢记录", async () => {
+    const { env, db } = await legacyDatabase("ciki_", "ciki_schema_migrations")
+
+    for (let i = 0; i < 2; i += 1) {
+      const res = await setupRequest(env, TEST_SETUP_SECRET)
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        migrations: Array<{ name: string; status: string }>
+      }
+      expect(body.migrations).toEqual([
+        { name: "schema_v1", status: "skipped" }
+      ])
+    }
+
+    const names = tableNames(db)
+    expect(names).toContain("_ciki_schema_migrations")
+    expect(names).not.toContain("ciki_schema_migrations")
+    const ledger = db.db
+      .prepare("SELECT name FROM _ciki_schema_migrations")
+      .all() as Array<{ name: string }>
+    expect(ledger).toEqual([{ name: "schema_v1" }])
+  })
+
+  it("新旧账本同存 → 409 LEDGER_CONFLICT，两套账本与记录都不动", async () => {
+    const { env, db } = makeContext()
+    await createLegacyLedger(db, "ciki_schema_migrations", ["schema_v1"])
+    await createLegacyLedger(db, "_ciki_schema_migrations", [
+      "schema_v1",
+      "schema_v2"
+    ])
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as {
+      success: boolean
+      code: string
+      error: string
+      ledgers: string[]
+    }
+    expect(body.success).toBe(false)
+    expect(body.code).toBe("LEDGER_CONFLICT")
+    expect(body.error).toContain("_ciki_schema_migrations")
+    expect(body.error).toContain("ciki_schema_migrations")
+    expect(body.ledgers).toEqual([
+      "_ciki_schema_migrations",
+      "ciki_schema_migrations"
+    ])
+
+    // 不动数据：两张账本原样在、记录一行不差，业务表一张也没建。
+    expect(
+      db.db
+        .prepare("SELECT name FROM ciki_schema_migrations ORDER BY name")
+        .all()
+    ).toEqual([{ name: "schema_v1" }])
+    expect(
+      db.db
+        .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
+        .all()
+    ).toEqual([{ name: "schema_v1" }, { name: "schema_v2" }])
+    const names = tableNames(db)
+    expect(names).not.toContain("ciki_users")
+    expect(names).not.toContain("ciki_system_settings")
+  })
+
+  it("同名旧账本表但结构不符 → 409，不改名别人的表", async () => {
+    const { env, db } = makeContext()
+    db.exec("CREATE TABLE ciki_schema_migrations (id TEXT)")
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(409)
+    const body = (await res.json()) as { code: string; error: string }
+    expect(body.code).toBe("LEDGER_CONFLICT")
+    expect(body.error).toContain("ciki_schema_migrations")
+
+    const names = tableNames(db)
+    expect(names).toContain("ciki_schema_migrations")
+    expect(names).not.toContain("_ciki_schema_migrations")
+    expect(names).not.toContain("ciki_users")
   })
 })

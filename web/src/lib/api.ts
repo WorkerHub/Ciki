@@ -683,6 +683,8 @@ export function describeApiError(error: unknown): string {
       return "这个邮箱已经注册过，直接登录即可。"
     case "PREFIX_CONFLICT":
       return "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。"
+    case "LEDGER_CONFLICT":
+      return "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。"
     case "PAGE_MOVE_CYCLE":
       return "不能把页面移动到它自己的子页面下。"
     case "PARENT_DELETED":

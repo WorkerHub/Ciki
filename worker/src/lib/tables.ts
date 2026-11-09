@@ -39,8 +39,18 @@ export const importTokensTable = (prefix: string) =>
   tableName(prefix, "import_tokens")
 /** FTS5 虚拟表同样经前缀 helper 拼名（规格 §6）。 */
 export const pagesFtsTable = (prefix: string) => tableName(prefix, "pages_fts")
-/** 迁移账本：与业务表同一前缀，换前缀即换一套账本。 */
+/**
+ * 迁移账本（规格 §4.4）：表名带前导下划线、排在业务表之前——
+ * `_ciki_schema_migrations`、无前缀时 `_schema_migrations`。换前缀即换一套账本。
+ */
 export const migrationsTable = (prefix: string) =>
+  `_${tableName(prefix, "schema_migrations")}`
+
+/**
+ * 旧版迁移账本名（无前导下划线，如 `ciki_schema_migrations`）。
+ * 只供 setup 的一次性改名承接使用，业务代码不得再往这张表读写信账。
+ */
+export const legacyMigrationsTable = (prefix: string) =>
   tableName(prefix, "schema_migrations")
 /** R2 孤儿清理的运行日志（规格 §3）：每轮一行，不含任何对象内容。 */
 export const r2CleanupRunsTable = (prefix: string) =>
