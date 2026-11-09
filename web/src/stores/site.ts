@@ -12,10 +12,19 @@ interface SiteState {
    */
   emailConfigured: boolean
   loaded: boolean
-  /** 公开读一次站点信息；失败保留现值（例如旧后端没有 siteName）。 */
+  /**
+   * 公开读一次站点信息；失败保留现值（例如旧后端没有 siteName）。
+   * 系统管理保存 SMTP 配置后调它一次，`emailConfigured` 会跟着刷新，
+   * 用户安全设置页不必强刷浏览器才会变成可用。
+   */
   load: () => Promise<void>
   /** 系统管理保存成功后调用，品牌区/页签标题/登录页立即跟着变。 */
   setName: (name: string) => void
+  /**
+   * 已知发信状态时直接同步（如服务端回 `EMAIL_NOT_CONFIGURED`、或保存 SMTP
+   * 后不想多发一次 config 请求），不用等下一次 `load()`。
+   */
+  setEmailConfigured: (configured: boolean) => void
 }
 
 export const useSiteStore = create<SiteState>((set) => ({
@@ -39,5 +48,9 @@ export const useSiteStore = create<SiteState>((set) => ({
 
   setName: (name) => {
     set({ name: name.trim() || DEFAULT_SITE_NAME, loaded: true })
+  },
+
+  setEmailConfigured: (configured) => {
+    set({ emailConfigured: configured })
   }
 }))

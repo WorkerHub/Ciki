@@ -77,6 +77,8 @@ export function LoginPage() {
     try {
       const response = await authApi.login(email.trim(), password)
       if ("requires2fa" in response && response.requires2fa) {
+        // 新一次登录（可能又拿到同一个 tempToken）要重新允许自动发码
+        autoSentFor.current = null
         setStep({
           kind: "twofa",
           tempToken: response.tempToken,
@@ -377,6 +379,9 @@ export function LoginPage() {
           variant="ghost"
           className="w-full text-muted-foreground"
           onClick={() => {
+            // 退回第一步时要一并作废「已自动发过码」的记账，否则再登录一次
+            // 若后端派回同一个 tempToken，会自动发码被误判为已发而跳过。
+            autoSentFor.current = null
             setStep({ kind: "password" })
             setError("")
             setCode("")

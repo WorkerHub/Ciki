@@ -146,6 +146,7 @@ export function SettingsPage() {
 
   // 邮箱验证码（第三种因子）：send-verify 发码 → enable 拿码开启，验过往返才真正开启
   const emailConfigured = useSiteStore((state) => state.emailConfigured)
+  const setEmailConfigured = useSiteStore((state) => state.setEmailConfigured)
   const [emailVerifySent, setEmailVerifySent] = useState(false)
   const [emailCode, setEmailCode] = useState("")
   const [emailBusy, setEmailBusy] = useState(false)
@@ -323,6 +324,14 @@ export function SettingsPage() {
       setEmailCooldown(sent.cooldownSeconds)
       setEmailExpiresIn(sent.expiresInSeconds)
     } catch (sendError) {
+      // 服务端回「站点没配发信」就是权威结论：立刻把入口切成不可用态（带去向提示），
+      // 不必等用户刷新页面才发现自己一直在点一个注定失败的按钮。
+      if (
+        sendError instanceof ApiError &&
+        sendError.code === "EMAIL_NOT_CONFIGURED"
+      ) {
+        setEmailConfigured(false)
+      }
       // 429 带 retryAfter：按服务端给的剩余秒数起步，别让用户拿着一个能点但必错的按钮
       if (sendError instanceof ApiError && sendError.retryAfter) {
         setEmailCooldown(sendError.retryAfter)
@@ -645,11 +654,7 @@ export function SettingsPage() {
                 <Button
                   type="button"
                   size="sm"
-                  disabled={
-                    emailBusy ||
-                    emailUnavailable ||
-                    (emailVerifySent && emailCooldown > 0)
-                  }
+                  disabled={emailBusy || emailUnavailable || emailCooldown > 0}
                   onClick={() =>
                     // 重发沿用上次通过的重认证密码；首次发码走密码弹窗判断
                     void sendEmailVerify(
@@ -659,11 +664,12 @@ export function SettingsPage() {
                 >
                   {emailBusy
                     ? "发送中…"
-                    : !emailVerifySent
-                      ? "开启邮箱验证码"
-                      : emailCooldown > 0
-                        ? `重新发送（${emailCooldown}s）`
-                        : "重新发送"}
+                    : // 冷却期间不论是刚发完还是刚取消，都别留一个点了必定 429 的按钮
+                      emailCooldown > 0
+                      ? `重新发送（${emailCooldown}s）`
+                      : emailVerifySent
+                        ? "重新发送"
+                        : "开启邮箱验证码"}
                 </Button>
               )}
             </div>

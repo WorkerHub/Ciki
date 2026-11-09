@@ -314,6 +314,28 @@ describe("登录第二步的邮箱验证码", () => {
     expect(screen.queryByRole("radio", { name: "验证器 App" })).toBeNull()
   })
 
+  it("退回第一步再登录（仍拿到同一个 tempToken）会重新自动发码", async () => {
+    const events = await toSecondStep(["email_otp"])
+    await waitFor(() => {
+      expect(authApi.sendLoginEmailCode).toHaveBeenCalledTimes(1)
+    })
+
+    await events.click(screen.getByRole("button", { name: "返回上一步" }))
+    await screen.findByLabelText("密码")
+    // 第一步的输入值还在（组件没卸载），重输前先清空，别把两次内容拼起来
+    await events.clear(screen.getByLabelText("邮箱"))
+    await events.type(screen.getByLabelText("邮箱"), "a@b.c")
+    await events.clear(screen.getByLabelText("密码"))
+    await events.type(screen.getByLabelText("密码"), "secret-password")
+    await events.click(screen.getByRole("button", { name: "登录" }))
+    await screen.findByLabelText("邮箱验证码")
+
+    // 旧的「已自动发过码」记账必须作废，否则同一个 tempToken 会卡在未发送状态
+    await waitFor(() => {
+      expect(authApi.sendLoginEmailCode).toHaveBeenCalledTimes(2)
+    })
+  })
+
   it("站点发信未配置时说明原因，不停在一句网络异常", async () => {
     vi.mocked(authApi.sendLoginEmailCode).mockRejectedValue(
       new ApiError(

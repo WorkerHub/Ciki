@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { ApiError } from "@/lib/api"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
@@ -335,6 +336,49 @@ describe("邮箱验证码 2FA", () => {
     expect(
       await screen.findByText(/已开启：登录第二步可以向 admin@example.com/)
     ).toBeInTheDocument()
+  })
+
+  it("发码后点取消：入口在冷却期内不可点，不留一个必 429 的按钮", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "开启邮箱验证码" }))
+    await screen.findByLabelText("邮箱验证码")
+    await user.click(screen.getByRole("button", { name: "取消" }))
+
+    // 面板收起、回到未开启态，但冷却还在：按钮显示剩余秒数并禁用
+    expect(screen.queryByLabelText("邮箱验证码")).toBeNull()
+    const entry = screen.getByRole("button", { name: /重新发送（\d+s）/ })
+    expect(entry).toBeDisabled()
+    expect(authApi.emailOtpSendVerify).toHaveBeenCalledTimes(1)
+  })
+
+  it("服务端回没配发信时，入口当场切成不可用并给出方向", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    vi.mocked(authApi.emailOtpSendVerify).mockRejectedValue(
+      new ApiError(
+        503,
+        "Email delivery is not configured",
+        "EMAIL_NOT_CONFIGURED"
+      )
+    )
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "开启邮箱验证码" }))
+
+    expect(
+      await screen.findByText(
+        "站点还没有配置发信（SMTP），暂时不能发送邮箱验证码。"
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/站点未配置发信，邮箱验证码不可用/)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "开启邮箱验证码" })
+    ).toBeDisabled()
   })
 
   it("已开启时点关闭要密码，调 disable 后提示已关闭", async () => {
