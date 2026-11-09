@@ -48,6 +48,11 @@ const METHOD_LABELS: Record<TwoFaMethod, string> = {
 export function LoginPage() {
   const navigate = useNavigate()
   const siteName = useSiteStore((state) => state.name)
+  const emailConfigured = useSiteStore((state) => state.emailConfigured)
+  const siteLoaded = useSiteStore((state) => state.loaded)
+  /** 站点没配发信时「忘记密码」入口直接不可用（不在登录页摆一个点了必错的链接）。
+   *  站点信息还没读到之前按可用渲染，真正的判定在找回页与服务端 503 里再兜一层。 */
+  const forgotUnavailable = siteLoaded && !emailConfigured
   const refreshMe = useAuthStore((state) => state.refreshMe)
   const setRestricted = useAuthStore((state) => state.setRestricted)
   const [step, setStep] = useState<Step>({ kind: "password" })
@@ -213,7 +218,25 @@ export function LoginPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="login-password">密码</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="login-password">密码</Label>
+              {forgotUnavailable ? (
+                <span
+                  aria-disabled="true"
+                  title="站点未配置发信，暂时无法通过邮件找回密码"
+                  className="cursor-not-allowed text-xs text-muted-foreground/60"
+                >
+                  忘记密码？
+                </span>
+              ) : (
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  忘记密码？
+                </Link>
+              )}
+            </div>
             <Input
               key="password-input"
               id="login-password"
@@ -233,6 +256,12 @@ export function LoginPage() {
           <Button type="submit" size="sm" className="w-full" disabled={busy}>
             {busy ? "登录中…" : "登录"}
           </Button>
+          {forgotUnavailable ? (
+            <p className="text-xs text-muted-foreground">
+              站点未配置发信，邮件找回密码暂不可用；请联系管理员在「系统管理 →
+              邮件配置」中填写 SMTP。
+            </p>
+          ) : null}
           <p className="text-center text-xs text-muted-foreground">
             还没有账号？
             <Link to="/register" className="underline underline-offset-4">

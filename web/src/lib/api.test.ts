@@ -245,3 +245,69 @@ describe("describeApiError：版本治理相关错误码", () => {
     ).toBe("保留数需为不小于 1 的整数，留空表示不限。")
   })
 })
+
+/**
+ * 邮箱找回密码（契约 #48/#51）的三个入口：错码、凭证失效、强度不足都是
+ * 用户看得懂的结论句，且都不能被统一 401 处理说成「登录状态已失效」。
+ * 断言的英文原文即 worker/src/routes/auth.ts 的冻结返回。
+ */
+describe("describeApiError：找回密码的三个入口", () => {
+  it("错码 / 过期 → 同一句验证码提示，不区分账号是否存在", () => {
+    const error = apiError(
+      400,
+      "Invalid or expired code",
+      "/auth/password/verify",
+      "INVALID_CODE"
+    )
+    expect(describeApiError(error)).toBe("验证码不正确或已过期，请重新获取。")
+    expect(describeApiError(error)).not.toBe(SESSION_EXPIRED)
+  })
+
+  it("同一个 INVALID_CODE 在邮箱 2FA 启用处仍是「请重新输入」，不被改写", () => {
+    const error = apiError(
+      400,
+      "Invalid code",
+      "/auth/2fa/email-otp/enable",
+      "INVALID_CODE"
+    )
+    expect(describeApiError(error)).toBe("验证码不正确，请重新输入。")
+  })
+
+  it("resetToken 失效 → 说清要重新获取验证码", () => {
+    const error = apiError(
+      400,
+      "Invalid or expired reset token",
+      "/auth/password/reset",
+      "INVALID_RESET_TOKEN"
+    )
+    expect(describeApiError(error)).toBe(
+      "这次重置已失效（验证码换来的凭证过期或已被使用），请重新获取验证码。"
+    )
+  })
+
+  it("密码强度不足 → 与注册 / 改密同一句「至少 8 位」", () => {
+    const error = apiError(
+      400,
+      "Password must be at least 8 characters",
+      "/auth/password/reset",
+      "WEAK_PASSWORD"
+    )
+    expect(describeApiError(error)).toBe("密码至少 8 位。")
+  })
+
+  it("邮箱格式错 → 提示检查邮箱", () => {
+    const error = apiError(
+      400,
+      "Invalid email format",
+      "/auth/password/forgot",
+      "INVALID_EMAIL"
+    )
+    expect(describeApiError(error)).toBe("邮箱格式不正确，请检查后重试。")
+  })
+
+  it("找回密码端点上没见过文案的 401 也不说会话过期", () => {
+    expect(
+      describeApiError(apiError(401, "Nope", "/auth/password/verify"))
+    ).toBe("验证未通过，请重试。")
+  })
+})

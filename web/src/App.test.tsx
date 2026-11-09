@@ -127,6 +127,16 @@ describe("路由守卫与初始化门", () => {
     expect(screen.getByText(/test-build/)).toBeInTheDocument()
   })
 
+  it("未登录可以从路由进忘记密码页", async () => {
+    vi.mocked(meApi.get).mockRejectedValue(new ApiError(401, "Unauthorized"))
+    renderApp("/forgot-password")
+
+    expect(
+      await screen.findByRole("heading", { name: "找回密码" })
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("邮箱")).toBeInTheDocument()
+  })
+
   it("数据库未初始化时一律进初始化页", async () => {
     vi.mocked(setupApi.state).mockResolvedValue({
       initialized: false,

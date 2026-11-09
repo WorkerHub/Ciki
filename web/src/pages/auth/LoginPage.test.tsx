@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
 import { LoginPage } from "@/pages/auth/LoginPage"
+import { useSiteStore } from "@/stores/site"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -356,5 +357,41 @@ describe("登录第二步的邮箱验证码", () => {
     expect(alert).toHaveTextContent(
       "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
     )
+  })
+})
+
+/**
+ * 找回密码入口（契约 #54）：登录页只放入口链接，三步流程在 /forgot-password。
+ * 站点没配发信时入口不可点，并在同一屏写明去哪里配置 —— 不摆点了才报错的链接。
+ */
+describe("忘记密码入口", () => {
+  it("站点配好发信时给出可点的「忘记密码？」链接", () => {
+    useSiteStore.setState({ loaded: true, emailConfigured: true })
+    renderLogin()
+
+    expect(screen.getByRole("link", { name: "忘记密码？" })).toHaveAttribute(
+      "href",
+      "/forgot-password"
+    )
+  })
+
+  it("站点没配发信时入口不可点，并写明去系统管理 → 邮件配置", () => {
+    useSiteStore.setState({ loaded: true, emailConfigured: false })
+    renderLogin()
+
+    expect(screen.queryByRole("link", { name: "忘记密码？" })).toBeNull()
+    expect(screen.getByText("忘记密码？")).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    )
+    expect(screen.getByText(/系统管理 → 邮件配置/)).toBeInTheDocument()
+  })
+
+  it("站点信息还没读到时先按可用渲染，不闪一下「不可用」", () => {
+    useSiteStore.setState({ loaded: false, emailConfigured: false })
+    renderLogin()
+
+    expect(screen.getByRole("link", { name: "忘记密码？" })).toBeInTheDocument()
+    expect(screen.queryByText(/系统管理 → 邮件配置/)).toBeNull()
   })
 })
