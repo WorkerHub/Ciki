@@ -154,3 +154,25 @@ describe("纯文本规范化的输入健壮性", () => {
     expect(elapsed).toBeLessThan(2000)
   })
 })
+
+describe("归一化的幂等性（无改动保存去重的前提）", () => {
+  // 回滚与导入会把已落库的 HTML/纯文本再走一遍服务端归一化：只有这两步幂等，
+  // 「回滚到与当前全等的版本」才不会被误判成有改动、多插一条 revision。
+  it("落库形态的 HTML 与纯文本再归一化一次与原文全等", () => {
+    const storedHtml = sanitizePageHtml(
+      '<p onclick="x()">正文</p>' +
+        '<img src="https://confluence.example/download/a.png" alt="附件" width="200">' +
+        '<table style="min-width: 200px"><colgroup><col width="30%"><col style="width: 120px"></colgroup>' +
+        '<tbody><tr><td colspan="2" data-cell-bg="#AABBCC">合并</td></tr></tbody></table>' +
+        '<pre><code class="language-sql">select 1</code></pre>' +
+        '<ul data-type="taskList"><li data-type="taskItem" data-checked="true">' +
+        '<label><input type="checkbox" checked="checked"></label><div><p>完成</p></div></li></ul>' +
+        '<p><span data-text-color="#FF0000">红</span><mark data-color="#00FF00">亮</mark></p>'
+    )
+    expect(sanitizePageHtml(storedHtml)).toBe(storedHtml)
+
+    const storedText = toPlainText(storedHtml)
+    expect(storedText.length).toBeGreaterThan(0)
+    expect(toPlainText(storedText)).toBe(storedText)
+  })
+})

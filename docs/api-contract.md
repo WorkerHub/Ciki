@@ -194,7 +194,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 ### page_revisions
 
-`id` TEXT PK、`page_id` TEXT NOT NULL、`title`、`content_json`、`content_html`、`content_text`、`editor_id` TEXT NOT NULL、`created_at` TEXT NOT NULL；索引 `(page_id, created_at DESC)`。每次新建/保存/回滚都追加一条。
+`id` TEXT PK、`page_id` TEXT NOT NULL、`title`、`content_json`、`content_html`、`content_text`、`editor_id` TEXT NOT NULL、`created_at` TEXT NOT NULL；索引 `(page_id, created_at DESC)`。每次新建/有实际改动的保存/回滚都追加一条；四列（`title` / `content_json` / `content_html` / `content_text`）归一化后与现存行全等的保存是无改动，不追加。
 
 ### pages_fts（FTS5 虚拟表）
 
@@ -202,7 +202,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, content_text)
 ```
 
-**同步方式**（不做触发器）：新建/保存/回滚时在同一个 `db.batch()` 事务里写 pages → 插 revision → `DELETE FROM pages_fts WHERE page_id=?` → 插入新索引行；软删/彻底删同批删除索引行；恢复同批重建。索引与查询都做 CJK 逐字空格化（`团队` → `团 队`）：CJK 词按短语 `"团 队"`、拉丁词按前缀 `"ciki"*`，多词 AND；排序 `bm25(fts, 0, 10, 1)`。
+**同步方式**（不做触发器）：新建/有实际改动的保存/回滚时在同一个 `db.batch()` 事务里写 pages → 插 revision → `DELETE FROM pages_fts WHERE page_id=?` → 插入新索引行；无改动的保存不写 pages、不插 revision，也不重建索引；软删/彻底删同批删除索引行；恢复同批重建。索引与查询都做 CJK 逐字空格化（`团队` → `团 队`）：CJK 词按短语 `"团 队"`、拉丁词按前缀 `"ciki"*`，多词 AND；排序 `bm25(fts, 0, 10, 1)`。
 
 ### r2_cleanup_runs
 
@@ -790,7 +790,7 @@ SpaceCandidate = { userId, username, publicId, email }
 { "title": "…", "contentJson": "…", "contentHtml": "…", "contentText": "…" }
 ```
 
-200 完整详情。空间 `editor` 及以上可编辑；`viewer` 403、非成员 404。每次保存生成一条 revision 并同步 FTS。
+200 完整详情。空间 `editor` 及以上可编辑；`viewer` 403、非成员 404。四列（`title` / `contentJson` 归一化后 / `contentHtml` 消毒后 / `contentText` 规范化后）与库里现存值全等 → 判定为无改动：不写页面行（`updatedAt`、`updatedBy` 不动）、不追加 revision、不重建 FTS，响应与正常保存同形（返回现存页面详情）；任一项不同即正常保存，追加一条 revision 并同步 FTS。
 
 #### POST /api/pages/:id/move
 
@@ -841,7 +841,7 @@ SpaceCandidate = { userId, username, publicId, email }
 
 #### POST /api/pages/:id/revisions/:revisionId/restore
 
-以该快照写回页面并生成新 revision，返回 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。
+以该快照写回页面并生成新 revision，返回 200 完整页面详情。快照内容与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。
 
 ### 搜索
 
@@ -993,7 +993,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - `space_id`：目标空间。缺省/空串落默认空间；用户对该空间无 `editor` 及以上角色 → 403 `code:"SPACE_FORBIDDEN"`。
 - `parentId`：目标父页 id，必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。缺省、`null` 与空串（含纯空白）都表示根页——根页在库里是 `parent_id IS NULL`，服务端不会写入空串，避免造出游离页；其它类型 400。
 - `contentJson`：TipTap JSON，**字符串或对象均可**（对象由服务端序列化后入库）；只存 JSON，`contentHtml` / `contentText` 一律服务端生成。
-- `conflict` 必填：`"update"` = 同空间同父级同名未删页则覆盖内容并追加一条 revision（与编辑器保存同一条写路径：页面 + revision + FTS 同一 `db.batch()` 事务），不存在则新建；`"create_copy"` = 总是新建，不改写标题。
+- `conflict` 必填：`"update"` = 同空间同父级同名未删页则覆盖内容并追加一条 revision（与编辑器保存同一条写路径：页面 + revision + FTS 同一 `db.batch()` 事务）；内容与现存行四列全等时是同一路径上的空操作——不写行、不新增 revision，响应仍为 200 `{pageId,url}`。不存在则新建；`"create_copy"` = 总是新建，不改写标题。
 - 新建 201、更新 200，响应一致：
 
 ```json
