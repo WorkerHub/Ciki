@@ -25,6 +25,7 @@ const settings: SiteSettings = {
   registrationEnabled: true,
   registrationApprovalRequired: true,
   require2fa: false,
+  emailConfigured: true,
   revisionRetentionLimit: null
 }
 
@@ -67,6 +68,18 @@ describe("系统管理 · 站点名称", () => {
     expect(
       screen.queryByRole("switch", { name: "注册需要管理员批准" })
     ).toBeNull()
+  })
+
+  it("未配置 SMTP 时在设置处指出「邮件配置」的去向", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue({
+      ...settings,
+      emailConfigured: false
+    })
+    render(<SettingsTab />)
+
+    expect(await screen.findByLabelText("站点名称")).toBeInTheDocument()
+    expect(screen.getByText(/请到「邮件配置」填写 SMTP/)).toBeInTheDocument()
+    expect(screen.queryByText(/不提供 SMTP 配置/)).toBeNull()
   })
 
   it("保存失败时回滚输入并显示错误", async () => {

@@ -84,6 +84,7 @@ describe("路由守卫与初始化门", () => {
       registrationEnabled: true,
       registrationApprovalRequired: true,
       require2fa: false,
+      emailConfigured: false,
       revisionRetentionLimit: null
     })
     vi.mocked(meApi.sessions).mockResolvedValue([])
@@ -145,7 +146,8 @@ describe("路由守卫与初始化门", () => {
     vi.mocked(authApi.config).mockResolvedValue({
       registrationEnabled: true,
       registrationApprovalRequired: true,
-      siteName: "Ciki"
+      siteName: "Ciki",
+      emailConfigured: false
     })
 
     renderApp("/setup")

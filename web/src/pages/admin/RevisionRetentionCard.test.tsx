@@ -26,6 +26,7 @@ const settings: SiteSettings = {
   registrationEnabled: true,
   registrationApprovalRequired: true,
   require2fa: false,
+  emailConfigured: true,
   revisionRetentionLimit: null
 }
 
