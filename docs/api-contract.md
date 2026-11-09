@@ -13,7 +13,7 @@
   - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
 - **空间可见性**：站点管理员可见全部空间；普通用户仅可见自己是成员的空间（`admin` / `editor` / `viewer`）。可见性过滤覆盖空间列表、页面树、页面直链、回收站与搜索；非成员访问空间/页面一律 404，不泄露存在性。页面写权限以空间角色为准：`editor` 及以上可写，`viewer` 只读。
-- **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、429 限流/锁定、500 服务端错误（不回显堆栈）。
+- **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、422 无法处理的存量内容（如版本 JSON 渲染不了）、429 限流/锁定、500 服务端错误（不回显堆栈）。
 - **时间**：所有时间字段均为 ISO 8601 字符串（`2026-11-07T12:00:00.000Z`），会话过期等内部字段用 Unix 秒但不出现在 DTO 中。
 - **分页**：页面树与用户列表不分页；搜索用 `limit`（默认 20，上限 50）。
 - **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；三件套合计 ≤ 1,900,000 字节（D1 单行上限 2 MB）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
@@ -22,11 +22,15 @@
 
 ## 二、数据模型
 
-迁移一条 `schema_v1`，语句全部 `CREATE … IF NOT EXISTS`，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
+迁移清单见下，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
 - `schema_v1`：全新库的全部表——鉴权（`users` 含 `username` / `public_id` / `avatar_key` 三列、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id`、`page_revisions`、`pages_fts`）、导入令牌（`import_tokens`）、空间（`spaces` / `space_members`）、清理日志与回调账本（`r2_cleanup_runs` / `waker_executions`），以及全部索引（含 `users_public_id`、`spaces_is_default` 两个部分唯一索引）。同一迁移末尾播种默认空间（id `space-default`、名称「默认空间」、`is_default=1`、`created_by` 取最早一名站点管理员或空串），并把 `space_id` 仍为空/缺失的页面回填到默认空间、把已有用户加入默认空间（站点管理员 `admin`、其余 `editor`）。播种都是 `INSERT OR IGNORE` / 只写空值的语句，重复执行无副作用；没有 `prepare` 步骤。
 
+- `schema_v2`：`page_revisions` 增加 `content_gzip BLOB`，并把存量版本行逐行压成新格式（详见下文「page_revisions」）。写成 prepare-only 迁移（`sql` 为空，全部动作在幂等 `prepare` 里）：①`PRAGMA table_info` 探不到该列才 `ALTER TABLE … ADD COLUMN`；②按 `id` keyset 分批（25 行/批）转换存量——`gzip(content_json)` → **解压回读逐字节比对** → 一致才 `UPDATE … SET content_gzip=?, content_json='', content_html='', content_text='' WHERE id=? AND content_gzip IS NULL`。因此可重复执行（已转换行被 `content_gzip IS NULL` 排除、写回也再拦一道）、可中断续跑（中途失败该迁移不记账，下次 setup 从剩下的行继续），且只在回读校验通过后才清空被完整替代的冗余列。
+
 Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那样的逐版本升级路径：今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，不改动已有迁移。只跑过旧版部分迁移、或 `pages` 缺 `space_id` 的库不在支持范围——`CREATE TABLE IF NOT EXISTS` 不会补列，迁移会失败并报 `Migration "schema_v1" failed`，处置方式是重建库。
+
+部署到点升级之间（新代码已在跑、`schema_v2` 还没执行）站内仍可用：写路径用 `PRAGMA table_info` 探列，列不存在就按旧形态写版本行，升级时由 `schema_v2` 一并转换。
 
 回滚方式：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态（等同整库重建）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
 
@@ -194,7 +198,19 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 ### page_revisions
 
-`id` TEXT PK、`page_id` TEXT NOT NULL、`title`、`content_json`、`content_html`、`content_text`、`editor_id` TEXT NOT NULL、`created_at` TEXT NOT NULL；索引 `(page_id, created_at DESC)`。每次新建/有实际改动的保存/回滚都追加一条；四列（`title` / `content_json` / `content_html` / `content_text`）归一化后与现存行全等的保存是无改动，不追加。
+`id` TEXT PK、`page_id` TEXT NOT NULL、`title`、`content_json`、`content_html`、`content_text`、`content_gzip` BLOB NULL（`schema_v2` 起）、`editor_id` TEXT NOT NULL、`created_at` TEXT NOT NULL；索引 `(page_id, created_at DESC)`。每次新建/有实际改动的保存/回滚都追加一条；四列（`title` / `content_json` / `content_html` / `content_text`）归一化后与现存行全等的保存是无改动，不追加。
+
+**正文只存一份 gzip 的 `content_json`（`content_gzip`），不存 base64。** 两种行形态共存：
+
+| 形态                | `content_gzip`    | `content_json` / `content_html` / `content_text` | 读法                                 |
+| ------------------- | ----------------- | ------------------------------------------------ | ------------------------------------ |
+| 新（迁移后）        | gzip 字节（BLOB） | 空串（列仍 NOT NULL）                            | 解压出 JSON → 服务端生成 HTML/纯文本 |
+| 旧（升级前/未转换） | NULL              | 三列正文                                         | 原样读三列（与改前逐字一致）         |
+
+- HTML 与纯文本由 `worker/src/lib/tiptap-html.ts` 一链按需生成（`renderTiptapHtml` → `sanitizePageHtml` → `toPlainText`），与导入接口同一条路径；`pages` 表当前内容的存储不变（仍存三列）。
+- 版本的 JSON 无法按当前编辑器 schema 渲染时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面。
+- 「新 → 旧」的唯一排序口径是 `created_at DESC, rowid DESC`（列表、修剪、最新一条判定共用）。
+- 保留数（每页保留多少条）的读写与两处修剪见「GET /api/admin/settings」「PUT /api/admin/settings」「GET /api/admin/revisions/retention」「POST /api/admin/revisions/prune」，以及下方页面版本接口：写入时按设置在同事务里删除该页超出上限的最旧版本。
 
 ### pages_fts（FTS5 虚拟表）
 
@@ -308,7 +324,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 }
 ```
 
-字段口径：`scanned` = R2 对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数（`users.avatar_key` ∪ 全部页面与历史版本正文里的 `/api/files/<key>`，回收站页面同样计入）；`deleted` = 本轮删除数（`dryRun` 时为「将删数」）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除。
+字段口径：`scanned` = R2 对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数（`users.avatar_key` ∪ 全部页面与历史版本正文里的 `/api/files/<key>`，回收站页面同样计入；历史版本只有 gzip 的 JSON，扫描前先解压，尚未转换的旧行按原三列扫，口径与结果不因存储形态改变）；`deleted` = 本轮删除数（`dryRun` 时为「将删数」）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除。
 
 #### GET /api/admin/r2-cleanup（管理员会话）
 
@@ -614,13 +630,32 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "setupPageEnabled": false,
   "registrationEnabled": true,
   "registrationApprovalRequired": true,
-  "require2fa": false
+  "require2fa": false,
+  "revisionRetentionLimit": 3
 }
 ```
+
+`revisionRetentionLimit`：每页保留的历史版本数，`number | null`，**`null` = 不限**（缺行与空串同义，这是唯一内部口径；下限 1）。
 
 #### PUT /api/admin/settings
 
 同一对象的任意子集：布尔项照旧，`siteName` 为字符串（trim 后 1–32 字符、不含控制字符，否则 400 `siteName must be 1-32 characters`）。200 `{"success":true}`。
+
+`revisionRetentionLimit`：整数 ≥1 直接保存；`null` / `0` / 空串按「不限」落库（读出来一律是 `null`）；负数、非整数、非数字 → 400 `{"error":"revisionRetentionLimit must be a positive integer or null"}`。改设置不触碰任何存量版本，修剪只发生在「后续保存」与「手动全站修剪」两处。
+
+#### GET /api/admin/revisions/retention（管理员会话）
+
+全站修剪的只读预告，供二次确认文案使用：
+
+```json
+{ "limit": 3, "totalRevisions": 128, "prunableRevisions": 42 }
+```
+
+`prunableRevisions` 是「按当前设置点一次修剪会删掉的条数」，与执行时实际删除数同口径（每页 `COUNT(*) - limit` 之和，只算超出的页）；不限时为 `0`。
+
+#### POST /api/admin/revisions/prune（管理员会话）
+
+按当前设置修剪全部页面（含回收站页面的版本行），200 `{"limit":3,"deleted":42}`，`deleted` 即实际删除数（单条 set-based DELETE，原子）。只删 `page_revisions` 行：`pages` 当前内容、FTS、R2 对象都不动。不限时 409 `{"error":"Revision retention is unlimited","code":"RETENTION_UNLIMITED"}`，一条也不删。重复调用幂等（没有超出上限的版本时 `deleted: 0`）。
 
 ### 空间与成员
 
@@ -839,9 +874,21 @@ SpaceCandidate = { userId, username, publicId, email }
 }
 ```
 
+形状与改前一致：`contentJson` 是解压出来的原文，`contentHtml` / `contentText` 由服务端按需生成（详见「page_revisions」）。`viewer` 可读；非成员 404。该版本的 JSON 无法按当前编辑器 schema 渲染时 422 `code:"REVISION_UNRENDERABLE"`。
+
+#### DELETE /api/pages/:id/revisions/:revisionId
+
+删一条历史版本，200 `{"success":true}`。权限与回滚同档（所属空间 `editor` 及以上）：非成员 404、`viewer` 403、页面在回收站 404、版本不存在/不属于该页 404 `{"error":"Revision not found"}`。
+
+每页最新一条是当前内容的快照，**不许删**：409 `{"error":"Cannot delete the latest revision","code":"REVISION_IS_LATEST"}`。删中间版本不影响其余版本的查看与回滚；只删版本行本身——页面当前内容、FTS、R2 文件都不动（孤儿图归月度清理判定）。
+
+#### POST /api/pages/:id/revisions/prune
+
+按页批量删版本：只留最新一条，其余全删，200 `{"deleted":3}`。权限与 404 口径同上。重复调用幂等（已是 1 条时 `deleted: 0`）。
+
 #### POST /api/pages/:id/revisions/:revisionId/restore
 
-以该快照写回页面并生成新 revision，返回 200 完整页面详情。快照内容与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。
+以该快照写回页面并生成新 revision，返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`，页面内容保持原样。
 
 ### 搜索
 

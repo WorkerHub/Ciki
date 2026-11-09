@@ -38,10 +38,17 @@ export interface BodyRow {
   id: string
   content_json: string
   content_html: string
+  /** 历史版本的新形态：gzip 的 `content_json`（页面行没有这一列）。 */
+  content_gzip?: ArrayBuffer | ArrayBufferView | null
 }
 
 /** 每批正文行数：单行正文上限 2MB，5 行一批远低于 isolate 的内存上限。 */
 export const BODY_BATCH_SIZE = 5
+/**
+ * 历史版本每批行数：gzip 化以后单行只有正文的 0.2–0.3 倍，可以多读几行；
+ * 10 行即使碰上尚未转换的 2MB 旧行（20MB）也仍在 isolate 内存范围内。
+ */
+export const REVISION_BATCH_SIZE = 10
 
 /** 正文里含 `/api/files/` 的过滤条件（`instr` 不做 LIKE 通配符转义）。 */
 const HAS_FILE_REF = `(instr(content_json, '/api/files/') > 0
@@ -82,21 +89,38 @@ export async function listPageBodiesBatch(
   return rows.results
 }
 
-/** 所有历史版本正文（`page_revisions`），分页口径同上。 */
+/**
+ * 所有历史版本正文（`page_revisions`），分页口径同上。
+ *
+ * 版本行有两种形态，过滤条件跟着走：
+ * - 已 gzip 化（`content_gzip` 列存在）：压缩字节没法用 SQL 字符串函数预筛，只能把
+ *   版本行全取出来、解压后再扫（见 core/r2-cleanup.ts）；同时保留旧形态的 `instr`
+ *   预筛，升级前写入、尚未转换的行照样扫得到。
+ * - 升级前的库（列不存在）：语意与改前完全一致，先用 `instr` 预筛。
+ *
+ * 列不一定存在，所以 SQL 只能按情况拼：引用不存在的列会让整轮扫描报错。
+ */
 export async function listRevisionBodiesBatch(
   db: D1Database,
   prefix: string,
-  afterId: string
+  afterId: string,
+  gzipReady: boolean
 ): Promise<BodyRow[]> {
+  const select = gzipReady
+    ? "id, content_json, content_html, content_gzip"
+    : "id, content_json, content_html"
+  const filter = gzipReady
+    ? `content_gzip IS NOT NULL OR ${HAS_FILE_REF}`
+    : `${HAS_FILE_REF}`
   const rows = await db
     .prepare(
-      `SELECT id, content_json, content_html
+      `SELECT ${select}
          FROM ${revisionsTable(prefix)}
-        WHERE id > ? AND ${HAS_FILE_REF}
+        WHERE id > ? AND (${filter})
         ORDER BY id
         LIMIT ?`
     )
-    .bind(afterId, BODY_BATCH_SIZE)
+    .bind(afterId, REVISION_BATCH_SIZE)
     .all<BodyRow>()
   return rows.results
 }

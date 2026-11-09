@@ -38,6 +38,13 @@ import {
 import { runSetup } from "../lib/setup"
 import { cleanupRunDto, runR2Cleanup } from "../core/r2-cleanup"
 import { lastCleanupRun } from "../db/queries/r2-cleanup"
+import {
+  normalizeRetentionInput,
+  pruneAllPages,
+  readRetentionLimit,
+  revisionRetentionPreview,
+  writeRetentionLimit
+} from "../core/revision-retention"
 import { adminMiddleware } from "../middleware/admin"
 import { readJsonBody } from "../lib/http"
 import type { HonoEnv } from "../types"
@@ -293,7 +300,9 @@ adminRoutes.get("/settings", async (c) => {
       "registration_approval_required",
       true
     ),
-    require2fa: await getBooleanSetting(c.env.DB, prefix, "require_2fa", false)
+    require2fa: await getBooleanSetting(c.env.DB, prefix, "require_2fa", false),
+    // null = 不限（缺行与空串同义，见 core/revision-retention.ts）
+    revisionRetentionLimit: await readRetentionLimit(c.env.DB, prefix)
   })
 })
 
@@ -330,7 +339,50 @@ adminRoutes.put("/settings", async (c) => {
           : "false"
     await setSetting(c.env.DB, prefix, key, value)
   }
+  if (body.revisionRetentionLimit !== undefined) {
+    const parsed = normalizeRetentionInput(body.revisionRetentionLimit)
+    if (!parsed.ok) {
+      return c.json(
+        {
+          error: "revisionRetentionLimit must be a positive integer or null"
+        },
+        400
+      )
+    }
+    await writeRetentionLimit(c.env.DB, prefix, parsed.limit)
+  }
   return c.json({ success: true })
+})
+
+/**
+ * 全站修剪的预告（只读）：当前设置 + 版本总数 + 将被删条数。
+ * 修剪按钮的二次确认文案就靠 `prunableRevisions`，它与真正执行时删掉的条数同口径。
+ */
+adminRoutes.get("/revisions/retention", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  return c.json(await revisionRetentionPreview(c.env.DB, prefix))
+})
+
+/**
+ * 按当前设置修剪全部页面：设置处那个「修剪」按钮。
+ *
+ * 不点则存量完全不动，只靠后续保存懒修剪（规格「存量立即修剪入口」）。删的只有版本行：
+ * `pages` 当前内容、FTS、R2 对象都不动。不限时不删任何东西，直接 409 让前端显形。
+ */
+adminRoutes.post("/revisions/prune", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const limit = await readRetentionLimit(c.env.DB, prefix)
+  if (limit === null) {
+    return c.json(
+      {
+        error: "Revision retention is unlimited",
+        code: "RETENTION_UNLIMITED"
+      },
+      409
+    )
+  }
+  const deleted = await pruneAllPages(c.env, limit)
+  return c.json({ limit, deleted })
 })
 
 adminRoutes.post("/setup", async (c) => {

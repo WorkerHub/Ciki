@@ -9,6 +9,14 @@
  * 无改动的保存在这里收口：归一化后的内容与库里现存行四列全等时判定为无改动，
  * 不写页面行、不追加 revision、不重建 FTS，原样返回现存行（`updated_at` /
  * `updated_by` 都不动），调用方拿到的响应形状与正常保存一致。
+ *
+ * 版本正文的落库形态在这里定：`page_revisions.content_gzip` 就绪（迁移 `schema_v2`
+ * 已跑）时只写一份 gzip 的 JSON，HTML/纯文本不入版本表；列还不存在时（部署后、管理员
+ * 点「检查并升级数据库」之前）按旧三列写——保存不会因为缺列而失败，升级时迁移会把
+ * 这些行一并转换。
+ *
+ * 保留数修剪（规格「保留数设置」）在 `savePageContent` 里落地：新增版本之后，把该页
+ * 超出上限的最旧版本删掉，与其他写入语句在同一个 `db.batch()` 事务里。
  */
 import {
   insertPage,
@@ -16,9 +24,16 @@ import {
   updatePageContent,
   type PageRow
 } from "../db/queries/pages"
-import { insertRevision, type RevisionRow } from "../db/queries/revisions"
+import {
+  hasGzipColumn,
+  insertRevision,
+  trimPageRevisionStatement,
+  type RevisionRow
+} from "../db/queries/revisions"
 import { indexPageStatements } from "../lib/fts"
+import { gzipText } from "../lib/gzip"
 import type { PageContent } from "../lib/page-input"
+import { readRetentionLimit } from "./revision-retention"
 
 function newRevision(
   pageId: string,
@@ -36,6 +51,23 @@ function newRevision(
     editor_id: editorId,
     created_at: createdAt
   }
+}
+
+/**
+ * 一条版本行的 INSERT 语句，形态取决于库是否已有 `content_gzip` 列。
+ *
+ * 每次写都探一次列（一次 `PRAGMA table_info`）：不缓存，因为「点了升级」这件事发生在
+ * 任意一个请求之外，缓存成 false 的 isolate 会继续写旧形态的行。
+ */
+async function revisionStatement(
+  db: D1Database,
+  prefix: string,
+  row: RevisionRow
+): Promise<D1PreparedStatement> {
+  const gzip = (await hasGzipColumn(db, prefix))
+    ? await gzipText(row.content_json)
+    : null
+  return insertRevision(db, prefix, row, gzip)
 }
 
 export interface PageWriteOptions {
@@ -83,9 +115,14 @@ export async function createPage(
     deleted_at: null
   }
 
+  // 新建页只有这一条版本（保留数下限是 1），不需要修剪。
   await db.batch([
     insertPage(db, prefix, row),
-    insertRevision(db, prefix, newRevision(row.id, content, userId, now)),
+    await revisionStatement(
+      db,
+      prefix,
+      newRevision(row.id, content, userId, now)
+    ),
     ...indexPageStatements(db, prefix, {
       id: row.id,
       title: row.title,
@@ -111,7 +148,7 @@ export async function savePageContent(
   const { content, userId, now } = options
   if (contentUnchanged(existing, content)) return existing
 
-  await db.batch([
+  const statements = [
     updatePageContent(db, prefix, {
       id: existing.id,
       title: content.title,
@@ -121,13 +158,25 @@ export async function savePageContent(
       updated_by: userId,
       updated_at: now
     }),
-    insertRevision(db, prefix, newRevision(existing.id, content, userId, now)),
+    await revisionStatement(
+      db,
+      prefix,
+      newRevision(existing.id, content, userId, now)
+    ),
     ...indexPageStatements(db, prefix, {
       id: existing.id,
       title: content.title,
       contentText: content.contentText
     })
-  ])
+  ]
+
+  // 修剪与插入同一个事务：要么「新版本进、超出的最旧版本出」一起生效，要么都不生效。
+  const limit = await readRetentionLimit(db, prefix)
+  if (limit !== null) {
+    statements.push(trimPageRevisionStatement(db, prefix, existing.id, limit))
+  }
+
+  await db.batch(statements)
 
   return {
     ...existing,
