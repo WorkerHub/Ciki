@@ -168,7 +168,7 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     ])
   })
 
-  it("导入新建：服务端用 @tiptap/html 渲染后过同一支消毒管线，contentText 由 HTML 生成", async () => {
+  it("导入新建：服务端按编辑器 schema 渲染后过同一支消毒管线，contentText 由 HTML 生成", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const token = await issueToken(env, admin)

@@ -380,15 +380,15 @@ importers:
       '@tiptap/extension-underline':
         specifier: ^3.0.0
         version: 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))
-      '@tiptap/html':
-        specifier: ^3.0.0
-        version: 3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)(happy-dom@21.0.4)
       '@tiptap/pm':
         specifier: ^3.0.0
         version: 3.33.0
       '@tiptap/starter-kit':
         specifier: ^3.0.0
         version: 3.33.0
+      happy-dom:
+        specifier: ^21.0.4
+        version: 21.0.4
       hono:
         specifier: ^4.13.16
         version: 4.13.16
@@ -2399,13 +2399,6 @@ packages:
     peerDependencies:
       '@tiptap/core': 3.33.0
       '@tiptap/pm': 3.33.0
-
-  '@tiptap/html@3.33.0':
-    resolution: {integrity: sha512-+L+On/ZUseyYT143OOHeMS9w6PyvzK5K0kDN0vYKTFMHB36inLgJGhOzNKvpSDP3wyafSdZSIF04BV09E3g86Q==}
-    peerDependencies:
-      '@tiptap/core': 3.33.0
-      '@tiptap/pm': 3.33.0
-      happy-dom: ^20.8.9 || ^21.0.4
 
   '@tiptap/pm@3.33.0':
     resolution: {integrity: sha512-NKTaRMMoh6wXXL527o/dVC05olV8WCI19fRGVmV2okYjIBriGe0+sW/+neNSUVeQj3YtwKLnkPm7i++XygOwCw==}
@@ -6352,12 +6345,6 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.33.0(@tiptap/pm@3.33.0)
       '@tiptap/pm': 3.33.0
-
-  '@tiptap/html@3.33.0(@tiptap/core@3.33.0(@tiptap/pm@3.33.0))(@tiptap/pm@3.33.0)(happy-dom@21.0.4)':
-    dependencies:
-      '@tiptap/core': 3.33.0(@tiptap/pm@3.33.0)
-      '@tiptap/pm': 3.33.0
-      happy-dom: 21.0.4
 
   '@tiptap/pm@3.33.0':
     dependencies:
