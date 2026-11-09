@@ -1,11 +1,21 @@
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
 import { ApiError, type PageDetail } from "@/lib/api"
+import { rememberScrollAnchor } from "@/lib/scroll-anchor"
 import { PageEdit } from "@/pages/PageEdit"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
+import { installScrollLayout, ScrollHost } from "@/test/scroll-layout"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -212,5 +222,92 @@ describe("编辑页的保存保护", () => {
     expect(
       (await screen.findAllByText(/超过了单次保存上限/)).length
     ).toBeGreaterThan(0)
+  })
+})
+
+describe("编辑页按记忆锚点定位", () => {
+  const longPage = (): PageDetail => {
+    const blocks = ["甲", "乙", "丙", "丁"]
+    return {
+      ...page,
+      contentJson: JSON.stringify({
+        type: "doc",
+        content: blocks.map((text) => ({
+          type: "paragraph",
+          content: [{ type: "text", text }]
+        }))
+      }),
+      contentHtml: blocks.map((text) => `<p>${text}</p>`).join(""),
+      contentText: blocks.join("\n")
+    }
+  }
+
+  const routes = [
+    {
+      path: "/p/:pageId/edit",
+      element: (
+        <ScrollHost>
+          <PageEdit />
+        </ScrollHost>
+      )
+    },
+    { path: "/p/:pageId", element: <p>阅读页占位</p> },
+    { path: "/", element: <p>首页占位</p> }
+  ]
+
+  const renderEditInScroller = () =>
+    render(
+      <RouterProvider
+        router={createMemoryRouter(routes, { initialEntries: ["/p/a/edit"] })}
+      />
+    )
+
+  let layout: { restore: () => void } | null = null
+
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  beforeEach(() => {
+    usePagesStore.setState({
+      tree: [],
+      spaceId: "space-default",
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space],
+      status: "ready",
+      error: null,
+      currentId: "space-default"
+    })
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.update).mockReset()
+    layout = installScrollLayout()
+  })
+
+  afterEach(() => {
+    layout?.restore()
+    layout = null
+  })
+
+  it("从阅读页进来时把同一块送回判定线下方", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(longPage())
+    rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
+    renderEditInScroller()
+
+    await screen.findByLabelText("页面标题")
+    const scroller = screen.getByTestId("scroller")
+    // 第 3 块顶 200 + 0.5 × 100 = 250，判定线 24（jsdom 里吸顶条高 0）→ 226
+    await waitFor(() => expect(scroller.scrollTop).toBeCloseTo(226))
+  })
+
+  it("没有记忆锚点时停在顶部，不自行滚动", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(longPage())
+    renderEditInScroller()
+
+    await screen.findByLabelText("页面标题")
+    expect(screen.getByTestId("scroller").scrollTop).toBe(0)
   })
 })

@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -31,7 +32,6 @@ import {
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import {
   Tooltip,
@@ -40,6 +40,7 @@ import {
   TooltipTrigger
 } from "@/components/ui/tooltip"
 import { ReadView } from "@/editor/ReadView"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
 import {
   ApiError,
   describeApiError,
@@ -47,12 +48,17 @@ import {
   pagesApi
 } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
+import {
+  captureScrollAnchor,
+  rememberScrollAnchor,
+  restoreScrollAnchor,
+  takeScrollAnchor
+} from "@/lib/scroll-anchor"
 import { canEdit, editableSpaces } from "@/lib/space"
 import { extractToc } from "@/lib/toc"
 import { findPath } from "@/lib/tree"
 import { cn } from "@/lib/utils"
 import { RevisionsDialog } from "@/pages/RevisionsDialog"
-import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
@@ -125,6 +131,22 @@ export function PageView() {
     hashRestored.current = page.id
     target.scrollIntoView()
   }, [contentRoot, page, location.hash])
+
+  // 从编辑页回到阅读时，按「进入编辑前」记下的锚点复位（每次载入只做一次）。
+  // URL 带 hash 说明是明确的跳转意图：让位给上面的 hash 恢复并丢弃记忆锚点，
+  // 否则两边各滚一次，最终落到哪儿取决于谁后跑。
+  const anchorRestored = useRef<string | null>(null)
+  useEffect(() => {
+    if (!contentRoot || !page) return
+    // 切页瞬间 page 可能还是上一页的，别把旧页的锚点恢复进旧 DOM
+    if (page.id !== pageId) return
+    if (anchorRestored.current === page.id) return
+    anchorRestored.current = page.id
+    const anchor = takeScrollAnchor(page.id)
+    if (!anchor || location.hash) return
+    // 恢复不了（正文换版、块序号越界）就停在顶部：函数内部只返回 false，不抛错
+    restoreScrollAnchor(contentRoot, anchor)
+  }, [contentRoot, page, pageId, location.hash])
 
   useEffect(() => {
     if (!pageId) return
@@ -330,7 +352,16 @@ export function PageView() {
             {canWrite ? (
               <>
                 <Button asChild size="sm">
-                  <Link to={`/p/${page.id}/edit`}>
+                  <Link
+                    to={`/p/${page.id}/edit`}
+                    onClick={() =>
+                      // 每次点都重新捕获：第二轮进出编辑也从当次位置算起
+                      rememberScrollAnchor(
+                        page.id,
+                        contentRoot ? captureScrollAnchor(contentRoot) : null
+                      )
+                    }
+                  >
                     <Pencil aria-hidden="true" />
                     编辑
                   </Link>

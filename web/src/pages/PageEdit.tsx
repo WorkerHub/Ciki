@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import {
   editorPayload,
+  parseContentJson,
   useWikiEditor,
   WikiEditorSurface
 } from "@/editor/Editor"
@@ -27,6 +28,7 @@ import {
   pagesApi
 } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
+import { readScrollAnchor, restoreScrollAnchor } from "@/lib/scroll-anchor"
 import { canEdit } from "@/lib/space"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
@@ -107,6 +109,27 @@ export function PageEdit() {
     syncedPage.current = page.id
     if (page.spaceId !== currentSpaceId) selectSpace(page.spaceId)
   }, [page, spaces, spacesStatus, currentSpaceId, selectSpace])
+
+  // 从阅读页进来时按记下的锚点落回原处（每次载入只做一次）。
+  // 正文到位前 useEditor 会重建一次实例：DOM 没挂进文档、或顶层块数还与 contentJson
+  // 对不上时先不动手，等下一次渲染拿到的就是最终实例，否则会按空文档算错位置。
+  const anchorRestored = useRef<string | null>(null)
+  useEffect(() => {
+    if (!ready || !editor || !page) return
+    if (anchorRestored.current === page.id) return
+    if (editor.isDestroyed || !editor.view.dom.isConnected) return
+    const expected = parseContentJson(page.contentJson)?.content?.length ?? 0
+    if (editor.state.doc.childCount !== expected) return
+    anchorRestored.current = page.id
+    const anchor = readScrollAnchor(page.id)
+    if (!anchor) return
+    // 吸顶工具条会盖住判定线以上的部分：落点要压到条下面（手机上工具条三行更高，
+    // 所以量实测高度，不写常量）
+    const stickyBar = document.querySelector<HTMLElement>(
+      "[data-editor-sticky-bar]"
+    )
+    restoreScrollAnchor(editor.view.dom, anchor, stickyBar?.offsetHeight ?? 0)
+  }, [ready, editor, page])
 
   const save = useCallback(async (): Promise<boolean> => {
     if (
