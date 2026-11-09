@@ -1,13 +1,23 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
 import { ApiError, type Me, type PageDetail, type Space } from "@/lib/api"
+import { readScrollAnchor, rememberScrollAnchor } from "@/lib/scroll-anchor"
 import { PageView } from "@/pages/PageView"
-import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
+import { installScrollLayout, ScrollHost } from "@/test/scroll-layout"
+import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -77,6 +87,43 @@ function renderView(initialEntry = "/p/a") {
     { initialEntries: [initialEntry] }
   )
   return render(<RouterProvider router={router} />)
+}
+
+/** 把阅读页放进主区那种滚动容器里：位置保持要靠它找滚动父级。 */
+function renderViewInScroller(initialEntry = "/p/a") {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/p/:pageId",
+        element: (
+          <ScrollHost>
+            <PageView />
+          </ScrollHost>
+        )
+      },
+      { path: "/p/:pageId/edit", element: <div>编辑页占位</div> },
+      { path: "/", element: <div>首页占位</div> }
+    ],
+    { initialEntries: [initialEntry] }
+  )
+  return render(<RouterProvider router={router} />)
+}
+
+/** 四个整块的正文：块高 100，判定线 24，滚到 250 时落在第 3 块（序号 2）上。 */
+function longPage(): PageDetail {
+  const blocks = ["甲", "乙", "丙", "丁"]
+  return {
+    ...page,
+    contentJson: JSON.stringify({
+      type: "doc",
+      content: blocks.map((text) => ({
+        type: "paragraph",
+        content: [{ type: "text", text }]
+      }))
+    }),
+    contentHtml: blocks.map((text) => `<p>${text}</p>`).join(""),
+    contentText: blocks.join("\n")
+  }
 }
 
 /** 索引轨只在 xl（1280px）以上渲染：这里按需翻转断点匹配。 */
@@ -322,6 +369,69 @@ describe("阅读页按空间角色收口写入口", () => {
       ).toBe(true)
     )
     spy.mockRestore()
+  })
+
+  describe("阅读⇄编辑的位置保持", () => {
+    let layout: { restore: () => void } | null = null
+
+    afterEach(() => {
+      layout?.restore()
+      layout = null
+    })
+
+    /** 按「块高 100、视口 600」装布局桩：块顶 = 序号×100 − 容器 scrollTop。 */
+    function renderWithLayout(initialEntry = "/p/a") {
+      layout = installScrollLayout()
+      return renderViewInScroller(initialEntry)
+    }
+
+    it("点「编辑」时记下判定线上最近的块", async () => {
+      vi.mocked(pagesApi.get).mockResolvedValue(longPage())
+      renderWithLayout()
+      await screen.findByText("甲")
+      const scroller = screen.getByTestId("scroller")
+      scroller.scrollTop = 250
+
+      await userEvent.click(screen.getByRole("link", { name: "编辑" }))
+
+      // 块顶：-250 / -150 / -50 / 50；判定线 24 落在第 3 块内（(24+50)/100）
+      const anchor = readScrollAnchor("a")
+      expect(anchor?.blockIndex).toBe(2)
+      expect(anchor?.ratio).toBeCloseTo(0.74)
+    })
+
+    it("短文（没滚动）点「编辑」不记位置", async () => {
+      vi.mocked(pagesApi.get).mockResolvedValue(longPage())
+      renderWithLayout()
+      await screen.findByText("甲")
+
+      await userEvent.click(screen.getByRole("link", { name: "编辑" }))
+
+      expect(readScrollAnchor("a")).toBeNull()
+    })
+
+    it("从编辑页返回时把同一块送回判定线", async () => {
+      vi.mocked(pagesApi.get).mockResolvedValue(longPage())
+      rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
+      renderWithLayout()
+      await screen.findByText("甲")
+
+      const scroller = screen.getByTestId("scroller")
+      // 第 3 块顶 200 + 0.5 × 100 = 250，判定线 24 → 滚到 226，而不是回到顶部
+      await waitFor(() => expect(scroller.scrollTop).toBeCloseTo(226))
+      // 用完即删：之后的普通访问不会再跳到这个位置
+      expect(readScrollAnchor("a")).toBeNull()
+    })
+
+    it("URL 带 hash 时让位给 hash 恢复，记忆锚点作废", async () => {
+      vi.mocked(pagesApi.get).mockResolvedValue(pageWithToc())
+      rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
+      renderWithLayout("/p/a#heading-2")
+      await screen.findAllByRole("heading", { level: 2 })
+
+      expect(readScrollAnchor("a")).toBeNull()
+      expect(screen.getByTestId("scroller").scrollTop).toBe(0)
+    })
   })
 })
 
