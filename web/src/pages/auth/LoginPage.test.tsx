@@ -353,6 +353,8 @@ describe("登录第二步的邮箱验证码", () => {
     await toSecondStep(["email_otp"])
 
     const alert = await screen.findByRole("alert")
-    expect(alert).toHaveTextContent("站点还没有配置发信（SMTP）")
+    expect(alert).toHaveTextContent(
+      "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    )
   })
 })

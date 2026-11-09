@@ -1,16 +1,19 @@
 /**
- * 2FA：登录第二步（TOTP / passkey）与配置管理。
+ * 2FA：登录第二步（TOTP / passkey / 邮箱验证码）与配置管理。
  *
  * - 登录挑战（tempToken）存 auth_challenges，5 分钟过期；验证码错 5 次作废。
  * - TOTP 密钥只在加密后落库（core/secret-box.ts），且用 totp_used 挑战行防重放。
  * - passkey 凭证独立成表；注册/认证挑战消费即删。
- * - 受限会话在 TOTP 启用或 passkey 注册成功后自动解除。
+ * - 邮箱验证码走 core/email-code.ts 的统一 plumbing：库内只存哈希，用途
+ *   `2fa_login`（binding = SHA-256(tempToken)）/ `2fa_enable`，收码邮箱即账号邮箱。
+ * - 受限会话在 TOTP 启用、passkey 注册成功或邮箱验证码启用后自动解除。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { findUserById, type UserRow } from "../db/queries/users"
-import { getTotp, upsertTotp } from "../db/queries/totp"
+import { getTotp, setEmailOtpEnabled, upsertTotp } from "../db/queries/totp"
+import { deleteUserEmailCodes } from "../db/queries/email-codes"
 import {
   countPasskeys,
   deletePasskey,
@@ -40,6 +43,18 @@ import {
   checkRegistration
 } from "../core/webauthn"
 import { clearSessionRestriction } from "../core/session"
+import {
+  bindingForTempToken,
+  consumeEmailCodeSendLimits,
+  consumeEmailCodeVerifyLimits,
+  EMAIL_CODE_COOLDOWN_SECONDS,
+  EMAIL_CODE_TTL_SECONDS,
+  issueEmailCode,
+  resetEmailCodeVerifyCounter,
+  verifyEmailCode,
+  type EmailCodePurpose
+} from "../core/email-code"
+import { isEmailConfigured, sendEmailCodeMessage } from "../services/email"
 import { clientIp, issueSession, readJsonBody } from "../lib/http"
 import type {
   AuthenticationResponseJSON,
@@ -95,12 +110,13 @@ async function requirePassword(
   return null
 }
 
-/** 账号是否已有任何二步因子（TOTP 已启用，或存在 passkey 行）。 */
+/** 账号是否已有任何二步因子（TOTP / 邮箱验证码已启用，或存在 passkey 行）。 */
 async function hasAnyFactor(c: Context<HonoEnv>): Promise<boolean> {
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
   const totp = await getTotp(c.env.DB, prefix, userId)
-  if (totp?.totp_enabled) return true
+  // 邮箱验证码也是因子：已开启时新增/启用其它方式同样要密码重认证。
+  if (totp?.totp_enabled || totp?.email_otp_enabled) return true
   return (await countPasskeys(c.env.DB, prefix, userId)) > 0
 }
 
@@ -128,6 +144,65 @@ async function loadActiveUser(
   return user
 }
 
+// ── 邮箱验证码 2FA 的共用小工具 ──────────────────────────────────────────────
+
+/** 发码成功回执（send-verify / send-login 同形；前端按这两个字段做冷却与有效期）。 */
+const EMAIL_OTP_SENT = {
+  success: true as const,
+  cooldownSeconds: EMAIL_CODE_COOLDOWN_SECONDS,
+  expiresInSeconds: EMAIL_CODE_TTL_SECONDS
+}
+
+/** email_code_* 限频命中的统一 429（`retryAfter` 是还要等多少秒）。 */
+function emailCodeRateLimited(c: Context<HonoEnv>, retryAfter: number) {
+  return c.json(
+    { error: "Too many requests", code: "RATE_LIMITED", retryAfter },
+    429
+  )
+}
+
+/**
+ * 站点级发信开关：未配置就直接 503，且不写任何计数（与找回密码同口径）。
+ * 返回非 null 表示应当直接把它当响应返回。
+ */
+async function requireEmailConfigured(
+  c: Context<HonoEnv>
+): Promise<Response | null> {
+  if (await isEmailConfigured(c.env)) return null
+  return c.json(
+    { error: "Email delivery is not configured", code: "EMAIL_NOT_CONFIGURED" },
+    503
+  )
+}
+
+/**
+ * 发一枚验证码并同步投递。发信失败回 502（原因已脱敏、不含密码）；库里那枚
+ * 码不额外清理——它 10 分钟后自然过期，下次重发会覆盖。
+ */
+async function sendEmailCode(
+  c: Context<HonoEnv>,
+  options: {
+    userId: string
+    email: string
+    purpose: EmailCodePurpose
+    binding?: string
+  }
+): Promise<Response | null> {
+  const prefix = getTablePrefix(c.env)
+  const issued = await issueEmailCode(c.env.DB, prefix, {
+    userId: options.userId,
+    purpose: options.purpose,
+    binding: options.binding
+  })
+  const sent = await sendEmailCodeMessage(c.env, {
+    to: options.email,
+    code: issued.code,
+    purpose: options.purpose
+  })
+  if (sent.success) return null
+  return c.json({ error: sent.error, code: "SMTP_SEND_FAILED" }, 502)
+}
+
 /** 登录第二步：TOTP。 */
 auth2faRoutes.post("/verify", async (c) => {
   const body = await readJsonBody<{
@@ -141,7 +216,7 @@ auth2faRoutes.post("/verify", async (c) => {
   if (!tempToken || !method || !code) {
     return c.json({ error: "tempToken, method, and code required" }, 400)
   }
-  if (method !== "totp") {
+  if (method !== "totp" && method !== "email_otp") {
     return c.json(
       { error: "Use the passkey authenticate endpoint for passkey" },
       400
@@ -167,35 +242,57 @@ auth2faRoutes.post("/verify", async (c) => {
   }
 
   const config = await getTotp(db, prefix, login.userId)
-  if (!config?.totp_enabled || !config.totp_secret) {
-    return c.json({ error: "TOTP not configured" }, 400)
-  }
-
   const attemptAccount = loginKey
   let verified = false
-  try {
-    const secret = await decryptSecret(
-      c.env.ENCRYPTION_KEY,
-      config.totp_secret,
-      `ciki:totp:${login.userId}`
-    )
-    verified = verifyTotpCode(secret, code)
-  } catch (err) {
-    console.error(
-      "TOTP secret undecryptable:",
-      err instanceof Error ? err.message : err
-    )
-    return c.json({ error: "Internal server error" }, 500)
-  }
 
-  if (verified) {
-    const fresh = await markChallengeUsed(db, prefix, {
-      key: await challengeKeyForUser("totp_used", `${login.userId}:${code}`),
+  if (method === "email_otp") {
+    if (!config?.email_otp_enabled) {
+      return c.json(
+        {
+          error: "Email code is not enabled for this account",
+          code: "METHOD_NOT_ENABLED"
+        },
+        400
+      )
+    }
+    // 纵深防御：两步之间站点把发信关掉时，邮箱验证码不再作为有效因子。
+    const unavailable = await requireEmailConfigured(c)
+    if (unavailable) return unavailable
+    verified = await verifyEmailCode(db, prefix, {
       userId: login.userId,
-      purpose: "totp_used",
-      payload: ""
+      purpose: "2fa_login",
+      binding: await bindingForTempToken(tempToken),
+      code
     })
-    if (!fresh) verified = false
+  } else {
+    if (!config?.totp_enabled || !config.totp_secret) {
+      return c.json({ error: "TOTP not configured" }, 400)
+    }
+
+    try {
+      const secret = await decryptSecret(
+        c.env.ENCRYPTION_KEY,
+        config.totp_secret,
+        `ciki:totp:${login.userId}`
+      )
+      verified = verifyTotpCode(secret, code)
+    } catch (err) {
+      console.error(
+        "TOTP secret undecryptable:",
+        err instanceof Error ? err.message : err
+      )
+      return c.json({ error: "Internal server error" }, 500)
+    }
+
+    if (verified) {
+      const fresh = await markChallengeUsed(db, prefix, {
+        key: await challengeKeyForUser("totp_used", `${login.userId}:${code}`),
+        userId: login.userId,
+        purpose: "totp_used",
+        payload: ""
+      })
+      if (!fresh) verified = false
+    }
   }
 
   if (!verified) {
@@ -219,6 +316,68 @@ auth2faRoutes.post("/verify", async (c) => {
 
   await issueSession(c, user.id)
   return c.json({ success: true, user: publicUser(user) })
+})
+
+/**
+ * 登录第二步选了邮箱验证码：向账号邮箱发 6 位验证码（公开，只认有效的 2fa_login 挑战）。
+ *
+ * 收码邮箱就是账号邮箱（v1 不支持另设）；码绑定 `SHA-256(tempToken)`，同一登录挑战
+ * 重发就覆盖旧码。限频复用 email_code_cd / send / send_ip（账号为 userId）。
+ */
+auth2faRoutes.post("/email-otp/send-login", async (c) => {
+  const body = await readJsonBody<{ tempToken?: unknown }>(c)
+  const tempToken = typeof body?.tempToken === "string" ? body.tempToken : ""
+  if (!tempToken) return c.json({ error: "tempToken required" }, 400)
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const login = await readChallenge(
+    db,
+    prefix,
+    await challengeKeyForToken(tempToken)
+  )
+  if (login?.purpose !== "2fa_login") {
+    return c.json({ error: "Invalid or expired 2FA session" }, 401)
+  }
+
+  const user = await findUserById(db, prefix, login.userId)
+  if (!user) {
+    return c.json({ error: "Invalid or expired 2FA session" }, 401)
+  }
+  if (!user.is_active || user.approval_status !== "approved") {
+    return c.json({ error: "Account is disabled" }, 403)
+  }
+
+  const row = await getTotp(db, prefix, login.userId)
+  if (!row?.email_otp_enabled) {
+    return c.json(
+      {
+        error: "Email code is not enabled for this account",
+        code: "METHOD_NOT_ENABLED"
+      },
+      400
+    )
+  }
+
+  const unavailable = await requireEmailConfigured(c)
+  if (unavailable) return unavailable
+
+  const limits = await consumeEmailCodeSendLimits(db, prefix, {
+    purpose: "2fa_login",
+    accountKey: login.userId,
+    ip: clientIp(c)
+  })
+  if (!limits.allowed) return emailCodeRateLimited(c, limits.retryAfter)
+
+  const failed = await sendEmailCode(c, {
+    userId: login.userId,
+    email: user.email,
+    purpose: "2fa_login",
+    binding: await bindingForTempToken(tempToken)
+  })
+  if (failed) return failed
+
+  return c.json(EMAIL_OTP_SENT)
 })
 
 /** passkey 登录：options（用 tempToken 找回用户）。 */
@@ -548,6 +707,113 @@ auth2faRoutes.post("/passkey/disable", async (c) => {
   return c.json({ success: true })
 })
 
+/**
+ * 邮箱验证码：设置页发码（`2fa_enable`）。
+ *
+ * 顺序固定「站点发信 → 密码重认证 → 发码限频 → 发信」：未配 SMTP 时不写任何
+ * 计数（503），重认证与 TOTP/Passkey 的「新增因子」同一套规则与错误码。
+ */
+auth2faRoutes.post("/email-otp/send-verify", async (c) => {
+  const unavailable = await requireEmailConfigured(c)
+  if (unavailable) return unavailable
+
+  const body = await readJsonBody<{ password?: unknown }>(c)
+  const reauth = await requireFactorReauth(
+    c,
+    typeof body?.password === "string" ? body.password : undefined
+  )
+  if (reauth) return reauth
+
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const user = await findUserById(c.env.DB, prefix, userId)
+  if (!user) return c.json({ error: "User not found" }, 404)
+
+  const limits = await consumeEmailCodeSendLimits(c.env.DB, prefix, {
+    purpose: "2fa_enable",
+    accountKey: userId,
+    ip: clientIp(c)
+  })
+  if (!limits.allowed) return emailCodeRateLimited(c, limits.retryAfter)
+
+  const failed = await sendEmailCode(c, {
+    userId,
+    email: user.email,
+    purpose: "2fa_enable"
+  })
+  if (failed) return failed
+  return c.json(EMAIL_OTP_SENT)
+})
+
+/**
+ * 邮箱验证码：验码开启（验码往返过关才真正启用，即时生效）。
+ *
+ * 只改 `email_otp_enabled` 一列，TOTP 字段原样保留；成功同时把当前受限会话
+ * 的 `needs_2fa_setup` 清掉，与 TOTP 启用 / passkey 注册一致。
+ */
+auth2faRoutes.post("/email-otp/enable", async (c) => {
+  const unavailable = await requireEmailConfigured(c)
+  if (unavailable) return unavailable
+
+  const body = await readJsonBody<{ code?: unknown; password?: unknown }>(c)
+  const reauth = await requireFactorReauth(
+    c,
+    typeof body?.password === "string" ? body.password : undefined
+  )
+  if (reauth) return reauth
+
+  const code = typeof body?.code === "string" ? body.code.trim() : ""
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const userId = c.get("userId")
+
+  const invalidCode = () =>
+    c.json({ error: "Invalid code", code: "INVALID_CODE" }, 400)
+  if (!code) return invalidCode()
+
+  const limits = await consumeEmailCodeVerifyLimits(db, prefix, {
+    purpose: "2fa_enable",
+    accountKey: userId,
+    ip: clientIp(c)
+  })
+  if (!limits.allowed) return emailCodeRateLimited(c, limits.retryAfter)
+
+  // 错码/无码/过期统一 400；错码的次数与「第 5 次作废」由 plumbing 负责。
+  const verified = await verifyEmailCode(db, prefix, {
+    userId,
+    purpose: "2fa_enable",
+    code
+  })
+  if (!verified) return invalidCode()
+
+  await resetEmailCodeVerifyCounter(db, prefix, {
+    purpose: "2fa_enable",
+    accountKey: userId
+  })
+  await setEmailOtpEnabled(db, prefix, userId, true)
+  await clearSessionRestriction(db, prefix, c.get("sessionId"))
+  return c.json({ success: true })
+})
+
+/**
+ * 邮箱验证码：即时停用。
+ *
+ * **始终要求密码**（与关闭 TOTP 一致），且**不看 SMTP 是否可用**——发信坏掉时
+ * 用户仍必须能把因子关掉，否则会被锁死。顺手清掉未使用的 `2fa_enable` 验证码，
+ * 免得重新启用时旧码还能用。
+ */
+auth2faRoutes.post("/email-otp/disable", async (c) => {
+  const body = await readJsonBody<{ password?: string }>(c)
+  const passwordError = await requirePassword(c, body?.password)
+  if (passwordError) return passwordError
+
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  await setEmailOtpEnabled(c.env.DB, prefix, userId, false)
+  await deleteUserEmailCodes(c.env.DB, prefix, userId, "2fa_enable")
+  return c.json({ success: true })
+})
+
 /** /api/me 的 twofa 汇总（避免 me 路由重复查询逻辑）。 */
 export async function twofaSummary(
   db: D1Database,
@@ -557,12 +823,15 @@ export async function twofaSummary(
   totpEnabled: boolean
   passkeyEnabled: boolean
   passkeyCount: number
+  emailOtpEnabled: boolean
 }> {
   const totp = await getTotp(db, prefix, userId)
   const passkeyCount = await countPasskeys(db, prefix, userId)
   return {
     totpEnabled: Boolean(totp?.totp_enabled),
     passkeyEnabled: passkeyCount > 0,
-    passkeyCount
+    passkeyCount,
+    // 前端设置页靠这个字段显示「已开启」并判断重认证（字段名由前端锁定）。
+    emailOtpEnabled: Boolean(totp?.email_otp_enabled)
   }
 }

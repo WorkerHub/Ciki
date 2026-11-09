@@ -222,7 +222,10 @@ export interface AuthConfig {
   registrationApprovalRequired: boolean
   /** 站点名（公开读，登录页也要用）；旧后端缺失时由调用方回退。 */
   siteName: string
-  /** 站点是否配好了发信（SMTP）：邮箱验证码类入口的可用性开关。 */
+  /**
+   * SMTP 是否可用（站点级公开事实）。false 时邮箱验证码 2FA 与找回密码
+   * 都不开放，入口按「不可用」渲染，不做点了才报错的按钮。
+   */
   emailConfigured: boolean
 }
 
@@ -362,6 +365,22 @@ export interface RevisionDetail extends RevisionSummary {
   contentText: string
 }
 
+/**
+ * 版本保留数的只读预告：按已保存的设置算出会删掉多少条。
+ * `limit` 为 null 表示「不限」（后端内部口径是空串/缺行）。
+ */
+export interface RevisionRetentionPreview {
+  limit: number | null
+  totalRevisions: number
+  prunableRevisions: number
+}
+
+/** 全站修剪的结果：limit 是本次实际生效的上限，deleted 是真实删除条数。 */
+export interface RevisionPruneResult {
+  limit: number
+  deleted: number
+}
+
 export interface SearchResult {
   pageId: string
   title: string
@@ -396,6 +415,50 @@ export interface SiteSettings {
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
   require2fa: boolean
+  /** 与 GET /api/auth/config 同口径：SMTP 非密字段齐全即为 true。 */
+  emailConfigured: boolean
+  /** 每页保留的历史版本数；null = 不限（后端存空串）。 */
+  revisionRetentionLimit: number | null
+}
+
+/** SMTP 传输层三态：TLS（465 隐式加密）/ STARTTLS（升级）/ 不加密。 */
+export type SmtpEncryption = "tls" | "starttls" | "none"
+
+/**
+ * 系统管理 → 邮件配置。GET 永不回密码，只用 passwordSet 表示存没存过；
+ * 明文只由管理员在 PUT 时提交。
+ */
+export interface SmtpSettings {
+  host: string
+  port: number
+  encryption: SmtpEncryption
+  username: string
+  from: string
+  fromName: string
+  passwordSet: boolean
+}
+
+/**
+ * GET /api/admin/system/smtp 的响应：状态标志 + 非密配置。
+ * 从没保存过时 `config` 为 null（表单空着渲染，不当作错误）。
+ */
+export interface SmtpConfigState {
+  emailConfigured: boolean
+  config: SmtpSettings | null
+}
+
+/**
+ * PUT /api/admin/system/smtp 的载荷。password 语义：空串或纯 `•` = 保留原密文，
+ * `null` = 清空，其它值 = 重新加密保存。
+ */
+export interface SmtpConfigInput {
+  host: string
+  port: number
+  encryption: SmtpEncryption
+  username: string
+  password: string | null
+  from: string
+  fromName: string
 }
 
 /** 空间角色：站点管理员对所有空间的有效角色都是 admin。 */
@@ -620,7 +683,13 @@ export const pagesApi = {
   revision: (id: string, revisionId: string) =>
     api.get<RevisionDetail>(`/pages/${id}/revisions/${revisionId}`),
   restoreRevision: (id: string, revisionId: string) =>
-    api.post<PageDetail>(`/pages/${id}/revisions/${revisionId}/restore`)
+    api.post<PageDetail>(`/pages/${id}/revisions/${revisionId}/restore`),
+  /** 删单条版本；每页最新一条由服务端拒绝（409 REVISION_IS_LATEST）。 */
+  deleteRevision: (id: string, revisionId: string) =>
+    api.del<{ success: true }>(`/pages/${id}/revisions/${revisionId}`),
+  /** 按页只保留最新一条，其余全删；返回真实删除条数。 */
+  pruneRevisions: (id: string) =>
+    api.post<{ deleted: number }>(`/pages/${id}/revisions/prune`)
 }
 
 export const searchApi = {
@@ -675,7 +744,19 @@ export const adminApi = {
   spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
-    api.put<{ success: true }>("/admin/settings", patch)
+    api.put<{ success: true }>("/admin/settings", patch),
+  smtp: () => api.get<SmtpConfigState>("/admin/system/smtp"),
+  saveSmtp: (input: SmtpConfigInput) =>
+    api.put<{ success: true; emailConfigured: boolean }>(
+      "/admin/system/smtp",
+      input
+    ),
+  /** 只发当前管理员邮箱；请求体不参与决定收件人。 */
+  testSmtp: () => api.post<{ success: true }>("/admin/system/smtp/test", {}),
+  revisionRetention: () =>
+    api.get<RevisionRetentionPreview>("/admin/revisions/retention"),
+  pruneAllRevisions: () =>
+    api.post<RevisionPruneResult>("/admin/revisions/prune")
 }
 
 /**
@@ -728,10 +809,6 @@ export function describeApiError(error: unknown): string {
       return "站点已关闭注册，请联系管理员开通账号。"
     case "EMAIL_TAKEN":
       return "这个邮箱已经注册过，直接登录即可。"
-    case "EMAIL_NOT_CONFIGURED":
-      return "站点还没有配置发信（SMTP），暂时不能发送邮箱验证码。"
-    case "SMTP_SEND_FAILED":
-      return "验证码邮件发送失败，请稍后重试。"
     case "METHOD_NOT_ENABLED":
       return "这个账号没有开启邮箱验证码。"
     case "2FA_METHOD_UNAVAILABLE":
@@ -740,6 +817,12 @@ export function describeApiError(error: unknown): string {
       return "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。"
     case "LEDGER_CONFLICT":
       return "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。"
+    case "REVISION_IS_LATEST":
+      return "每页最新的一条版本不能删除。"
+    case "RETENTION_UNLIMITED":
+      return "当前设置为不限，没有可修剪的版本。"
+    case "REVISION_UNRENDERABLE":
+      return "这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。"
     case "PAGE_MOVE_CYCLE":
       return "不能把页面移动到它自己的子页面下。"
     case "PARENT_DELETED":
@@ -778,6 +861,21 @@ export function describeApiError(error: unknown): string {
       return "找不到这个用户。"
     case "INVALID_ROLE":
       return "成员角色不合法。"
+    case "EMAIL_NOT_CONFIGURED":
+      return "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    case "SMTP_SEND_FAILED": {
+      // 服务端已脱敏（密码与 base64 换 ***），这里原样带出真实原因便于排障
+      const reason = error.message.replace(/^smtp send failed:\s*/i, "").trim()
+      return reason ? `发信失败：${reason}` : "发信失败，请检查 SMTP 配置。"
+    }
+    case "INVALID_SMTP_CONFIG": {
+      const reason = error.message
+        .replace(/^invalid smtp config:\s*/i, "")
+        .trim()
+      return reason
+        ? `SMTP 配置不合法：${reason}`
+        : "SMTP 配置不合法，请检查后重试。"
+    }
     default:
       break
   }
@@ -802,6 +900,9 @@ export function describeApiError(error: unknown): string {
     return error.message || "当前状态冲突，请刷新后重试。"
   if (error.status === 400 && /site ?name/i.test(error.message)) {
     return "站点名称需为 1–32 个字符。"
+  }
+  if (error.status === 400 && /revisionRetentionLimit/i.test(error.message)) {
+    return "保留数需为不小于 1 的整数，留空表示不限。"
   }
   if (error.status === 400 && /invalid username/i.test(error.message)) {
     return "用户名不合法，请检查后重试。"

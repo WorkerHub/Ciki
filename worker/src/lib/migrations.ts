@@ -13,11 +13,27 @@
  * - 表名/索引名一律经 src/lib/tables.ts 拼装，本文件只写 `{prefix}` 占位。
  * - SQLite 缺 `ADD COLUMN IF NOT EXISTS` 之类的能力时，可在 `prepare` 里做结构补齐
  *   与数据回填：它先于 sql 执行、只允许补新列里仍为空的值，不得覆盖既有数据，
- *   同样必须可重复执行（当前没有迁移用到 `prepare`）。
+ *   同样必须可重复执行（`schema_v3` 的 `user_2fa.email_otp_enabled` 就是这么补的）。
+ * - **prepare-only 形态**（`schema_v2` 起）：当一步改动无法用本文件支持的语句表达
+ *   （`ADD COLUMN` 没有 IF NOT EXISTS，数据回填要调 Worker 的压缩 API），整个迁移写成
+ *   `sql: ""` + 幂等 `prepare`：先探列、缺了才加，再按 keyset 分批处理剩下的行。
+ *   `prepare` 抛错则该迁移不记账，下次 setup 从头重跑（已处理过的行被 `IS NULL` 守卫
+ *   跳过），所以天然可中断续跑；全部做完才记一行账。
+ * - 数据重写的唯一例外是**格式转换**（`schema_v2` 的版本正文 gzip 化）：只有在「新列
+ *   写入成功且回读逐字节一致」之后，才清空被它完整替代的冗余列（`content_json` /
+ *   `content_html` / `content_text`），且逐行带 `content_gzip IS NULL` 守卫，重复执行
+ *   不会二次覆盖。除这条转换外，不得用迁移改写既有数据。
  */
+import {
+  backfillRevisionStatement,
+  listLegacyRevisionsBatch,
+  probeGzipColumn
+} from "../db/queries/revisions"
+import { gzipText, gunzipText } from "./gzip"
 import {
   challengesTable,
   countersTable,
+  emailCodesTable,
   importTokensTable,
   pagesFtsTable,
   pagesTable,
@@ -293,6 +309,152 @@ function render(sql: string, prefix: string): string {
   return sql.replaceAll("{prefix}", prefix)
 }
 
+/**
+ * 存量转换的分批大小：每批先算 gzip、再一次性写回。
+ *
+ * 单批太小会把一次升级拆成很多次 D1 往返（受单请求子请求数限制），太大则一批的
+ * 内存/CPU 峰值变高；25 行在两边都留了余量。中断后重跑只会处理剩下的行。
+ */
+export const GZIP_BACKFILL_BATCH = 25
+
+/**
+ * `schema_v2` 第一步：补 `page_revisions.content_gzip` 列。
+ *
+ * SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以先 `PRAGMA table_info` 探一下：列已在就
+ * 是幂等空操作（中断重跑、全新库的重复 setup 都命中这条）。这里用不走缓存的探列：
+ * 迁移必须自己核实结构，不能因为请求路径缓存了「已就绪」就跳过建列。
+ */
+async function ensureRevisionGzipColumn(
+  db: D1Database,
+  prefix: string
+): Promise<void> {
+  if (await probeGzipColumn(db, prefix)) return
+  await db
+    .prepare(
+      `ALTER TABLE ${revisionsTable(prefix)} ADD COLUMN content_gzip BLOB`
+    )
+    .run()
+}
+
+/**
+ * `schema_v2` 第二步：把存量版本行逐行压成新格式。
+ *
+ * 每行：`gzip(content_json)` → **解压回读并与原文逐字节比对** → 一致才写回，并且写回
+ * 的语句自己带 `content_gzip IS NULL` 守卫。所以：
+ * - 幂等：已转换的行不再出现在待办里（`content_gzip IS NULL`），写回也再拦一道；
+ * - 可中断续跑：每轮只取「还没转换的」前 N 行，`prepare` 抛错则整个迁移不记账，下次
+ *   从剩下的行继续；
+ * - 不丢内容：压缩失败或回读不一致就中止本轮（不写、不清空），旧文本原样留着；
+ * - 元数据不动：只改三个正文列，`title` / `editor_id` / `created_at` / `page_id` 一字不改，
+ *   所以迁移前后每页版本条数与元数据必然逐项一致。
+ *
+ * 刻意**不用 id 游标往前扫**：`page_revisions.id` 是随机 UUID，id 的大小与写入先后无关；
+ * 并发保存可能在批量处理期间插进一条旧形态行（它的 id 可能很小），游标会把它跳过，
+ * 直接丢了。这里每轮固定拉「当前仍未转换的最前面 N 行」——转换过的行由 `IS NULL`
+ * 自然排除，不管 id 落在哪里都不会漏。
+ *
+ * 清空三列文本是有意为之：HTML 与纯文本随时能从 JSON 重新生成（lib/revision-content.ts），
+ * 留着它们等于保留 4–5 倍体积，存量就白搬了。回滚代码不再能读回这些版本的正文，
+ * 它们的唯一副本是 `content_gzip`——这正是本迁移先校验后覆盖的理由。
+ */
+async function backfillRevisionGzip(
+  db: D1Database,
+  prefix: string
+): Promise<void> {
+  for (;;) {
+    const rows = await listLegacyRevisionsBatch(db, prefix, GZIP_BACKFILL_BATCH)
+    if (rows.length === 0) return
+
+    const statements: D1PreparedStatement[] = []
+    for (const row of rows) {
+      const gzip = await gzipText(row.content_json)
+      const roundTrip = await gunzipText(gzip)
+      if (roundTrip !== row.content_json) {
+        throw new Error(
+          `revision ${row.id} failed gzip round-trip verification; nothing was overwritten`
+        )
+      }
+      statements.push(backfillRevisionStatement(db, prefix, row.id, gzip))
+    }
+    const results = await db.batch(statements)
+    // 一批一行都没写进去 = 这些行仍满足 `content_gzip IS NULL` 却能没被转换
+    // （只可能是并发把状态改了）。此时重拉会拿到同一批行，不能死循环，也不能静默
+    // 记账，所以中止：迁移不记账，下次 setup 重跑。
+    const changed = results.reduce(
+      (sum, result) => sum + result.meta.changes,
+      0
+    )
+    if (changed === 0) {
+      throw new Error(
+        `gzip backfill made no progress on ${rows.length} revision(s) still pending; nothing was overwritten`
+      )
+    }
+  }
+}
+
+/**
+ * schema_v2 — 历史版本改存 gzip 的 `content_json`（规格「历史版本 gzip 存储」）。
+ *
+ * 全部动作都是幂等的条件结构变更与逐行数据转换，无法用本文件支持的 `;` 分隔语句表达
+ * （要探列、要调 Worker 的压缩 API），所以写成 prepare-only 迁移：`sql` 留空，两阶段全在
+ * `prepare` 里（见文件头的 prepare-only 形态说明与数据重写例外）。
+ */
+const SCHEMA_V2: Migration = {
+  name: "schema_v2",
+  sql: "",
+  prepare: async (db, prefix) => {
+    await ensureRevisionGzipColumn(db, prefix)
+    await backfillRevisionGzip(db, prefix)
+  }
+}
+
+/**
+ * schema_v3 — 邮箱验证码（#48 契约第 5 条）。
+ *
+ * 新建 `email_codes` 专表：一个 `(user_id, purpose, binding)` 只保留最新一枚码
+ * （重发 UPSERT 覆盖），`attempts` 由 SQL 原子自增，成功校验用 DELETE 原子消费。
+ * `user_2fa.email_otp_enabled` 不在 SQL 里补——SQLite 没有
+ * `ADD COLUMN IF NOT EXISTS`，放在 `prepare` 里按 PRAGMA 判断后补。
+ *
+ * 编号说明：契约原本写作 `schema_v2`，但主干上 `schema_v2` 已被历史版本 gzip 化
+ * 占用并已应用，不得改名或改内容，因此邮箱验证码顺延为 `schema_v3`。
+ */
+const SCHEMA_V3 = `CREATE TABLE IF NOT EXISTS {prefix}email_codes (
+  user_id    TEXT NOT NULL,
+  purpose    TEXT NOT NULL CHECK (purpose IN ('password_reset', '2fa_login', '2fa_enable')),
+  binding    TEXT NOT NULL DEFAULT '',
+  code_hash  TEXT NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, purpose, binding)
+);
+
+CREATE INDEX IF NOT EXISTS {prefix}email_codes_expires_at
+  ON {prefix}email_codes(expires_at)`
+
+/**
+ * schema_v3 的结构补齐：`user_2fa` 加邮箱验证码开关列。
+ *
+ * 幂等：列已存在（或在同一轮里已被补过）直接返回；表不存在时跳过——正常情况下
+ * `schema_v1` 已在同一轮里先建出 `user_2fa`，这里只防御“只跑过部分迁移”的库。
+ */
+async function prepareSchemaV3(db: D1Database, prefix: string): Promise<void> {
+  const table = user2faTable(prefix)
+  const columns = await db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all<{ name: string }>()
+  if (columns.results.length === 0) return
+  if (columns.results.some((column) => column.name === "email_otp_enabled")) {
+    return
+  }
+  await db
+    .prepare(
+      `ALTER TABLE ${table} ADD COLUMN email_otp_enabled INTEGER NOT NULL DEFAULT 0`
+    )
+    .run()
+}
+
 export function getMigrations(prefix: string): Migration[] {
   // 说明：表名统一由 tables.ts 的 helper 提供；这里只做前缀替换，
   // 并断言 helper 与迁移 SQL 用的是同一套名字（改一处就会在这里暴露）。
@@ -319,5 +481,17 @@ export function getMigrations(prefix: string): Migration[] {
       throw new Error(`migration schema_v1 is missing table ${name}`)
     }
   }
-  return [{ name: "schema_v1", sql }]
+
+  const sqlV3 = render(SCHEMA_V3, prefix)
+  if (!sqlV3.includes(emailCodesTable(prefix))) {
+    throw new Error(
+      `migration schema_v3 is missing table ${emailCodesTable(prefix)}`
+    )
+  }
+
+  return [
+    { name: "schema_v1", sql },
+    SCHEMA_V2,
+    { name: "schema_v3", sql: sqlV3, prepare: prepareSchemaV3 }
+  ]
 }

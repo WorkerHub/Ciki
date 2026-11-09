@@ -6,11 +6,12 @@ import {
   type SiteSettings
 } from "@/lib/api"
 import { SettingRow, SettingTextRow } from "@/pages/admin/SettingRow"
+import { RevisionRetentionCard } from "@/pages/admin/RevisionRetentionCard"
 import { useSiteStore } from "@/stores/site"
 
 /**
- * 应用设置：站点名、初始化页开关（无邮件业务，故没有 SMTP 分区）。
- * 注册与审批开关在「访问与安全」里。
+ * 应用设置：站点名、初始化页开关。
+ * 注册与审批开关在「访问与安全」里，SMTP 与测试发信在「邮件配置」里。
  */
 export function SettingsTab() {
   const siteName = useSiteStore((state) => state.name)
@@ -137,9 +138,15 @@ export function SettingsTab() {
           onChange={(checked) => void update({ setupPageEnabled: checked })}
         />
       </div>
+      <RevisionRetentionCard
+        limit={settings.revisionRetentionLimit ?? null}
+        disabled={saving}
+        onSaved={setSettings}
+      />
       <p className="text-[11px] text-muted-foreground">
-        站点没有邮件相关功能，因此不提供 SMTP
-        配置；账号的创建与重置都由管理员操作。
+        {settings.emailConfigured
+          ? "邮件服务已配置：邮箱验证码两步验证与找回密码可用，修改在「邮件配置」。"
+          : "邮件服务未配置：邮箱验证码两步验证与找回密码不可用，请到「邮件配置」填写 SMTP。"}
       </p>
     </div>
   )

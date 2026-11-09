@@ -370,7 +370,7 @@ describe("邮箱验证码 2FA", () => {
 
     expect(
       await screen.findByText(
-        "站点还没有配置发信（SMTP），暂时不能发送邮箱验证码。"
+        "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
       )
     ).toBeInTheDocument()
     expect(

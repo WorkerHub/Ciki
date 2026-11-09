@@ -23,7 +23,9 @@ const settings: SiteSettings = {
   setupPageEnabled: false,
   registrationEnabled: true,
   registrationApprovalRequired: true,
-  require2fa: false
+  require2fa: false,
+  emailConfigured: true,
+  revisionRetentionLimit: null
 }
 
 describe("系统管理 · 访问与安全", () => {

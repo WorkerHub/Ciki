@@ -91,7 +91,9 @@ describe("路由守卫与初始化门", () => {
       setupPageEnabled: false,
       registrationEnabled: true,
       registrationApprovalRequired: true,
-      require2fa: false
+      require2fa: false,
+      emailConfigured: false,
+      revisionRetentionLimit: null
     })
     vi.mocked(meApi.sessions).mockResolvedValue([])
     useSpacesStore.setState({
@@ -153,7 +155,7 @@ describe("路由守卫与初始化门", () => {
       registrationEnabled: true,
       registrationApprovalRequired: true,
       siteName: "Ciki",
-      emailConfigured: true
+      emailConfigured: false
     })
 
     renderApp("/setup")
