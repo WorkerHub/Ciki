@@ -13,6 +13,7 @@ export type ChallengePurpose =
   | "passkey_register"
   | "passkey_auth"
   | "totp_used"
+  | "password_reset"
 
 export const CHALLENGE_TTL_SECONDS = 300
 export const TOTP_REPLAY_TTL_SECONDS = 90
@@ -147,4 +148,27 @@ export async function deleteChallenge(
     .prepare(`DELETE FROM ${challengesTable(prefix)} WHERE key = ?`)
     .bind(key)
     .run()
+}
+
+/**
+ * 删除某用户的挑战行；传 purpose 时只删该用途。
+ *
+ * 用于「改密后让旧凭据立即失效」：主动改密、管理员改密、找回密码设密成功
+ * 都要把该用户未使用的 resetToken 一并作废（#48 契约）。
+ */
+export async function deleteUserChallenges(
+  db: D1Database,
+  prefix: string,
+  userId: string,
+  purpose?: ChallengePurpose
+): Promise<void> {
+  const table = challengesTable(prefix)
+  if (purpose) {
+    await db
+      .prepare(`DELETE FROM ${table} WHERE user_id = ? AND purpose = ?`)
+      .bind(userId, purpose)
+      .run()
+    return
+  }
+  await db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).bind(userId).run()
 }
