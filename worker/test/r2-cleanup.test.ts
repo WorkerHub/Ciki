@@ -81,6 +81,28 @@ function insertRevision(
     )
 }
 
+/** 新形态的版本行：只存 gzip 的 JSON，三列文本为空串（与线上写入路径一致）。 */
+async function insertGzipRevision(
+  db: Db,
+  id: string,
+  pageId: string,
+  keyRef: string
+): Promise<void> {
+  const { gzipText } = await import("../src/lib/gzip")
+  const json = JSON.stringify({
+    type: "doc",
+    content: [{ type: "image", attrs: { src: `/api/files/${keyRef}` } }]
+  })
+  db.db
+    .prepare(
+      `INSERT INTO ciki_page_revisions
+        (id, page_id, title, content_json, content_html, content_text,
+         editor_id, created_at, content_gzip)
+       VALUES (?, ?, ?, '', '', '', 'u1', ?, ?)`
+    )
+    .run(id, pageId, id, new Date().toISOString(), await gzipText(json))
+}
+
 async function seedOldObject(
   r2: Awaited<ReturnType<typeof initializedContext>>["r2"],
   key: string,
@@ -213,6 +235,41 @@ describe("引用集：key 形状与 #24 的前缀 key 解耦", () => {
     expect(summary.deleted).toBe(0)
     expect(r2.store.has(prefixed)).toBe(true)
     expect(r2.store.has(encoded)).toBe(true)
+  })
+})
+
+describe("引用集：gzip 化的版本行同样算引用（迁移前后口径一致）", () => {
+  it("解压后从 JSON 提取 key：迁移前（旧三列）与迁移后（gzip）引用集相同", async () => {
+    const before = await initializedContext()
+    const after = await initializedContext()
+    await adminSession(before.env)
+    await adminSession(after.env)
+
+    // 同一条内容，两种落库形态：迁移前存三列文本，迁移后只剩 gzip 的 JSON。
+    insertRevision(before.db, "r-gzip", "p-1", REVISION_KEY)
+    await insertGzipRevision(after.db, "r-gzip", "p-1", REVISION_KEY)
+
+    const beforeSummary = await runR2Cleanup(before.env, {
+      trigger: "manual",
+      dryRun: true
+    })
+    const afterSummary = await runR2Cleanup(after.env, {
+      trigger: "manual",
+      dryRun: true
+    })
+
+    expect(afterSummary.referenced).toBe(beforeSummary.referenced)
+    expect(afterSummary.referenced).toBe(1)
+
+    // 已迁移的引用对象都不会被删。
+    await seedOldObject(before.r2, REVISION_KEY)
+    await seedOldObject(after.r2, REVISION_KEY)
+    const real = await runR2Cleanup(after.env, {
+      trigger: "manual",
+      dryRun: false
+    })
+    expect(real.deleted).toBe(0)
+    expect(after.r2.store.has(REVISION_KEY)).toBe(true)
   })
 })
 

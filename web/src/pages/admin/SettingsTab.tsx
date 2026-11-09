@@ -6,6 +6,7 @@ import {
   type SiteSettings
 } from "@/lib/api"
 import { SettingRow, SettingTextRow } from "@/pages/admin/SettingRow"
+import { RevisionRetentionCard } from "@/pages/admin/RevisionRetentionCard"
 import { useSiteStore } from "@/stores/site"
 
 /**
@@ -137,6 +138,11 @@ export function SettingsTab() {
           onChange={(checked) => void update({ setupPageEnabled: checked })}
         />
       </div>
+      <RevisionRetentionCard
+        limit={settings.revisionRetentionLimit ?? null}
+        disabled={saving}
+        onSaved={setSettings}
+      />
       <p className="text-[11px] text-muted-foreground">
         站点没有邮件相关功能，因此不提供 SMTP
         配置；账号的创建与重置都由管理员操作。

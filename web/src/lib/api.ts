@@ -344,6 +344,22 @@ export interface RevisionDetail extends RevisionSummary {
   contentText: string
 }
 
+/**
+ * 版本保留数的只读预告：按已保存的设置算出会删掉多少条。
+ * `limit` 为 null 表示「不限」（后端内部口径是空串/缺行）。
+ */
+export interface RevisionRetentionPreview {
+  limit: number | null
+  totalRevisions: number
+  prunableRevisions: number
+}
+
+/** 全站修剪的结果：limit 是本次实际生效的上限，deleted 是真实删除条数。 */
+export interface RevisionPruneResult {
+  limit: number
+  deleted: number
+}
+
 export interface SearchResult {
   pageId: string
   title: string
@@ -378,6 +394,8 @@ export interface SiteSettings {
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
   require2fa: boolean
+  /** 每页保留的历史版本数；null = 不限（后端存空串）。 */
+  revisionRetentionLimit: number | null
 }
 
 /** 空间角色：站点管理员对所有空间的有效角色都是 admin。 */
@@ -574,7 +592,13 @@ export const pagesApi = {
   revision: (id: string, revisionId: string) =>
     api.get<RevisionDetail>(`/pages/${id}/revisions/${revisionId}`),
   restoreRevision: (id: string, revisionId: string) =>
-    api.post<PageDetail>(`/pages/${id}/revisions/${revisionId}/restore`)
+    api.post<PageDetail>(`/pages/${id}/revisions/${revisionId}/restore`),
+  /** 删单条版本；每页最新一条由服务端拒绝（409 REVISION_IS_LATEST）。 */
+  deleteRevision: (id: string, revisionId: string) =>
+    api.del<{ success: true }>(`/pages/${id}/revisions/${revisionId}`),
+  /** 按页只保留最新一条，其余全删；返回真实删除条数。 */
+  pruneRevisions: (id: string) =>
+    api.post<{ deleted: number }>(`/pages/${id}/revisions/prune`)
 }
 
 export const searchApi = {
@@ -629,7 +653,11 @@ export const adminApi = {
   spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
-    api.put<{ success: true }>("/admin/settings", patch)
+    api.put<{ success: true }>("/admin/settings", patch),
+  revisionRetention: () =>
+    api.get<RevisionRetentionPreview>("/admin/revisions/retention"),
+  pruneAllRevisions: () =>
+    api.post<RevisionPruneResult>("/admin/revisions/prune")
 }
 
 /**
@@ -685,6 +713,12 @@ export function describeApiError(error: unknown): string {
       return "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。"
     case "LEDGER_CONFLICT":
       return "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。"
+    case "REVISION_IS_LATEST":
+      return "每页最新的一条版本不能删除。"
+    case "RETENTION_UNLIMITED":
+      return "当前设置为不限，没有可修剪的版本。"
+    case "REVISION_UNRENDERABLE":
+      return "这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。"
     case "PAGE_MOVE_CYCLE":
       return "不能把页面移动到它自己的子页面下。"
     case "PARENT_DELETED":
@@ -747,6 +781,9 @@ export function describeApiError(error: unknown): string {
     return error.message || "当前状态冲突，请刷新后重试。"
   if (error.status === 400 && /site ?name/i.test(error.message)) {
     return "站点名称需为 1–32 个字符。"
+  }
+  if (error.status === 400 && /revisionRetentionLimit/i.test(error.message)) {
+    return "保留数需为不小于 1 的整数，留空表示不限。"
   }
   if (error.status === 400 && /invalid username/i.test(error.message)) {
     return "用户名不合法，请检查后重试。"
