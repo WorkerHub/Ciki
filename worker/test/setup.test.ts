@@ -43,7 +43,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(body.tablePrefix).toBe("ciki_")
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "applied" },
-      { name: "schema_v2", status: "applied" }
+      { name: "schema_v2", status: "applied" },
+      { name: "schema_v3", status: "applied" }
     ])
 
     const tables = db.db
@@ -57,6 +58,7 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       "ciki_sessions",
       "ciki_auth_challenges",
       "ciki_auth_counters",
+      "ciki_email_codes",
       "ciki_system_settings",
       "ciki_pages",
       "ciki_page_revisions",
@@ -86,7 +88,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "skipped" }
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
     ])
 
     const row = db.db
@@ -194,7 +197,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "applied" },
-      { name: "schema_v2", status: "applied" }
+      { name: "schema_v2", status: "applied" },
+      { name: "schema_v3", status: "applied" }
     ])
     const names = (
       db.db
@@ -204,6 +208,7 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     expect(names).toContain("ciki_pages")
     expect(names).toContain("ciki_system_settings")
     expect(names).toContain("ciki_spaces")
+    expect(names).toContain("ciki_email_codes")
 
     // 账本已记账：再跑一遍全部 skipped，不重复播种默认空间。
     const again = await setupRequest(env, TEST_SETUP_SECRET)
@@ -212,7 +217,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(againBody.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "skipped" }
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
     ])
     const spaces = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
@@ -260,12 +266,16 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(body.success).toBe(true)
     expect(body.tablePrefix).toBe("ciki_")
-    expect(body.migrations[0].status).toBe("skipped")
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
+    ])
   })
 })
 
 describe("初始化迁移：默认空间与播种", () => {
-  it("全新 setup 建出默认空间（无用户时 created_by 为空串）并只记一条账", async () => {
+  it("全新 setup 建出默认空间（无用户时 created_by 为空串）并记两条账", async () => {
     const { env, db } = makeContext()
 
     const res = await setupRequest(env, TEST_SETUP_SECRET)
@@ -296,7 +306,11 @@ describe("初始化迁移：默认空间与播种", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual([{ name: "schema_v1" }, { name: "schema_v2" }])
+    expect(ledger).toEqual([
+      { name: "schema_v1" },
+      { name: "schema_v2" },
+      { name: "schema_v3" }
+    ])
 
     // 身份三列与页面所属空间都在 CREATE 里建全，不需要 prepare 补列。
     const userColumns = (
@@ -355,13 +369,121 @@ describe("初始化迁移：默认空间与播种", () => {
     if (!again.success) throw new Error(again.error)
     expect(again.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "skipped" }
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
     ])
 
     const count = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
       .get() as { count: number }
     expect(count.count).toBe(1)
+  })
+})
+
+describe("schema_v3：邮箱验证码表与 user_2fa 邮箱开关列", () => {
+  /** 复现“升级前”的库：schema_v1 的表都建好、账本里只有 v1。 */
+  async function v1OnlyDatabase() {
+    const context = makeContext()
+    await context.db.exec(
+      "CREATE TABLE _ciki_schema_migrations (name TEXT PRIMARY KEY, applied_at INTEGER NOT NULL DEFAULT (unixepoch()))"
+    )
+    for (const statement of splitStatements(getMigrations("ciki_")[0].sql)) {
+      await context.env.DB.prepare(statement).run()
+    }
+    await context.db
+      .prepare(
+        "INSERT INTO _ciki_schema_migrations (name) VALUES ('schema_v1')"
+      )
+      .run()
+    // 升级前的存量 2FA 行：补列后应拿到默认值 0（不要求重新配置）。
+    await context.db
+      .prepare(
+        "INSERT INTO ciki_user_2fa (user_id, totp_secret, totp_enabled, updated_at) VALUES ('u1', NULL, 0, '2026-01-01T00:00:00.000Z')"
+      )
+      .run()
+    return context
+  }
+
+  it("v1 → v3：途经 v2 补齐版本列，建 email_codes/索引、补 email_otp_enabled，存量行默认 0，重复执行不重复补列", async () => {
+    const { env, db } = await v1OnlyDatabase()
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      migrations: Array<{ name: string; status: string }>
+    }
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "applied" },
+      { name: "schema_v3", status: "applied" }
+    ])
+
+    const names = (
+      db.db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type IN ('table','index')"
+        )
+        .all() as Array<{ name: string }>
+    ).map((row) => row.name)
+    expect(names).toContain("ciki_email_codes")
+    expect(names).toContain("ciki_email_codes_expires_at")
+
+    type Column = { name: string; notnull: number; dflt_value: string | null }
+    const columns = () =>
+      db.db.prepare("PRAGMA table_info(ciki_user_2fa)").all() as Column[]
+    const added = columns().filter(
+      (column) => column.name === "email_otp_enabled"
+    )
+    expect(added).toHaveLength(1)
+    expect(added[0].notnull).toBe(1)
+    expect(added[0].dflt_value).toBe("0")
+
+    const row = db.db
+      .prepare(
+        "SELECT email_otp_enabled FROM ciki_user_2fa WHERE user_id = 'u1'"
+      )
+      .get() as { email_otp_enabled: number }
+    expect(row.email_otp_enabled).toBe(0)
+
+    // prepare 自己的幂等：直接再跑一遍也不报错、不会多出一列。
+    const v3 = getMigrations("ciki_")[2]
+    await v3.prepare?.(env.DB, "ciki_")
+    await v3.prepare?.(env.DB, "ciki_")
+    expect(
+      columns().filter((column) => column.name === "email_otp_enabled")
+    ).toHaveLength(1)
+
+    // 账本已记 v3：再 setup 全 skipped，不重复建表/补列。
+    const again = await setupRequest(env, TEST_SETUP_SECRET)
+    expect(again.status).toBe(200)
+    const againBody = (await again.json()) as {
+      migrations: Array<{ name: string; status: string }>
+    }
+    expect(againBody.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" },
+      { name: "schema_v3", status: "skipped" }
+    ])
+  })
+
+  it("email_codes 的复合主键与校验约束：同键重发只留一行", async () => {
+    const { db } = await initializedContext()
+    const insert = db.db.prepare(
+      `INSERT INTO ciki_email_codes
+        (user_id, purpose, binding, code_hash, attempts, created_at, expires_at)
+       VALUES (?, ?, ?, ?, 0, ?, ?)
+       ON CONFLICT(user_id, purpose, binding) DO UPDATE SET code_hash = excluded.code_hash`
+    )
+    insert.run("u1", "password_reset", "", "hash-1", 1, 601)
+    insert.run("u1", "password_reset", "", "hash-2", 1, 601)
+    const rows = db.db
+      .prepare("SELECT code_hash FROM ciki_email_codes WHERE user_id = 'u1'")
+      .all() as Array<{ code_hash: string }>
+    expect(rows).toEqual([{ code_hash: "hash-2" }])
+
+    expect(() =>
+      insert.run("u1", "unknown_purpose", "", "hash-3", 1, 601)
+    ).toThrow()
   })
 })
 
@@ -410,7 +532,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     expect(body.tablePrefix).toBe("")
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "applied" },
-      { name: "schema_v2", status: "applied" }
+      { name: "schema_v2", status: "applied" },
+      { name: "schema_v3", status: "applied" }
     ])
 
     const names = tableNames(db)
@@ -431,10 +554,11 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       migrations: Array<{ name: string; status: string }>
     }
     expect(body.success).toBe(true)
-    // 账本里的记录被认出来：schema_v1 没有被重跑；schema_v2 是本次新增的迁移，正常补上。
+    // 账本里的记录被认出来：schema_v1 没有被重跑；schema_v2（版本 gzip）与 schema_v3（邮箱验证码）是本次新增的迁移，正常补上。
     expect(body.migrations).toEqual([
       { name: "schema_v1", status: "skipped" },
-      { name: "schema_v2", status: "applied" }
+      { name: "schema_v2", status: "applied" },
+      { name: "schema_v3", status: "applied" }
     ])
 
     const names = tableNames(db)
@@ -444,7 +568,11 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual([{ name: "schema_v1" }, { name: "schema_v2" }])
+    expect(ledger).toEqual([
+      { name: "schema_v1" },
+      { name: "schema_v2" },
+      { name: "schema_v3" }
+    ])
     const spaces = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
       .get() as { count: number }
@@ -460,10 +588,11 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       const body = (await res.json()) as {
         migrations: Array<{ name: string; status: string }>
       }
-      // schema_v2 首轮补上、次轮 skipped：改名承接只发生一次，记录不丢也不重复。
+      // schema_v2 / schema_v3 首轮补上、次轮 skipped：改名承接只发生一次，记录不丢也不重复。
       expect(body.migrations).toEqual([
         { name: "schema_v1", status: "skipped" },
-        { name: "schema_v2", status: i === 0 ? "applied" : "skipped" }
+        { name: "schema_v2", status: i === 0 ? "applied" : "skipped" },
+        { name: "schema_v3", status: i === 0 ? "applied" : "skipped" }
       ])
     }
 
@@ -473,7 +602,11 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual([{ name: "schema_v1" }, { name: "schema_v2" }])
+    expect(ledger).toEqual([
+      { name: "schema_v1" },
+      { name: "schema_v2" },
+      { name: "schema_v3" }
+    ])
   })
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，两套账本与记录都不动", async () => {

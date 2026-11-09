@@ -296,7 +296,8 @@ describe("权限分层", () => {
     expect(await config.json()).toEqual({
       siteName: "Ciki",
       registrationEnabled: true,
-      registrationApprovalRequired: true
+      registrationApprovalRequired: true,
+      emailConfigured: false
     })
   })
 })

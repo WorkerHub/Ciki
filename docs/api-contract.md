@@ -28,6 +28,8 @@
 
 - `schema_v2`：`page_revisions` 增加 `content_gzip BLOB`，并把存量版本行逐行压成新格式（详见下文「page_revisions」）。写成 prepare-only 迁移（`sql` 为空，全部动作在幂等 `prepare` 里）：①`PRAGMA table_info` 探不到该列才 `ALTER TABLE … ADD COLUMN`；②按 `id` keyset 分批（25 行/批）转换存量——`gzip(content_json)` → **解压回读逐字节比对** → 一致才 `UPDATE … SET content_gzip=?, content_json='', content_html='', content_text='' WHERE id=? AND content_gzip IS NULL`。因此可重复执行（已转换行被 `content_gzip IS NULL` 排除、写回也再拦一道）、可中断续跑（中途失败该迁移不记账，下次 setup 从剩下的行继续），且只在回读校验通过后才清空被完整替代的冗余列。
 
+- `schema_v3`（邮箱验证码，2026-11-09）：新建 `email_codes` 专表与 `email_codes_expires_at` 索引；`user_2fa` 的 `email_otp_enabled` 列由 `schema_v3.prepare` 用 `PRAGMA table_info` 判断后 `ALTER TABLE … ADD COLUMN` 补上（SQLite 没有 `ADD COLUMN IF NOT EXISTS`），重复执行不会重复加列。回滚：删 `email_codes` 表与索引，并从账本删掉 `schema_v3` 行；`email_otp_enabled` 列可留（旧代码忽略）或用 `ALTER TABLE … DROP COLUMN` 一并回退。
+
 Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那样的逐版本升级路径：今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，不改动已有迁移。只跑过旧版部分迁移、或 `pages` 缺 `space_id` 的库不在支持范围——`CREATE TABLE IF NOT EXISTS` 不会补列，迁移会失败并报 `Migration "schema_v1" failed`，处置方式是重建库。
 
 部署到点升级之间（新代码已在跑、`schema_v2` 还没执行）站内仍可用：写路径用 `PRAGMA table_info` 探列，列不存在就按旧形态写版本行，升级时由 `schema_v2` 一并转换。
@@ -54,14 +56,15 @@ Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那�
 
 索引：`{prefix}users_public_id` 是 `public_id` 上的部分唯一索引（`WHERE public_id <> ''`）：未回填的空串不参与唯一性，回填完成后由数据库兜底并发建号的撞键。`public_id` 的字符表为 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`（去掉易混的 0/O/1/I/L），长度固定 8。
 
-### user_2fa（只存 TOTP）
+### user_2fa（TOTP + 邮箱验证码开关）
 
-| 列           | 类型                       | 说明                                                                      |
-| ------------ | -------------------------- | ------------------------------------------------------------------------- |
-| user_id      | TEXT PK                    |                                                                           |
-| totp_secret  | TEXT NULL                  | AES-GCM 密文，格式 `v1.<ivB64url>.<ctB64url>`，AAD = `ciki:totp:<userId>` |
-| totp_enabled | INTEGER NOT NULL DEFAULT 0 |                                                                           |
-| updated_at   | TEXT NOT NULL              |                                                                           |
+| 列                | 类型                       | 说明                                                                      |
+| ----------------- | -------------------------- | ------------------------------------------------------------------------- |
+| user_id           | TEXT PK                    |                                                                           |
+| totp_secret       | TEXT NULL                  | AES-GCM 密文，格式 `v1.<ivB64url>.<ctB64url>`，AAD = `ciki:totp:<userId>` |
+| totp_enabled      | INTEGER NOT NULL DEFAULT 0 |                                                                           |
+| email_otp_enabled | INTEGER NOT NULL DEFAULT 0 | `schema_v3` 补列；邮箱验证码作为第二因子的开关（端点见 #50）              |
+| updated_at        | TEXT NOT NULL              |                                                                           |
 
 ### passkey_credentials
 
@@ -116,15 +119,37 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 单条 `INSERT … ON CONFLICT(key) DO UPDATE` 原子自增，窗口过期自动重置；登录成功按账号删除失败/锁定行。
 
-| action          | account | 上限 / 窗口    | 说明                                                       |
-| --------------- | ------- | -------------- | ---------------------------------------------------------- |
-| login           | 空      | 10 次 / 5 分钟 | 每 IP                                                      |
-| login_fail      | 邮箱    | 5 次 / 15 分钟 | 第 5 次起锁 15 分钟                                        |
-| register        | 空      | 5 次 / 5 分钟  | 每 IP                                                      |
-| 2fa_verify      | 空      | 5 次 / 5 分钟  | 每 IP；另按 tempToken 记失败，5 次作废令牌                 |
-| password_change | 用户 id | 5 次 / 5 分钟  |                                                            |
-| reauth          | 用户 id | 5 次 / 5 分钟  | 2FA 敏感操作（新增/启用/关闭因子、删 passkey）的密码重认证 |
-| setup           | 空      | 3 次 / 10 分钟 | 每 IP，初始化前也生效                                      |
+| action                | account                            | 上限 / 窗口     | 说明                                                                    |
+| --------------------- | ---------------------------------- | --------------- | ----------------------------------------------------------------------- |
+| login                 | 空                                 | 10 次 / 5 分钟  | 每 IP                                                                   |
+| login_fail            | 邮箱                               | 5 次 / 15 分钟  | 第 5 次起锁 15 分钟                                                     |
+| register              | 空                                 | 5 次 / 5 分钟   | 每 IP                                                                   |
+| 2fa_verify            | 空                                 | 5 次 / 5 分钟   | 每 IP；另按 tempToken 记失败，5 次作废令牌                              |
+| password_change       | 用户 id                            | 5 次 / 5 分钟   |                                                                         |
+| reauth                | 用户 id                            | 5 次 / 5 分钟   | 2FA 敏感操作（新增/启用/关闭因子、删 passkey）的密码重认证              |
+| setup                 | 空                                 | 3 次 / 10 分钟  | 每 IP，初始化前也生效                                                   |
+| email_code_cd         | `${purpose}:${account}`            | 1 次 / 60 秒    | 发码冷却；第 2 次在窗口内即拒绝，`retryAfter` 秒级                      |
+| email_code_send       | `${purpose}:${account}`            | 5 次 / 1 小时   | 账号+用途的小时配额；找回密码的 account 是小写 trim 邮箱，2FA 是 userId |
+| email_code_send_ip    | 空                                 | 20 次 / 1 小时  | 每 IP 发码总量，防遍历账号                                              |
+| email_code_verify     | `${purpose}:${account}`            | 5 次 / 10 分钟  | 校验请求计数；成功后清零该账号+用途，第 5 次错误会删除该码              |
+| email_code_verify_ip  | 空                                 | 20 次 / 10 分钟 | 每 IP 校验总量，防单 IP 爆破                                            |
+| password_reset_submit | 有效 token 的 userId（无效时为空） | 5 次 / 5 分钟   | 设新密码接口；见 #51                                                    |
+| smtp_config           | 管理员 userId                      | 10 次 / 5 分钟  | `PUT /api/admin/system/smtp`                                            |
+| smtp_test             | 管理员 userId                      | 5 次 / 5 分钟   | `POST /api/admin/system/smtp/test`                                      |
+
+### email_codes（邮箱验证码，schema_v3）
+
+| 列         | 类型                       | 说明                                                          |
+| ---------- | -------------------------- | ------------------------------------------------------------- |
+| user_id    | TEXT NOT NULL              | 复合主键之一                                                  |
+| purpose    | TEXT NOT NULL              | `password_reset` / `2fa_login` / `2fa_enable`（CHECK 约束）   |
+| binding    | TEXT NOT NULL DEFAULT ''   | `2fa_login` 为 `SHA-256(tempToken)`；其余用途为空串           |
+| code_hash  | TEXT NOT NULL              | `SHA-256("<purpose>:<userId>:<code>")`，64 位 hex；不存明文码 |
+| attempts   | INTEGER NOT NULL DEFAULT 0 | 错误次数；第 5 次错误删除该行                                 |
+| created_at | INTEGER NOT NULL           | Unix 秒                                                       |
+| expires_at | INTEGER NOT NULL           | Unix 秒；TTL 600 秒                                           |
+
+主键 `(user_id, purpose, binding)`：同一账号同一用途（同一 tempToken）只保留最新一枚码，重发 UPSERT 覆盖旧码。验证码为 6 位数字（`crypto.getRandomValues`，100000–999999），单次消费；成功校验用 `DELETE … WHERE … AND code_hash=? AND expires_at>? AND attempts<5` 原子消费，`meta.changes=1` 才算成功；每次发码顺带 `DELETE … WHERE expires_at < now`。
 
 ### system_settings
 
@@ -137,8 +162,25 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | registration_enabled           | `true` / `false` | `true`         |
 | registration_approval_required | `true` / `false` | `true`         |
 | require_2fa                    | `true` / `false` | `false`        |
+| smtp_config                    | SMTP 配置 JSON   | 未设置         |
 
 `site_name` 是站点作用域的单值（浏览器页签标题、品牌区文字、登录页标题），仅管理员可改，长度 1–32 字符、不含控制字符；未播种时读端回退 `Ciki`。
+
+`smtp_config` 形状（#48 契约）：
+
+```json
+{
+  "host": "smtp.example.com",
+  "port": 587,
+  "encryption": "starttls",
+  "username": "mailer@example.com",
+  "password": "v1.<iv>.<ct>",
+  "from": "noreply@example.com",
+  "fromName": "Ciki"
+}
+```
+
+只有 `password` 是密文（AES-GCM，格式 `v1.<ivB64url>.<ctB64url>`，AAD = `ciki:smtp:password`），其余字段明文；未设置或 JSON 损坏视为未配置。`encryption` ∈ `tls`（465 隐式 TLS）/ `starttls`（STARTTLS，失败即报错不回退明文）/ `none`（明文）。`emailConfigured` 只看非密字段（host/port/encryption/from 合法），不解密、不探测网络、永不抛错；读写与测试端点见「管理」。
 
 ### import_tokens（个人导入令牌）
 
@@ -383,11 +425,12 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 {
   "siteName": "Ciki",
   "registrationEnabled": true,
-  "registrationApprovalRequired": true
+  "registrationApprovalRequired": true,
+  "emailConfigured": false
 }
 ```
 
-`siteName` 未登录也可读（登录页标题要用），不含敏感信息。
+`siteName` 未登录也可读（登录页标题要用），不含敏感信息。`emailConfigured` 是站点级公开事实（只说明 SMTP 非密字段是否配置好），用于登录页/找回密码入口判断是否展示邮件入口，不针对任何账号。
 
 #### POST /api/auth/register
 
@@ -585,11 +628,11 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "role": "admin", "isActive": true, "email": "…", "password": "…" }
 ```
 
-字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。`username` / `public_id` / 头像不在此接口里改。
+字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。改邮箱时一并删除该用户全部 `email_codes`（旧邮箱收到的码立即作废）。`username` / `public_id` / 头像不在此接口里改。
 
 #### DELETE /api/admin/users/:id
 
-不能删自己；删除用户及其 2FA/passkey/会话行。
+不能删自己；删除用户及其 2FA/passkey/会话/邮箱验证码行。
 
 #### POST /api/admin/users/:id/approve
 
@@ -631,17 +674,69 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "registrationEnabled": true,
   "registrationApprovalRequired": true,
   "require2fa": false,
-  "revisionRetentionLimit": 3
+  "revisionRetentionLimit": 3,
+  "emailConfigured": false
 }
 ```
 
 `revisionRetentionLimit`：每页保留的历史版本数，`number | null`，**`null` = 不限**（缺行与空串同义，这是唯一内部口径；下限 1）。
 
+`emailConfigured` 与 `GET /api/auth/config` 同口径（只看 SMTP 非密字段），供系统管理页展示发信可用状态。
+
 #### PUT /api/admin/settings
 
-同一对象的任意子集：布尔项照旧，`siteName` 为字符串（trim 后 1–32 字符、不含控制字符，否则 400 `siteName must be 1-32 characters`）。200 `{"success":true}`。
+同一对象的任意子集：布尔项照旧，`siteName` 为字符串（trim 后 1–32 字符、不含控制字符，否则 400 `siteName must be 1-32 characters`）；`emailConfigured` 只读，不在写入字段里。200 `{"success":true}`。
 
 `revisionRetentionLimit`：整数 ≥1 直接保存；`null` / `0` / 空串按「不限」落库（读出来一律是 `null`）；负数、非整数、非数字 → 400 `{"error":"revisionRetentionLimit must be a positive integer or null"}`。改设置不触碰任何存量版本，修剪只发生在「后续保存」与「手动全站修剪」两处。
+
+#### GET /api/admin/system/smtp
+
+```json
+{
+  "emailConfigured": true,
+  "config": {
+    "host": "smtp.example.com",
+    "port": 587,
+    "encryption": "starttls",
+    "username": "mailer@example.com",
+    "passwordSet": true,
+    "from": "noreply@example.com",
+    "fromName": "Ciki"
+  }
+}
+```
+
+- **永不返回密码**，只给 `passwordSet`；密文本身也不出现在任何 DTO 里。
+- 未配置或 `smtp_config` JSON 损坏时 `config: null`、`emailConfigured: false`；JSON 合法但非密字段非法时仍回显 `config`（便于管理员修正），但 `emailConfigured: false`。
+
+#### PUT /api/admin/system/smtp
+
+请求体是全量替换的非密字段 + 密码语义：
+
+```json
+{
+  "host": "smtp.example.com",
+  "port": 587,
+  "encryption": "starttls",
+  "username": "mailer@example.com",
+  "password": "新密码，或省略",
+  "from": "noreply@example.com",
+  "fromName": "Ciki"
+}
+```
+
+- `password`：缺省 / 空串 / 纯 `•` 掩码 = 保留原密文（前端回传掩码不会变成新密码）；`null` = 清空；其它非空字符串 = 重新加密（每次新 IV）。
+- 字段规则：`host` 非空 ≤253、不含空白/CR/LF/`:`/`@`；`port` 整数 1–65535；`encryption` ∈ `tls|starttls|none`；`username` ≤320 且与「生效的 password 是否有值」同时有或同时空；`from` 合法邮箱；`fromName` ≤64 且剥除 CR/LF。
+- 成功 200 `{"success":true,"emailConfigured":true}`；校验失败 400 `{"error":"Invalid SMTP config: …","code":"INVALID_SMTP_CONFIG"}`；限流 429（`smtp_config`，见 auth_counters 表）。
+- 密码只以 AES-GCM 密文落 `system_settings.smtp_config`，AAD 固定 `ciki:smtp:password`；日志与错误不回显明文密码或其 base64。
+
+#### POST /api/admin/system/smtp/test
+
+请求体被忽略（即使传 `to` 也不生效），**只发给当前管理员自己的邮箱**：200 `{"success":true}`。
+
+- 未配置：503 `{"error":"Email delivery is not configured","code":"EMAIL_NOT_CONFIGURED"}`。
+- 发送失败：502 `{"error":"SMTP send failed: …","code":"SMTP_SEND_FAILED"}`，原因为已脱敏的 SMTP 错误（不含密码；`ENCRYPTION_KEY` 轮换后旧密文解不开时也会返回可操作原因）。
+- 限流：`smtp_test` 5 次 / 5 分钟，429 带 `retryAfter`。
 
 #### GET /api/admin/revisions/retention（管理员会话）
 
@@ -1074,4 +1169,4 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，只渲染一行（运行时间 + 五个计数），不加说明文字；触发清理没有按钮。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
-- 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、邮件相关端点。
+- 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、注册邮箱验证与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱 2FA / 找回密码端点由后续实现单补入）。

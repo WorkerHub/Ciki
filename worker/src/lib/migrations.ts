@@ -13,7 +13,7 @@
  * - 表名/索引名一律经 src/lib/tables.ts 拼装，本文件只写 `{prefix}` 占位。
  * - SQLite 缺 `ADD COLUMN IF NOT EXISTS` 之类的能力时，可在 `prepare` 里做结构补齐
  *   与数据回填：它先于 sql 执行、只允许补新列里仍为空的值，不得覆盖既有数据，
- *   同样必须可重复执行。
+ *   同样必须可重复执行（`schema_v3` 的 `user_2fa.email_otp_enabled` 就是这么补的）。
  * - **prepare-only 形态**（`schema_v2` 起）：当一步改动无法用本文件支持的语句表达
  *   （`ADD COLUMN` 没有 IF NOT EXISTS，数据回填要调 Worker 的压缩 API），整个迁移写成
  *   `sql: ""` + 幂等 `prepare`：先探列、缺了才加，再按 keyset 分批处理剩下的行。
@@ -33,6 +33,7 @@ import { gzipText, gunzipText } from "./gzip"
 import {
   challengesTable,
   countersTable,
+  emailCodesTable,
   importTokensTable,
   pagesFtsTable,
   pagesTable,
@@ -407,6 +408,53 @@ const SCHEMA_V2: Migration = {
   }
 }
 
+/**
+ * schema_v3 — 邮箱验证码（#48 契约第 5 条）。
+ *
+ * 新建 `email_codes` 专表：一个 `(user_id, purpose, binding)` 只保留最新一枚码
+ * （重发 UPSERT 覆盖），`attempts` 由 SQL 原子自增，成功校验用 DELETE 原子消费。
+ * `user_2fa.email_otp_enabled` 不在 SQL 里补——SQLite 没有
+ * `ADD COLUMN IF NOT EXISTS`，放在 `prepare` 里按 PRAGMA 判断后补。
+ *
+ * 编号说明：契约原本写作 `schema_v2`，但主干上 `schema_v2` 已被历史版本 gzip 化
+ * 占用并已应用，不得改名或改内容，因此邮箱验证码顺延为 `schema_v3`。
+ */
+const SCHEMA_V3 = `CREATE TABLE IF NOT EXISTS {prefix}email_codes (
+  user_id    TEXT NOT NULL,
+  purpose    TEXT NOT NULL CHECK (purpose IN ('password_reset', '2fa_login', '2fa_enable')),
+  binding    TEXT NOT NULL DEFAULT '',
+  code_hash  TEXT NOT NULL,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, purpose, binding)
+);
+
+CREATE INDEX IF NOT EXISTS {prefix}email_codes_expires_at
+  ON {prefix}email_codes(expires_at)`
+
+/**
+ * schema_v3 的结构补齐：`user_2fa` 加邮箱验证码开关列。
+ *
+ * 幂等：列已存在（或在同一轮里已被补过）直接返回；表不存在时跳过——正常情况下
+ * `schema_v1` 已在同一轮里先建出 `user_2fa`，这里只防御“只跑过部分迁移”的库。
+ */
+async function prepareSchemaV3(db: D1Database, prefix: string): Promise<void> {
+  const table = user2faTable(prefix)
+  const columns = await db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all<{ name: string }>()
+  if (columns.results.length === 0) return
+  if (columns.results.some((column) => column.name === "email_otp_enabled")) {
+    return
+  }
+  await db
+    .prepare(
+      `ALTER TABLE ${table} ADD COLUMN email_otp_enabled INTEGER NOT NULL DEFAULT 0`
+    )
+    .run()
+}
+
 export function getMigrations(prefix: string): Migration[] {
   // 说明：表名统一由 tables.ts 的 helper 提供；这里只做前缀替换，
   // 并断言 helper 与迁移 SQL 用的是同一套名字（改一处就会在这里暴露）。
@@ -433,5 +481,17 @@ export function getMigrations(prefix: string): Migration[] {
       throw new Error(`migration schema_v1 is missing table ${name}`)
     }
   }
-  return [{ name: "schema_v1", sql }, SCHEMA_V2]
+
+  const sqlV3 = render(SCHEMA_V3, prefix)
+  if (!sqlV3.includes(emailCodesTable(prefix))) {
+    throw new Error(
+      `migration schema_v3 is missing table ${emailCodesTable(prefix)}`
+    )
+  }
+
+  return [
+    { name: "schema_v1", sql },
+    SCHEMA_V2,
+    { name: "schema_v3", sql: sqlV3, prepare: prepareSchemaV3 }
+  ]
 }

@@ -2,8 +2,10 @@
 # 复制成 worker/.dev.vars（已 gitignore）后填入真实值——真实密钥绝不进仓库。
 # 线上同名项由 CI 经 `wrangler deploy --secrets-file` 上传（见 .github/workflows/deploy.yml）。
 #
-# ENCRYPTION_KEY：TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32`
-# 生成（也接受 64 位 hex）。下面的模板值会被部署脚本当成未填写并拒绝。
+# ENCRYPTION_KEY：敏感字段的 AES-GCM 加密钥（TOTP 密钥与 SMTP 密码），32 字节，
+# 用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。下面的模板值会被部署脚本
+# 当成未填写并拒绝。
+# 注意：换钥后旧的 TOTP 密钥与 SMTP 密码密文都解不开——SMTP 密码需在系统管理页重填。
 # 会话不再签 JWT，旧的 JWT_SECRET 已不再读取。
 ENCRYPTION_KEY=ENCRYPTION_KEY_PLACEHOLDER
 # SETUP_SECRET：setup / 数据库维护接口的 X-Setup-Secret 令牌

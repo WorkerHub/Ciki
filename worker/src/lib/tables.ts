@@ -26,6 +26,12 @@ export const countersTable = (prefix: string) =>
   tableName(prefix, "auth_counters")
 export const settingsTable = (prefix: string) =>
   tableName(prefix, "system_settings")
+/**
+ * 邮箱验证码（#48 契约 DDL）：(user_id, purpose, binding) 复合主键，重发覆盖旧码；
+ * 库内只存 `SHA-256("<purpose>:<userId>:<code>")`，不存明文码。
+ */
+export const emailCodesTable = (prefix: string) =>
+  tableName(prefix, "email_codes")
 /** 空间（规格「Ciki Space」）：默认空间由初始化迁移 schema_v1 播种，`is_default=1`。 */
 export const spacesTable = (prefix: string) => tableName(prefix, "spaces")
 /** 空间成员与角色（admin / editor / viewer），(space_id, user_id) 唯一。 */
