@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
-import type { Me, PageDetail, Space } from "@/lib/api"
+import { ApiError, type Me, type PageDetail, type Space } from "@/lib/api"
 import { PageView } from "@/pages/PageView"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 import { useAuthStore } from "@/stores/auth"
@@ -316,5 +317,228 @@ describe("阅读页按空间角色收口写入口", () => {
       ).toBe(true)
     )
     spy.mockRestore()
+  })
+})
+
+describe("文章页原地刷新", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  beforeEach(() => {
+    useAuthStore.setState({
+      user: memberUser,
+      status: "ready",
+      restricted: false
+    })
+    usePagesStore.setState({
+      tree: [],
+      spaceId: "s1",
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space({ myRole: "editor" })],
+      status: "ready",
+      error: null,
+      currentId: "s1"
+    })
+    vi.mocked(pagesApi.get).mockReset()
+    vi.mocked(pagesApi.tree).mockReset()
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+  })
+
+  it("点刷新就地重拉详情与页面树，正文更新且编辑器不重建", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+    const rootBefore = document.querySelector(".wiki-content")
+    expect(rootBefore).not.toBeNull()
+
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      title: "支付服务部署手册（新版）",
+      contentHtml: "<p>新的正文</p>",
+      contentText: "新的正文",
+      updatedAt: "2020-01-01T00:00:00.000Z"
+    })
+
+    await user.click(screen.getByRole("button", { name: "刷新" }))
+
+    expect(
+      await screen.findByText("支付服务部署手册（新版）")
+    ).toBeInTheDocument()
+    expect(await screen.findByText("新的正文")).toBeInTheDocument()
+    expect(screen.getByText(/2020-01-01/)).toBeInTheDocument()
+    expect(pagesApi.get).toHaveBeenCalledTimes(2)
+    expect(pagesApi.tree).toHaveBeenCalledTimes(1)
+    // 编辑器实例没被重建：正文根节点还是同一个（不闪、滚动位置不丢）
+    expect(document.querySelector(".wiki-content")).toBe(rootBefore)
+  })
+
+  it("刷新进行中按钮禁用，重复点击不再发请求", async () => {
+    const user = userEvent.setup()
+    let release: (detail: PageDetail) => void = () => {}
+    vi.mocked(pagesApi.get)
+      .mockResolvedValueOnce(page)
+      .mockImplementationOnce(
+        () =>
+          new Promise<PageDetail>((resolve) => {
+            release = resolve
+          })
+      )
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    const button = screen.getByRole("button", { name: "刷新" })
+    await user.click(button)
+    expect(button).toBeDisabled()
+    expect(button).toHaveAttribute("aria-busy", "true")
+
+    await user.click(button)
+
+    release({ ...page, title: "刷新后的标题" })
+    await screen.findByText("刷新后的标题")
+    expect(button).toBeEnabled()
+    expect(pagesApi.get).toHaveBeenCalledTimes(2)
+  })
+
+  it("刷新失败时正文保留旧数据，并沿用现有错误提示样式", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+    vi.mocked(pagesApi.get).mockRejectedValueOnce(new ApiError(500, "boom"))
+
+    await user.click(screen.getByRole("button", { name: "刷新" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom")
+    expect(screen.getByText("支付服务部署手册")).toBeInTheDocument()
+    expect(await screen.findByText("正文")).toBeInTheDocument()
+  })
+
+  it("刷新时页面已被别处删除，走现有「页面不存在」处理", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+    vi.mocked(pagesApi.get).mockRejectedValueOnce(
+      new ApiError(404, "Not found")
+    )
+
+    await user.click(screen.getByRole("button", { name: "刷新" }))
+
+    expect(await screen.findByText("页面不存在或已删除")).toBeInTheDocument()
+  })
+
+  it("切回标签页自动刷新，节流窗口内反复切回不重复拉取", async () => {
+    renderView()
+    await screen.findByText("支付服务部署手册")
+    expect(pagesApi.get).toHaveBeenCalledTimes(1)
+    expect(pagesApi.tree).not.toHaveBeenCalled()
+
+    const started = Date.now()
+    const now = vi.spyOn(Date, "now").mockReturnValue(started + 11_000)
+    document.dispatchEvent(new Event("visibilitychange"))
+    await waitFor(() => expect(pagesApi.get).toHaveBeenCalledTimes(2))
+    expect(pagesApi.tree).toHaveBeenCalledTimes(1)
+
+    // 同一时间窗口里再切回（两个事件都派发）：不再拉
+    document.dispatchEvent(new Event("visibilitychange"))
+    window.dispatchEvent(new Event("focus"))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(pagesApi.get).toHaveBeenCalledTimes(2)
+
+    // 越过节流窗口后会重新刷新
+    now.mockReturnValue(started + 22_000)
+    document.dispatchEvent(new Event("visibilitychange"))
+    await waitFor(() => expect(pagesApi.get).toHaveBeenCalledTimes(3))
+    now.mockRestore()
+  })
+
+  it("刷新途中切到别的页面时，旧页的结果不会盖到新页上", async () => {
+    const user = userEvent.setup()
+    const pageB: PageDetail = { ...page, id: "b", title: "B 页" }
+    vi.mocked(pagesApi.get).mockImplementation((id) =>
+      Promise.resolve(id === "b" ? pageB : page)
+    )
+    const router = createMemoryRouter(
+      [
+        { path: "/p/:pageId", element: <PageView /> },
+        { path: "/", element: <div>首页占位</div> }
+      ],
+      { initialEntries: ["/p/a"] }
+    )
+    render(<RouterProvider router={router} />)
+    await screen.findByText("支付服务部署手册")
+
+    // 刷新请求挂起时切页：结果回来必须被丢弃
+    let releaseRefresh: (detail: PageDetail) => void = () => {}
+    vi.mocked(pagesApi.get).mockImplementationOnce(
+      () =>
+        new Promise<PageDetail>((resolve) => {
+          releaseRefresh = resolve
+        })
+    )
+    await user.click(screen.getByRole("button", { name: "刷新" }))
+
+    await router.navigate("/p/b")
+    await screen.findByText("B 页")
+
+    releaseRefresh({ ...page, title: "A 页的旧结果" })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.queryByText("A 页的旧结果")).toBeNull()
+    expect(screen.getByText("B 页")).toBeInTheDocument()
+  })
+
+  it("切页时清掉上一页的刷新报错，并重置自动刷新的节流基准", async () => {
+    const user = userEvent.setup()
+    const pageB: PageDetail = { ...page, id: "b", title: "B 页" }
+    vi.mocked(pagesApi.get).mockImplementation((id) =>
+      Promise.resolve(id === "b" ? pageB : page)
+    )
+    const router = createMemoryRouter(
+      [
+        { path: "/p/:pageId", element: <PageView /> },
+        { path: "/", element: <div>首页占位</div> }
+      ],
+      { initialEntries: ["/p/a"] }
+    )
+    render(<RouterProvider router={router} />)
+    await screen.findByText("支付服务部署手册")
+
+    // A 页刷新失败：页面上留下这次刷新的报错
+    vi.mocked(pagesApi.get).mockRejectedValueOnce(new ApiError(500, "boom"))
+    await user.click(screen.getByRole("button", { name: "刷新" }))
+    expect(await screen.findByRole("alert")).toHaveTextContent("boom")
+
+    // 切到 B 页：残留报错不能跟过来
+    await router.navigate("/p/b")
+    await screen.findByText("B 页")
+    expect(screen.queryByRole("alert")).toBeNull()
+
+    // 节流基准随换页重置：刚加载好的 B 页，立刻切回标签页不应再拉一次
+    const calls = vi.mocked(pagesApi.get).mock.calls.length
+    document.dispatchEvent(new Event("visibilitychange"))
+    window.dispatchEvent(new Event("focus"))
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(vi.mocked(pagesApi.get).mock.calls.length).toBe(calls)
+  })
+
+  it("首屏加载失败后，切回标签页刷新成功即可恢复正文", async () => {
+    vi.mocked(pagesApi.get).mockRejectedValueOnce(new ApiError(500, "boom"))
+    renderView()
+    expect(await screen.findByText("boom")).toBeInTheDocument()
+    expect(screen.queryByText("支付服务部署手册")).toBeNull()
+
+    // 越过节流窗口后切回标签页：自动刷新成功，错误段要让位给正文
+    const started = Date.now()
+    const now = vi.spyOn(Date, "now").mockReturnValue(started + 11_000)
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    document.dispatchEvent(new Event("visibilitychange"))
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.queryByText("boom")).toBeNull()
+    now.mockRestore()
   })
 })
