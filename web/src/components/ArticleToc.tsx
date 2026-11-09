@@ -1,23 +1,11 @@
 import { useEffect, useRef, useState } from "react"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
+import { ACTIVE_LINE, findScrollParent } from "@/lib/scroll-anchor"
 import { TOC_MIN_ITEMS, type TocItem } from "@/lib/toc"
 import { cn } from "@/lib/utils"
 
 /** 断点：xl（1280px）以下整轨不渲染，正文吃满原宽度。 */
 const TOC_BREAKPOINT = "(min-width: 1280px)"
-/** 判定线相对滚动容器顶部的偏移，与 sticky top / 画布上边距同量级。 */
-const ACTIVE_LINE = 24
-
-/** 标题的最近滚动祖先：滚动高亮要跟主区走，不以窗口为准。 */
-function findScrollParent(node: HTMLElement): HTMLElement | null {
-  let current = node.parentElement
-  while (current) {
-    const overflowY = getComputedStyle(current).overflowY
-    if (overflowY === "auto" || overflowY === "scroll") return current
-    current = current.parentElement
-  }
-  return null
-}
 
 interface ArticleTocProps {
   /** extractToc 的结果；空数组表示本文没有索引。 */
