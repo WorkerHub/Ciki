@@ -195,3 +195,53 @@ describe("describeApiError：空间相关错误码", () => {
     ).toBe("成员角色不合法。")
   })
 })
+
+describe("describeApiError：版本治理相关错误码", () => {
+  it("最新一条不许删、保留数不限时不能全站修剪", () => {
+    expect(
+      describeApiError(
+        apiError(
+          409,
+          "Cannot delete the latest revision",
+          "/pages/p1/revisions/r1",
+          "REVISION_IS_LATEST"
+        )
+      )
+    ).toBe("每页最新的一条版本不能删除。")
+    expect(
+      describeApiError(
+        apiError(
+          409,
+          "Revision retention is unlimited",
+          "/admin/revisions/prune",
+          "RETENTION_UNLIMITED"
+        )
+      )
+    ).toBe("当前设置为不限，没有可修剪的版本。")
+  })
+
+  it("版本内容无法按当前 schema 渲染 → 说明不能查看或回滚", () => {
+    expect(
+      describeApiError(
+        apiError(
+          422,
+          "Revision content cannot be rendered",
+          "/pages/p1/revisions/r1",
+          "REVISION_UNRENDERABLE"
+        )
+      )
+    ).toBe("这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。")
+  })
+
+  it("保留数校验失败的 400 用中文说明，不摆后端英文原文", () => {
+    expect(
+      describeApiError(
+        apiError(
+          400,
+          "revisionRetentionLimit must be a positive integer or null",
+          "/admin/settings"
+        )
+      )
+    ).toBe("保留数需为不小于 1 的整数，留空表示不限。")
+  })
+})
