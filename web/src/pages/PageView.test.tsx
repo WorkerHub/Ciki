@@ -62,15 +62,59 @@ function space(overrides: Partial<Space>): Space {
   }
 }
 
-function renderView() {
+function renderView(initialEntry = "/p/a") {
   const router = createMemoryRouter(
     [
       { path: "/p/:pageId", element: <PageView /> },
       { path: "/", element: <div>首页占位</div> }
     ],
-    { initialEntries: ["/p/a"] }
+    { initialEntries: [initialEntry] }
   )
   return render(<RouterProvider router={router} />)
+}
+
+/** 索引轨只在 xl（1280px）以上渲染：这里按需翻转断点匹配。 */
+function setViewportWide(wide: boolean) {
+  window.matchMedia = ((query: string) => ({
+    matches: wide,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false
+  })) as unknown as typeof window.matchMedia
+}
+
+const tocContentJson = JSON.stringify({
+  type: "doc",
+  content: [
+    {
+      type: "heading",
+      attrs: { level: 2 },
+      content: [{ type: "text", text: "部署" }]
+    },
+    {
+      type: "heading",
+      attrs: { level: 3 },
+      content: [{ type: "text", text: "配置" }]
+    },
+    {
+      type: "heading",
+      attrs: { level: 2 },
+      content: [{ type: "text", text: "回滚" }]
+    }
+  ]
+})
+
+function pageWithToc(): PageDetail {
+  return {
+    ...page,
+    contentJson: tocContentJson,
+    contentHtml: "<h2>部署</h2><h3>配置</h3><h2>回滚</h2>",
+    contentText: "部署\n配置\n回滚"
+  }
 }
 
 describe("阅读页按空间角色收口写入口", () => {
@@ -173,5 +217,104 @@ describe("阅读页按空间角色收口写入口", () => {
     renderView()
 
     await waitFor(() => expect(useSpacesStore.getState().currentId).toBe("s1"))
+  })
+
+  it("≥1280px 时正文右侧出现索引轨，条目是原生锚点", async () => {
+    setViewportWide(true)
+    vi.mocked(pagesApi.get).mockResolvedValue(pageWithToc())
+    renderView()
+
+    const nav = await screen.findByRole("navigation", { name: "本页索引" })
+    expect(nav).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "部署" })).toHaveAttribute(
+      "href",
+      "#heading-1"
+    )
+    expect(screen.getByRole("link", { name: "回滚" })).toHaveAttribute(
+      "href",
+      "#heading-3"
+    )
+  })
+
+  it("标题不足 2 条时不渲染索引轨", async () => {
+    setViewportWide(true)
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      contentJson: JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "heading",
+            attrs: { level: 2 },
+            content: [{ type: "text", text: "唯一标题" }]
+          }
+        ]
+      }),
+      contentHtml: "<h2>唯一标题</h2>"
+    })
+    renderView()
+
+    await screen.findByRole("heading", { level: 2 })
+    expect(screen.queryByRole("navigation", { name: "本页索引" })).toBeNull()
+  })
+
+  it("1280px 以下不渲染索引轨", async () => {
+    setViewportWide(false)
+    vi.mocked(pagesApi.get).mockResolvedValue(pageWithToc())
+    renderView()
+
+    await screen.findAllByRole("heading", { level: 2 })
+    expect(screen.queryByRole("navigation", { name: "本页索引" })).toBeNull()
+  })
+
+  it("带 hash 打开时内容就绪后滚到对应标题一次", async () => {
+    setViewportWide(true)
+    vi.mocked(pagesApi.get).mockResolvedValue(pageWithToc())
+    const spy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
+    renderView("/p/a#heading-2")
+
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    const hits = spy.mock.instances.filter(
+      (instance) => (instance as HTMLElement).id === "heading-2"
+    )
+    expect(hits).toHaveLength(1)
+    spy.mockRestore()
+  })
+
+  it("从 A 页切到带 hash 的 B 页时仍滚到 B 的对应标题", async () => {
+    setViewportWide(true)
+    const pageA: PageDetail = {
+      ...page,
+      id: "a",
+      title: "A 页",
+      contentJson: tocContentJson,
+      contentHtml: "<h2>部署</h2><h3>配置</h3><h2>回滚</h2>"
+    }
+    const pageB: PageDetail = { ...pageA, id: "b", title: "B 页" }
+    vi.mocked(pagesApi.get).mockImplementation((id) =>
+      Promise.resolve(id === "b" ? pageB : pageA)
+    )
+    const router = createMemoryRouter(
+      [
+        { path: "/p/:pageId", element: <PageView /> },
+        { path: "/", element: <div>首页占位</div> }
+      ],
+      { initialEntries: ["/p/a"] }
+    )
+    const spy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
+    render(<RouterProvider router={router} />)
+    await screen.findByText("A 页")
+
+    // 切页瞬间 contentRoot 还是 A 页的：不能提前记帐，否则新页就绪后不再恢复
+    await router.navigate("/p/b#heading-2")
+    await screen.findByText("B 页")
+    await waitFor(() =>
+      expect(
+        spy.mock.instances.some(
+          (instance) => (instance as HTMLElement).id === "heading-2"
+        )
+      ).toBe(true)
+    )
+    spy.mockRestore()
   })
 })

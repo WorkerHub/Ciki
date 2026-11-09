@@ -173,6 +173,8 @@
   font-weight: 650;
   line-height: 1.3;
   letter-spacing: -0.01em;
+  /* 索引跳转的落点：标题不贴滚动容器顶边，留出画布上边距量级 */
+  scroll-margin-top: 1.5rem;
 }
 
 .wiki-content h1 {

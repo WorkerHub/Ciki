@@ -27,6 +27,20 @@ if (typeof window !== "undefined") {
   if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = () => {}
   }
+  // 索引轨的滚动高亮用原生 IntersectionObserver；jsdom 没有，给个不回调的空桩。
+  if (!("IntersectionObserver" in window)) {
+    class IntersectionObserverStub {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords(): IntersectionObserverEntry[] {
+        return []
+      }
+    }
+    ;(
+      window as unknown as { IntersectionObserver: unknown }
+    ).IntersectionObserver = IntersectionObserverStub
+  }
   if (!Element.prototype.hasPointerCapture) {
     Element.prototype.hasPointerCapture = () => false
   }
