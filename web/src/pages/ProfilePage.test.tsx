@@ -28,7 +28,12 @@ const user: Me = {
   role: "user",
   approvalStatus: "approved",
   createdAt: "2026-11-07T00:00:00.000Z",
-  twofa: { totpEnabled: false, passkeyEnabled: false, passkeyCount: 0 }
+  twofa: {
+    totpEnabled: false,
+    passkeyEnabled: false,
+    passkeyCount: 0,
+    emailOtpEnabled: false
+  }
 }
 
 function setUser(value: Me = user) {

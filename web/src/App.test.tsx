@@ -27,7 +27,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     authApi: {
       ...actual.authApi,
       login: vi.fn(),
-      verifyTotp: vi.fn(),
+      verifySecondFactor: vi.fn(),
       config: vi.fn()
     },
     adminApi: { ...actual.adminApi, users: vi.fn(), settings: vi.fn() },
@@ -47,7 +47,12 @@ const admin: Me = {
   role: "admin",
   approvalStatus: "approved",
   createdAt: "2026-11-07T00:00:00.000Z",
-  twofa: { totpEnabled: false, passkeyEnabled: false, passkeyCount: 0 }
+  twofa: {
+    totpEnabled: false,
+    passkeyEnabled: false,
+    passkeyCount: 0,
+    emailOtpEnabled: false
+  }
 }
 
 const member: Me = {
@@ -71,7 +76,10 @@ describe("路由守卫与初始化门", () => {
     // setup 状态在共享 store 里，用例之间必须复位，否则第二个用例不会再拉
     useSetupGateStore.setState({ state: null, loading: false })
     useSiteStore.setState({ name: DEFAULT_SITE_NAME, loaded: false })
-    vi.mocked(siteApi.get).mockResolvedValue({ siteName: "Ciki" })
+    vi.mocked(siteApi.get).mockResolvedValue({
+      siteName: "Ciki",
+      emailConfigured: true
+    })
     vi.mocked(setupApi.state).mockResolvedValue({
       initialized: true,
       enabled: true
@@ -165,7 +173,10 @@ describe("路由守卫与初始化门", () => {
   })
 
   it("站点名从公开配置读取，页签标题与登录标题同步", async () => {
-    vi.mocked(siteApi.get).mockResolvedValue({ siteName: "团队知识库" })
+    vi.mocked(siteApi.get).mockResolvedValue({
+      siteName: "团队知识库",
+      emailConfigured: true
+    })
     vi.mocked(meApi.get).mockRejectedValue(new ApiError(401, "Unauthorized"))
     renderApp("/")
 

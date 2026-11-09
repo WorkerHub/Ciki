@@ -58,6 +58,7 @@ const NO_REFRESH_PATHS = [
   "/auth/refresh",
   "/auth/2fa/verify",
   "/auth/2fa/passkey/authenticate",
+  "/auth/2fa/email-otp/send-login",
   "/auth/config",
   "/setup/state",
   "/setup"
@@ -211,6 +212,8 @@ export interface Me extends User {
     totpEnabled: boolean
     passkeyEnabled: boolean
     passkeyCount: number
+    /** 邮箱验证码 2FA 是否已开启（与 TOTP/Passkey 并列的第三种因子）。 */
+    emailOtpEnabled: boolean
   }
 }
 
@@ -226,9 +229,10 @@ export interface AuthConfig {
   emailConfigured: boolean
 }
 
-/** 公开的站点名读取结果。 */
+/** 公开的站点信息读取结果。 */
 export interface SiteInfo {
   siteName: string
+  emailConfigured: boolean
 }
 
 export type LoginResponse =
@@ -280,6 +284,18 @@ export interface TotpSetup {
   secret: string
   uri: string
 }
+
+/** 邮箱验证码发出后的统一回执（send-verify 与 send-login 同形）。 */
+export interface EmailCodeSent {
+  success: true
+  /** 重发冷却秒数（契约固定 60）。 */
+  cooldownSeconds: number
+  /** 本次验证码有效期秒数（契约固定 600）。 */
+  expiresInSeconds: number
+}
+
+/** 登录第二步可用的验证方式（契约顺序：totp → passkey → email_otp）。 */
+export type SecondFactorMethod = "totp" | "email_otp"
 
 /** 导入令牌状态：只回状态与时间，从不回哈希与明文。 */
 export interface ImportTokenStatus {
@@ -517,12 +533,20 @@ export const authApi = {
       { email, password },
       { skipRefresh: true }
     ),
-  verifyTotp: (tempToken: string, code: string) =>
+  /** 登录第二步：同一端点按 method 分流（totp / email_otp；passkey 走下面两个端点）。 */
+  verifySecondFactor: (
+    tempToken: string,
+    method: SecondFactorMethod,
+    code: string
+  ) =>
     api.post<{ success: true; user: User }>("/auth/2fa/verify", {
       tempToken,
-      method: "totp",
+      method,
       code
     }),
+  /** 登录第二步选了邮箱验证码时发码（公开，只认有效的 2fa_login 挑战）。 */
+  sendLoginEmailCode: (tempToken: string) =>
+    api.post<EmailCodeSent>("/auth/2fa/email-otp/send-login", { tempToken }),
   passkeyAuthOptions: (tempToken: string) =>
     api.post<Record<string, unknown>>(
       "/auth/2fa/passkey/authenticate/options",
@@ -566,7 +590,24 @@ export const authApi = {
       { password }
     ),
   passkeyDisableAll: (password: string) =>
-    api.post<{ success: true }>("/auth/2fa/passkey/disable", { password })
+    api.post<{ success: true }>("/auth/2fa/passkey/disable", { password }),
+  /**
+   * 邮箱验证码 2FA：先发码（send-verify）、再拿码开启（enable），验证走过一次
+   * 往返才真正开启；已有其它因子时两个端点都要带密码重认证。
+   */
+  emailOtpSendVerify: (password?: string) =>
+    api.post<EmailCodeSent>(
+      "/auth/2fa/email-otp/send-verify",
+      password ? { password } : {}
+    ),
+  emailOtpEnable: (code: string, password?: string) =>
+    api.post<{ success: true }>("/auth/2fa/email-otp/enable", {
+      code,
+      ...(password ? { password } : {})
+    }),
+  /** 关闭邮箱验证码始终要求密码，且不依赖 SMTP 是否可用（否则会被锁死）。 */
+  emailOtpDisable: (password: string) =>
+    api.post<{ success: true }>("/auth/2fa/email-otp/disable", { password })
 }
 
 export const meApi = {
@@ -600,7 +641,10 @@ export const meApi = {
 export const siteApi = {
   get: async (): Promise<SiteInfo> => {
     const config = await authApi.config()
-    return { siteName: config.siteName }
+    return {
+      siteName: config.siteName,
+      emailConfigured: config.emailConfigured === true
+    }
   }
 }
 
@@ -740,7 +784,8 @@ const AUTH_FORM_PATHS = [
   "/auth/login",
   "/auth/2fa/verify",
   "/auth/2fa/passkey/authenticate/options",
-  "/auth/2fa/passkey/authenticate/verify"
+  "/auth/2fa/passkey/authenticate/verify",
+  "/auth/2fa/email-otp/send-login"
 ]
 
 function isAuthFormPath(path: string | undefined) {
@@ -764,6 +809,10 @@ export function describeApiError(error: unknown): string {
       return "站点已关闭注册，请联系管理员开通账号。"
     case "EMAIL_TAKEN":
       return "这个邮箱已经注册过，直接登录即可。"
+    case "METHOD_NOT_ENABLED":
+      return "这个账号没有开启邮箱验证码。"
+    case "2FA_METHOD_UNAVAILABLE":
+      return "该账号开启的两步验证方式当前都不可用，请联系管理员。"
     case "PREFIX_CONFLICT":
       return "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。"
     case "LEDGER_CONFLICT":
