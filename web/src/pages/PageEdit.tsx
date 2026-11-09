@@ -238,7 +238,7 @@ export function PageEdit() {
   }
 
   return (
-    <div className="max-w-[900px] space-y-3">
+    <div className="space-y-3">
       <header className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button

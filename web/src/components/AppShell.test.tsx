@@ -79,7 +79,7 @@ function renderShell(path: string) {
   return render(<RouterProvider router={router} />)
 }
 
-describe("顶栏、头像菜单与系统页侧栏", () => {
+describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
   beforeEach(() => {
     useAuthStore.setState({ user: admin, status: "ready", restricted: false })
     usePagesStore.setState({ tree: [], loading: false, expanded: [] })
@@ -177,5 +177,24 @@ describe("顶栏、头像菜单与系统页侧栏", () => {
 
     renderShell("/p/abc")
     expect(await screen.findByText("页面")).toBeInTheDocument()
+  })
+
+  it("文章页读、写两态共用同一流式正文画布，系统页不套用", () => {
+    const read = renderShell("/p/a")
+    const readCanvas = read.container.querySelector("[data-page-canvas]")
+    expect(readCanvas).not.toBeNull()
+    expect(readCanvas).toHaveClass("mx-auto", "max-w-[1600px]")
+    // 壳层不再给正文套 1140px 上限，否则正文到不了 1600px 封顶
+    expect(readCanvas?.parentElement).not.toHaveClass("max-w-[1140px]")
+    read.unmount()
+
+    const write = renderShell("/p/a/edit")
+    const writeCanvas = write.container.querySelector("[data-page-canvas]")
+    expect(writeCanvas).not.toBeNull()
+    expect(writeCanvas?.className).toBe(readCanvas?.className)
+    write.unmount()
+
+    const settings = renderShell("/settings")
+    expect(settings.container.querySelector("[data-page-canvas]")).toBeNull()
   })
 })
