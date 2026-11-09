@@ -179,6 +179,71 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(await screen.findByText("页面")).toBeInTheDocument()
   })
 
+  it("桌面普通页的搜索框落在正文那一栏，左缘与正文左缘同一条基线", () => {
+    const { container, unmount } = renderShell("/p/a")
+    // 顶栏按两栏拆开：站点名在侧栏栏顶部，搜索框行只在正文栏
+    const searchHeader = container.querySelector("header")
+    expect(searchHeader).not.toBeNull()
+    // 搜索框前面不再有站点名/品牌块：左缘就是这一栏的左内边距
+    expect(searchHeader?.firstElementChild?.tagName).toBe("FORM")
+    expect(searchHeader?.querySelector('a[href="/"]')).toBeNull()
+    // 左内边距与 PageCanvas 同口径（手机 16px、≥640px 24px）——正文左缘的那条线
+    expect(searchHeader).toHaveClass("pl-4", "sm:pl-6")
+
+    const brand = container.querySelector('a[href="/"]')
+    expect(brand).not.toBeNull()
+    expect(searchHeader?.contains(brand ?? null)).toBe(false)
+    // 品牌行也在 48px 高的一条里，两栏的分隔线因此能连成一条
+    expect(brand?.parentElement).toHaveClass("h-12", "px-2", "sm:px-3")
+    unmount()
+
+    // 系统页没有侧栏，仍是整条顶栏 + 顶栏里的搜索框
+    const system = renderShell("/settings")
+    const systemHeader = system.container.querySelector("header")
+    expect(system.container.querySelectorAll("header")).toHaveLength(1)
+    expect(systemHeader?.querySelector("form")).not.toBeNull()
+    expect(systemHeader?.querySelector('a[href="/"]')).not.toBeNull()
+  })
+
+  it("移动端保持整条顶栏：没有搜索框，页面树走抽屉", () => {
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false
+    })) as unknown as typeof window.matchMedia
+    try {
+      const { container } = renderShell("/p/a")
+      expect(container.querySelectorAll("header")).toHaveLength(1)
+      expect(container.querySelector("header form")).toBeNull()
+      // 移动端没有侧栏那一栏，品牌回到同一条顶栏里
+      expect(container.querySelector('header a[href="/"]')).not.toBeNull()
+      expect(
+        screen.getByRole("button", { name: "打开页面树" })
+      ).toBeInTheDocument()
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
+  it("分类页容器不居中：左缘与文章页正文对齐，系统页仍居中", () => {
+    const search = renderShell("/search")
+    // 壳层容器是 Suspense 之外的第一个 div（Suspense 不产 DOM）
+    const searchWrapper = screen.getByText("页面内容").parentElement
+    expect(searchWrapper).toHaveClass("px-4", "sm:px-6", "max-w-[1140px]")
+    expect(searchWrapper).not.toHaveClass("mx-auto")
+    search.unmount()
+
+    renderShell("/settings")
+    const systemWrapper = screen.getByText("页面内容").parentElement
+    expect(systemWrapper).toHaveClass("mx-auto", "max-w-[1400px]")
+  })
+
   it("文章页读、写两态共用同一流式正文画布，系统页不套用", () => {
     const read = renderShell("/p/a")
     const readCanvas = read.container.querySelector("[data-page-canvas]")

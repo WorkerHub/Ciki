@@ -267,10 +267,12 @@ export function AppShell() {
   const main = isArticleRoute ? (
     <PageCanvas>{content}</PageCanvas>
   ) : (
+    // 分类页（搜索等）与文章页共用同一条左缘：贴着分割线 16px/24px 起排，
+    // 不再用 1140px 居中容器把内容推得比正文更靠右；宽度上限保留，只去掉居中。
     <div
       className={cn(
-        "mx-auto w-full px-4 py-5 sm:px-6 sm:py-6",
-        isSystemRoute ? "max-w-[1400px]" : "max-w-[1140px]"
+        "w-full px-4 py-5 sm:px-6 sm:py-6",
+        isSystemRoute ? "mx-auto max-w-[1400px]" : "max-w-[1140px]"
       )}
     >
       {content}
@@ -288,87 +290,100 @@ export function AppShell() {
     </motion.div>
   )
 
+  const siteLink = (
+    <Link
+      to="/"
+      className="flex min-w-0 items-center gap-1.5 font-heading text-sm font-semibold tracking-tight"
+    >
+      <CikiLogo />
+      <span className="max-w-[8rem] truncate sm:max-w-[14rem]">{siteName}</span>
+    </Link>
+  )
+
+  const createButton = canWrite ? (
+    <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+      <Plus aria-hidden="true" />
+      新建页面
+    </Button>
+  ) : null
+
+  const accountActions = (
+    <div className="ml-auto flex items-center gap-0.5">
+      <ThemeCycleButton />
+      <UserMenu />
+    </div>
+  )
+
+  const mobileActions = (
+    <div className="ml-auto flex items-center gap-1">
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        aria-label="搜索"
+        onClick={() => navigate("/search")}
+      >
+        <Search aria-hidden="true" />
+      </Button>
+      {canWrite ? (
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label="新建页面"
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus aria-hidden="true" />
+        </Button>
+      ) : null}
+      <ThemeCycleButton />
+      <UserMenu />
+    </div>
+  )
+
+  const mobileMenu =
+    isMobile && !isSystemRoute ? (
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetTrigger asChild>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="打开页面树"
+          >
+            <Menu aria-hidden="true" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
+          <SheetTitle className="sr-only">页面树</SheetTitle>
+          <SidebarContent onNavigate={() => setSheetOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    ) : null
+
   return (
     <div className="flex h-svh flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
-        {isMobile && !isSystemRoute ? (
-          <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-            <SheetTrigger asChild>
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                aria-label="打开页面树"
-              >
-                <Menu aria-hidden="true" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
-              <SheetTitle className="sr-only">页面树</SheetTitle>
-              <SidebarContent onNavigate={() => setSheetOpen(false)} />
-            </SheetContent>
-          </Sheet>
-        ) : null}
-
-        <Link
-          to="/"
-          className="flex min-w-0 items-center gap-1.5 font-heading text-sm font-semibold tracking-tight"
-        >
-          <CikiLogo />
-          <span className="max-w-[8rem] truncate sm:max-w-[14rem]">
-            {siteName}
-          </span>
-        </Link>
-
-        {isMobile ? (
-          <div className="ml-auto flex items-center gap-1">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              aria-label="搜索"
-              onClick={() => navigate("/search")}
-            >
-              <Search aria-hidden="true" />
-            </Button>
-            {canWrite ? (
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                aria-label="新建页面"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus aria-hidden="true" />
-              </Button>
-            ) : null}
-            <ThemeCycleButton />
-            <UserMenu />
-          </div>
-        ) : (
-          <>
-            <SearchBox className="mx-3 max-w-md flex-1" />
-            {canWrite ? (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus aria-hidden="true" />
-                新建页面
-              </Button>
-            ) : null}
-            <div className="ml-auto flex items-center gap-0.5">
-              <ThemeCycleButton />
-              <UserMenu />
-            </div>
-          </>
-        )}
-      </header>
-
       {isMobile || isSystemRoute ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
+        <>
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+            {mobileMenu}
+            {siteLink}
+            {isMobile ? (
+              mobileActions
+            ) : (
+              <>
+                <SearchBox className="mx-3 max-w-md flex-1" />
+                {createButton}
+                {accountActions}
+              </>
+            )}
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
+        </>
       ) : (
+        // 桌面普通页：顶栏按两栏拆开——站点名落在侧栏那一栏，搜索框落在正文那一栏、
+        // 左缘与正文左缘同一条基线（贴着分割线 24px）。顶栏跟着可拖拽的栏宽走，
+        // 所以这里不写死宽度、不用 JS 同步栏宽，交给布局本身定位。
         <Group
           orientation="horizontal"
           className="min-h-0 flex-1"
@@ -382,8 +397,13 @@ export function AppShell() {
             maxSize={420}
             className="h-full"
           >
-            <div className="h-full overflow-hidden border-r border-border">
-              <SidebarContent />
+            <div className="flex h-full flex-col overflow-hidden border-r border-border">
+              <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+                {siteLink}
+              </div>
+              <div className="min-h-0 flex-1">
+                <SidebarContent />
+              </div>
             </div>
           </Panel>
           <Separator
@@ -391,7 +411,18 @@ export function AppShell() {
             aria-label="调整侧边栏宽度"
           />
           <Panel id="main" minSize={360} className="h-full">
-            <div className="h-full overflow-y-auto">{animatedMain}</div>
+            <div className="flex h-full flex-col">
+              {/* 左内边距与 PageCanvas 同口径（手机 16px、≥640px 24px）；
+                  右侧保持原样 8px/12px，不给账号按钮换位置。 */}
+              <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4 sm:pr-3 sm:pl-6">
+                <SearchBox className="max-w-md flex-1" />
+                {createButton}
+                {accountActions}
+              </header>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {animatedMain}
+              </div>
+            </div>
           </Panel>
         </Group>
       )}
