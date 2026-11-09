@@ -13,8 +13,10 @@ export interface Env {
   /** setup / 数据库维护的 X-Setup-Secret 令牌（仓库级 secret）。 */
   SETUP_SECRET: string
   /**
-   * TOTP 密钥的 AES-GCM 加密钥（仓库级 secret）：32 字节，base64 或 hex。
-   * 缺失/非法时全站 API fail closed；解析见 src/core/secret-box.ts。
+   * 敏感字段的 AES-GCM 加密钥（仓库级 secret）：32 字节，base64 或 hex。
+   * 当前用于 TOTP 密钥（AAD `ciki:totp:<userId>`）与 SMTP 密码
+   * （AAD `ciki:smtp:password`）。缺失/非法时全站 API fail closed；
+   * 解析见 src/core/secret-box.ts。
    */
   ENCRYPTION_KEY: string
   /**

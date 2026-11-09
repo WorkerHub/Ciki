@@ -41,6 +41,7 @@ import {
   insertWithFreshPublicId,
   isEmailConflict
 } from "../core/identity"
+import { isEmailConfigured } from "../services/email"
 import type { HonoEnv } from "../types"
 
 const EMAIL_RE =
@@ -64,6 +65,7 @@ export const authRoutes = new Hono<HonoEnv>()
 /** 公开站点配置：登录页据 registrationEnabled 决定是否展示注册入口。 */
 authRoutes.get("/config", async (c) => {
   const prefix = getTablePrefix(c.env)
+  const emailConfigured = await isEmailConfigured(c.env)
   try {
     return c.json({
       siteName:
@@ -79,13 +81,15 @@ authRoutes.get("/config", async (c) => {
         prefix,
         "registration_approval_required",
         true
-      )
+      ),
+      emailConfigured
     })
   } catch {
     return c.json({
       siteName: DEFAULT_SITE_NAME,
       registrationEnabled: true,
-      registrationApprovalRequired: true
+      registrationApprovalRequired: true,
+      emailConfigured
     })
   }
 })
