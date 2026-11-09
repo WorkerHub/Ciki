@@ -219,6 +219,11 @@ export interface AuthConfig {
   registrationApprovalRequired: boolean
   /** 站点名（公开读，登录页也要用）；旧后端缺失时由调用方回退。 */
   siteName: string
+  /**
+   * SMTP 是否可用（站点级公开事实）。false 时邮箱验证码 2FA 与找回密码
+   * 都不开放，入口按「不可用」渲染，不做点了才报错的按钮。
+   */
+  emailConfigured: boolean
 }
 
 /** 公开的站点名读取结果。 */
@@ -378,6 +383,39 @@ export interface SiteSettings {
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
   require2fa: boolean
+  /** 与 GET /api/auth/config 同口径：SMTP 非密字段齐全即为 true。 */
+  emailConfigured: boolean
+}
+
+/** SMTP 传输层三态：TLS（465 隐式加密）/ STARTTLS（升级）/ 不加密。 */
+export type SmtpEncryption = "tls" | "starttls" | "none"
+
+/**
+ * 系统管理 → 邮件配置。GET 永不回密码，只用 passwordSet 表示存没存过；
+ * 明文只由管理员在 PUT 时提交。
+ */
+export interface SmtpSettings {
+  host: string
+  port: number
+  encryption: SmtpEncryption
+  username: string
+  from: string
+  fromName: string
+  passwordSet: boolean
+}
+
+/**
+ * PUT /api/admin/system/smtp 的载荷。password 语义：空串或纯 `•` = 保留原密文，
+ * `null` = 清空，其它值 = 重新加密保存。
+ */
+export interface SmtpConfigInput {
+  host: string
+  port: number
+  encryption: SmtpEncryption
+  username: string
+  password: string | null
+  from: string
+  fromName: string
 }
 
 /** 空间角色：站点管理员对所有空间的有效角色都是 admin。 */
@@ -629,7 +667,12 @@ export const adminApi = {
   spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
-    api.put<{ success: true }>("/admin/settings", patch)
+    api.put<{ success: true }>("/admin/settings", patch),
+  smtp: () => api.get<SmtpSettings>("/admin/system/smtp"),
+  saveSmtp: (input: SmtpConfigInput) =>
+    api.put<{ success: true }>("/admin/system/smtp", input),
+  /** 只发当前管理员邮箱；请求体不参与决定收件人。 */
+  testSmtp: () => api.post<{ success: true }>("/admin/system/smtp/test", {})
 }
 
 /**
@@ -723,6 +766,13 @@ export function describeApiError(error: unknown): string {
       return "找不到这个用户。"
     case "INVALID_ROLE":
       return "成员角色不合法。"
+    case "EMAIL_NOT_CONFIGURED":
+      return "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    case "SMTP_SEND_FAILED": {
+      // 服务端已脱敏（密码与 base64 换 ***），这里原样带出真实原因便于排障
+      const reason = error.message.replace(/^smtp send failed:\s*/i, "").trim()
+      return reason ? `发信失败：${reason}` : "发信失败，请检查 SMTP 配置。"
+    }
     default:
       break
   }

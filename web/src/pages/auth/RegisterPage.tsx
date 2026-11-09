@@ -29,7 +29,8 @@ export function RegisterPage() {
           setConfig({
             registrationEnabled: true,
             registrationApprovalRequired: true,
-            siteName: useSiteStore.getState().name
+            siteName: useSiteStore.getState().name,
+            emailConfigured: false
           })
       })
     return () => {
