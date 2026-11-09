@@ -182,6 +182,51 @@ describe("页面树空状态", () => {
     expect(screen.queryByRole("button", { name: "拖动调整位置" })).toBeNull()
   })
 
+  it("树行控件是悬浮覆盖层：不占标题宽度、平时不挡点击", () => {
+    const title = "很长很长很长很长很长很长很长很长的页面标题"
+    useSpacesStore.setState({
+      spaces: [space("editor")],
+      currentId: "space-default"
+    })
+    usePagesStore.setState({
+      tree: [
+        {
+          id: "p1",
+          parentId: null,
+          title,
+          sortOrder: 0,
+          updatedAt: "2026-11-08T00:00:00.000Z",
+          children: []
+        }
+      ]
+    })
+    renderTree()
+
+    const titleButton = screen.getByRole("button", { name: title })
+    // 标题吃满整行，只给行尾的小 padding 让路
+    expect(titleButton).toHaveClass("min-w-0", "flex-1", "truncate")
+
+    const controls = screen.getByRole("button", {
+      name: `页面「${title}」操作`
+    }).parentElement
+    // 覆盖层：绝对定位，平时不可见也不拦点击；hover / 行内聚焦 / 菜单打开时显形
+    expect(controls).toHaveClass(
+      "absolute",
+      "opacity-0",
+      "pointer-events-none",
+      "group-hover:opacity-100",
+      "group-hover:pointer-events-auto",
+      "group-focus-within:opacity-100",
+      "group-focus-within:pointer-events-auto"
+    )
+    expect(controls?.className).toContain(
+      "group-has-[[data-state=open]]:opacity-100"
+    )
+    // 控件不再参与 flex 布局：与标题同级，定位由行容器负责
+    expect(controls?.parentElement).toBe(titleButton.parentElement)
+    expect(controls?.parentElement).toHaveClass("relative")
+  })
+
   it("只读空间的空状态说明只读身份，且没有新建入口", () => {
     useSpacesStore.setState({
       spaces: [space("viewer")],
