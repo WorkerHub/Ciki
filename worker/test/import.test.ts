@@ -137,6 +137,7 @@ interface PageDetail {
   contentJson: string
   contentHtml: string
   contentText: string
+  updatedAt: string
 }
 
 describe("导入接口：令牌鉴权与四个端点", () => {
@@ -416,6 +417,78 @@ describe("导入接口：令牌鉴权与四个端点", () => {
       await jsonRequest(env, "GET", "/api/pages", undefined, admin)
     ).json()) as Array<{ id: string; title: string }>
     expect(tree.filter((row) => row.title === "同名页")).toHaveLength(2)
+  })
+
+  it("导入同一页两次：第二次无改动，不新增 revision、updatedAt 不变", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const token = await issueToken(env, admin)
+
+    const body = {
+      title: "幂等导入页",
+      parentId: null,
+      contentJson: JSON.stringify(sampleDoc("同一份内容")),
+      conflict: "update"
+    }
+    const first = await importRequest(
+      env,
+      token,
+      "POST",
+      "/api/import/pages",
+      body
+    )
+    expect(first.status).toBe(201)
+    const { pageId } = (await first.json()) as { pageId: string }
+
+    const before = (await (
+      await jsonRequest(env, "GET", `/api/pages/${pageId}`, undefined, admin)
+    ).json()) as PageDetail
+
+    const second = await importRequest(
+      env,
+      token,
+      "POST",
+      "/api/import/pages",
+      body
+    )
+    expect(second.status).toBe(200)
+    expect(await second.json()).toEqual({ pageId, url: `/p/${pageId}` })
+
+    const after = (await (
+      await jsonRequest(env, "GET", `/api/pages/${pageId}`, undefined, admin)
+    ).json()) as PageDetail
+    expect(after.contentText).toBe(before.contentText)
+    expect(after.updatedAt).toBe(before.updatedAt)
+    const revisions = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${pageId}/revisions`,
+        undefined,
+        admin
+      )
+    ).json()) as Array<{ id: string }>
+    expect(revisions).toHaveLength(1)
+
+    // 内容真改了仍照旧追加：同一页换个字再导入。
+    const changed = await importRequest(
+      env,
+      token,
+      "POST",
+      "/api/import/pages",
+      { ...body, contentJson: JSON.stringify(sampleDoc("同一份内容!")) }
+    )
+    expect(changed.status).toBe(200)
+    const changedRevisions = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${pageId}/revisions`,
+        undefined,
+        admin
+      )
+    ).json()) as Array<{ id: string }>
+    expect(changedRevisions).toHaveLength(2)
   })
 
   it("子页导入：parentId 生效；父页已软删 409 PARENT_DELETED", async () => {
