@@ -259,4 +259,27 @@ describe("标题锚点（索引轨用）", () => {
     await screen.findAllByRole("heading")
     expect(container.querySelectorAll("h1[id], h2[id], h3[id]")).toHaveLength(0)
   })
+
+  it("就地更新模式换正文时不重建编辑器（根节点不变）", async () => {
+    const { rerender } = render(<ReadView html="<p>旧正文</p>" updateInPlace />)
+    await screen.findByText("旧正文")
+    const root = document.querySelector(".wiki-content")
+    expect(root).not.toBeNull()
+
+    rerender(<ReadView html="<p>新正文</p>" updateInPlace />)
+    expect(await screen.findByText("新正文")).toBeInTheDocument()
+    expect(screen.queryByText("旧正文")).toBeNull()
+    // 刷新靠的就是这个：正文变了、编辑器实例与滚动容器都没换
+    expect(document.querySelector(".wiki-content")).toBe(root)
+  })
+
+  it("不传 updateInPlace 时仍重建编辑器（版本预览行为不变）", async () => {
+    const { rerender } = render(<ReadView html="<p>旧正文</p>" />)
+    await screen.findByText("旧正文")
+    const root = document.querySelector(".wiki-content")
+
+    rerender(<ReadView html="<p>新正文</p>" />)
+    expect(await screen.findByText("新正文")).toBeInTheDocument()
+    expect(document.querySelector(".wiki-content")).not.toBe(root)
+  })
 })

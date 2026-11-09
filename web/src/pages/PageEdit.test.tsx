@@ -143,6 +143,21 @@ describe("编辑页的保存保护", () => {
     expect(await screen.findByText("阅读页占位")).toBeInTheDocument()
   })
 
+  it("编辑页没有刷新入口，也不会被切回标签页刷新冲掉", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    const calls = vi.mocked(pagesApi.get).mock.calls.length
+    renderEdit()
+
+    await screen.findByLabelText("页面标题")
+    expect(screen.queryByRole("button", { name: "刷新" })).toBeNull()
+
+    document.dispatchEvent(new Event("visibilitychange"))
+    window.dispatchEvent(new Event("focus"))
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(vi.mocked(pagesApi.get).mock.calls.length).toBe(calls + 1)
+    expect(screen.getByLabelText("页面标题")).toHaveValue(page.title)
+  })
+
   it("「保存并离开」保存失败时留在当前页，不丢内容", async () => {
     vi.mocked(pagesApi.get).mockResolvedValue(page)
     vi.mocked(pagesApi.update).mockRejectedValue(
