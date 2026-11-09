@@ -6,7 +6,8 @@
     "dev": "wrangler dev",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run && pnpm run test:workers",
+    "test:workers": "vitest run --config vitest.workers.config.ts",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
@@ -31,6 +32,7 @@
     "xss": "^1.0.17"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.6.0",
     "@cloudflare/workers-types": "^5.0.0",
     "typescript": "^7.0.0",
     "vitest": "^5.0.5",
