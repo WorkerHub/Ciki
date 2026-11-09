@@ -274,11 +274,34 @@ authRoutes.post("/login", async (c) => {
 
   await clearAccountCounters(db, prefix, "login_fail", email)
 
+  // availableMethods 顺序固定 totp → passkey → email_otp；email_otp 还要站点能发信。
+  // 「已开启的方式全被过滤为空」绝不静默降级成只验密码：直接 403 失败关闭。
   const totp = await getTotp(db, prefix, user.id)
   const passkeys = await countPasskeys(db, prefix, user.id)
+  const totpEnabled = Boolean(totp?.totp_enabled)
+  const passkeyEnabled = passkeys > 0
+  const emailOtpEnabled = Boolean(totp?.email_otp_enabled)
+  const emailConfigured = emailOtpEnabled
+    ? await isEmailConfigured(c.env)
+    : false
+
   const methods: string[] = []
-  if (totp?.totp_enabled) methods.push("totp")
-  if (passkeys > 0) methods.push("passkey")
+  if (totpEnabled) methods.push("totp")
+  if (passkeyEnabled) methods.push("passkey")
+  if (emailOtpEnabled && emailConfigured) methods.push("email_otp")
+
+  if (
+    methods.length === 0 &&
+    (totpEnabled || passkeyEnabled || emailOtpEnabled)
+  ) {
+    return c.json(
+      {
+        error: "Two-factor method unavailable",
+        code: "2FA_METHOD_UNAVAILABLE"
+      },
+      403
+    )
+  }
 
   if (methods.length > 0) {
     const tempToken = randomToken()

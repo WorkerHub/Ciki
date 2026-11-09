@@ -11,7 +11,12 @@ import { findSession, readSessionToken } from "../core/session"
 import type { HonoEnv } from "../types"
 
 const RESTRICTED_EXACT = new Set(["/api/me", "/api/auth/logout"])
-const RESTRICTED_PREFIX = ["/api/auth/2fa/totp/", "/api/auth/2fa/passkey/"]
+const RESTRICTED_PREFIX = [
+  "/api/auth/2fa/totp/",
+  "/api/auth/2fa/passkey/",
+  // 受限会话也能启用（或关闭）邮箱验证码作为第二因子。
+  "/api/auth/2fa/email-otp/"
+]
 
 function unauthorized(c: Context<HonoEnv>) {
   c.header("Cache-Control", "no-store")

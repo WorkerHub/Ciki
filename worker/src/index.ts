@@ -60,7 +60,9 @@ const PUBLIC_ROUTES: Array<[string, string]> = [
   ["POST", "/api/auth/refresh"],
   ["POST", "/api/auth/2fa/verify"],
   ["POST", "/api/auth/2fa/passkey/authenticate/options"],
-  ["POST", "/api/auth/2fa/passkey/authenticate/verify"]
+  ["POST", "/api/auth/2fa/passkey/authenticate/verify"],
+  // 登录第二步选了邮箱验证码时发码：只认有效的 2fa_login 挑战（tempToken）。
+  ["POST", "/api/auth/2fa/email-otp/send-login"]
 ]
 
 function isPublicRoute(method: string, path: string): boolean {
