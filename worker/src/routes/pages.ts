@@ -7,7 +7,8 @@
  *
  * - 页面父子关系只能在同一空间内；跨空间移动通过 move 的可选 `spaceId` 完成，
  *   未指定父页时挂到目标空间根。
- * - 每次新建/保存/回滚都追加一条 revision，并在同一个 db.batch() 里同步 FTS。
+ * - 新建/保存/有实际改动时追加一条 revision，并在同一个 db.batch() 里同步 FTS；
+ *   内容与现存行全等的保存是空操作（不写行、不追加 revision、不重建 FTS）。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"

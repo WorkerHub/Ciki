@@ -15,6 +15,8 @@ interface PageDetail {
   contentJson: string
   contentText: string
   createdBy: string
+  updatedBy: string
+  updatedAt: string
 }
 
 async function createPage(
@@ -42,6 +44,38 @@ async function createPage(
   )
   expect(res.status).toBe(201)
   return (await res.json()) as PageDetail
+}
+
+async function getDetail(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  id: string
+): Promise<PageDetail> {
+  const res = await jsonRequest(
+    env,
+    "GET",
+    `/api/pages/${id}`,
+    undefined,
+    cookie
+  )
+  expect(res.status).toBe(200)
+  return (await res.json()) as PageDetail
+}
+
+async function revisionList(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  pageId: string
+): Promise<Array<{ id: string; title: string }>> {
+  const res = await jsonRequest(
+    env,
+    "GET",
+    `/api/pages/${pageId}/revisions`,
+    undefined,
+    cookie
+  )
+  expect(res.status).toBe(200)
+  return (await res.json()) as Array<{ id: string; title: string }>
 }
 
 describe("页面：新建、详情、树与消毒", () => {
@@ -131,6 +165,138 @@ describe("页面：新建、详情、树与消毒", () => {
     ).json()) as Array<{ title: string }>
     expect(after).toHaveLength(3)
     expect(after[0].title).toBe("第一版")
+  })
+})
+
+describe("页面：无改动保存不新增 revision", () => {
+  it("同内容连存三次：不新增 revision、updatedAt 不变、响应同形", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(env, admin, { title: "无改动页" })
+    const before = await getDetail(env, admin, page.id)
+
+    const payload = {
+      title: "无改动页",
+      contentJson: JSON.stringify({ type: "doc" }),
+      contentHtml: "<p>无改动页</p>",
+      contentText: "无改动页"
+    }
+    for (let i = 0; i < 3; i += 1) {
+      const res = await jsonRequest(
+        env,
+        "PUT",
+        `/api/pages/${page.id}`,
+        payload,
+        admin
+      )
+      expect(res.status).toBe(200)
+      const saved = (await res.json()) as PageDetail
+      // 响应与正常保存同形：完整详情，只是时间/编辑人保持原值。
+      expect(saved.id).toBe(page.id)
+      expect(saved.title).toBe(before.title)
+      expect(saved.contentHtml).toBe(before.contentHtml)
+      expect(saved.contentText).toBe(before.contentText)
+      expect(saved.updatedAt).toBe(before.updatedAt)
+      expect(saved.updatedBy).toBe(before.updatedBy)
+    }
+
+    const after = await getDetail(env, admin, page.id)
+    expect(after.updatedAt).toBe(before.updatedAt)
+    expect(await revisionList(env, admin, page.id)).toHaveLength(1)
+  })
+
+  it("改一个字 → 正常保存，revision +1", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(env, admin, { title: "改字页" })
+
+    const res = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}`,
+      {
+        title: "改字页",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>改字页。</p>",
+        contentText: "改字页。"
+      },
+      admin
+    )
+    expect(res.status).toBe(200)
+    const saved = (await res.json()) as PageDetail
+    expect(saved.contentText).toBe("改字页。")
+
+    const revisions = await revisionList(env, admin, page.id)
+    expect(revisions).toHaveLength(2)
+    expect(revisions[0].title).toBe("改字页")
+  })
+
+  it("仅改标题 → 正常保存，revision +1", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(env, admin, { title: "原标题" })
+
+    const res = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}`,
+      {
+        title: "新标题",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>原标题</p>",
+        contentText: "原标题"
+      },
+      admin
+    )
+    expect(res.status).toBe(200)
+    const saved = (await res.json()) as PageDetail
+    expect(saved.title).toBe("新标题")
+    // 正文没动，只有标题变了。
+    expect(saved.contentHtml).toBe("<p>原标题</p>")
+
+    const revisions = await revisionList(env, admin, page.id)
+    expect(revisions).toHaveLength(2)
+    expect(revisions[0].title).toBe("新标题")
+  })
+
+  it("回滚到与当前全等的版本：不新增 revision、updatedAt 不变", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(env, admin, { title: "回滚页" })
+
+    const edited = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}`,
+      {
+        title: "回滚页",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>改过的正文</p>",
+        contentText: "改过的正文"
+      },
+      admin
+    )
+    expect(edited.status).toBe(200)
+
+    const before = await getDetail(env, admin, page.id)
+    const revisions = await revisionList(env, admin, page.id)
+    expect(revisions).toHaveLength(2)
+
+    // revisions[0] 就是当前版本：拿它回滚应当判定为无改动。
+    const restore = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/revisions/${revisions[0].id}/restore`,
+      undefined,
+      admin
+    )
+    expect(restore.status).toBe(200)
+    const restored = (await restore.json()) as PageDetail
+    expect(restored.title).toBe(before.title)
+    expect(restored.contentHtml).toBe(before.contentHtml)
+    expect(restored.contentText).toBe(before.contentText)
+    expect(restored.updatedAt).toBe(before.updatedAt)
+    expect(await revisionList(env, admin, page.id)).toHaveLength(2)
   })
 })
 

@@ -173,7 +173,9 @@ importRoutes.post("/files", (c) =>
  * POST /api/import/pages：新建或更新页面。
  *
  * - `conflict:"update"`：同空间同父级同名未删页 → 覆盖内容并追加 revision（与
- *   正常保存同一路径）；不存在则新建。`create_copy`：总是新建，不改写标题。
+ *   正常保存同一路径）；内容与现存行全等时同一条路径上的空操作——不写行、不新增
+ *   revision，响应仍为 200 `{pageId,url}`。不存在则新建。`create_copy`：总是新建，
+ *   不改写标题。
  * - `space_id` 可选：缺省落默认空间；父页必须属于目标空间。
  * - 服务端从 contentJson 渲染 HTML 后再消毒，消毒结果为准。
  */
