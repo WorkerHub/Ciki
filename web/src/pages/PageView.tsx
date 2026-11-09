@@ -1,5 +1,12 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
-import { ArrowRightLeft, History, Pencil, Plus, Trash2 } from "lucide-react"
+import {
+  ArrowRightLeft,
+  History,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Trash2
+} from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router"
 import { ArticleToc } from "@/components/ArticleToc"
@@ -26,6 +33,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { ReadView } from "@/editor/ReadView"
 import {
   ApiError,
@@ -37,11 +50,15 @@ import { formatRelative } from "@/lib/format"
 import { canEdit, editableSpaces } from "@/lib/space"
 import { extractToc } from "@/lib/toc"
 import { findPath } from "@/lib/tree"
+import { cn } from "@/lib/utils"
 import { RevisionsDialog } from "@/pages/RevisionsDialog"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
+
+/** 切回标签页自动刷新的节流窗口：短时间内反复切回不重复打接口。 */
+const AUTO_REFRESH_THROTTLE_MS = 10_000
 
 export function PageView() {
   const { pageId } = useParams<{ pageId: string }>()
@@ -51,6 +68,7 @@ export function PageView() {
   const tree = usePagesStore((state) => state.tree)
   const removePage = usePagesStore((state) => state.removePage)
   const expandTo = usePagesStore((state) => state.expandTo)
+  const loadTree = usePagesStore((state) => state.load)
   const spaces = useSpacesStore((state) => state.spaces)
   const spacesStatus = useSpacesStore((state) => state.status)
   const currentSpaceId = useSpacesStore((state) => state.currentId)
@@ -64,8 +82,16 @@ export function PageView() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [moveOpen, setMoveOpen] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [refreshError, setRefreshError] = useState("")
   // 每个页面只跟随一次空间：切空间后本页还没卸载时不能把选择抢回去
   const syncedPage = useRef<string | null>(null)
+  // 刷新中的旗标（防并发）与上次尝试时刻（自动刷新的节流基准）
+  const refreshingRef = useRef(false)
+  const lastRefreshAt = useRef(Date.now())
+  // 每次渲染写入当前页 id：刷新途中切了页就丢弃这次结果
+  const pageIdRef = useRef(pageId)
+  pageIdRef.current = pageId
   const role = useSpaceRole(page?.spaceId)
   const canWrite = canEdit(role)
 
@@ -106,6 +132,10 @@ export function PageView() {
     setLoading(true)
     setError("")
     setNotFound(false)
+    // 换页同样是一次「刚拿到最新数据」：清掉上一页的刷新报错，节流基准也跟着重置，
+    // 否则新页刚加载完就可能被上一页的旧时间戳判定为「早该刷新」
+    setRefreshError("")
+    lastRefreshAt.current = Date.now()
     // 切页先丢掉上一页的正文根元素，索引轨的观察器与 hash 恢复都只认当前页
     setContentRoot(null)
     pagesApi
@@ -127,6 +157,54 @@ export function PageView() {
       alive = false
     }
   }, [pageId])
+
+  /**
+   * 原地刷新：重新拉当前文章详情 + 当前空间的页面树，正文与侧栏就地更新。
+   * 手动按钮与「切回标签页」共用这一条路径；不复用初载的 loading ——
+   * 那会把整页换成骨架屏，刷新只在按钮与提示上体现，正文一直是旧数据。
+   */
+  const refresh = useCallback(async () => {
+    if (!pageId || refreshingRef.current) return
+    refreshingRef.current = true
+    setRefreshing(true)
+    setRefreshError("")
+    lastRefreshAt.current = Date.now()
+    try {
+      const [detail] = await Promise.all([pagesApi.get(pageId), loadTree()])
+      // 刷新途中已经切到别的页面：这次结果作废，别把上一页的正文盖到新页上
+      if (pageIdRef.current !== pageId) return
+      setPage(detail)
+      setNotFound(false)
+      // 首屏加载失败留下的 error 会把整页卡在错误段：刷新成功就必须放行正文
+      setError("")
+    } catch (refreshFailure: unknown) {
+      if (pageIdRef.current !== pageId) return
+      // 已被别处删除：走现有「页面不存在」处理
+      if (refreshFailure instanceof ApiError && refreshFailure.status === 404)
+        setNotFound(true)
+      // 其余失败只提示：page 保持旧值，正文不会被清空
+      else setRefreshError(describeApiError(refreshFailure))
+    } finally {
+      refreshingRef.current = false
+      setRefreshing(false)
+    }
+  }, [pageId, loadTree])
+
+  // 切回标签页（visibilitychange / focus）刷新一次，与按钮走同一条路径。
+  // 编辑态是独立路由页，这里的监听根本不存在，未保存内容不会被冲掉。
+  useEffect(() => {
+    const maybeRefresh = () => {
+      if (document.visibilityState === "hidden") return
+      if (Date.now() - lastRefreshAt.current < AUTO_REFRESH_THROTTLE_MS) return
+      void refresh()
+    }
+    document.addEventListener("visibilitychange", maybeRefresh)
+    window.addEventListener("focus", maybeRefresh)
+    return () => {
+      document.removeEventListener("visibilitychange", maybeRefresh)
+      window.removeEventListener("focus", maybeRefresh)
+    }
+  }, [refresh])
 
   // 深链进来时把侧边栏展开到当前页，树里能直接看到自己在哪
   useEffect(() => {
@@ -228,6 +306,27 @@ export function PageView() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="outline"
+                    aria-label="刷新"
+                    aria-busy={refreshing}
+                    disabled={refreshing}
+                    onClick={() => void refresh()}
+                  >
+                    <RefreshCw
+                      aria-hidden="true"
+                      className={cn("size-3.5", refreshing && "animate-spin")}
+                    />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>刷新</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {canWrite ? (
               <>
                 <Button asChild size="sm">
@@ -283,6 +382,15 @@ export function PageView() {
         <Separator />
       </header>
 
+      {refreshError ? (
+        <p
+          role="alert"
+          className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          {refreshError}
+        </p>
+      ) : null}
+
       {page.contentHtml.trim() ? (
         <div className="flex">
           <div className="min-w-0 flex-1">
@@ -290,6 +398,7 @@ export function PageView() {
               html={page.contentHtml}
               headingIds={headingIds}
               onReady={handleContentReady}
+              updateInPlace
             />
           </div>
           <ArticleToc items={toc} contentRoot={contentRoot} />
