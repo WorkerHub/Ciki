@@ -41,7 +41,8 @@ const settings: SiteSettings = {
   registrationEnabled: true,
   registrationApprovalRequired: true,
   require2fa: false,
-  emailConfigured: true
+  emailConfigured: true,
+  revisionRetentionLimit: null
 }
 
 const smtp: SmtpSettings = {
@@ -59,7 +60,10 @@ describe("系统管理 · 页签", () => {
     useAuthStore.setState({ user: admin, status: "ready", restricted: false })
     vi.mocked(adminApi.users).mockResolvedValue([])
     vi.mocked(adminApi.settings).mockResolvedValue(settings)
-    vi.mocked(adminApi.smtp).mockResolvedValue(smtp)
+    vi.mocked(adminApi.smtp).mockResolvedValue({
+      emailConfigured: true,
+      config: smtp
+    })
     vi.mocked(adminApi.r2Cleanup).mockResolvedValue({ lastRun: null })
   })
 

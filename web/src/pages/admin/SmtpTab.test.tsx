@@ -1,12 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import {
-  ApiError,
-  type Me,
-  type SiteSettings,
-  type SmtpSettings
-} from "@/lib/api"
+import { ApiError, type Me, type SmtpSettings } from "@/lib/api"
 import { SmtpTab } from "@/pages/admin/SmtpTab"
 import { useAuthStore } from "@/stores/auth"
 import { DEFAULT_SITE_NAME, useSiteStore } from "@/stores/site"
@@ -49,14 +44,8 @@ const config: SmtpSettings = {
   passwordSet: true
 }
 
-const settings: SiteSettings = {
-  siteName: "Ciki",
-  setupPageEnabled: false,
-  registrationEnabled: true,
-  registrationApprovalRequired: true,
-  require2fa: false,
-  emailConfigured: true
-}
+/** GET /admin/system/smtp 的真实形状：状态标志 + 非密配置。 */
+const state = { emailConfigured: true, config }
 
 describe("系统管理 · 邮件配置", () => {
   const siteLoad = vi.fn(async () => {})
@@ -72,9 +61,7 @@ describe("系统管理 · 邮件配置", () => {
     vi.mocked(adminApi.smtp).mockReset()
     vi.mocked(adminApi.saveSmtp).mockReset()
     vi.mocked(adminApi.testSmtp).mockReset()
-    vi.mocked(adminApi.settings).mockReset()
-    vi.mocked(adminApi.smtp).mockResolvedValue(config)
-    vi.mocked(adminApi.settings).mockResolvedValue(settings)
+    vi.mocked(adminApi.smtp).mockResolvedValue(state)
   })
 
   it("按契约回填七个字段，密码只显掩码、不回显明文", async () => {
@@ -106,7 +93,10 @@ describe("系统管理 · 邮件配置", () => {
 
   it("密码留空保存时提交空串（保留原密文），并回读服务端状态", async () => {
     const user = userEvent.setup()
-    vi.mocked(adminApi.saveSmtp).mockResolvedValue({ success: true })
+    vi.mocked(adminApi.saveSmtp).mockResolvedValue({
+      success: true,
+      emailConfigured: true
+    })
     render(<SmtpTab />)
 
     await screen.findByLabelText("服务器地址")
@@ -131,7 +121,10 @@ describe("系统管理 · 邮件配置", () => {
 
   it("重录密码才提交新值，保存后输入框清空", async () => {
     const user = userEvent.setup()
-    vi.mocked(adminApi.saveSmtp).mockResolvedValue({ success: true })
+    vi.mocked(adminApi.saveSmtp).mockResolvedValue({
+      success: true,
+      emailConfigured: true
+    })
     render(<SmtpTab />)
 
     const password = await screen.findByLabelText("密码")
@@ -145,18 +138,55 @@ describe("系统管理 · 邮件配置", () => {
     expect(screen.getByLabelText("密码")).toHaveValue("")
   })
 
-  it("保存后服务端仍无密码时给出提醒，不假装成功", async () => {
+  it("服务端判定还不能发信时如实提示，不假装成功", async () => {
     const user = userEvent.setup()
-    vi.mocked(adminApi.saveSmtp).mockResolvedValue({ success: true })
-    vi.mocked(adminApi.smtp)
-      .mockResolvedValueOnce(config)
-      .mockResolvedValueOnce({ ...config, passwordSet: false })
+    vi.mocked(adminApi.saveSmtp).mockResolvedValue({
+      success: true,
+      emailConfigured: false
+    })
     render(<SmtpTab />)
 
     await screen.findByLabelText("密码")
     await user.click(screen.getByRole("button", { name: "保存配置" }))
 
-    expect(await screen.findByRole("status")).toHaveTextContent("补填密码")
+    expect(await screen.findByRole("status")).toHaveTextContent("还不能发信")
+  })
+
+  it("从未保存过（config 为 null）时表单给默认值，状态是未配置", async () => {
+    vi.mocked(adminApi.smtp).mockResolvedValue({
+      emailConfigured: false,
+      config: null
+    })
+    render(<SmtpTab />)
+
+    expect(await screen.findByLabelText("服务器地址")).toHaveValue("")
+    expect(screen.getByLabelText("端口")).toHaveValue(587)
+    expect(
+      screen.getByRole("combobox", { name: "加密方式" })
+    ).toHaveTextContent("STARTTLS")
+    expect(screen.getByText("未配置")).toBeInTheDocument()
+    expect(screen.getByLabelText("密码")).toHaveAttribute(
+      "placeholder",
+      "未设置"
+    )
+  })
+
+  it("用户名与密码必须成对：只填用户名时本地拦下", async () => {
+    const user = userEvent.setup()
+    vi.mocked(adminApi.smtp).mockResolvedValue({
+      emailConfigured: false,
+      config: { ...config, username: "", passwordSet: false }
+    })
+    render(<SmtpTab />)
+
+    const username = await screen.findByLabelText("用户名")
+    await user.type(username, "notify@example.com")
+    await user.click(screen.getByRole("button", { name: "保存配置" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "填了用户名就要一起填密码"
+    )
+    expect(adminApi.saveSmtp).not.toHaveBeenCalled()
   })
 
   it("测试邮件成功时当场提示收件管理员邮箱", async () => {
@@ -195,9 +225,9 @@ describe("系统管理 · 邮件配置", () => {
   })
 
   it("未配置时只给一句去向，测试按钮不可点", async () => {
-    vi.mocked(adminApi.settings).mockResolvedValue({
-      ...settings,
-      emailConfigured: false
+    vi.mocked(adminApi.smtp).mockResolvedValue({
+      emailConfigured: false,
+      config: { ...config, host: "", from: "" }
     })
     render(<SmtpTab />)
 
@@ -238,7 +268,10 @@ describe("系统管理 · 邮件配置", () => {
 
   it("加密方式三态可切换，保存时提交选中值", async () => {
     const user = userEvent.setup()
-    vi.mocked(adminApi.saveSmtp).mockResolvedValue({ success: true })
+    vi.mocked(adminApi.saveSmtp).mockResolvedValue({
+      success: true,
+      emailConfigured: true
+    })
     render(<SmtpTab />)
 
     await user.click(await screen.findByRole("combobox", { name: "加密方式" }))
@@ -255,7 +288,11 @@ describe("系统管理 · 邮件配置", () => {
   it("保存失败时展示服务端原因，表单不改动", async () => {
     const user = userEvent.setup()
     vi.mocked(adminApi.saveSmtp).mockRejectedValue(
-      new ApiError(400, "from must be an email address")
+      new ApiError(
+        400,
+        "Invalid SMTP config: from must be a valid email address",
+        "INVALID_SMTP_CONFIG"
+      )
     )
     render(<SmtpTab />)
 
@@ -263,7 +300,7 @@ describe("系统管理 · 邮件配置", () => {
     await user.click(screen.getByRole("button", { name: "保存配置" }))
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "from must be an email address"
+      "SMTP 配置不合法：from must be a valid email address"
     )
     expect(screen.getByLabelText("服务器地址")).toHaveValue("smtp.example.com")
   })

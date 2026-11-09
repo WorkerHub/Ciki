@@ -5,7 +5,8 @@
  * 判定口径：
  *   - **引用集**（命中即保留）= 全部 `users.avatar_key` ∪ 全部页面正文 ∪ 全部历史
  *     版本正文里出现的 `/api/files/<key>`。回收站页面（`deleted_at` 非空、行还在）
- *     同样计入——页面彻底删除前它的图一律保留。
+ *     同样计入——页面彻底删除前它的图一律保留。历史版本自 gzip 化之后正文只有一份
+ *     压缩的 JSON，扫之前先解压（无压缩字节的存量行按原三列扫）。
  *   - **删除条件**：同时满足「不在引用集内」且「R2 对象的 uploaded 距今 > 30 天」。
  *   - **防双跑**：两个入口各自先查 `WAKER_SIGNING_KEY` 有没有（不是本入口就不跑），
  *     另有日志表兜底——距上次真实成功运行 < 20 天的触发一律跳过并记一行日志。
@@ -24,6 +25,8 @@ import {
   type CleanupStatus,
   type CleanupTrigger
 } from "../db/queries/r2-cleanup"
+import { hasGzipColumn } from "../db/queries/revisions"
+import { gunzipText } from "../lib/gzip"
 import { getTablePrefix } from "../lib/table-prefix"
 import type { Env } from "../types"
 
@@ -105,7 +108,27 @@ function collectKeysInto(target: Set<string>, text: string): void {
 }
 
 /**
- * 建引用集。页面与版本按 keyset 分批读正文，只扫含 `/api/files/` 的行。
+ * 版本行 → 可扫描的正文文本。
+ *
+ * 已 gzip 化：解压出 JSON 再扫（扫描口径与改前一致——HTML 里的 key 本来就全部来自
+ * JSON）。旧形态：`content_json` 与 `content_html` 都扫，与改前这行代码逐字相同。
+ * 解压失败不捕：整轮记 `status:"failed"`、一个对象都不删（删除发生在引用集算完之后）。
+ */
+async function revisionTexts(row: {
+  content_json: string
+  content_html: string
+  content_gzip?: ArrayBuffer | ArrayBufferView | null
+}): Promise<string[]> {
+  if (row.content_gzip) return [await gunzipText(row.content_gzip)]
+  return [row.content_json, row.content_html]
+}
+
+/**
+ * 建引用集。页面与版本按 keyset 分批读正文。
+ *
+ * 页面行：只扫包含 `/api/files/` 的行（`instr` 预筛）。
+ * 版本行：gzip 化以后压缩字节无法预筛，改成一页页取出来解压再扫；升级前的库仍沿
+ * 用 `instr` 预筛（见 db/queries/r2-cleanup.ts）。
  * 返回集合的大小就是日志里的「引用数」。
  */
 export async function collectReferencedKeys(env: Env): Promise<Set<string>> {
@@ -117,18 +140,33 @@ export async function collectReferencedKeys(env: Env): Promise<Set<string>> {
     if (trimmed.length > 0) referenced.add(trimmed)
   }
 
-  const sources = [listPageBodiesBatch, listRevisionBodiesBatch]
-  for (const listBatch of sources) {
-    let afterId = ""
-    for (;;) {
-      const rows = await listBatch(env.DB, prefix, afterId)
-      if (rows.length === 0) break
-      for (const row of rows) {
-        collectKeysInto(referenced, row.content_json)
-        collectKeysInto(referenced, row.content_html)
-      }
-      afterId = rows[rows.length - 1].id
+  let afterPageId = ""
+  for (;;) {
+    const rows = await listPageBodiesBatch(env.DB, prefix, afterPageId)
+    if (rows.length === 0) break
+    for (const row of rows) {
+      collectKeysInto(referenced, row.content_json)
+      collectKeysInto(referenced, row.content_html)
     }
+    afterPageId = rows[rows.length - 1].id
+  }
+
+  const gzipReady = await hasGzipColumn(env.DB, prefix)
+  let afterRevisionId = ""
+  for (;;) {
+    const rows = await listRevisionBodiesBatch(
+      env.DB,
+      prefix,
+      afterRevisionId,
+      gzipReady
+    )
+    if (rows.length === 0) break
+    for (const row of rows) {
+      for (const text of await revisionTexts(row)) {
+        collectKeysInto(referenced, text)
+      }
+    }
+    afterRevisionId = rows[rows.length - 1].id
   }
 
   return referenced

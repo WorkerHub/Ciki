@@ -84,7 +84,8 @@ describe("路由守卫与初始化门", () => {
       registrationEnabled: true,
       registrationApprovalRequired: true,
       require2fa: false,
-      emailConfigured: false
+      emailConfigured: false,
+      revisionRetentionLimit: null
     })
     vi.mocked(meApi.sessions).mockResolvedValue([])
     useSpacesStore.setState({

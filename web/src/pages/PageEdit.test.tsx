@@ -1,12 +1,12 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError, type PageDetail } from "@/lib/api"
 import { PageEdit } from "@/pages/PageEdit"
-import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
+import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -156,6 +156,36 @@ describe("编辑页的保存保护", () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(vi.mocked(pagesApi.get).mock.calls.length).toBe(calls + 1)
     expect(screen.getByLabelText("页面标题")).toHaveValue(page.title)
+  })
+
+  it("保存入口只有一处：落在吸顶的工具条行尾", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    renderEdit()
+
+    const toolbar = await screen.findByRole("toolbar")
+    const saveButtons = screen.getAllByRole("button", { name: "保存" })
+    expect(saveButtons).toHaveLength(1)
+    expect(toolbar).toContainElement(saveButtons[0])
+
+    // 工具条整行吸顶，偏移 0 就是应用顶栏下沿
+    const stickyBar = toolbar.closest("[data-editor-sticky-bar]")
+    expect(stickyBar).not.toBeNull()
+    expect(stickyBar?.className).toContain("sticky")
+    expect(stickyBar?.className).toContain("top-0")
+  })
+
+  it("保存状态与保存按钮同处一处：改标题后在工具条里变成「有未保存的更改」", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    const user = userEvent.setup()
+    renderEdit()
+
+    const title = await screen.findByLabelText("页面标题")
+    const toolbar = screen.getByRole("toolbar")
+    expect(within(toolbar).queryByText("有未保存的更改")).toBeNull()
+    expect(within(toolbar).getByText(/^已保存 /)).toBeInTheDocument()
+
+    await user.type(title, "！")
+    expect(within(toolbar).getByText("有未保存的更改")).toBeInTheDocument()
   })
 
   it("「保存并离开」保存失败时留在当前页，不丢内容", async () => {

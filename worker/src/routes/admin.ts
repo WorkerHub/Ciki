@@ -15,6 +15,7 @@ import {
 } from "../db/queries/users"
 import { deleteTotp } from "../db/queries/totp"
 import { deleteUserPasskeys } from "../db/queries/passkeys"
+import { deleteUserEmailCodes } from "../db/queries/email-codes"
 import { deleteUserSessions } from "../core/session"
 import {
   deleteSpaceMembershipsForUser,
@@ -38,8 +39,25 @@ import {
 import { runSetup } from "../lib/setup"
 import { cleanupRunDto, runR2Cleanup } from "../core/r2-cleanup"
 import { lastCleanupRun } from "../db/queries/r2-cleanup"
+import {
+  normalizeRetentionInput,
+  pruneAllPages,
+  readRetentionLimit,
+  revisionRetentionPreview,
+  writeRetentionLimit
+} from "../core/revision-retention"
 import { adminMiddleware } from "../middleware/admin"
-import { readJsonBody } from "../lib/http"
+import { clientIp, readJsonBody } from "../lib/http"
+import { consumeCounter } from "../core/counters"
+import {
+  isEmailConfigured,
+  isSmtpConfigUsable,
+  publicSmtpConfig,
+  readStoredSmtpConfig,
+  saveSmtpConfig,
+  sendTransactionalEmail,
+  validateSmtpConfigInput
+} from "../services/email"
 import type { HonoEnv } from "../types"
 
 const EMAIL_RE =
@@ -223,6 +241,10 @@ adminRoutes.put("/users/:id", async (c) => {
 
   const roleChanged = updates.role !== undefined && updates.role !== user.role
   const deactivated = updates.is_active === 0 && user.is_active === 1
+  // 改邮箱：旧邮箱收到的验证码立即作废（#48 契约第 2 条）。
+  if (updates.email !== undefined) {
+    await deleteUserEmailCodes(c.env.DB, prefix, uid)
+  }
   if (roleChanged || deactivated || updates.password_hash) {
     await deleteUserSessions(c.env.DB, prefix, uid)
   }
@@ -241,6 +263,7 @@ adminRoutes.delete("/users/:id", async (c) => {
   await deleteUserSessions(c.env.DB, prefix, uid)
   await deleteUserPasskeys(c.env.DB, prefix, uid)
   await deleteTotp(c.env.DB, prefix, uid)
+  await deleteUserEmailCodes(c.env.DB, prefix, uid)
   await deleteSpaceMembershipsForUser(c.env.DB, prefix, uid)
   await deleteUser(c.env.DB, prefix, uid)
   return c.json({ success: true })
@@ -293,7 +316,10 @@ adminRoutes.get("/settings", async (c) => {
       "registration_approval_required",
       true
     ),
-    require2fa: await getBooleanSetting(c.env.DB, prefix, "require_2fa", false)
+    require2fa: await getBooleanSetting(c.env.DB, prefix, "require_2fa", false),
+    // null = 不限（缺行与空串同义，见 core/revision-retention.ts）
+    revisionRetentionLimit: await readRetentionLimit(c.env.DB, prefix),
+    emailConfigured: await isEmailConfigured(c.env)
   })
 })
 
@@ -330,7 +356,147 @@ adminRoutes.put("/settings", async (c) => {
           : "false"
     await setSetting(c.env.DB, prefix, key, value)
   }
+  if (body.revisionRetentionLimit !== undefined) {
+    const parsed = normalizeRetentionInput(body.revisionRetentionLimit)
+    if (!parsed.ok) {
+      return c.json(
+        {
+          error: "revisionRetentionLimit must be a positive integer or null"
+        },
+        400
+      )
+    }
+    await writeRetentionLimit(c.env.DB, prefix, parsed.limit)
+  }
   return c.json({ success: true })
+})
+
+/** 限流拒绝的统一形状（带 retryAfter，秒）。 */
+function rateLimitedJson(windowSeconds: number, windowStart: number) {
+  return {
+    error: "Too many requests",
+    code: "RATE_LIMITED",
+    retryAfter: Math.max(
+      1,
+      windowStart + windowSeconds - Math.floor(Date.now() / 1000)
+    )
+  }
+}
+
+// ── SMTP 配置（#48 契约：管理员，password 只落密文、GET 永不回密码） ─────────
+
+adminRoutes.get("/system/smtp", async (c) => {
+  const config = await readStoredSmtpConfig(c.env)
+  return c.json({
+    emailConfigured: isSmtpConfigUsable(config),
+    config: publicSmtpConfig(config)
+  })
+})
+
+adminRoutes.put("/system/smtp", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const limit = await consumeCounter(c.env.DB, prefix, {
+    action: "smtp_config",
+    account: c.get("userId"),
+    ip: clientIp(c),
+    windowSeconds: 300
+  })
+  if (limit.count > 10) {
+    return c.json(rateLimitedJson(300, limit.windowStart), 429)
+  }
+
+  const body = await readJsonBody<Record<string, unknown>>(c)
+  const existing = await readStoredSmtpConfig(c.env)
+  const validation = validateSmtpConfigInput(body, existing)
+  if (!validation.ok) {
+    return c.json(
+      {
+        error: `Invalid SMTP config: ${validation.reason}`,
+        code: "INVALID_SMTP_CONFIG"
+      },
+      400
+    )
+  }
+
+  await saveSmtpConfig(c.env, validation.value, existing)
+  return c.json({
+    success: true,
+    emailConfigured: await isEmailConfigured(c.env)
+  })
+})
+
+/**
+ * 测试邮件：请求体忽略，**只发给当前管理员自己的邮箱**——不接受任意 `to`，
+ * 避免这个口变成开放发信代理（#48 契约与 eNotify 的分歧点 8）。
+ */
+adminRoutes.post("/system/smtp/test", async (c) => {
+  const config = await readStoredSmtpConfig(c.env)
+  if (!isSmtpConfigUsable(config)) {
+    return c.json(
+      {
+        error: "Email delivery is not configured",
+        code: "EMAIL_NOT_CONFIGURED"
+      },
+      503
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const limit = await consumeCounter(c.env.DB, prefix, {
+    action: "smtp_test",
+    account: c.get("userId"),
+    ip: clientIp(c),
+    windowSeconds: 300
+  })
+  if (limit.count > 5) {
+    return c.json(rateLimitedJson(300, limit.windowStart), 429)
+  }
+
+  const admin = await findUserById(c.env.DB, prefix, c.get("userId"))
+  if (!admin) return c.json({ error: "User not found" }, 404)
+
+  const sent = await sendTransactionalEmail(c.env, {
+    to: admin.email,
+    subject: "Ciki SMTP 测试邮件",
+    html:
+      "<p>这是一封来自 Ciki 的测试邮件：收到它说明 SMTP 配置可用。</p>" +
+      `<p>发送时间：${new Date().toISOString()}</p>`
+  })
+  if (!sent.success) {
+    return c.json({ error: sent.error, code: "SMTP_SEND_FAILED" }, 502)
+  }
+  return c.json({ success: true })
+})
+
+/**
+ * 全站修剪的预告（只读）：当前设置 + 版本总数 + 将被删条数。
+ * 修剪按钮的二次确认文案就靠 `prunableRevisions`，它与真正执行时删掉的条数同口径。
+ */
+adminRoutes.get("/revisions/retention", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  return c.json(await revisionRetentionPreview(c.env.DB, prefix))
+})
+
+/**
+ * 按当前设置修剪全部页面：设置处那个「修剪」按钮。
+ *
+ * 不点则存量完全不动，只靠后续保存懒修剪（规格「存量立即修剪入口」）。删的只有版本行：
+ * `pages` 当前内容、FTS、R2 对象都不动。不限时不删任何东西，直接 409 让前端显形。
+ */
+adminRoutes.post("/revisions/prune", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const limit = await readRetentionLimit(c.env.DB, prefix)
+  if (limit === null) {
+    return c.json(
+      {
+        error: "Revision retention is unlimited",
+        code: "RETENTION_UNLIMITED"
+      },
+      409
+    )
+  }
+  const deleted = await pruneAllPages(c.env, limit)
+  return c.json({ limit, deleted })
 })
 
 adminRoutes.post("/setup", async (c) => {

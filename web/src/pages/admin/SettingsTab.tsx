@@ -6,6 +6,7 @@ import {
   type SiteSettings
 } from "@/lib/api"
 import { SettingRow, SettingTextRow } from "@/pages/admin/SettingRow"
+import { RevisionRetentionCard } from "@/pages/admin/RevisionRetentionCard"
 import { useSiteStore } from "@/stores/site"
 
 /**
@@ -137,6 +138,11 @@ export function SettingsTab() {
           onChange={(checked) => void update({ setupPageEnabled: checked })}
         />
       </div>
+      <RevisionRetentionCard
+        limit={settings.revisionRetentionLimit ?? null}
+        disabled={saving}
+        onSaved={setSettings}
+      />
       <p className="text-[11px] text-muted-foreground">
         {settings.emailConfigured
           ? "邮件服务已配置：邮箱验证码两步验证与找回密码可用，修改在「邮件配置」。"

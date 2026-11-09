@@ -48,11 +48,18 @@ const ENCRYPTION_OPTIONS: Array<{ value: SmtpEncryption; label: string }> = [
   { value: "none", label: "不加密（仅限内网自建服务）" }
 ]
 
-function formFrom(config: SmtpSettings): SmtpForm {
+function formFrom(config: SmtpSettings | null): SmtpForm {
+  if (!config) return { ...EMPTY_FORM }
+  // 库里的 encryption 可能停在旧值（服务端保留原样让管理员修），不合法就回落到默认
+  const encryption = ENCRYPTION_OPTIONS.some(
+    (option) => option.value === config.encryption
+  )
+    ? config.encryption
+    : EMPTY_FORM.encryption
   return {
     host: config.host ?? "",
     port: config.port ? String(config.port) : EMPTY_FORM.port,
-    encryption: config.encryption ?? EMPTY_FORM.encryption,
+    encryption,
     username: config.username ?? "",
     from: config.from ?? "",
     fromName: config.fromName ?? ""
@@ -100,12 +107,13 @@ export function SmtpTab() {
 
   useEffect(() => {
     let alive = true
-    Promise.all([adminApi.smtp(), adminApi.settings()])
-      .then(([config, settings]) => {
+    adminApi
+      .smtp()
+      .then((state) => {
         if (!alive) return
-        setForm(formFrom(config))
-        setPasswordSet(config.passwordSet === true)
-        setConfigured(settings.emailConfigured === true)
+        setForm(formFrom(state.config))
+        setPasswordSet(state.config?.passwordSet === true)
+        setConfigured(state.emailConfigured === true)
       })
       .catch((loadError: unknown) => {
         if (alive) setError(describeApiError(loadError))
@@ -129,6 +137,9 @@ export function SmtpTab() {
     const host = form.host.trim()
     const port = Number(form.port)
     const from = form.from.trim()
+    const username = form.username.trim()
+    // 服务端规则：用户名与密码必须同时有或同时空（保留原密文也算「有」）
+    const hasPassword = password !== "" || passwordSet
     if (!host) {
       setError("请填写 SMTP 服务器地址。")
       return
@@ -145,35 +156,40 @@ export function SmtpTab() {
       setError("发件人地址格式不正确。")
       return
     }
+    if (hasPassword && !username) {
+      setError("填了（或已保存）密码时，用户名也要一起填。")
+      return
+    }
+    if (!hasPassword && username) {
+      setError("填了用户名就要一起填密码；匿名中继请把用户名留空。")
+      return
+    }
 
     setSaving(true)
     try {
-      await adminApi.saveSmtp({
+      const result = await adminApi.saveSmtp({
         host,
         port,
         encryption: form.encryption,
-        username: form.username.trim(),
+        username,
         // 留空 = 保留原密文（契约语义），用户重录才提交新值
         password,
         from,
         fromName: form.fromName.trim()
       })
-      // 回读一次：以服务端为准，顺便确认密码确实还在、状态标志真的翻了
-      const [saved, settings] = await Promise.all([
-        adminApi.smtp(),
-        adminApi.settings()
-      ])
-      setForm(formFrom(saved))
-      setPasswordSet(saved.passwordSet === true)
-      setConfigured(settings.emailConfigured === true)
+      // 回读一次：以服务端为准（PUT 不回 passwordSet），顺便确认非密字段真的落了库
+      const state = await adminApi.smtp()
+      setForm(formFrom(state.config))
+      setPasswordSet(state.config?.passwordSet === true)
+      setConfigured(state.emailConfigured === true)
       setPassword("")
       // 站点级 emailConfigured（登录页、设置页的邮箱 2FA 入口都读它）跟着重拉，
       // 保存完就能立刻用，不必等用户刷新
       void useSiteStore.getState().load()
       setNotice(
-        saved.passwordSet
+        result.emailConfigured
           ? "SMTP 配置已保存。"
-          : "SMTP 配置已保存（未设置密码）；服务商要求认证时请补填密码再保存。"
+          : "SMTP 配置已保存，但还不能发信；请补全服务器地址、端口、加密方式与发件人地址。"
       )
     } catch (saveError) {
       setError(describeApiError(saveError))

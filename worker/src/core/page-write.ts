@@ -9,6 +9,14 @@
  * 无改动的保存在这里收口：归一化后的内容与库里现存行四列全等时判定为无改动，
  * 不写页面行、不追加 revision、不重建 FTS，原样返回现存行（`updated_at` /
  * `updated_by` 都不动），调用方拿到的响应形状与正常保存一致。
+ *
+ * 版本正文的落库形态在这里定：`page_revisions.content_gzip` 就绪（迁移 `schema_v2`
+ * 已跑）时只写一份 gzip 的 JSON，HTML/纯文本不入版本表；列还不存在时（部署后、管理员
+ * 点「检查并升级数据库」之前）按旧三列写——保存不会因为缺列而失败，升级时迁移会把
+ * 这些行一并转换。
+ *
+ * 保留数修剪（规格「保留数设置」）在 `savePageContent` 里落地：新增版本之后，把该页
+ * 超出上限的最旧版本删掉，与其他写入语句在同一个 `db.batch()` 事务里。
  */
 import {
   insertPage,
@@ -16,9 +24,37 @@ import {
   updatePageContent,
   type PageRow
 } from "../db/queries/pages"
-import { insertRevision, type RevisionRow } from "../db/queries/revisions"
+import {
+  hasGzipColumn,
+  insertRevision,
+  trimPageRevisionStatement,
+  type RevisionRow
+} from "../db/queries/revisions"
 import { indexPageStatements } from "../lib/fts"
+import { gzipText } from "../lib/gzip"
 import type { PageContent } from "../lib/page-input"
+import { readRetentionLimit } from "./revision-retention"
+
+/**
+ * 版本时间戳的单调时钟：保证同一 isolate 内先后写入的版本时间严格递增（毫秒级）。
+ *
+ * 为什么要它：版本排序一律用 `created_at DESC, id DESC`（不依赖 `rowid`，见
+ * db/queries/revisions.ts 的说明），而 `created_at` 只有毫秒精度——连续两次保存很容易
+ * 落在同一毫秒，那样「最新一条」就退化成比 UUID 大小，同一个库不同环境还可能给出不同
+ * 答案。这里把时间顶到上一版本 +1ms，同一 isolate 内「写入次序 = 排序结果」永远成立。
+ * 跨 isolate 的并发写仍可能同毫秒，那属于真正的同时写入，次序本就无定义。
+ *
+ * 只动版本行的 `created_at`：页面行的 `updated_at` 仍用调用方给的时间，不变。
+ */
+let lastRevisionAtMs = 0
+
+function nextRevisionTimestamp(now: string): string {
+  const requested = Date.parse(now)
+  const base = Number.isFinite(requested) ? requested : Date.now()
+  const at = Math.max(base, lastRevisionAtMs + 1)
+  lastRevisionAtMs = at
+  return new Date(at).toISOString()
+}
 
 function newRevision(
   pageId: string,
@@ -34,8 +70,25 @@ function newRevision(
     content_html: content.contentHtml,
     content_text: content.contentText,
     editor_id: editorId,
-    created_at: createdAt
+    created_at: nextRevisionTimestamp(createdAt)
   }
+}
+
+/**
+ * 一条版本行的 INSERT 语句，形态取决于库是否已有 `content_gzip` 列。
+ *
+ * 列是否就绪只探一次（命中后由 db/queries/revisions.ts 的 isolate 缓存记住真值）：
+ * 升级动作发生在任意请求之外，缓存「假」会让 isolate 继续写旧形态行，所以只缓存真值。
+ */
+async function revisionStatement(
+  db: D1Database,
+  prefix: string,
+  row: RevisionRow
+): Promise<D1PreparedStatement> {
+  const gzip = (await hasGzipColumn(db, prefix))
+    ? await gzipText(row.content_json)
+    : null
+  return insertRevision(db, prefix, row, gzip)
 }
 
 export interface PageWriteOptions {
@@ -83,9 +136,14 @@ export async function createPage(
     deleted_at: null
   }
 
+  // 新建页只有这一条版本（保留数下限是 1），不需要修剪。
   await db.batch([
     insertPage(db, prefix, row),
-    insertRevision(db, prefix, newRevision(row.id, content, userId, now)),
+    await revisionStatement(
+      db,
+      prefix,
+      newRevision(row.id, content, userId, now)
+    ),
     ...indexPageStatements(db, prefix, {
       id: row.id,
       title: row.title,
@@ -111,7 +169,8 @@ export async function savePageContent(
   const { content, userId, now } = options
   if (contentUnchanged(existing, content)) return existing
 
-  await db.batch([
+  const revision = newRevision(existing.id, content, userId, now)
+  const statements = [
     updatePageContent(db, prefix, {
       id: existing.id,
       title: content.title,
@@ -121,13 +180,25 @@ export async function savePageContent(
       updated_by: userId,
       updated_at: now
     }),
-    insertRevision(db, prefix, newRevision(existing.id, content, userId, now)),
+    await revisionStatement(db, prefix, revision),
     ...indexPageStatements(db, prefix, {
       id: existing.id,
       title: content.title,
       contentText: content.contentText
     })
-  ])
+  ]
+
+  // 修剪与插入同一个事务：要么「新版本进、超出的最旧版本出」一起生效，要么都不生效。
+  // 刚插入的这条 id 传进去排除在外，所以「最新一条是当前内容的快照、不可剪」不依赖
+  // 时间戳的毫秒精度，同一毫秒连写也不会被剪掉。
+  const limit = await readRetentionLimit(db, prefix)
+  if (limit !== null) {
+    statements.push(
+      trimPageRevisionStatement(db, prefix, existing.id, limit, revision.id)
+    )
+  }
+
+  await db.batch(statements)
 
   return {
     ...existing,
