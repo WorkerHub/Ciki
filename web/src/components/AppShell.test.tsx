@@ -184,6 +184,9 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     const readCanvas = read.container.querySelector("[data-page-canvas]")
     expect(readCanvas).not.toBeNull()
     expect(readCanvas).toHaveClass("mx-auto", "max-w-[1600px]")
+    // 桌面边距 24px（与系统页容器同口径）：不留 lg:px-12 的 48px 特例
+    expect(readCanvas?.parentElement).toHaveClass("px-4", "sm:px-6")
+    expect(readCanvas?.parentElement).not.toHaveClass("lg:px-12")
     // 壳层不再给正文套 1140px 上限，否则正文到不了 1600px 封顶
     expect(readCanvas?.parentElement).not.toHaveClass("max-w-[1140px]")
     read.unmount()
