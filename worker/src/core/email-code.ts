@@ -15,7 +15,7 @@
  * | email_code_verify     | `${purpose}:${account}`  | 600s  | 5    |
  * | email_code_verify_ip  | 空（按 IP）              | 600s  | 20   |
  *
- * 另两个 action 属于找回密码的设密端点（#51），阈值同样在本文件冻结：
+ * 另一个 action 属于找回密码的设密端点（POST /api/auth/password/reset）：
  * | password_reset_submit | 有效 token 的 userId（无效时为空） | 300s | 5 |
  *
  * `account` 由调用方给：找回密码用**小写 trim 后的邮箱**（未知邮箱也计数，防枚举），
@@ -321,7 +321,7 @@ export async function resetEmailCodeVerifyCounter(
 }
 
 /**
- * 找回密码“设新密码”提交限流（#48 契约第 1 条的最后一项；由 #51 的端点调用）。
+ * 找回密码“设新密码”提交限流（#48 契约第 1 条的最后一项；`POST /api/auth/password/reset` 调用）。
  *
  * account 能解析出用户时为 userId、否则空串；5 次 / 5 分钟，按 account+IP
  * 组合计数（与契约表一致）。

@@ -6,6 +6,7 @@
  * - 会话是单枚不透明 Cookie（core/session.ts），库里只存 SHA-256。
  */
 import { Hono } from "hono"
+import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { getBooleanSetting, getSetting } from "../db/queries/settings"
 import {
@@ -33,7 +34,12 @@ import {
   lockedUntil,
   setLock
 } from "../core/counters"
-import { clientIp, issueSession, readJsonBody } from "../lib/http"
+import {
+  clientIp,
+  issueSession,
+  readJsonBody,
+  runInBackground
+} from "../lib/http"
 import { generateId } from "../core/auth"
 import {
   DEFAULT_SITE_NAME,
@@ -41,7 +47,23 @@ import {
   insertWithFreshPublicId,
   isEmailConflict
 } from "../core/identity"
-import { isEmailConfigured } from "../services/email"
+import { isEmailConfigured, sendEmailCodeMessage } from "../services/email"
+import {
+  consumeEmailCodeSendLimits,
+  consumeEmailCodeVerifyLimits,
+  consumePasswordResetSubmitLimit,
+  EMAIL_CODE_COOLDOWN_SECONDS,
+  hashEmailCode,
+  issueEmailCode,
+  resetEmailCodeVerifyCounter,
+  verifyEmailCode
+} from "../core/email-code"
+import {
+  applyPasswordReset,
+  issuePasswordResetToken,
+  PASSWORD_RESET_TOKEN_TTL_SECONDS,
+  readPasswordResetToken
+} from "../core/password-reset"
 import type { HonoEnv } from "../types"
 
 const EMAIL_RE =
@@ -51,6 +73,12 @@ const EMAIL_RE =
 const DUMMY_HASH =
   "0000000000000000000000000000000000000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000"
 
+/**
+ * 找回密码验码的等成本假用户：账号不存在时也在它上面跑一遍同一条
+ * `SHA-256("password_reset:<id>:<code>")`，用时与真实校验一致。
+ */
+const PASSWORD_RESET_DUMMY_USER_ID = "password-reset-dummy-user-000000000000"
+
 const LOGIN_WINDOW = 300
 const LOGIN_LIMIT = 10
 const FAIL_WINDOW = 900
@@ -58,6 +86,14 @@ const FAIL_LIMIT = 5
 
 export function publicUser(user: UserRow) {
   return { id: user.id, email: user.email, role: user.role }
+}
+
+/**
+ * 找回密码只对「能登录的账号」生效：仍激活且已批准。
+ * 未知、已停用、未批准/已拒绝一律按同一路径静默处理，不暴露账号状态。
+ */
+function canResetPassword(user: UserRow): boolean {
+  return user.is_active === 1 && user.approval_status === "approved"
 }
 
 export const authRoutes = new Hono<HonoEnv>()
@@ -358,5 +394,220 @@ authRoutes.post("/refresh", async (c) => {
     return c.json({ error: "Session revoked" }, 401)
   }
   setSessionCookie(c, next)
+  return c.json({ success: true })
+})
+
+// ── 邮箱找回密码（#48 冻结契约的 #51 落地部分） ────────────────────────────────
+//
+// 三步：forgot（发码）→ verify（验码换一次性 resetToken）→ reset（用令牌设密）。
+// 防枚举：发码对「存在/不存在/停用/发送失败」都是同一个 200，发码与发信放在
+// `waitUntil` 里、响应不等待 SMTP；验码对「账号不存在/码错/过期」都是同一个 400。
+// 限频一律复用 core/email-code.ts 与 core/counters.ts（purpose = password_reset，
+// account = 小写 trim 邮箱，未知邮箱也计数）。
+
+/** 找回密码的对外唯一「发码已接受」响应（冷却期内也是它）。 */
+function passwordForgotAccepted(c: Context<HonoEnv>) {
+  return c.json({
+    success: true as const,
+    cooldownSeconds: EMAIL_CODE_COOLDOWN_SECONDS
+  })
+}
+
+/** 验码失败的唯一响应：账号不存在、已停用、码错、过期一律用它。 */
+function invalidResetCode(c: Context<HonoEnv>) {
+  return c.json({ error: "Invalid or expired code", code: "INVALID_CODE" }, 400)
+}
+
+/** resetToken 无效的唯一响应：不存在、过期、已用、用户已不可用一律用它。 */
+function invalidResetToken(c: Context<HonoEnv>) {
+  return c.json(
+    { error: "Invalid or expired reset token", code: "INVALID_RESET_TOKEN" },
+    400
+  )
+}
+
+/**
+ * 第一步：向账号邮箱发一枚 `password_reset` 验证码（公开）。
+ *
+ * 顺序固定：邮箱格式 → 站点发信 → 限频（cd → send → send_ip）→ 查账号。
+ * - 站点未配置 SMTP：503 `EMAIL_NOT_CONFIGURED`，不写任何计数（站点级公共事实）；
+ * - 冷却期内重复请求：200 但不重发；小时配额用尽：429 带 `retryAfter`；
+ * - 账号存在且可用才写码并发信，而且两者都在 `waitUntil` 里完成——响应不等 SMTP，
+ *   响应时间不随账号存在与否变化；未知/停用/已拒绝账号不写码、不发信，仍回同一个 200。
+ */
+authRoutes.post("/password/forgot", async (c) => {
+  const body = await readJsonBody<{ email?: unknown }>(c)
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
+  if (!email || !EMAIL_RE.test(email)) {
+    return c.json({ error: "Invalid email format", code: "INVALID_EMAIL" }, 400)
+  }
+
+  if (!(await isEmailConfigured(c.env))) {
+    return c.json(
+      {
+        error: "Email delivery is not configured",
+        code: "EMAIL_NOT_CONFIGURED"
+      },
+      503
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const limits = await consumeEmailCodeSendLimits(db, prefix, {
+    purpose: "password_reset",
+    accountKey: email,
+    ip: clientIp(c)
+  })
+  if (!limits.allowed) {
+    if (limits.scope === "cooldown") return passwordForgotAccepted(c)
+    return c.json(
+      {
+        error: "Too many requests",
+        code: "RATE_LIMITED",
+        retryAfter: limits.retryAfter
+      },
+      429
+    )
+  }
+
+  const user = await findUserByEmail(db, prefix, email)
+  if (!user || !canResetPassword(user)) return passwordForgotAccepted(c)
+
+  await runInBackground(c, async () => {
+    const issued = await issueEmailCode(db, prefix, {
+      userId: user.id,
+      purpose: "password_reset"
+    })
+    const sent = await sendEmailCodeMessage(c.env, {
+      to: user.email,
+      code: issued.code,
+      purpose: "password_reset"
+    })
+    if (!sent.success) {
+      // 失败只记脱敏原因；不回显、不记收件人（防枚举）。
+      console.error("password reset email failed:", sent.error)
+    }
+  })
+
+  return passwordForgotAccepted(c)
+})
+
+/**
+ * 第二步：验码换一次性 resetToken（公开）。
+ *
+ * 账号不存在时不做任何查询短路以外的差异化处理：照样消耗一次按邮箱计的限频，
+ * 照样在固定的假 userId 上跑一遍同成本的 SHA-256，然后回同一个 400。
+ * 验码成功时清掉该邮箱的验码失败计数，签发 `auth_challenges` 里的 resetToken
+ * （purpose = password_reset、payload = userId、TTL 600 秒，库里只存 SHA-256）。
+ */
+authRoutes.post("/password/verify", async (c) => {
+  const body = await readJsonBody<{ email?: unknown; code?: unknown }>(c)
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
+  const code = typeof body?.code === "string" ? body.code.trim() : ""
+  if (!email || !EMAIL_RE.test(email) || !code) return invalidResetCode(c)
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const limits = await consumeEmailCodeVerifyLimits(db, prefix, {
+    purpose: "password_reset",
+    accountKey: email,
+    ip: clientIp(c)
+  })
+  if (!limits.allowed) {
+    return c.json(
+      {
+        error: "Too many requests",
+        code: "RATE_LIMITED",
+        retryAfter: limits.retryAfter
+      },
+      429
+    )
+  }
+
+  const user = await findUserByEmail(db, prefix, email)
+  if (!user || !canResetPassword(user)) {
+    await hashEmailCode("password_reset", PASSWORD_RESET_DUMMY_USER_ID, code)
+    return invalidResetCode(c)
+  }
+
+  const verified = await verifyEmailCode(db, prefix, {
+    userId: user.id,
+    purpose: "password_reset",
+    code
+  })
+  if (!verified) return invalidResetCode(c)
+
+  await resetEmailCodeVerifyCounter(db, prefix, {
+    purpose: "password_reset",
+    accountKey: email
+  })
+  const resetToken = await issuePasswordResetToken(db, prefix, user.id)
+  return c.json({
+    success: true as const,
+    resetToken,
+    expiresIn: PASSWORD_RESET_TOKEN_TTL_SECONDS
+  })
+})
+
+/**
+ * 第三步：用 resetToken 设新密码（公开，只认令牌、不传邮箱）。
+ *
+ * 成功口径（用户已确认的冻结结论）：该用户**全部会话**失效（含发起重置前已登录的）、
+ * 删除其全部 auth_challenges 与 email_codes、不自动登录也不下发 Cookie。
+ * 强度校验失败（400 `WEAK_PASSWORD`）不消费令牌，用户可换个合格密码继续用同一枚令牌。
+ */
+authRoutes.post("/password/reset", async (c) => {
+  const body = await readJsonBody<{
+    resetToken?: unknown
+    newPassword?: unknown
+  }>(c)
+  const resetToken =
+    typeof body?.resetToken === "string" ? body.resetToken.trim() : ""
+  const newPassword =
+    typeof body?.newPassword === "string" ? body.newPassword : ""
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const userId = await readPasswordResetToken(db, prefix, resetToken)
+  if (!userId) return invalidResetToken(c)
+
+  const limit = await consumePasswordResetSubmitLimit(db, prefix, {
+    userId,
+    ip: clientIp(c)
+  })
+  if (!limit.allowed) {
+    return c.json(
+      {
+        error: "Too many requests",
+        code: "RATE_LIMITED",
+        retryAfter: limit.retryAfter
+      },
+      429
+    )
+  }
+
+  if (!newPassword || newPassword.length < 8) {
+    return c.json(
+      {
+        error: "Password must be at least 8 characters",
+        code: "WEAK_PASSWORD"
+      },
+      400
+    )
+  }
+
+  const user = await findUserById(db, prefix, userId)
+  if (!user || !canResetPassword(user)) return invalidResetToken(c)
+
+  const applied = await applyPasswordReset(db, prefix, {
+    token: resetToken,
+    userId,
+    passwordHash: await hashPassword(newPassword)
+  })
+  if (!applied) return invalidResetToken(c)
+
   return c.json({ success: true })
 })

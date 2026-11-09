@@ -16,6 +16,7 @@ import {
 import { deleteTotp } from "../db/queries/totp"
 import { deleteUserPasskeys } from "../db/queries/passkeys"
 import { deleteUserEmailCodes } from "../db/queries/email-codes"
+import { clearPasswordResetCredentials } from "../core/password-reset"
 import { deleteUserSessions } from "../core/session"
 import {
   deleteSpaceMembershipsForUser,
@@ -246,6 +247,10 @@ adminRoutes.put("/users/:id", async (c) => {
     await deleteUserEmailCodes(c.env.DB, prefix, uid)
   }
   if (roleChanged || deactivated || updates.password_hash) {
+    // 管理员改密：会话仍全部失效，并清掉该用户未使用的找回密码凭据（#48 契约）。
+    if (updates.password_hash) {
+      await clearPasswordResetCredentials(c.env.DB, prefix, uid)
+    }
     await deleteUserSessions(c.env.DB, prefix, uid)
   }
   return c.json({ success: true })
