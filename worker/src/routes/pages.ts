@@ -30,7 +30,13 @@ import {
   type PageSummaryRow
 } from "../db/queries/pages"
 import { findDefaultSpace } from "../db/queries/spaces"
-import { getRevision, listRevisions } from "../db/queries/revisions"
+import {
+  deleteRevision,
+  getRevision,
+  latestRevisionId,
+  listRevisions,
+  trimPageRevisionStatement
+} from "../db/queries/revisions"
 import {
   canEditPages,
   resolveSpaceAccess,
@@ -38,13 +44,9 @@ import {
   type SpaceRole
 } from "../core/space-access"
 import { indexPageStatements } from "../lib/fts"
-import { sanitizePageHtml, toPlainText } from "../lib/sanitize"
-import {
-  normalizePageInput,
-  type PageContent,
-  type PageContentResult
-} from "../lib/page-input"
+import { normalizePageInput, type PageContentResult } from "../lib/page-input"
 import { createPage, savePageContent } from "../core/page-write"
+import { revisionContent } from "../lib/revision-content"
 import { readJsonBody, readParentId, readSpaceId } from "../lib/http"
 import type { HonoEnv } from "../types"
 
@@ -106,6 +108,17 @@ function badInput(parsed: Extract<PageContentResult, { ok: false }>) {
       ...(parsed.code ? { code: parsed.code } : {})
     }
   } as const
+}
+
+/** 版本的 JSON 无法按当前编辑器 schema 渲染 → 422（查看与回滚同一口径）。 */
+function unrenderableRevision(c: Context<HonoEnv>, reason: string) {
+  return c.json(
+    {
+      error: `Revision content cannot be rendered: ${reason}`,
+      code: "REVISION_UNRENDERABLE"
+    },
+    422
+  )
 }
 
 type SpaceTarget =
@@ -556,13 +569,17 @@ pageRoutes.get("/:id/revisions/:revisionId", async (c) => {
     c.req.param("revisionId")
   )
   if (!revision) return c.json({ error: "Revision not found" }, 404)
+
+  // 新形态的行只存 gzip JSON，HTML/纯文本在这里按需生成（旧形态行原样返回）。
+  const content = await revisionContent(revision)
+  if (!content.ok) return unrenderableRevision(c, content.error)
   return c.json({
     id: revision.id,
     pageId: revision.page_id,
     title: revision.title,
-    contentJson: revision.content_json,
-    contentHtml: revision.content_html,
-    contentText: revision.content_text,
+    contentJson: content.value.contentJson,
+    contentHtml: content.value.contentHtml,
+    contentText: content.value.contentText,
     editorId: revision.editor_id,
     createdAt: revision.created_at
   })
@@ -586,16 +603,73 @@ pageRoutes.post("/:id/revisions/:revisionId/restore", async (c) => {
   )
   if (!revision) return c.json({ error: "Revision not found" }, 404)
 
-  const content: PageContent = {
-    title: toPlainText(revision.title),
-    contentJson: revision.content_json,
-    contentHtml: sanitizePageHtml(revision.content_html),
-    contentText: toPlainText(revision.content_text)
-  }
+  const content = await revisionContent(revision)
+  if (!content.ok) return unrenderableRevision(c, content.error)
+
   const saved = await savePageContent(db, prefix, page, {
-    content,
+    content: content.value,
     userId: c.get("userId"),
     now: new Date().toISOString()
   })
   return c.json(toDetail(saved))
+})
+
+/**
+ * 删一条历史版本。
+ *
+ * 权限与回滚同档（`canEditPages`）——只读成员连入口带接口一起掉；非成员按不存在处
+ * 理（404，不泄露该页属于哪个空间）。每页最新一条是当前内容的快照，一律拒删。
+ * 删的只是版本行：`pages` 当前内容、FTS、R2 对象都不动（孤儿图归月度清理判定）。
+ */
+pageRoutes.delete("/:id/revisions/:revisionId", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const page = await getPageRow(db, prefix, c.req.param("id"))
+  if (!page || page.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
+
+  const revisionId = c.req.param("revisionId")
+  // 「最新一条不许删」写在 DELETE 自己的 WHERE 里（见 deleteRevision）：不存在先读后写的
+  // 时间窗，并发保存/回滚也删不到刚写进去的那条。删 0 行才回头查一次，只为在 409
+  // 与 404 之间选一个准确答复。
+  const deleted = await deleteRevision(db, prefix, page.id, revisionId)
+  if (deleted > 0) return c.json({ success: true })
+
+  const latest = await latestRevisionId(db, prefix, page.id)
+  if (latest === revisionId) {
+    return c.json(
+      {
+        error: "Cannot delete the latest revision",
+        code: "REVISION_IS_LATEST"
+      },
+      409
+    )
+  }
+  return c.json({ error: "Revision not found" }, 404)
+})
+
+/**
+ * 按页批量删版本：只留最新一条，其余全删（保留数与删除逻辑都是同一套排序口径）。
+ */
+pageRoutes.post("/:id/revisions/prune", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const page = await getPageRow(db, prefix, c.req.param("id"))
+  if (!page || page.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, page)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
+
+  const result = await trimPageRevisionStatement(
+    db,
+    prefix,
+    page.id,
+    1,
+    null
+  ).run()
+  return c.json({ deleted: result.meta.changes })
 })
