@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react"
-import { beforeAll, describe, expect, it } from "vitest"
+import { render, screen, waitFor } from "@testing-library/react"
+import { beforeAll, describe, expect, it, vi } from "vitest"
 import { ReadView } from "@/editor/ReadView"
+import { extractToc } from "@/lib/toc"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 const html = [
@@ -115,5 +116,98 @@ describe("阅读态颜色（入库形态 → 渲染）", () => {
     expect(container.querySelector("[data-text-color]")).toBeNull()
     expect(container.querySelector("mark")).toBeNull()
     expect(container.querySelector("[data-cell-bg]")).toBeNull()
+  })
+})
+
+/**
+ * 索引轨的锚点：id 由 contentJson 提取、位置式生成，渲染就绪后按文档顺序
+ * 补到顶层标题上——这里验「提取计数 = 实赋 id 的标题数」在代表性文档上一致。
+ */
+describe("标题锚点（索引轨用）", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  const contentJson = JSON.stringify({
+    type: "doc",
+    content: [
+      {
+        type: "heading",
+        attrs: { level: 2 },
+        content: [{ type: "text", text: "部署" }]
+      },
+      {
+        type: "codeBlock",
+        content: [{ type: "text", text: "# 不是标题" }]
+      },
+      {
+        type: "heading",
+        attrs: { level: 2 },
+        content: [{ type: "text", text: "部署" }]
+      },
+      {
+        type: "heading",
+        attrs: { level: 3 },
+        content: [
+          { type: "text", text: "配置" },
+          { type: "text", text: "表", marks: [{ type: "bold" }] }
+        ]
+      }
+    ]
+  })
+  const contentHtml = [
+    "<h2>部署</h2>",
+    '<pre><code class="language-markdown"># 不是标题</code></pre>',
+    "<h2>部署</h2>",
+    "<h3>配置<strong>表</strong></h3>"
+  ].join("")
+
+  it("按提取结果给顶层标题补 id，并把正文根元素交回调用方", async () => {
+    const items = extractToc(contentJson)
+    const onReady = vi.fn()
+    render(
+      <ReadView
+        html={contentHtml}
+        headingIds={items.map((item) => item.id)}
+        onReady={onReady}
+      />
+    )
+
+    await screen.findAllByRole("heading")
+    await waitFor(() => expect(onReady).toHaveBeenCalled())
+
+    const root = onReady.mock.calls[0][0] as HTMLElement
+    const headings = Array.from(
+      root.querySelectorAll(":scope > h1, :scope > h2, :scope > h3")
+    )
+    expect(headings).toHaveLength(items.length)
+    expect(headings.map((heading) => heading.id)).toEqual(
+      items.map((item) => item.id)
+    )
+    expect(headings.map((heading) => heading.textContent)).toEqual(
+      items.map((item) => item.text)
+    )
+  })
+
+  it("传了更多 id 时只补给真实存在的标题，不多不少", async () => {
+    const onReady = vi.fn()
+    render(
+      <ReadView
+        html={"<h2>唯一标题</h2>"}
+        headingIds={["heading-1", "heading-2"]}
+        onReady={onReady}
+      />
+    )
+
+    const heading = await screen.findByRole("heading", { level: 2 })
+    await waitFor(() => expect(onReady).toHaveBeenCalled())
+    expect(heading).toHaveAttribute("id", "heading-1")
+    expect(document.getElementById("heading-2")).toBeNull()
+  })
+
+  it("不传 headingIds 时不加锚点（版本预览不受影响）", async () => {
+    const { container } = render(<ReadView html={contentHtml} />)
+    await screen.findAllByRole("heading")
+    expect(container.querySelectorAll("h1[id], h2[id], h3[id]")).toHaveLength(0)
   })
 })

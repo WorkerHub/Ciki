@@ -1,7 +1,8 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
 import { ArrowRightLeft, History, Pencil, Plus, Trash2 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Link, useLocation, useNavigate, useParams } from "react-router"
+import { ArticleToc } from "@/components/ArticleToc"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { MovePageDialog } from "@/components/MovePageDialog"
 import {
@@ -34,6 +35,7 @@ import {
 } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
 import { canEdit, editableSpaces } from "@/lib/space"
+import { extractToc } from "@/lib/toc"
 import { findPath } from "@/lib/tree"
 import { RevisionsDialog } from "@/pages/RevisionsDialog"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
@@ -44,6 +46,7 @@ import { useSpacesStore } from "@/stores/spaces"
 export function PageView() {
   const { pageId } = useParams<{ pageId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
   const tree = usePagesStore((state) => state.tree)
   const removePage = usePagesStore((state) => state.removePage)
@@ -65,6 +68,33 @@ export function PageView() {
   const syncedPage = useRef<string | null>(null)
   const role = useSpaceRole(page?.spaceId)
   const canWrite = canEdit(role)
+
+  // 索引从详情已下发的 contentJson 同步提取：与正文同一次渲染出现，没有第二次请求，
+  // 正文宽度不会在轨插入时跳变；标题不足 2 条的页面返回空，整轨不渲染。
+  const toc = useMemo(
+    () => extractToc(page?.contentJson ?? ""),
+    [page?.contentJson]
+  )
+  const headingIds = useMemo(() => toc.map((item) => item.id), [toc])
+  const [contentRoot, setContentRoot] = useState<HTMLElement | null>(null)
+  const handleContentReady = useCallback((root: HTMLElement) => {
+    setContentRoot(root)
+  }, [])
+  // 每页只恢复一次 hash：浏览器首屏时标题元素还不存在，要等锚点补齐后再跳。
+  const hashRestored = useRef<string | null>(null)
+  useEffect(() => {
+    if (!contentRoot || !page) return
+    if (hashRestored.current === page.id) return
+    hashRestored.current = page.id
+    if (!location.hash) return
+    let id = location.hash.slice(1)
+    try {
+      id = decodeURIComponent(id)
+    } catch {
+      return
+    }
+    document.getElementById(id)?.scrollIntoView()
+  }, [contentRoot, page, location.hash])
 
   useEffect(() => {
     if (!pageId) return
@@ -248,8 +278,15 @@ export function PageView() {
       </header>
 
       {page.contentHtml.trim() ? (
-        <div className="max-w-none">
-          <ReadView html={page.contentHtml} />
+        <div className="flex">
+          <div className="min-w-0 flex-1">
+            <ReadView
+              html={page.contentHtml}
+              headingIds={headingIds}
+              onReady={handleContentReady}
+            />
+          </div>
+          <ArticleToc items={toc} contentRoot={contentRoot} />
         </div>
       ) : (
         <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
