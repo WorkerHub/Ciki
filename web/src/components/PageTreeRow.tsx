@@ -74,8 +74,8 @@ export function PageTreeRow({
     >
       <div
         className={cn(
-          "group flex items-center gap-0.5 rounded-md pr-0.5 max-sm:min-h-10",
-          active ? "bg-accent text-accent-foreground" : "hover:bg-accent/60"
+          "group relative flex items-center gap-0.5 rounded-md pr-0.5 max-sm:min-h-10",
+          active ? "bg-accent text-accent-foreground" : "hover:bg-accent"
         )}
         style={{ paddingLeft: row.depth * INDENT_WIDTH + 2 }}
       >
@@ -113,14 +113,25 @@ export function PageTreeRow({
           {row.title || "未命名页面"}
         </button>
         {readOnly ? null : (
-          <>
+          // 控件组退出 flex 流、悬浮在行右端：标题吃满整行，hover 前后标题盒子零变化。
+          // 底色跟随行态（常态侧栏底 / hover 与选中行 accent），右 80% 纯色盖住控件，
+          // 左侧 ≈12px（pl-3）渐隐，不透出底下的标题文字。
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-y-0 right-0 flex items-center gap-0.5 rounded-r-md bg-linear-to-l from-sidebar via-sidebar via-80% to-transparent pl-3 pr-0.5 opacity-0 transition-opacity",
+              "group-hover:pointer-events-auto group-hover:opacity-100 group-hover:from-accent group-hover:via-accent",
+              "group-focus-within:pointer-events-auto group-focus-within:opacity-100",
+              "group-has-[[data-state=open]]:pointer-events-auto group-has-[[data-state=open]]:opacity-100",
+              active && "from-accent via-accent"
+            )}
+          >
             <button
               type="button"
               {...attributes}
               {...listeners}
               aria-label="拖动调整位置"
               title="拖动调整位置"
-              className="cursor-grab touch-none rounded p-1 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 active:cursor-grabbing"
+              className="cursor-grab touch-none rounded p-1 text-muted-foreground active:cursor-grabbing"
             >
               <GripVertical className="size-3.5" aria-hidden="true" />
             </button>
@@ -131,7 +142,7 @@ export function PageTreeRow({
                   size="icon-xs"
                   variant="ghost"
                   aria-label={`页面「${row.title}」操作`}
-                  className="text-muted-foreground opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                  className="text-muted-foreground"
                 >
                   <MoreHorizontal aria-hidden="true" />
                 </Button>
@@ -174,7 +185,7 @@ export function PageTreeRow({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </>
+          </div>
         )}
       </div>
     </li>
