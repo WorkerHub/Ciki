@@ -1,8 +1,8 @@
 import type { JSONContent } from "@tiptap/core"
 import { type Editor, EditorContent, useEditor } from "@tiptap/react"
-import { useMemo, useRef } from "react"
-import { EditorToolbar } from "@/editor/EditorToolbar"
+import { type ReactNode, useMemo, useRef } from "react"
 import { UntransferredImageBridge } from "@/editor/bridge/extension"
+import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
 import { ConfluencePaste } from "@/editor/paste/paste-plugin"
 
@@ -75,15 +75,18 @@ export function useWikiEditor({
   )
 }
 
-/** 编辑区外壳：工具条 + 正文容器。 */
+/** 编辑区外壳：吸顶的工具条 + 正文容器。 */
 export function WikiEditorSurface({
   editor,
   error,
-  onError
+  onError,
+  actions
 }: {
   editor: Editor | null
   error?: string
   onError?: (message: string) => void
+  /** 工具条行尾的操作，主要是保存状态与保存按钮 */
+  actions?: ReactNode
 }) {
   if (!editor) {
     return (
@@ -92,15 +95,25 @@ export function WikiEditorSurface({
   }
   return (
     <div className="flex flex-col gap-3">
-      <EditorToolbar editor={editor} onError={onError} />
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {error}
-        </p>
-      ) : null}
+      {/*
+        吸顶条：父级是这个 flex 列（底边即页面内容底边），滚到文末也不会被顶出去。
+        偏移 0 就是应用顶栏下沿——滚动发生在 AppShell 的 main panel 内部，顶栏在滚动容器之外。
+        不透明底色铺满整列，正文滚动时不会从圆角/边框缝里透出；z-30 低于弹层（z-50）。
+      */}
+      <div
+        data-editor-sticky-bar=""
+        className="sticky top-0 z-30 bg-background pt-2"
+      >
+        <EditorToolbar editor={editor} onError={onError} actions={actions} />
+        {error ? (
+          <p
+            role="alert"
+            className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {error}
+          </p>
+        ) : null}
+      </div>
       <div className="min-h-[45vh] rounded-xl border border-border bg-card px-4 py-4 shadow-xs sm:px-6 sm:py-5">
         <EditorContent editor={editor} />
       </div>

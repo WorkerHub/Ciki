@@ -41,7 +41,10 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     }
     expect(body.success).toBe(true)
     expect(body.tablePrefix).toBe("ciki_")
-    expect(body.migrations).toEqual([{ name: "schema_v1", status: "applied" }])
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "applied" },
+      { name: "schema_v2", status: "applied" }
+    ])
 
     const tables = db.db
       .prepare("SELECT name FROM sqlite_master WHERE type='table'")
@@ -81,7 +84,10 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     const body = (await res.json()) as {
       migrations: Array<{ name: string; status: string }>
     }
-    expect(body.migrations).toEqual([{ name: "schema_v1", status: "skipped" }])
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" }
+    ])
 
     const row = db.db
       .prepare("SELECT value FROM ciki_system_settings WHERE key = ?")
@@ -186,7 +192,10 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     const body = (await res.json()) as {
       migrations: Array<{ name: string; status: string }>
     }
-    expect(body.migrations).toEqual([{ name: "schema_v1", status: "applied" }])
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "applied" },
+      { name: "schema_v2", status: "applied" }
+    ])
     const names = (
       db.db
         .prepare("SELECT name FROM sqlite_master WHERE type='table'")
@@ -202,7 +211,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       migrations: Array<{ name: string; status: string }>
     }
     expect(againBody.migrations).toEqual([
-      { name: "schema_v1", status: "skipped" }
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" }
     ])
     const spaces = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
@@ -286,7 +296,7 @@ describe("初始化迁移：默认空间与播种", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual([{ name: "schema_v1" }])
+    expect(ledger).toEqual([{ name: "schema_v1" }, { name: "schema_v2" }])
 
     // 身份三列与页面所属空间都在 CREATE 里建全，不需要 prepare 补列。
     const userColumns = (
@@ -343,7 +353,10 @@ describe("初始化迁移：默认空间与播种", () => {
 
     const again = await runSetup(env)
     if (!again.success) throw new Error(again.error)
-    expect(again.migrations).toEqual([{ name: "schema_v1", status: "skipped" }])
+    expect(again.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "skipped" }
+    ])
 
     const count = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
@@ -395,7 +408,10 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       migrations: Array<{ name: string; status: string }>
     }
     expect(body.tablePrefix).toBe("")
-    expect(body.migrations).toEqual([{ name: "schema_v1", status: "applied" }])
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "applied" },
+      { name: "schema_v2", status: "applied" }
+    ])
 
     const names = tableNames(db)
     expect(names).toContain("_schema_migrations")
@@ -415,8 +431,11 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       migrations: Array<{ name: string; status: string }>
     }
     expect(body.success).toBe(true)
-    // 账本里的记录被认出来：迁移没有被重跑，也没有重复建表/播种。
-    expect(body.migrations).toEqual([{ name: "schema_v1", status: "skipped" }])
+    // 账本里的记录被认出来：schema_v1 没有被重跑；schema_v2 是本次新增的迁移，正常补上。
+    expect(body.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v2", status: "applied" }
+    ])
 
     const names = tableNames(db)
     expect(names).toContain("_ciki_schema_migrations")
@@ -425,7 +444,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual([{ name: "schema_v1" }])
+    expect(ledger).toEqual([{ name: "schema_v1" }, { name: "schema_v2" }])
     const spaces = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
       .get() as { count: number }
@@ -441,8 +460,10 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       const body = (await res.json()) as {
         migrations: Array<{ name: string; status: string }>
       }
+      // schema_v2 首轮补上、次轮 skipped：改名承接只发生一次，记录不丢也不重复。
       expect(body.migrations).toEqual([
-        { name: "schema_v1", status: "skipped" }
+        { name: "schema_v1", status: "skipped" },
+        { name: "schema_v2", status: i === 0 ? "applied" : "skipped" }
       ])
     }
 
@@ -452,7 +473,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual([{ name: "schema_v1" }])
+    expect(ledger).toEqual([{ name: "schema_v1" }, { name: "schema_v2" }])
   })
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，两套账本与记录都不动", async () => {

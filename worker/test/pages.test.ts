@@ -7,6 +7,14 @@ import {
   userSession
 } from "./support/app"
 
+/** 一段正文的自洽夹具：JSON 是版本的唯一真源，HTML/纯文本是它的渲染结果。 */
+function paragraphDoc(text: string): string {
+  return JSON.stringify({
+    type: "doc",
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }]
+  })
+}
+
 interface PageDetail {
   id: string
   parentId: string | null
@@ -270,7 +278,7 @@ describe("页面：无改动保存不新增 revision", () => {
       `/api/pages/${page.id}`,
       {
         title: "回滚页",
-        contentJson: JSON.stringify({ type: "doc" }),
+        contentJson: paragraphDoc("改过的正文"),
         contentHtml: "<p>改过的正文</p>",
         contentText: "改过的正文"
       },
