@@ -59,6 +59,9 @@ const NO_REFRESH_PATHS = [
   "/auth/2fa/verify",
   "/auth/2fa/passkey/authenticate",
   "/auth/2fa/email-otp/send-login",
+  "/auth/password/forgot",
+  "/auth/password/verify",
+  "/auth/password/reset",
   "/auth/config",
   "/setup/state",
   "/setup"
@@ -296,6 +299,24 @@ export interface EmailCodeSent {
 
 /** 登录第二步可用的验证方式（契约顺序：totp → passkey → email_otp）。 */
 export type SecondFactorMethod = "totp" | "email_otp"
+
+/**
+ * 找回密码第一步（发码）的唯一回执：账号存在、不存在、已停用、发信失败
+ * 都是这一个 200 —— 防枚举，前端只看 `cooldownSeconds`，不从响应推断账号情况。
+ */
+export interface PasswordResetCodeSent {
+  success: true
+  /** 重发冷却秒数（契约固定 60）。 */
+  cooldownSeconds: number
+}
+
+/** 找回密码第二步（验码）的回执：一次性 resetToken，明文只在这一条响应里出现。 */
+export interface PasswordResetGrant {
+  success: true
+  resetToken: string
+  /** resetToken 有效期秒数（契约固定 600）。 */
+  expiresIn: number
+}
 
 /** 导入令牌状态：只回状态与时间，从不回哈希与明文。 */
 export interface ImportTokenStatus {
@@ -607,7 +628,30 @@ export const authApi = {
     }),
   /** 关闭邮箱验证码始终要求密码，且不依赖 SMTP 是否可用（否则会被锁死）。 */
   emailOtpDisable: (password: string) =>
-    api.post<{ success: true }>("/auth/2fa/email-otp/disable", { password })
+    api.post<{ success: true }>("/auth/2fa/email-otp/disable", { password }),
+  /**
+   * 邮箱找回密码三步（均公开，不依赖会话）：发码 → 验码换 resetToken → 用令牌设密。
+   * 第一步一律 200（站点没配发信时 503）；第二步错码/过期统一 `INVALID_CODE`；
+   * 第三步只认 resetToken，成功后该账号全部会话失效、不自动登录。
+   */
+  passwordForgot: (email: string) =>
+    api.post<PasswordResetCodeSent>(
+      "/auth/password/forgot",
+      { email },
+      { skipRefresh: true }
+    ),
+  passwordVerify: (email: string, code: string) =>
+    api.post<PasswordResetGrant>(
+      "/auth/password/verify",
+      { email, code },
+      { skipRefresh: true }
+    ),
+  passwordReset: (resetToken: string, newPassword: string) =>
+    api.post<{ success: true }>(
+      "/auth/password/reset",
+      { resetToken, newPassword },
+      { skipRefresh: true }
+    )
 }
 
 export const meApi = {
@@ -785,12 +829,27 @@ const AUTH_FORM_PATHS = [
   "/auth/2fa/verify",
   "/auth/2fa/passkey/authenticate/options",
   "/auth/2fa/passkey/authenticate/verify",
-  "/auth/2fa/email-otp/send-login"
+  "/auth/2fa/email-otp/send-login",
+  "/auth/password/forgot",
+  "/auth/password/verify",
+  "/auth/password/reset"
 ]
 
 function isAuthFormPath(path: string | undefined) {
   if (!path) return false
   return AUTH_FORM_PATHS.includes(path.split("?")[0])
+}
+
+/** 邮箱找回密码三步（#48 契约）：验码失败即作废、只能重新发码，与 2FA 的输错重输不同。 */
+const PASSWORD_RESET_PATHS = [
+  "/auth/password/forgot",
+  "/auth/password/verify",
+  "/auth/password/reset"
+]
+
+function isPasswordResetPath(path: string | undefined) {
+  if (!path) return false
+  return PASSWORD_RESET_PATHS.includes(path.split("?")[0])
 }
 
 /** 把契约错误码翻成可以直接给用户看的句子（组件只管展示返回值）。 */
@@ -863,6 +922,18 @@ export function describeApiError(error: unknown): string {
       return "成员角色不合法。"
     case "EMAIL_NOT_CONFIGURED":
       return "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    case "INVALID_EMAIL":
+      return "邮箱格式不正确，请检查后重试。"
+    case "INVALID_CODE":
+      // 找回密码的验码（auth.ts）与邮箱 2FA 的启用验码（auth-2fa.ts）共用这个码：
+      // 前者失败即作废、必须重新拿码，后者只是输错、可以就地重输。
+      return isPasswordResetPath(error.path)
+        ? "验证码不正确或已过期，请重新获取。"
+        : "验证码不正确，请重新输入。"
+    case "INVALID_RESET_TOKEN":
+      return "这次重置已失效（验证码换来的凭证过期或已被使用），请重新获取验证码。"
+    case "WEAK_PASSWORD":
+      return "密码至少 8 位。"
     case "SMTP_SEND_FAILED": {
       // 服务端已脱敏（密码与 base64 换 ***），这里原样带出真实原因便于排障
       const reason = error.message.replace(/^smtp send failed:\s*/i, "").trim()

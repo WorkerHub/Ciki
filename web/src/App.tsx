@@ -61,6 +61,11 @@ const LoginPage = lazy(() =>
     default: module.LoginPage
   }))
 )
+const ForgotPasswordPage = lazy(() =>
+  import("@/pages/auth/ForgotPasswordPage").then((module) => ({
+    default: module.ForgotPasswordPage
+  }))
+)
 const RegisterPage = lazy(() =>
   import("@/pages/auth/RegisterPage").then((module) => ({
     default: module.RegisterPage
@@ -94,6 +99,14 @@ export const routes: RouteObject[] = [
         element: (
           <GuestOnly>
             <RegisterPage />
+          </GuestOnly>
+        )
+      },
+      {
+        path: "/forgot-password",
+        element: (
+          <GuestOnly>
+            <ForgotPasswordPage />
           </GuestOnly>
         )
       },
