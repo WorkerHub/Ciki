@@ -1,11 +1,17 @@
-import { ArrowLeft, KeyRound } from "lucide-react"
-import { useState } from "react"
+import { ArrowLeft, KeyRound, Mail } from "lucide-react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { authApi, describeApiError } from "@/lib/api"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import {
+  ApiError,
+  authApi,
+  describeApiError,
+  type SecondFactorMethod
+} from "@/lib/api"
 import {
   authenticationCredential,
   describeWebAuthnError,
@@ -14,16 +20,30 @@ import {
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
 
+/** 第二步可选的方式：两种「输码」方式 + Passkey（Passkey 仍走专用端点）。 */
+type TwoFaMethod = SecondFactorMethod | "passkey"
+
 type Step =
   | { kind: "password" }
-  | { kind: "twofa"; tempToken: string; methods: string[] }
+  | { kind: "twofa"; tempToken: string; methods: string[]; method: TwoFaMethod }
+
+/** 切换器与默认落点的顺序，与契约的 availableMethods 顺序一致。 */
+const METHOD_ORDER: TwoFaMethod[] = ["totp", "passkey", "email_otp"]
+
+const METHOD_LABELS: Record<TwoFaMethod, string> = {
+  totp: "验证器 App",
+  passkey: "Passkey",
+  email_otp: "邮箱验证码"
+}
 
 /**
- * 两步登录（规格 §8）：
+ * 登录两步（规格 §8、邮箱验证码 2FA）：
  * - 两步的 <form> 与输入框各自带不同 key，换步时 React 会换掉 DOM 节点，
  *   避免浏览器把第一步的密码输入框复用给验证码（自动填充串位）。
  * - 密码框独占 type="password"；验证码框 type="text" + one-time-code + numeric，
  *   name/id 里不含 "password"。
+ * - 第二步按 availableMethods 列出可用方式；选「邮箱验证码」即向账号邮箱发码
+ *   （同一个 tempToken 只自动发一次），重发有 60s 冷却倒计时。
  */
 export function LoginPage() {
   const navigate = useNavigate()
@@ -36,6 +56,13 @@ export function LoginPage() {
   const [code, setCode] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailCooldown, setEmailCooldown] = useState(0)
+  /** 已经为哪个登录挑战自动发过码：严格模式下 effect 会跑两遍，别发两封。 */
+  const autoSentFor = useRef<string | null>(null)
+
+  const accountEmail = email.trim() || "账号邮箱"
+  const twofa = step.kind === "twofa" ? step : null
 
   const finishLogin = async () => {
     await refreshMe()
@@ -50,12 +77,20 @@ export function LoginPage() {
     try {
       const response = await authApi.login(email.trim(), password)
       if ("requires2fa" in response && response.requires2fa) {
+        // 新一次登录（可能又拿到同一个 tempToken）要重新允许自动发码
+        autoSentFor.current = null
         setStep({
           kind: "twofa",
           tempToken: response.tempToken,
-          methods: response.availableMethods
+          methods: response.availableMethods,
+          method:
+            METHOD_ORDER.find((method) =>
+              response.availableMethods.includes(method)
+            ) ?? "totp"
         })
         setCode("")
+        setEmailSent(false)
+        setEmailCooldown(0)
         return
       }
       if ("needs2faSetup" in response && response.needs2faSetup) {
@@ -72,13 +107,53 @@ export function LoginPage() {
     }
   }
 
-  const submitCode = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (step.kind !== "twofa") return
+  const sendEmailCode = useCallback(async (tempToken: string) => {
     setBusy(true)
     setError("")
     try {
-      await authApi.verifyTotp(step.tempToken, code.trim())
+      const sent = await authApi.sendLoginEmailCode(tempToken)
+      setEmailSent(true)
+      setEmailCooldown(sent.cooldownSeconds)
+      setCode("")
+    } catch (sendError) {
+      // 429 带 retryAfter：冷却按服务端给的剩余秒数起步
+      if (sendError instanceof ApiError && sendError.retryAfter) {
+        setEmailCooldown(sendError.retryAfter)
+      }
+      setError(describeApiError(sendError))
+    } finally {
+      setBusy(false)
+    }
+  }, [])
+
+  // 选到「邮箱验证码」就发码；同一个 tempToken 不再重复自动发。
+  const emailToken = twofa?.method === "email_otp" ? twofa.tempToken : null
+  useEffect(() => {
+    if (!emailToken || autoSentFor.current === emailToken) return
+    autoSentFor.current = emailToken
+    void sendEmailCode(emailToken)
+  }, [emailToken, sendEmailCode])
+
+  useEffect(() => {
+    if (emailCooldown <= 0) return
+    const timer = setTimeout(
+      () => setEmailCooldown((left) => Math.max(0, left - 1)),
+      1000
+    )
+    return () => clearTimeout(timer)
+  }, [emailCooldown])
+
+  const submitCode = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!twofa || twofa.method === "passkey") return
+    setBusy(true)
+    setError("")
+    try {
+      await authApi.verifySecondFactor(
+        twofa.tempToken,
+        twofa.method,
+        code.trim()
+      )
       await finishLogin()
     } catch (verifyError) {
       setError(describeApiError(verifyError))
@@ -87,15 +162,14 @@ export function LoginPage() {
     }
   }
 
-  const loginWithPasskey = async () => {
-    if (step.kind !== "twofa") return
+  const loginWithPasskey = async (tempToken: string) => {
     setBusy(true)
     setError("")
     try {
-      const options = await authApi.passkeyAuthOptions(step.tempToken)
+      const options = await authApi.passkeyAuthOptions(tempToken)
       const credential = await authenticationCredential(options)
       await authApi.passkeyAuthVerify(
-        step.tempToken,
+        tempToken,
         credential as unknown as Record<string, unknown>
       )
       await finishLogin()
@@ -104,6 +178,13 @@ export function LoginPage() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const selectMethod = (method: TwoFaMethod) => {
+    if (!twofa || method === twofa.method) return
+    setStep({ ...twofa, method })
+    setCode("")
+    setError("")
   }
 
   if (step.kind === "password") {
@@ -163,66 +244,134 @@ export function LoginPage() {
     )
   }
 
-  const hasPasskey = step.methods.includes("passkey")
+  const isEmailCode = step.method === "email_otp"
+  const isPasskey = step.method === "passkey"
+  const subtitle = isEmailCode
+    ? `继续验证 ${accountEmail}，验证码会发到账号邮箱。`
+    : isPasskey
+      ? `继续验证 ${accountEmail}，使用已登记的 Passkey。`
+      : `继续验证 ${accountEmail}，输入验证器里的 6 位动态码。`
+  const codeInputId = isEmailCode ? "email-otp-code" : "otp-code"
+  const methods = METHOD_ORDER.filter((method) => step.methods.includes(method))
 
   return (
-    <AuthShell
-      title="两步验证"
-      subtitle={`继续验证 ${email.trim() || "当前账号"}，输入验证器里的 6 位动态码。`}
-    >
+    <AuthShell title="两步验证" subtitle={subtitle}>
       <form
         key="twofa-step"
         id="twofa-step"
         className="space-y-4"
         onSubmit={submitCode}
       >
-        <div className="space-y-1.5">
-          <Label htmlFor="otp-code">动态验证码</Label>
-          <Input
-            key="otp-input"
-            id="otp-code"
-            name="otp-code"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            autoFocus
-            required
-            value={code}
-            onChange={(event) =>
-              setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-            }
-            placeholder="123456"
-            className="w-36 text-center font-mono text-lg tracking-[0.4em]"
-          />
-        </div>
+        {methods.length > 1 ? (
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            value={step.method}
+            onValueChange={(value) => {
+              if (value) selectMethod(value as TwoFaMethod)
+            }}
+            aria-label="验证方式"
+          >
+            {methods.map((method) => (
+              <ToggleGroupItem
+                key={method}
+                value={method}
+                className="flex-1"
+                disabled={busy}
+              >
+                {METHOD_LABELS[method]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        ) : null}
+
+        {step.method === "passkey" ? (
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              浏览器会弹出指纹 / 面容 / 安全钥匙验证，不需要输入验证码。
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={busy || !webauthnSupported()}
+              onClick={() => void loginWithPasskey(step.tempToken)}
+              title={
+                webauthnSupported() ? undefined : "当前浏览器不支持 WebAuthn"
+              }
+            >
+              <KeyRound aria-hidden="true" />
+              {busy ? "等待验证…" : "使用 Passkey 验证"}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="space-y-1.5">
+              <Label htmlFor={codeInputId}>
+                {isEmailCode ? "邮箱验证码" : "动态验证码"}
+              </Label>
+              <Input
+                key={codeInputId}
+                id={codeInputId}
+                name={codeInputId}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                autoFocus
+                required
+                value={code}
+                onChange={(event) =>
+                  setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                placeholder="123456"
+                className="w-36 text-center font-mono text-lg tracking-[0.4em]"
+              />
+            </div>
+            {isEmailCode ? (
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Mail className="size-3.5" aria-hidden="true" />
+                  {emailSent
+                    ? `验证码已发送到 ${accountEmail}`
+                    : "选这个方式会向账号邮箱发送 6 位验证码"}
+                </span>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  disabled={busy || emailCooldown > 0}
+                  onClick={() => void sendEmailCode(step.tempToken)}
+                >
+                  {emailCooldown > 0
+                    ? `${emailCooldown}s 后可重发`
+                    : emailSent
+                      ? "重新发送"
+                      : "发送验证码"}
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {error ? (
           <p role="alert" className="text-xs text-destructive">
             {error}
           </p>
         ) : null}
-        <Button
-          type="submit"
-          size="sm"
-          className="w-full"
-          disabled={busy || code.length !== 6}
-        >
-          {busy ? "验证中…" : "验证并登录"}
-        </Button>
 
-        {hasPasskey ? (
+        {isPasskey ? null : (
           <Button
-            type="button"
+            type="submit"
             size="sm"
-            variant="outline"
             className="w-full"
-            disabled={busy || !webauthnSupported()}
-            onClick={() => void loginWithPasskey()}
+            disabled={busy || code.length !== 6}
           >
-            <KeyRound aria-hidden="true" />
-            改用 Passkey
+            {busy ? "验证中…" : "验证并登录"}
           </Button>
-        ) : null}
+        )}
 
         <Button
           type="button"
@@ -230,9 +379,14 @@ export function LoginPage() {
           variant="ghost"
           className="w-full text-muted-foreground"
           onClick={() => {
+            // 退回第一步时要一并作废「已自动发过码」的记账，否则再登录一次
+            // 若后端派回同一个 tempToken，会自动发码被误判为已发而跳过。
+            autoSentFor.current = null
             setStep({ kind: "password" })
             setError("")
             setCode("")
+            setEmailSent(false)
+            setEmailCooldown(0)
           }}
         >
           <ArrowLeft aria-hidden="true" />

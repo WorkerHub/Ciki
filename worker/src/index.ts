@@ -58,9 +58,15 @@ const PUBLIC_ROUTES: Array<[string, string]> = [
   ["POST", "/api/auth/login"],
   ["POST", "/api/auth/logout"],
   ["POST", "/api/auth/refresh"],
+  // 邮箱找回密码三步：未登录也要能用（只认邮箱 + 验证码 / 一次性 resetToken）。
+  ["POST", "/api/auth/password/forgot"],
+  ["POST", "/api/auth/password/verify"],
+  ["POST", "/api/auth/password/reset"],
   ["POST", "/api/auth/2fa/verify"],
   ["POST", "/api/auth/2fa/passkey/authenticate/options"],
-  ["POST", "/api/auth/2fa/passkey/authenticate/verify"]
+  ["POST", "/api/auth/2fa/passkey/authenticate/verify"],
+  // 登录第二步选了邮箱验证码时发码：只认有效的 2fa_login 挑战（tempToken）。
+  ["POST", "/api/auth/2fa/email-otp/send-login"]
 ]
 
 function isPublicRoute(method: string, path: string): boolean {

@@ -4,6 +4,8 @@ export interface TotpRow {
   user_id: string
   totp_secret: string | null
   totp_enabled: number
+  /** schema_v3 补列；旧库（列还没补）读出来是 undefined，按未开启处理。 */
+  email_otp_enabled: number
   updated_at: string
 }
 
@@ -35,6 +37,29 @@ export async function upsertTotp(
          updated_at = excluded.updated_at`
     )
     .bind(userId, data.totp_secret, data.totp_enabled, now)
+    .run()
+}
+
+/**
+ * 只改邮箱验证码开关：INSERT … ON CONFLICT 里不回写 `totp_secret` / `totp_enabled`，
+ * 所以启用或停用邮箱 2FA 不会动到已有的 TOTP 配置（两列互不干扰）。
+ */
+export async function setEmailOtpEnabled(
+  db: D1Database,
+  prefix: string,
+  userId: string,
+  enabled: boolean
+): Promise<void> {
+  const now = new Date().toISOString()
+  await db
+    .prepare(
+      `INSERT INTO ${user2faTable(prefix)} (user_id, email_otp_enabled, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(user_id) DO UPDATE SET
+         email_otp_enabled = excluded.email_otp_enabled,
+         updated_at = excluded.updated_at`
+    )
+    .bind(userId, enabled ? 1 : 0, now)
     .run()
 }
 

@@ -9,7 +9,7 @@
 ## 一、通用约定
 
 - **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）。
-  - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`。
+  - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
   - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
 - **空间可见性**：站点管理员可见全部空间；普通用户仅可见自己是成员的空间（`admin` / `editor` / `viewer`）。可见性过滤覆盖空间列表、页面树、页面直链、回收站与搜索；非成员访问空间/页面一律 404，不泄露存在性。页面写权限以空间角色为准：`editor` 及以上可写，`viewer` 只读。
@@ -63,7 +63,7 @@ Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那�
 | user_id           | TEXT PK                    |                                                                           |
 | totp_secret       | TEXT NULL                  | AES-GCM 密文，格式 `v1.<ivB64url>.<ctB64url>`，AAD = `ciki:totp:<userId>` |
 | totp_enabled      | INTEGER NOT NULL DEFAULT 0 |                                                                           |
-| email_otp_enabled | INTEGER NOT NULL DEFAULT 0 | `schema_v3` 补列；邮箱验证码作为第二因子的开关（端点见 #50）              |
+| email_otp_enabled | INTEGER NOT NULL DEFAULT 0 | `schema_v3` 补列；邮箱验证码作为第二因子的开关（端点见「2FA 管理」）      |
 | updated_at        | TEXT NOT NULL              |                                                                           |
 
 ### passkey_credentials
@@ -94,13 +94,13 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 ### auth_challenges（一次性挑战）
 
-| 列                     | 类型                     | 说明                                                                           |
-| ---------------------- | ------------------------ | ------------------------------------------------------------------------------ |
-| key                    | TEXT PK                  | `SHA-256(令牌)` 或 `SHA-256("<purpose>:<uid>")`，不存原值                      |
-| user_id                | TEXT NOT NULL            |                                                                                |
-| purpose                | TEXT NOT NULL            | `2fa_login` / `totp_setup` / `passkey_register` / `passkey_auth` / `totp_used` |
-| payload                | TEXT NOT NULL DEFAULT '' | 挑战原文 / 加密后的 TOTP 待确认密钥                                            |
-| expires_at, created_at | INTEGER NOT NULL         | 均为 5 分钟过期（`totp_used` 90 秒）                                           |
+| 列                     | 类型                     | 说明                                                                                              |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
+| key                    | TEXT PK                  | `SHA-256(令牌)` 或 `SHA-256("<purpose>:<uid>")`，不存原值                                         |
+| user_id                | TEXT NOT NULL            |                                                                                                   |
+| purpose                | TEXT NOT NULL            | `2fa_login` / `totp_setup` / `passkey_register` / `passkey_auth` / `totp_used` / `password_reset` |
+| payload                | TEXT NOT NULL DEFAULT '' | 挑战原文 / 加密后的 TOTP 待确认密钥 / `password_reset` 的 userId                                  |
+| expires_at, created_at | INTEGER NOT NULL         | 均为 5 分钟过期（`totp_used` 90 秒、`password_reset` 600 秒）                                     |
 
 消费语义：先读后 `DELETE`，`meta.changes=0` 视为已被消费；过期行在写入时顺带清理。
 
@@ -133,7 +133,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | email_code_send_ip    | 空                                 | 20 次 / 1 小时  | 每 IP 发码总量，防遍历账号                                              |
 | email_code_verify     | `${purpose}:${account}`            | 5 次 / 10 分钟  | 校验请求计数；成功后清零该账号+用途，第 5 次错误会删除该码              |
 | email_code_verify_ip  | 空                                 | 20 次 / 10 分钟 | 每 IP 校验总量，防单 IP 爆破                                            |
-| password_reset_submit | 有效 token 的 userId（无效时为空） | 5 次 / 5 分钟   | 设新密码接口；见 #51                                                    |
+| password_reset_submit | 有效 token 的 userId（无效时为空） | 5 次 / 5 分钟   | 设新密码接口（找回密码第三步）                                          |
 | smtp_config           | 管理员 userId                      | 10 次 / 5 分钟  | `PUT /api/admin/system/smtp`                                            |
 | smtp_test             | 管理员 userId                      | 5 次 / 5 分钟   | `POST /api/admin/system/smtp/test`                                      |
 
@@ -459,7 +459,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 {
   "requires2fa": true,
   "tempToken": "…",
-  "availableMethods": ["totp", "passkey"]
+  "availableMethods": ["totp", "passkey", "email_otp"]
 }
 ```
 
@@ -471,7 +471,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 }
 ```
 
-- 第一种与第三种同时下发 `ciki_session` Cookie；第三种是受限会话（`require_2fa` 打开且用户未配置任何方法），只能访问 `/api/me`、`/api/auth/logout`、`/api/auth/2fa/totp/*`、`/api/auth/2fa/passkey/*`。
+- 第一种与第三种同时下发 `ciki_session` Cookie；第三种是受限会话（`require_2fa` 打开且用户未配置任何方法），只能访问 `/api/me`、`/api/auth/logout`、`/api/auth/2fa/totp/*`、`/api/auth/2fa/passkey/*`、`/api/auth/2fa/email-otp/*`。
+- `availableMethods` 顺序固定 `totp` → `passkey` → `email_otp`，只列真实可用的方式：`email_otp` 仅在用户 `email_otp_enabled=1` **且**站点 `emailConfigured` 时出现。若用户已启用的方式被过滤后一个不剩（只剩邮箱验证码、但站点发信不可用），登录以 403 `{"error":"Two-factor method unavailable","code":"2FA_METHOD_UNAVAILABLE"}` 失败关闭，**不静默降级为只验密码**、也不下发 Cookie。
 - `tempToken` 是 5 分钟有效的一次性登录挑战，交给 2FA 验证步骤。
 - 失败：401 `{"error":"Invalid credentials"}`；403 `{"error":"…","code":"ACCOUNT_PENDING_APPROVAL"|"ACCOUNT_REJECTED"}`；429 `{"error":"Too many requests","code":"RATE_LIMITED"}` 或 `{"error":"Account locked","code":"ACCOUNT_LOCKED","retryAfter":秒}`。
 
@@ -481,7 +482,26 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "tempToken": "…", "method": "totp", "code": "123456" }
 ```
 
-成功：200 `{"success":true,"user":{…}}` + `ciki_session` Cookie。失败：401（挑战无效/过期/验证码错），同一 `tempToken` 失败 5 次后作废。
+`method` 认 `totp` 与 `email_otp`（`passkey` 走下面两个 passkey 端点，传其它值 400）。
+
+- `totp`：校验 TOTP 动态码，并用 `totp_used` 挑战行防同一枚码重放。
+- `email_otp`：先确认该账号 `email_otp_enabled=1`（否则 400 `{"error":"Email code is not enabled for this account","code":"METHOD_NOT_ENABLED"}`）、站点仍 `emailConfigured`（两步之间被关掉发信则 503 `EMAIL_NOT_CONFIGURED`，纵深防御），再按用途 `2fa_login`、`binding = SHA-256(tempToken)` 原子消费验证码；错码/已消费的码一律 401 `{"error":"Invalid verification code"}`，用于登录第二步的验证码第 5 次错误删除。
+
+成功：200 `{"success":true,"user":{…}}` + `ciki_session` Cookie。失败：401（挑战无效/过期/验证码错），同一 `tempToken` 失败 5 次后作废；每 IP `2fa_verify` 5 次/5 分钟，超过 429 带 `retryAfter`。
+
+#### POST /api/auth/2fa/email-otp/send-login（公开）
+
+登录第二步选了邮箱验证码时发码：
+
+```json
+{ "tempToken": "…" }
+```
+
+- 只认有效的 `2fa_login` 挑战；缺失 `tempToken` 400，无效/过期 401 `{"error":"Invalid or expired 2FA session"}`。
+- 账号未启用邮箱验证码 400 `{"error":"Email code is not enabled for this account","code":"METHOD_NOT_ENABLED"}`；站点未配置发信 503 `EMAIL_NOT_CONFIGURED`；账号被停用/未批准 403 `{"error":"Account is disabled"}`。
+- 通过后生成 6 位码（10 分钟有效、单次消费，`binding = SHA-256(tempToken)`），发到**账号邮箱**（v1 不支持另设收码邮箱）；重发覆盖旧码。
+- 限频复用 `email_code_cd` / `email_code_send` / `email_code_send_ip`（用途 `2fa_login`、账号为 userId）：60 秒冷却、每小时 5 封、每 IP 每小时 20 封，超限 429 带 `retryAfter`。
+- 成功 200 `{"success":true,"cooldownSeconds":60,"expiresInSeconds":600}`；发送失败 502 `{"error":"SMTP send failed: …","code":"SMTP_SEND_FAILED"}`（原因已脱敏、不含密码）。
 
 #### POST /api/auth/2fa/passkey/authenticate/options
 
@@ -503,6 +523,48 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 用当前 Cookie 轮换令牌（换新 `token_hash`、过期推到 7 天后，回写 Cookie）：200 `{"success":true}`；无/过期/已吊销 401。
 
+#### 找回密码（三步，均公开）
+
+`发送验证码 → 校验验证码换一次性 resetToken → 用 resetToken 设新密码`。验证码与 resetToken 都一次性，任何一步超时都从发码重来。三条端点不需要会话：只认邮箱 + 验证码 / 令牌。
+
+**(1) POST /api/auth/password/forgot**（发码）
+
+```json
+{ "email": "a@b.c" }
+```
+
+- 顺序固定：邮箱格式（缺失/非法 400 `{"error":"Invalid email format","code":"INVALID_EMAIL"}`）→ 站点发信（未配置 503 `{"error":"Email delivery is not configured","code":"EMAIL_NOT_CONFIGURED"}`，不写任何计数）→ 限频 → 查账号。
+- 限频复用 `email_code_cd` / `email_code_send` / `email_code_send_ip`（用途 `password_reset`、账号是小写 trim 后的邮箱，未知邮箱也计数）：60 秒内重复请求返回 200 但不重发；每小时第 6 封或每 IP 每小时第 21 封 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
+- 账号存在、`is_active=1` 且 `approval_status='approved'` 才生成并投递 `password_reset` 验证码（6 位、10 分钟、单次消费）；发码与 SMTP 投递都在 `waitUntil` 里后台执行，响应不等发信。未知 / 已停用 / 未批准 / 发送失败一律静默成功，不发信、不写码。
+- 成功（含冷却期内的静默不发）：200 `{"success":true,"cooldownSeconds":60}`。对外只有三种状态：400 格式错、503 站点未配置、200 成功（配额用尽时 429），防枚举。
+
+**(2) POST /api/auth/password/verify**（验码换 resetToken）
+
+```json
+{ "email": "a@b.c", "code": "123456" }
+```
+
+- 限频 `email_code_verify` / `email_code_verify_ip`（用途 `password_reset`、账号为邮箱；5 次 / 10 分钟、每 IP 20 次 / 10 分钟），超限 429。
+- 账号不存在、已停用、未批准、验证码不存在、过期、哈希不匹配——全部 400 `{"error":"Invalid or expired code","code":"INVALID_CODE"}`；未知账号也按固定假 userId 做一次同成本的 SHA-256。错码让 `email_codes.attempts+1`，第 5 次错误删除该码；成功清零该邮箱的验码失败计数并原子消费该码。
+- 成功时在 `auth_challenges` 写一次性 resetToken：明文 32 字节 base64url（43 字符）只在响应里出现一次，库内只存 `SHA-256(令牌)`，`purpose='password_reset'`、`payload=userId`、TTL 600 秒。
+- 成功 200 `{"success":true,"resetToken":"…","expiresIn":600}`。
+
+**(3) POST /api/auth/password/reset**（只认 resetToken，不传邮箱）
+
+```json
+{ "resetToken": "…", "newPassword": "至少 8 位" }
+```
+
+- 令牌不存在/已过期/已用 400 `{"error":"Invalid or expired reset token","code":"INVALID_RESET_TOKEN"}`。
+- 提交限流 `password_reset_submit`（能解析出用户时按 userId+IP，否则空账号+IP；5 次 / 5 分钟），超限 429。
+- 强度校验沿用注册/改密口径（字符串且 ≥8 位），不满足 400 `{"error":"Password must be at least 8 characters","code":"WEAK_PASSWORD"}` 且**不消费令牌**。
+- 用户已不存在 / 已停用 / 未批准按令牌无效处理（400 `INVALID_RESET_TOKEN`）。
+- 成功在一个 `db.batch()` 事务里原子完成：消费令牌（`changes=1` 才算成功；写密码的 UPDATE 带令牌存在守卫，并发重放不会把失败那次的密码写进去）→ 更新 `password_hash` → 删除该用户**全部会话** → 删除其全部 `auth_challenges` 与 `email_codes`。
+- 成功 200 `{"success":true}`，**不自动登录、不下发 Cookie**；旧密码与该账号全部既有会话立即失效（包括发起重置前已登录的会话），前端提示重新登录。2FA 配置（`user_2fa`）不受影响。
+- 并发/重放：同一令牌第二次提交 400 `INVALID_RESET_TOKEN`。
+
+改密联动：`PUT /api/me/password`（主动改密）与 `PUT /api/admin/users/:id` 带 `password`（管理员改密）的会话口径不变，但都会清掉该用户未使用的 `password_reset` 验证码与 resetToken。
+
 ### 我的
 
 #### GET /api/me
@@ -517,11 +579,16 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "avatarUrl": "/api/files/avatars/<uuid>.png",
   "approvalStatus": "approved",
   "createdAt": "2026-11-07T12:00:00.000Z",
-  "twofa": { "totpEnabled": false, "passkeyEnabled": false, "passkeyCount": 0 }
+  "twofa": {
+    "totpEnabled": false,
+    "passkeyEnabled": false,
+    "passkeyCount": 0,
+    "emailOtpEnabled": false
+  }
 }
 ```
 
-`publicId` 是对外展示的「用户 ID」（8 位、不可改），`id` 仍是内部 UUID。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。受限会话也可访问（前端据此跳 2FA 设置）。
+`publicId` 是对外展示的「用户 ID」（8 位、不可改），`id` 仍是内部 UUID。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
 
 #### PUT /api/me/profile
 
@@ -550,7 +617,12 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "avatarUrl": "/api/files/avatars/<uuid>.png",
   "approvalStatus": "approved",
   "createdAt": "…",
-  "twofa": { "totpEnabled": false, "passkeyEnabled": false, "passkeyCount": 0 }
+  "twofa": {
+    "totpEnabled": false,
+    "passkeyEnabled": false,
+    "passkeyCount": 0,
+    "emailOtpEnabled": false
+  }
 }
 ```
 
@@ -562,7 +634,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "currentPassword": "…", "newPassword": "…" }
 ```
 
-200 `{"success":true}`，删除该用户其它会话行（当前会话保留）。
+200 `{"success":true}`，删除该用户其它会话行（当前会话保留），并清掉该用户未使用的 `password_reset` 验证码与 resetToken（会话口径不变）。
 
 #### GET /api/me/sessions
 
@@ -585,17 +657,28 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ### 2FA 管理（均需会话）
 
-| 端点                                          | 请求体                          | 响应                                                                                    |
-| --------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------- |
-| `POST /api/auth/2fa/totp/setup`               | `password?`（见下）             | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，待确认密钥以密文存挑战行）   |
-| `POST /api/auth/2fa/totp/enable`              | `{"code":"123456","password"?}` | `{"success":true}`；消费挑战行、解密校验后把密文落 `user_2fa`，并把当前受限会话标记清零 |
-| `POST /api/auth/2fa/totp/disable`             | `{"password":"…"}`              | `{"success":true}`，清空密文与开关                                                      |
-| `POST /api/auth/2fa/passkey/register/options` | `password?`（见下）             | WebAuthn 注册 options（写 `passkey_register` 挑战行）                                   |
-| `POST /api/auth/2fa/passkey/register/verify`  | WebAuthn response + `password?` | `{"success":true}`；消费挑战行、插 `passkey_credentials`，并把受限会话标记清零          |
-| `DELETE /api/auth/2fa/passkey/:credentialId`  | `{"password":"…"}`              | `{"success":true}`；删除该凭证行                                                        |
-| `POST /api/auth/2fa/passkey/disable`          | `{"password":"…"}`              | `{"success":true}`；删除该用户全部凭证                                                  |
+| 端点                                          | 请求体                          | 响应                                                                                             |
+| --------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `POST /api/auth/2fa/totp/setup`               | `password?`（见下）             | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，待确认密钥以密文存挑战行）            |
+| `POST /api/auth/2fa/totp/enable`              | `{"code":"123456","password"?}` | `{"success":true}`；消费挑战行、解密校验后把密文落 `user_2fa`，并把当前受限会话标记清零          |
+| `POST /api/auth/2fa/totp/disable`             | `{"password":"…"}`              | `{"success":true}`，清空密文与开关                                                               |
+| `POST /api/auth/2fa/passkey/register/options` | `password?`（见下）             | WebAuthn 注册 options（写 `passkey_register` 挑战行）                                            |
+| `POST /api/auth/2fa/passkey/register/verify`  | WebAuthn response + `password?` | `{"success":true}`；消费挑战行、插 `passkey_credentials`，并把受限会话标记清零                   |
+| `DELETE /api/auth/2fa/passkey/:credentialId`  | `{"password":"…"}`              | `{"success":true}`；删除该凭证行                                                                 |
+| `POST /api/auth/2fa/passkey/disable`          | `{"password":"…"}`              | `{"success":true}`；删除该用户全部凭证                                                           |
+| `POST /api/auth/2fa/email-otp/send-verify`    | `password?`（见下）             | `{"success":true,"cooldownSeconds":60,"expiresInSeconds":600}`；向账号邮箱发 `2fa_enable` 验证码 |
+| `POST /api/auth/2fa/email-otp/enable`         | `{"code":"123456","password"?}` | `{"success":true}`；消费 `2fa_enable` 验证码后置 `email_otp_enabled=1`，并清受限会话标记         |
+| `POST /api/auth/2fa/email-otp/disable`        | `{"password":"…"}`              | `{"success":true}`；置 `email_otp_enabled=0` 并删除未用的 `2fa_enable` 验证码                    |
 
-**密码重认证规则（新增/启用因子）**：账号**已有任何因子**（`totp_enabled` 为真，或存在 `passkey_credentials` 行）时，上表四个「新增/启用」端点（`totp/setup`、`totp/enable`、`passkey/register/options`、`passkey/register/verify`）必须带 `password`；缺密码 400 `{"error":"Password required"}`、密码错 403 `{"error":"Password is incorrect"}`、失败 5 次/5 分钟 429 `{"error":"Too many requests","code":"RATE_LIMITED"}`，成功清零。**没有任何因子时免密码**（首次设置、刚用密码登录过的账号直接走会话）。前端可用 `GET /api/me` 的 `twofa.totpEnabled` / `twofa.passkeyCount` 判断是否需要弹密码框。关闭 TOTP、删除/关闭 passkey 始终要求 `password`。
+**密码重认证规则（新增/启用因子）**：账号**已有任何因子**（`totp_enabled` 为真、存在 `passkey_credentials` 行，或 `email_otp_enabled=1`）时，上表六个「新增/启用」端点（`totp/setup`、`totp/enable`、`passkey/register/options`、`passkey/register/verify`、`email-otp/send-verify`、`email-otp/enable`）必须带 `password`；缺密码 400 `{"error":"Password required"}`、密码错 403 `{"error":"Password is incorrect"}`、失败 5 次/5 分钟 429 `{"error":"Too many requests","code":"RATE_LIMITED"}`，成功清零。**没有任何因子时免密码**（首次设置、刚用密码登录过的账号直接走会话）。前端可用 `GET /api/me` 的 `twofa.totpEnabled` / `twofa.passkeyCount` / `twofa.emailOtpEnabled` 判断是否需要弹密码框。关闭 TOTP、删除/关闭 passkey、关闭邮箱验证码始终要求 `password`。
+
+**邮箱验证码（`email-otp/*`）细则**：
+
+- 收码邮箱就是**账号邮箱**（v1 不支持另设）；启用一律走「发码 → 输码」一次真实往返，验过才开，启用/停用即时生效。
+- 三个会话端点在**受限会话**（`needs_2fa_setup=1`）下同样放行（白名单 `/api/auth/2fa/email-otp/*`）。
+- `send-verify`：先看站点 `emailConfigured`（未配置 503 `EMAIL_NOT_CONFIGURED`，不写任何计数）→ 密码重认证（规则同上）→ `email_code_cd` / `email_code_send` / `email_code_send_ip` 限频（用途 `2fa_enable`、账号为 userId；60 秒冷却、每小时 5 封、每 IP 每小时 20 封，超限 429 带 `retryAfter`）→ 发信（失败 502 `SMTP_SEND_FAILED`）。
+- `enable`：同样先检查 `emailConfigured`（503 且**不消费验证码**），再密码重认证，再 `email_code_verify` 限频（5 次/10 分钟，超限 429），最后校验 `2fa_enable` 用途、`binding=''` 的验证码；错码/无码/过期一律 400 `{"error":"Invalid code","code":"INVALID_CODE"}`，第 5 次错误删除该码。成功只写 `email_otp_enabled` 一列（TOTP 字段原样保留），并清除当前受限会话的 `needs_2fa_setup`。
+- `disable`：**不看 SMTP 是否可用**（发信坏掉时用户仍必须能关掉，否则被锁死），不改 TOTP/Passkey、不吊销会话。
 
 ### 管理（全部需管理员，非管理员 403）
 
@@ -628,7 +711,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "role": "admin", "isActive": true, "email": "…", "password": "…" }
 ```
 
-字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。改邮箱时一并删除该用户全部 `email_codes`（旧邮箱收到的码立即作废）。`username` / `public_id` / 头像不在此接口里改。
+字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话；改密码时同样清掉该用户未使用的 `password_reset` 凭据（验证码与 resetToken）。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。改邮箱时一并删除该用户全部 `email_codes`（旧邮箱收到的码立即作废）。`username` / `public_id` / 头像不在此接口里改。
 
 #### DELETE /api/admin/users/:id
 
@@ -1169,4 +1252,4 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，只渲染一行（运行时间 + 五个计数），不加说明文字；触发清理没有按钮。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
-- 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、注册邮箱验证与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱 2FA / 找回密码端点由后续实现单补入）。
+- 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、注册邮箱验证与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱验证码 2FA 与找回密码端点见「鉴权」）。

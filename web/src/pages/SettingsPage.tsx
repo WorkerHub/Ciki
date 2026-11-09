@@ -3,6 +3,7 @@ import {
   Laptop,
   Lock,
   LogOut,
+  Mail,
   MonitorSmartphone,
   ShieldCheck
 } from "lucide-react"
@@ -46,6 +47,7 @@ import {
   webauthnSupported
 } from "@/lib/webauthn"
 import { useAuthStore } from "@/stores/auth"
+import { useSiteStore } from "@/stores/site"
 
 function PasswordConfirmDialog({
   open,
@@ -132,15 +134,26 @@ export function SettingsPage() {
   const [disableTotpOpen, setDisableTotpOpen] = useState(false)
 
   // 新增因子前的密码重认证（已有因子时后端要求 body.password）
-  const [pendingReauth, setPendingReauth] = useState<null | "totp" | "passkey">(
-    null
-  )
+  const [pendingReauth, setPendingReauth] = useState<
+    null | "totp" | "passkey" | "email"
+  >(null)
   const [reauthPassword, setReauthPassword] = useState("")
   const [reauthError, setReauthError] = useState("")
 
   // Passkey
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [removePasskeyOpen, setRemovePasskeyOpen] = useState(false)
+
+  // 邮箱验证码（第三种因子）：send-verify 发码 → enable 拿码开启，验过往返才真正开启
+  const emailConfigured = useSiteStore((state) => state.emailConfigured)
+  const setEmailConfigured = useSiteStore((state) => state.setEmailConfigured)
+  const [emailVerifySent, setEmailVerifySent] = useState(false)
+  const [emailCode, setEmailCode] = useState("")
+  const [emailBusy, setEmailBusy] = useState(false)
+  const [emailCooldown, setEmailCooldown] = useState(0)
+  /** 本次验证码有效期（秒），按服务端回执显示，默认对齐契约的 600s。 */
+  const [emailExpiresIn, setEmailExpiresIn] = useState(600)
+  const [disableEmailOtpOpen, setDisableEmailOtpOpen] = useState(false)
 
   // 会话
   const [sessions, setSessions] = useState<SessionInfo[]>([])
@@ -174,6 +187,16 @@ export function SettingsPage() {
       alive = false
     }
   }, [totp])
+
+  // 重发冷却：秒级倒计时，到点自动恢复按钮
+  useEffect(() => {
+    if (emailCooldown <= 0) return
+    const timer = setTimeout(
+      () => setEmailCooldown((left) => Math.max(0, left - 1)),
+      1000
+    )
+    return () => clearTimeout(timer)
+  }, [emailCooldown])
 
   const changePassword = async () => {
     setError("")
@@ -283,8 +306,85 @@ export function SettingsPage() {
     }
   }
 
+  const sendEmailVerify = async (password?: string) => {
+    setError("")
+    setNotice("")
+    if (!password && needsReauthToAddFactor(user?.twofa)) {
+      setReauthError("")
+      setPendingReauth("email")
+      return
+    }
+    setEmailBusy(true)
+    try {
+      const sent = await authApi.emailOtpSendVerify(password)
+      setReauthPassword(password ?? "")
+      setPendingReauth(null)
+      setEmailVerifySent(true)
+      setEmailCode("")
+      setEmailCooldown(sent.cooldownSeconds)
+      setEmailExpiresIn(sent.expiresInSeconds)
+    } catch (sendError) {
+      // 服务端回「站点没配发信」就是权威结论：立刻把入口切成不可用态（带去向提示），
+      // 不必等用户刷新页面才发现自己一直在点一个注定失败的按钮。
+      if (
+        sendError instanceof ApiError &&
+        sendError.code === "EMAIL_NOT_CONFIGURED"
+      ) {
+        setEmailConfigured(false)
+      }
+      // 429 带 retryAfter：按服务端给的剩余秒数起步，别让用户拿着一个能点但必错的按钮
+      if (sendError instanceof ApiError && sendError.retryAfter) {
+        setEmailCooldown(sendError.retryAfter)
+      }
+      const message = describeApiError(sendError)
+      if (password) {
+        setPendingReauth("email")
+        setReauthError(message)
+      } else {
+        setError(message)
+      }
+    } finally {
+      setEmailBusy(false)
+    }
+  }
+
+  const enableEmailOtp = async () => {
+    setError("")
+    setEmailBusy(true)
+    try {
+      await authApi.emailOtpEnable(
+        emailCode.trim(),
+        reauthPassword || undefined
+      )
+      setEmailVerifySent(false)
+      setEmailCode("")
+      setReauthPassword("")
+      // 与 TOTP 启用一致：后端已清掉 needs_2fa_setup，受限标记要跟着清
+      setRestricted(false)
+      setNotice("邮箱验证码已开启，下次登录可以改用邮箱收码。")
+      await refreshMe()
+    } catch (enableError) {
+      setError(describeApiError(enableError))
+    } finally {
+      setEmailBusy(false)
+    }
+  }
+
   const totpEnabled = user?.twofa.totpEnabled ?? false
   const passkeyCount = user?.twofa.passkeyCount ?? 0
+  const emailOtpEnabled = user?.twofa.emailOtpEnabled === true
+  /** 发信没配好时「开启邮箱验证码」直接不可点，并在同一句里说清去哪里配。 */
+  const emailUnavailable = !emailConfigured && !emailOtpEnabled
+  const emailSentHint = `验证码已发送到 ${user?.email ?? "账号邮箱"}，${Math.round(
+    emailExpiresIn / 60
+  )} 分钟内有效。`
+  const emailHint = emailOtpEnabled
+    ? emailConfigured
+      ? `已开启：登录第二步可以向 ${user?.email ?? "账号邮箱"} 发送 6 位验证码。`
+      : "已开启，但站点没有配置发信，登录时不会出现这个方式；可随时关闭。"
+    : emailConfigured
+      ? "未开启：需要先收一封验证码邮件确认邮箱可达。"
+      : "站点未配置发信，邮箱验证码不可用；请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。"
 
   return (
     <div className="space-y-4">
@@ -528,6 +628,100 @@ export function SettingsPage() {
               </div>
             </div>
           </section>
+
+          <Separator />
+
+          <section className="space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <Mail className="size-3.5" aria-hidden="true" />
+                  邮箱验证码
+                </p>
+                <p className="text-xs text-muted-foreground">{emailHint}</p>
+              </div>
+              {emailOtpEnabled ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  aria-label="关闭邮箱验证码"
+                  onClick={() => setDisableEmailOtpOpen(true)}
+                >
+                  关闭
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={emailBusy || emailUnavailable || emailCooldown > 0}
+                  onClick={() =>
+                    // 重发沿用上次通过的重认证密码；首次发码走密码弹窗判断
+                    void sendEmailVerify(
+                      emailVerifySent ? reauthPassword || undefined : undefined
+                    )
+                  }
+                >
+                  {emailBusy
+                    ? "发送中…"
+                    : // 冷却期间不论是刚发完还是刚取消，都别留一个点了必定 429 的按钮
+                      emailCooldown > 0
+                      ? `重新发送（${emailCooldown}s）`
+                      : emailVerifySent
+                        ? "重新发送"
+                        : "开启邮箱验证码"}
+                </Button>
+              )}
+            </div>
+
+            {emailVerifySent && !emailOtpEnabled ? (
+              <div className="rounded-lg border border-border p-3">
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email-otp-enable-code">邮箱验证码</Label>
+                    <Input
+                      id="email-otp-enable-code"
+                      name="email-otp-code"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={emailCode}
+                      onChange={(event) =>
+                        setEmailCode(
+                          event.target.value.replace(/\D/g, "").slice(0, 6)
+                        )
+                      }
+                      className="w-32 tracking-[0.3em]"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={emailBusy || emailCode.length !== 6}
+                    onClick={() => void enableEmailOtp()}
+                  >
+                    启用
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEmailVerifySent(false)
+                      setEmailCode("")
+                      setReauthPassword("")
+                    }}
+                  >
+                    取消
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {emailSentHint}
+                </p>
+              </div>
+            ) : null}
+          </section>
         </CardContent>
       </Card>
 
@@ -643,7 +837,7 @@ export function SettingsPage() {
         title="验证身份"
         description="账号已有可用的两步验证方式，新增前需要输入当前密码确认身份。"
         confirmLabel="继续"
-        busy={totpBusy || passkeyBusy}
+        busy={totpBusy || passkeyBusy || emailBusy}
         error={reauthError}
         onConfirm={(password) => {
           const flow = pendingReauth
@@ -651,6 +845,31 @@ export function SettingsPage() {
           setReauthError("")
           if (flow === "totp") void startTotp(password)
           if (flow === "passkey") void registerPasskey(password)
+          if (flow === "email") void sendEmailVerify(password)
+        }}
+      />
+
+      <PasswordConfirmDialog
+        open={disableEmailOtpOpen}
+        onOpenChange={setDisableEmailOtpOpen}
+        title="关闭邮箱验证码"
+        description="关闭后登录第二步不再发送邮件验证码，其它方式不受影响。"
+        confirmLabel="确认关闭"
+        busy={emailBusy}
+        error={error}
+        onConfirm={async (password) => {
+          setEmailBusy(true)
+          setError("")
+          try {
+            await authApi.emailOtpDisable(password)
+            setDisableEmailOtpOpen(false)
+            setNotice("邮箱验证码已关闭。")
+            await refreshMe()
+          } catch (disableError) {
+            setError(describeApiError(disableError))
+          } finally {
+            setEmailBusy(false)
+          }
         }}
       />
 

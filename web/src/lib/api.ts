@@ -58,6 +58,7 @@ const NO_REFRESH_PATHS = [
   "/auth/refresh",
   "/auth/2fa/verify",
   "/auth/2fa/passkey/authenticate",
+  "/auth/2fa/email-otp/send-login",
   "/auth/config",
   "/setup/state",
   "/setup"
@@ -211,6 +212,8 @@ export interface Me extends User {
     totpEnabled: boolean
     passkeyEnabled: boolean
     passkeyCount: number
+    /** 邮箱验证码 2FA 是否已开启（与 TOTP/Passkey 并列的第三种因子）。 */
+    emailOtpEnabled: boolean
   }
 }
 
@@ -219,11 +222,17 @@ export interface AuthConfig {
   registrationApprovalRequired: boolean
   /** 站点名（公开读，登录页也要用）；旧后端缺失时由调用方回退。 */
   siteName: string
+  /**
+   * SMTP 是否可用（站点级公开事实）。false 时邮箱验证码 2FA 与找回密码
+   * 都不开放，入口按「不可用」渲染，不做点了才报错的按钮。
+   */
+  emailConfigured: boolean
 }
 
-/** 公开的站点名读取结果。 */
+/** 公开的站点信息读取结果。 */
 export interface SiteInfo {
   siteName: string
+  emailConfigured: boolean
 }
 
 export type LoginResponse =
@@ -275,6 +284,18 @@ export interface TotpSetup {
   secret: string
   uri: string
 }
+
+/** 邮箱验证码发出后的统一回执（send-verify 与 send-login 同形）。 */
+export interface EmailCodeSent {
+  success: true
+  /** 重发冷却秒数（契约固定 60）。 */
+  cooldownSeconds: number
+  /** 本次验证码有效期秒数（契约固定 600）。 */
+  expiresInSeconds: number
+}
+
+/** 登录第二步可用的验证方式（契约顺序：totp → passkey → email_otp）。 */
+export type SecondFactorMethod = "totp" | "email_otp"
 
 /** 导入令牌状态：只回状态与时间，从不回哈希与明文。 */
 export interface ImportTokenStatus {
@@ -394,8 +415,50 @@ export interface SiteSettings {
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
   require2fa: boolean
+  /** 与 GET /api/auth/config 同口径：SMTP 非密字段齐全即为 true。 */
+  emailConfigured: boolean
   /** 每页保留的历史版本数；null = 不限（后端存空串）。 */
   revisionRetentionLimit: number | null
+}
+
+/** SMTP 传输层三态：TLS（465 隐式加密）/ STARTTLS（升级）/ 不加密。 */
+export type SmtpEncryption = "tls" | "starttls" | "none"
+
+/**
+ * 系统管理 → 邮件配置。GET 永不回密码，只用 passwordSet 表示存没存过；
+ * 明文只由管理员在 PUT 时提交。
+ */
+export interface SmtpSettings {
+  host: string
+  port: number
+  encryption: SmtpEncryption
+  username: string
+  from: string
+  fromName: string
+  passwordSet: boolean
+}
+
+/**
+ * GET /api/admin/system/smtp 的响应：状态标志 + 非密配置。
+ * 从没保存过时 `config` 为 null（表单空着渲染，不当作错误）。
+ */
+export interface SmtpConfigState {
+  emailConfigured: boolean
+  config: SmtpSettings | null
+}
+
+/**
+ * PUT /api/admin/system/smtp 的载荷。password 语义：空串或纯 `•` = 保留原密文，
+ * `null` = 清空，其它值 = 重新加密保存。
+ */
+export interface SmtpConfigInput {
+  host: string
+  port: number
+  encryption: SmtpEncryption
+  username: string
+  password: string | null
+  from: string
+  fromName: string
 }
 
 /** 空间角色：站点管理员对所有空间的有效角色都是 admin。 */
@@ -470,12 +533,20 @@ export const authApi = {
       { email, password },
       { skipRefresh: true }
     ),
-  verifyTotp: (tempToken: string, code: string) =>
+  /** 登录第二步：同一端点按 method 分流（totp / email_otp；passkey 走下面两个端点）。 */
+  verifySecondFactor: (
+    tempToken: string,
+    method: SecondFactorMethod,
+    code: string
+  ) =>
     api.post<{ success: true; user: User }>("/auth/2fa/verify", {
       tempToken,
-      method: "totp",
+      method,
       code
     }),
+  /** 登录第二步选了邮箱验证码时发码（公开，只认有效的 2fa_login 挑战）。 */
+  sendLoginEmailCode: (tempToken: string) =>
+    api.post<EmailCodeSent>("/auth/2fa/email-otp/send-login", { tempToken }),
   passkeyAuthOptions: (tempToken: string) =>
     api.post<Record<string, unknown>>(
       "/auth/2fa/passkey/authenticate/options",
@@ -519,7 +590,24 @@ export const authApi = {
       { password }
     ),
   passkeyDisableAll: (password: string) =>
-    api.post<{ success: true }>("/auth/2fa/passkey/disable", { password })
+    api.post<{ success: true }>("/auth/2fa/passkey/disable", { password }),
+  /**
+   * 邮箱验证码 2FA：先发码（send-verify）、再拿码开启（enable），验证走过一次
+   * 往返才真正开启；已有其它因子时两个端点都要带密码重认证。
+   */
+  emailOtpSendVerify: (password?: string) =>
+    api.post<EmailCodeSent>(
+      "/auth/2fa/email-otp/send-verify",
+      password ? { password } : {}
+    ),
+  emailOtpEnable: (code: string, password?: string) =>
+    api.post<{ success: true }>("/auth/2fa/email-otp/enable", {
+      code,
+      ...(password ? { password } : {})
+    }),
+  /** 关闭邮箱验证码始终要求密码，且不依赖 SMTP 是否可用（否则会被锁死）。 */
+  emailOtpDisable: (password: string) =>
+    api.post<{ success: true }>("/auth/2fa/email-otp/disable", { password })
 }
 
 export const meApi = {
@@ -553,7 +641,10 @@ export const meApi = {
 export const siteApi = {
   get: async (): Promise<SiteInfo> => {
     const config = await authApi.config()
-    return { siteName: config.siteName }
+    return {
+      siteName: config.siteName,
+      emailConfigured: config.emailConfigured === true
+    }
   }
 }
 
@@ -654,6 +745,14 @@ export const adminApi = {
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
     api.put<{ success: true }>("/admin/settings", patch),
+  smtp: () => api.get<SmtpConfigState>("/admin/system/smtp"),
+  saveSmtp: (input: SmtpConfigInput) =>
+    api.put<{ success: true; emailConfigured: boolean }>(
+      "/admin/system/smtp",
+      input
+    ),
+  /** 只发当前管理员邮箱；请求体不参与决定收件人。 */
+  testSmtp: () => api.post<{ success: true }>("/admin/system/smtp/test", {}),
   revisionRetention: () =>
     api.get<RevisionRetentionPreview>("/admin/revisions/retention"),
   pruneAllRevisions: () =>
@@ -685,7 +784,8 @@ const AUTH_FORM_PATHS = [
   "/auth/login",
   "/auth/2fa/verify",
   "/auth/2fa/passkey/authenticate/options",
-  "/auth/2fa/passkey/authenticate/verify"
+  "/auth/2fa/passkey/authenticate/verify",
+  "/auth/2fa/email-otp/send-login"
 ]
 
 function isAuthFormPath(path: string | undefined) {
@@ -709,6 +809,10 @@ export function describeApiError(error: unknown): string {
       return "站点已关闭注册，请联系管理员开通账号。"
     case "EMAIL_TAKEN":
       return "这个邮箱已经注册过，直接登录即可。"
+    case "METHOD_NOT_ENABLED":
+      return "这个账号没有开启邮箱验证码。"
+    case "2FA_METHOD_UNAVAILABLE":
+      return "该账号开启的两步验证方式当前都不可用，请联系管理员。"
     case "PREFIX_CONFLICT":
       return "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。"
     case "LEDGER_CONFLICT":
@@ -757,6 +861,21 @@ export function describeApiError(error: unknown): string {
       return "找不到这个用户。"
     case "INVALID_ROLE":
       return "成员角色不合法。"
+    case "EMAIL_NOT_CONFIGURED":
+      return "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    case "SMTP_SEND_FAILED": {
+      // 服务端已脱敏（密码与 base64 换 ***），这里原样带出真实原因便于排障
+      const reason = error.message.replace(/^smtp send failed:\s*/i, "").trim()
+      return reason ? `发信失败：${reason}` : "发信失败，请检查 SMTP 配置。"
+    }
+    case "INVALID_SMTP_CONFIG": {
+      const reason = error.message
+        .replace(/^invalid smtp config:\s*/i, "")
+        .trim()
+      return reason
+        ? `SMTP 配置不合法：${reason}`
+        : "SMTP 配置不合法，请检查后重试。"
+    }
     default:
       break
   }
