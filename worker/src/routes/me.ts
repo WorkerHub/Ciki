@@ -21,6 +21,7 @@ import {
   revokeImportToken,
   toImportTokenStatus
 } from "../core/import-token"
+import { clearPasswordResetCredentials } from "../core/password-reset"
 import { clientIp, readJsonBody } from "../lib/http"
 import type { HonoEnv } from "../types"
 
@@ -192,6 +193,8 @@ meRoutes.put("/password", async (c) => {
     password_hash: await hashPassword(newPassword)
   })
   await deleteUserSessions(c.env.DB, prefix, userId, c.get("sessionId"))
+  // 主动改密维持原口径（保留当前会话），但旧密码发起的找回流程必须作废。
+  await clearPasswordResetCredentials(c.env.DB, prefix, userId)
   return c.json({ success: true })
 })
 

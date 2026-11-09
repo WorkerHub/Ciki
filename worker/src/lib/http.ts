@@ -40,6 +40,34 @@ export async function readJsonBody<T>(c: Context<HonoEnv>): Promise<T | null> {
 }
 
 /**
+ * 让一段副作用在响应之后继续跑（如找回密码的后台发信）。
+ *
+ * 有 ExecutionContext 时交给 `waitUntil`：响应不等它，因此耗时与账号是否存在无关；
+ * 没有 ExecutionContext 时（Node 测试环境）退化为同步等待，行为与响应体保持一致。
+ * 任务自身的异常在这里吞掉并只记脱敏日志，绝不影响已经返回的响应。
+ */
+export async function runInBackground(
+  c: Context<HonoEnv>,
+  task: () => Promise<void>
+): Promise<void> {
+  const guarded = (async () => {
+    try {
+      await task()
+    } catch (err) {
+      console.error(
+        "Background task failed:",
+        err instanceof Error ? err.message : String(err)
+      )
+    }
+  })()
+  try {
+    c.executionCtx.waitUntil(guarded)
+  } catch {
+    await guarded
+  }
+}
+
+/**
  * parentId 入参的统一归一：根页的数据库语义是 `parent_id IS NULL`。
  *
  * 只接受「非空字符串 id」或「null / 缺省」；空串与纯空白按根页（null）处理，

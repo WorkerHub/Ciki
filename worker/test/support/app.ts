@@ -60,9 +60,36 @@ export async function initializedContext(
 export async function request(
   env: Env,
   path: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  executionCtx?: TestExecutionContext
 ): Promise<Response> {
-  return app.request(path, init, env)
+  return app.request(
+    path,
+    init,
+    env,
+    executionCtx as unknown as ExecutionContext | undefined
+  )
+}
+
+/**
+ * 测试用 ExecutionContext：把 `waitUntil` 的任务收集起来，供用例在断言前
+ * 显式等待（等价于运行时把响应发出去后继续跑的那段代码）。
+ */
+export class TestExecutionContext {
+  private pending: Array<Promise<unknown>> = []
+
+  waitUntil(promise: Promise<unknown>): void {
+    this.pending.push(promise)
+  }
+
+  passThroughOnException(): void {}
+
+  /** 等所有后台任务跑完（含它们内部再登记的任务）。 */
+  async settle(): Promise<void> {
+    while (this.pending.length > 0) {
+      await Promise.all(this.pending.splice(0))
+    }
+  }
 }
 
 export function jsonRequest(
@@ -70,16 +97,22 @@ export function jsonRequest(
   method: string,
   path: string,
   body?: unknown,
-  cookie?: string
+  cookie?: string,
+  executionCtx?: TestExecutionContext
 ): Promise<Response> {
   const headers: Record<string, string> = {}
   if (body !== undefined) headers["content-type"] = "application/json"
   if (cookie) headers.cookie = cookie
-  return request(env, path, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body)
-  })
+  return request(
+    env,
+    path,
+    {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body)
+    },
+    executionCtx
+  )
 }
 
 /** 从响应里取第一枚 Set-Cookie 的 `name=value`。 */
