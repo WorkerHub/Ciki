@@ -81,11 +81,12 @@ export function PageView() {
     setContentRoot(root)
   }, [])
   // 每页只恢复一次 hash：浏览器首屏时标题元素还不存在，要等锚点补齐后再跳。
+  // 只有目标真在当前正文根元素里才记帐——切页瞬间 contentRoot 可能还是上一页的，
+  // 先记帐会让新页的就绪回调直接 return，滚动就永远丢了。
   const hashRestored = useRef<string | null>(null)
   useEffect(() => {
     if (!contentRoot || !page) return
     if (hashRestored.current === page.id) return
-    hashRestored.current = page.id
     if (!location.hash) return
     let id = location.hash.slice(1)
     try {
@@ -93,7 +94,10 @@ export function PageView() {
     } catch {
       return
     }
-    document.getElementById(id)?.scrollIntoView()
+    const target = document.getElementById(id)
+    if (!target || !contentRoot.contains(target)) return
+    hashRestored.current = page.id
+    target.scrollIntoView()
   }, [contentRoot, page, location.hash])
 
   useEffect(() => {
@@ -102,6 +106,8 @@ export function PageView() {
     setLoading(true)
     setError("")
     setNotFound(false)
+    // 切页先丢掉上一页的正文根元素，索引轨的观察器与 hash 恢复都只认当前页
+    setContentRoot(null)
     pagesApi
       .get(pageId)
       .then((detail) => {

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
-import { TOC_MIN_ITEMS, TOP_LEVEL_HEADINGS, type TocItem } from "@/lib/toc"
+import { TOC_MIN_ITEMS, type TocItem } from "@/lib/toc"
 import { cn } from "@/lib/utils"
 
 /** 断点：xl（1280px）以下整轨不渲染，正文吃满原宽度。 */
@@ -36,15 +36,15 @@ export function ArticleToc({ items, contentRoot }: ArticleTocProps) {
   const navRef = useRef<HTMLElement>(null)
 
   // 观察标题：IntersectionObserver 只负责触发，当前小节按判定线实测决定，
-  // 避免同一判定带里落着好几个标题时选错。
+  // 避免同一判定带里落着好几个标题时选错。只认拿到 id 的标题（空标题没有 id）。
   useEffect(() => {
     if (!wide || !contentRoot || items.length < TOC_MIN_ITEMS) return
     const Observer = window.IntersectionObserver
     if (!Observer) return
 
-    const headings = Array.from(
-      contentRoot.querySelectorAll<HTMLElement>(TOP_LEVEL_HEADINGS)
-    )
+    const headings = items
+      .map((item) => contentRoot.querySelector<HTMLElement>(`#${item.id}`))
+      .filter((heading): heading is HTMLElement => heading !== null)
     if (headings.length === 0) return
 
     const scrollRoot = findScrollParent(contentRoot)
@@ -86,6 +86,13 @@ export function ArticleToc({ items, contentRoot }: ArticleTocProps) {
       if (frame) window.cancelAnimationFrame(frame)
     }
   }, [wide, contentRoot, items])
+
+  // 换文章（或换渲染根）时回到第一项：上一页的 activeId 在新文档里位置式同名，
+  // 不重置就会在新页顶部直接高亮上一页的中间小节，等观察器回调才纠正。
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在 items/contentRoot 换新时重置，当前项随后由观察器回调补回
+  useEffect(() => {
+    setActiveId("")
+  }, [items, contentRoot])
 
   // 当前项始终留在轨的可视区内：只动轨自己的滚动，不惊动页面主滚动。
   // biome-ignore lint/correctness/useExhaustiveDependencies: activeId 只是「高亮换了」的触发器，元素从 DOM 取

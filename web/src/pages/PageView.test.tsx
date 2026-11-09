@@ -280,4 +280,41 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(hits).toHaveLength(1)
     spy.mockRestore()
   })
+
+  it("从 A 页切到带 hash 的 B 页时仍滚到 B 的对应标题", async () => {
+    setViewportWide(true)
+    const pageA: PageDetail = {
+      ...page,
+      id: "a",
+      title: "A 页",
+      contentJson: tocContentJson,
+      contentHtml: "<h2>部署</h2><h3>配置</h3><h2>回滚</h2>"
+    }
+    const pageB: PageDetail = { ...pageA, id: "b", title: "B 页" }
+    vi.mocked(pagesApi.get).mockImplementation((id) =>
+      Promise.resolve(id === "b" ? pageB : pageA)
+    )
+    const router = createMemoryRouter(
+      [
+        { path: "/p/:pageId", element: <PageView /> },
+        { path: "/", element: <div>首页占位</div> }
+      ],
+      { initialEntries: ["/p/a"] }
+    )
+    const spy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
+    render(<RouterProvider router={router} />)
+    await screen.findByText("A 页")
+
+    // 切页瞬间 contentRoot 还是 A 页的：不能提前记帐，否则新页就绪后不再恢复
+    await router.navigate("/p/b#heading-2")
+    await screen.findByText("B 页")
+    await waitFor(() =>
+      expect(
+        spy.mock.instances.some(
+          (instance) => (instance as HTMLElement).id === "heading-2"
+        )
+      ).toBe(true)
+    )
+    spy.mockRestore()
+  })
 })

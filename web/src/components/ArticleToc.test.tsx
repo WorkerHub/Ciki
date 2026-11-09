@@ -61,12 +61,12 @@ class FakeObserver {
 }
 
 /** 造一个正文根元素：每个标题的位置由 tests 控制（jsdom 没有布局）。 */
-function makeContent(tops: number[]): HTMLElement {
+function makeContent(tops: number[], list: TocItem[] = items): HTMLElement {
   const root = document.createElement("div")
   tops.forEach((top, index) => {
     const heading = document.createElement("h2")
-    heading.id = items[index].id
-    heading.textContent = items[index].text
+    heading.id = list[index].id
+    heading.textContent = list[index].text
     heading.getBoundingClientRect = () => rect(top)
     root.appendChild(heading)
   })
@@ -152,6 +152,37 @@ describe("阅读页右侧索引轨", () => {
       "location"
     )
     expect(screen.getByRole("link", { name: "部署" })).not.toHaveAttribute(
+      "aria-current"
+    )
+  })
+
+  it("切到另一篇文章时高亮从第一项重新开始", () => {
+    const first = makeContent([-200, 100, 400])
+    const { rerender } = render(
+      <ArticleToc items={items} contentRoot={first} />
+    )
+    const observer = FakeObserver.instances.at(-1)
+    first.children[2].getBoundingClientRect = () => rect(10)
+    act(() => observer?.trigger())
+    expect(screen.getByRole("link", { name: "回滚" })).toHaveAttribute(
+      "aria-current",
+      "location"
+    )
+
+    // 新页位置式 id 与上一页同名：不重置的话 heading-3 会直接“继承”高亮
+    const nextItems: TocItem[] = [
+      { id: "heading-1", level: 2, text: "新页甲" },
+      { id: "heading-2", level: 3, text: "新页乙" },
+      { id: "heading-3", level: 2, text: "新页丙" }
+    ]
+    const next = makeContent([-200, 100, 400], nextItems)
+    rerender(<ArticleToc items={nextItems} contentRoot={next} />)
+
+    expect(screen.getByRole("link", { name: "新页甲" })).toHaveAttribute(
+      "aria-current",
+      "location"
+    )
+    expect(screen.getByRole("link", { name: "新页丙" })).not.toHaveAttribute(
       "aria-current"
     )
   })

@@ -46,7 +46,11 @@ export function ReadView({ html, headingIds, onReady }: ReadViewProps) {
     if (!editor) return
     const root = editor.view.dom as HTMLElement
     if (headingIds && headingIds.length > 0) {
-      const headings = root.querySelectorAll<HTMLElement>(TOP_LEVEL_HEADINGS)
+      // 空标题在提取时被跳过（contentJson 里没有文字），DOM 里 TipTap 仍会渲染它，
+      // 这里必须用同一判据跳过，否则空标题会抢走 heading-1、把后面的锚点顶偏一位。
+      const headings = Array.from(
+        root.querySelectorAll<HTMLElement>(TOP_LEVEL_HEADINGS)
+      ).filter((heading) => Boolean(heading.textContent?.trim()))
       headingIds.forEach((id, index) => {
         const heading = headings[index]
         if (heading) heading.id = id
