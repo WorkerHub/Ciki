@@ -2,8 +2,28 @@
  * 服务端把 TipTap JSON 渲染成 HTML（规格 §12.1）。
  *
  * 导入接口只收 `contentJson`，`contentHtml` 必须由服务端生成之后才谈得上消毒
- * （插件侧的 HTML 不可信）。渲染走官方 `@tiptap/html` 的 generateHTML 管线
- * （内部用 zeed-dom，无 DOM 依赖，Workers 可用），不手搓序列化。
+ * （插件侧的 HTML 不可信）。渲染是「按扩展集建 schema → ProseMirror 的 DOMSerializer
+ * 序列化」，也就是 `@tiptap/html` 的 generateHTML 内部那一步，不手搓序列化。
+ *
+ * 为什么两个 tiptap 入口都不用：
+ * - 裸 `@tiptap/html`：v3 用条件导出，Node 条件解析到 `dist/server/index.js`，
+ *   Workers 打包器（esbuild 的 workerd / browser 条件）解析到浏览器入口
+ *   `dist/index.js`——那里的 generateHTML 一开头就检查 `window`，在 Worker 里必抛
+ *   「can only be used in a browser environment」（线上报错就是它）。
+ * - `@tiptap/html/server`：Node 条件能跑（单测一直是这条路径），但它内部
+ *   `new Window()` 是 happy-dom 的浏览器窗口，构造时要把自己 contextify 进 `vm`
+ *   （`vm.createContext` + `Script.runInContext`）；workerd 的 node:vm 只实现了
+ *   createContext、没实现 runInContext，于是构造即抛
+ *   「The "contextifiedObject" argument must be an vm.Context」（本地 wrangler 实测）。
+ * 这里改用 happy-dom 公开的 `GlobalWindow`：它跳过 VM 上下文、只做 DOM，把 document
+ * 交给 DOMSerializer，序列化逻辑与 tiptap 的 getHTMLFromFragment 一致。Worker 侧只需
+ * 一个 DOM 容器，不需要能执行脚本的浏览器窗口。
+ *
+ * 前提：Worker 开着 `nodejs_compat`（wrangler.toml 已开）——happy-dom 的模块图里有
+ * `buffer` / `url` / `vm` 这些 Node 内置模块的 import，workerd 靠这层兼容解析。
+ *
+ * document 在 isolate 内建一次反复用（每次渲染写进新的 div 再取 innerHTML，不跨请求
+ * 留状态）。
  *
  * 扩展集是 `web/src/editor/extensions.ts` 的服务端镜像，只去掉渲染层才需要的东西
  * （NodeView、Placeholder、lowlight）：基础 codeBlock 已输出 `language-*` 类，
@@ -15,7 +35,12 @@ import {
   type Extensions,
   type JSONContent
 } from "@tiptap/core"
-import { generateHTML } from "@tiptap/html"
+import {
+  DOMSerializer,
+  Node as ProseMirrorNode,
+  type DOMOutputSpec,
+  type Schema
+} from "@tiptap/pm/model"
 import Highlight from "@tiptap/extension-highlight"
 import Image from "@tiptap/extension-image"
 import Link from "@tiptap/extension-link"
@@ -28,7 +53,7 @@ import TaskList from "@tiptap/extension-task-list"
 import { TextStyle } from "@tiptap/extension-text-style"
 import Underline from "@tiptap/extension-underline"
 import StarterKit from "@tiptap/starter-kit"
-import type { DOMOutputSpec, Schema } from "@tiptap/pm/model"
+import { GlobalWindow } from "happy-dom"
 
 /** 内容无法按编辑器 schema 渲染（未知节点/属性、结构不合法）。 */
 export class TiptapRenderError extends Error {
@@ -68,8 +93,10 @@ const ImportImage = Image.extend({
 })
 
 /**
- * 任务项：zeed-dom 会把布尔属性序列化成裸属性（`data-checked`），而 §4 白名单
- * 只认 `data-checked="true"|"false"`——不转成字符串，勾选态会在消毒时被剥掉。
+ * 任务项：勾选态必须落成 `data-checked="true"|"false"` 字符串——§4 白名单只认这
+ * 两个值，布尔属性一旦被序列化成裸属性（`data-checked`）就在消毒时整段剥掉。
+ * 原生 TaskItem 的 renderHTML 给的是布尔值，happy-dom 目前会 String() 成
+ * "true"/"false"（与这里一致）；显式字符串化后输出不再依赖 DOM shim 的属性细节。
  */
 const ImportTaskItem = TaskItem.extend({
   addAttributes() {
@@ -93,8 +120,9 @@ const ImportTaskItem = TaskItem.extend({
 /**
  * 颜色：与 web 侧同一套 data 载具（`data-text-color` / `data-color` / `data-cell-bg`）。
  *
- * 为什么不用 TipTap 原生 Color：它只把颜色写进 `style`，而 zeed-dom 会整段丢 style——
- * 那样导入路径的颜色就没了。这里只换「序列化成什么属性」，mark 与命令仍由原生扩展提供。
+ * 为什么不用 TipTap 原生 Color：它只把颜色写进 `style`，而 §4 白名单对 `span` 只留
+ * `data-text-color`、`style` 一律剥掉——那样导入路径的颜色就没了，编辑/粘贴/导入三路
+ * 也不一致。这里只换「序列化成什么属性」，mark 与命令仍由原生扩展提供。
  */
 const ImportColor = Extension.create({
   name: "color",
@@ -140,10 +168,11 @@ const ImportTableHeader = TableHeader.extend({
 })
 
 /**
- * 表格：ProseMirror 对 `style` 走 `dom.style.cssText`，而 zeed-dom 的 style 是
- * 只读快照，写进去就丢——`@tiptap/html` + zeed-dom 下表格列宽会整段消失。
- * 这里把列宽改写成 HTML 自带的 `col[width]`（等价的像素宽度，且 §4 白名单允许），
- * 列宽比例不丢；表格自身的 `min-width` 只是横向滚动提示，不影响内容。
+ * 表格：原生 Table 把 `colwidth` 渲染成 `col` 的内联 `style`（`dom.style.cssText`），
+ * 能不能留下来取决于 DOM 实现的 CSSOM。这里把列宽改写成 HTML 自带的 `col[width]`
+ * （等价的像素宽度，§4 白名单同样允许），列宽比例不受 DOM shim 影响。
+ * 表格自身的 style 只是 `width`/`min-width` 的宽度提示（白名单对 `table` 只收
+ * `min-width`），列宽已在 `col[width]` 上，删掉不影响内容。
  */
 function tableColWidthsAsAttributes(spec: unknown): unknown {
   if (!Array.isArray(spec)) return spec
@@ -191,12 +220,50 @@ const extensions: Extensions = [
   ImportTaskItem.configure({ nested: true })
 ]
 
-/** schema 只取决于扩展集，isolate 内建一次即可。 */
+/** schema 与序列化器都只取决于扩展集，isolate 内建一次即可。 */
 let cachedSchema: Schema | null = null
+let cachedSerializer: DOMSerializer | null = null
+
+/**
+ * 序列化用的 document：happy-dom 的 `GlobalWindow`（跳过 VM 上下文，见文件头）。
+ * 类型直接取 happy-dom 自己的 Document，worker 没有 DOM lib 的全局 Document。
+ */
+type SerializerDocument = InstanceType<typeof GlobalWindow>["document"]
+
+let cachedDocument: SerializerDocument | null = null
 
 function schema(): Schema {
   if (!cachedSchema) cachedSchema = getSchema(extensions)
   return cachedSchema
+}
+
+function serializer(): DOMSerializer {
+  if (!cachedSerializer) cachedSerializer = DOMSerializer.fromSchema(schema())
+  return cachedSerializer
+}
+
+function serializerDocument(): SerializerDocument {
+  if (!cachedDocument) {
+    const window = new GlobalWindow({
+      settings: {
+        disableJavaScriptEvaluation: true,
+        disableJavaScriptFileLoading: true,
+        disableCSSFileLoading: true,
+        disableIframePageLoading: true,
+        disableComputedStyleRendering: true
+      }
+    })
+    cachedDocument = window.document
+  }
+  return cachedDocument
+}
+
+/** 序列化进一个临时 div 再取 innerHTML（与 tiptap 的 getHTMLFromFragment 同一做法）。 */
+function serialize(node: ProseMirrorNode): string {
+  const document = serializerDocument()
+  const wrap = document.createElement("div")
+  serializer().serializeFragment(node.content, { document }, wrap)
+  return wrap.innerHTML
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -289,7 +356,7 @@ export function renderTiptapHtml(json: unknown): string {
   const docSchema = schema()
   try {
     validateContent(docSchema, json, "doc", 0)
-    return generateHTML(json as JSONContent, extensions)
+    return serialize(ProseMirrorNode.fromJSON(docSchema, json as JSONContent))
   } catch (err) {
     if (err instanceof TiptapRenderError) throw err
     throw new TiptapRenderError(

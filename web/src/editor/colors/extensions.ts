@@ -2,8 +2,8 @@
  * 颜色能力（文字颜色 / 高亮 / 单元格背景）的扩展覆盖 —— 编辑态与阅读态共用这一套。
  *
  * 约定：颜色在 HTML 里一律走 data 载具（`data-text-color` / `data-color` / `data-cell-bg`），
- * 值只认 `#rrggbb`。原因见 docs/api-contract.md「服务端消毒规则」：Worker 侧 `@tiptap/html`
- * 用 zeed-dom 序列化，`style` 会整段丢失（插件导入路径首当其冲），只有普通属性三路一致。
+ * 值只认 `#rrggbb`。原因见 docs/api-contract.md「服务端消毒规则」：落库前的服务端消毒
+ * 只认这套 data 载具、`style` 一律剥掉（插件导入路径首当其冲），只有普通属性三路一致。
  * 浏览器里仍然输出内联样式（`renderHTML` 同时给 data 属性与 style），所以编辑与阅读的
  * 观感就是 TipTap 原生的样子；落库前消毒层把 style 剥掉、留下 data 属性。
  */

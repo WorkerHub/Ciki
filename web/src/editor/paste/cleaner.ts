@@ -231,7 +231,7 @@ export function cleanConfluenceHtml(html: string): string {
   // 7) 颜色：只认内联 `color` 与 `background-color`，归一成 `#rrggbb` 后落到契约载具上
   // （span[data-text-color] / mark[data-color] / td,th[data-cell-bg]），其余内联样式
   // 照旧剥干净（整条 style 直接移除）。颜色不走 style 的原因见 colors/extensions.ts：
-  // Worker 的 zeed-dom 渲染会丢 style，只有普通属性才能三路（编辑/粘贴/导入）一致。
+  // 服务端消毒会把 style 剥掉，只有普通属性才能三路（编辑/粘贴/导入）一致。
   const INLINE_TAGS = new Set([
     "SPAN",
     "FONT",
