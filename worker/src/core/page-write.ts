@@ -8,7 +8,13 @@
  *
  * 无改动的保存在这里收口：归一化后的内容与库里现存行四列全等时判定为无改动，
  * 不写页面行、不追加 revision、不重建 FTS，原样返回现存行（`updated_at` /
- * `updated_by` 都不动），调用方拿到的响应形状与正常保存一致。
+ * `updated_by` 都不动），调用方拿到的响应形状与正常保存一致。派生出来的 MD
+ * （`content_md`）不参与这个判定：它是 `content_json` 的函数，四项全等时必然也相等。
+ *
+ * `content_md` 与正文同批写：MD 由 `lib/page-input.ts` 在生成 html/纯文本的同一处
+ * 从 JSON 派生，本文件只负责把它写进页面行（不写 history：版本表仍只存 JSON，
+ * 版本的 MD 将来按需生成）。列由迁移 `schema_v4` 补上，所以先探列——升级前按旧形态
+ * 写，保存不会因为缺列而失败。
  *
  * 版本正文的落库形态在这里定：`page_revisions.content_gzip` 就绪（迁移 `schema_v2`
  * 已跑）时只写一份 gzip 的 JSON，HTML/纯文本不入版本表；列还不存在时（部署后、管理员
@@ -19,6 +25,7 @@
  * 超出上限的最旧版本删掉，与其他写入语句在同一个 `db.batch()` 事务里。
  */
 import {
+  hasContentMdColumn,
   insertPage,
   maxSortOrder,
   updatePageContent,
@@ -129,6 +136,8 @@ export async function createPage(
     content_json: content.contentJson,
     content_html: content.contentHtml,
     content_text: content.contentText,
+    // 派生件与正文同批落库（升级前没有这一列时写不进去，见 insertPage 的 includeMd）。
+    content_md: content.contentMd,
     created_by: userId,
     updated_by: userId,
     created_at: now,
@@ -138,7 +147,7 @@ export async function createPage(
 
   // 新建页只有这一条版本（保留数下限是 1），不需要修剪。
   await db.batch([
-    insertPage(db, prefix, row),
+    insertPage(db, prefix, row, await hasContentMdColumn(db, prefix)),
     await revisionStatement(
       db,
       prefix,
@@ -171,15 +180,21 @@ export async function savePageContent(
 
   const revision = newRevision(existing.id, content, userId, now)
   const statements = [
-    updatePageContent(db, prefix, {
-      id: existing.id,
-      title: content.title,
-      content_json: content.contentJson,
-      content_html: content.contentHtml,
-      content_text: content.contentText,
-      updated_by: userId,
-      updated_at: now
-    }),
+    updatePageContent(
+      db,
+      prefix,
+      {
+        id: existing.id,
+        title: content.title,
+        content_json: content.contentJson,
+        content_html: content.contentHtml,
+        content_text: content.contentText,
+        content_md: content.contentMd,
+        updated_by: userId,
+        updated_at: now
+      },
+      await hasContentMdColumn(db, prefix)
+    ),
     await revisionStatement(db, prefix, revision),
     ...indexPageStatements(db, prefix, {
       id: existing.id,
@@ -206,6 +221,7 @@ export async function savePageContent(
     content_json: content.contentJson,
     content_html: content.contentHtml,
     content_text: content.contentText,
+    content_md: content.contentMd,
     updated_by: userId,
     updated_at: now
   }

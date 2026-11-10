@@ -43,6 +43,12 @@ export const revisionsTable = (prefix: string) =>
 /** 个人导入令牌（规格 §12.1）：每用户一枚，只存 SHA-256。 */
 export const importTokensTable = (prefix: string) =>
   tableName(prefix, "import_tokens")
+/**
+ * 只读接口令牌（一期）：与导入令牌并列、互不通用，形状同 `import_tokens` 但**独立一张表**
+ * ——两边各查各的表，双向隔离靠表隔离落地，不靠路由层的额外判断。
+ */
+export const readTokensTable = (prefix: string) =>
+  tableName(prefix, "read_tokens")
 /** FTS5 虚拟表同样经前缀 helper 拼名（规格 §6）。 */
 export const pagesFtsTable = (prefix: string) => tableName(prefix, "pages_fts")
 /**

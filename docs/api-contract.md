@@ -4,11 +4,11 @@
 
 - 服务端入口：`worker/src/index.ts`（Hono），部署单元同时托管前端静态资源。
 - 表名一律经 `worker/src/lib/tables.ts` 拼当前部署的 `TABLE_PREFIX`（默认 `ciki_`，可显式无前缀），本文只用逻辑表名。
-- 响应字段一律 camelCase；数据库列名 snake_case，二者在路由层转换。
+- 响应字段一律 camelCase；数据库列名 snake_case，二者在路由层转换。**唯一例外**：`/api/read/*` 三个只读接口按用户冻结的接入契约逐字使用 snake_case（`parent_id` / `updated_at` / `created_at` / `content_json`），见「只读接口（只读令牌）」。
 
 ## 一、通用约定
 
-- **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）。
+- **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）；`/api/read/*` 是外部连接器入口，只认 `Authorization: Bearer <只读令牌>`，同样不接受会话 Cookie，且与导入令牌互不通用（见「只读接口（只读令牌）」）。
   - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
   - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
@@ -16,7 +16,7 @@
 - **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、422 无法处理的存量内容（如版本 JSON 渲染不了）、429 限流/锁定、500 服务端错误（不回显堆栈）。
 - **时间**：所有时间字段均为 ISO 8601 字符串（`2026-11-07T12:00:00.000Z`），会话过期等内部字段用 Unix 秒但不出现在 DTO 中。
 - **分页**：页面树与用户列表不分页；搜索用 `limit`（默认 20，上限 50）。
-- **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；三件套合计 ≤ 1,900,000 字节（D1 单行上限 2 MB）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
+- **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；四件套（JSON + HTML + 纯文本 + 派生 MD）合计 ≤ 1,900,000 字节（D1 单行上限 2 MB）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
 - **纯文本字段**：`title` 与 `contentText` 保存时剥除 HTML 标签并折叠空白，入库与搜索片段都不含 HTML 语法。
 - **脱敏**：任何 DTO 都不返回 `password_hash`、TOTP 密文、passkey `public_key`、会话令牌或挑战原值。
 
@@ -30,9 +30,14 @@
 
 - `schema_v3`（邮箱验证码，2026-11-09）：新建 `email_codes` 专表与 `email_codes_expires_at` 索引；`user_2fa` 的 `email_otp_enabled` 列由 `schema_v3.prepare` 用 `PRAGMA table_info` 判断后 `ALTER TABLE … ADD COLUMN` 补上（SQLite 没有 `ADD COLUMN IF NOT EXISTS`），重复执行不会重复加列。回滚：删 `email_codes` 表与索引，并从账本删掉 `schema_v3` 行；`email_otp_enabled` 列可留（旧代码忽略）或用 `ALTER TABLE … DROP COLUMN` 一并回退。
 
+- `schema_v4`（MD 派生存储 + 只读接口令牌，一期）：①新建 `read_tokens` 表与 `read_tokens_token_hash` 唯一索引（纯 DDL，在 `sql` 里）；②`pages` 增加 `content_md TEXT` 列，并把存量页逐页派生回填（在 `prepare` 里：`PRAGMA table_info` 探不到该列才 `ALTER TABLE … ADD COLUMN`，再按 25 行/批 `SELECT … WHERE content_md IS NULL ORDER BY id LIMIT 25` → `UPDATE … SET content_md=? WHERE id=? AND content_md IS NULL`）。可重复执行（已回填行被 `content_md IS NULL` 排除、写回再拦一道）、可中断续跑（`prepare` 抛错则该迁移不记账，下次 setup 从剩下的行继续），并且一批行仍待办却一行没写进去时抛错中止（不死循环）。回填只写 `content_md`，不碰正文三列与 `updated_at` / `updated_by`；软删页一并回填（回收站页面恢复后立刻可读）。回滚：代码回退即可，`content_md` 列与 `read_tokens` 表可留（旧代码忽略）；确要清干净再 `ALTER TABLE … DROP COLUMN content_md`、`DROP TABLE read_tokens` 并删账本 `schema_v4` 行。
+
 Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那样的逐版本升级路径：今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，不改动已有迁移。只跑过旧版部分迁移、或 `pages` 缺 `space_id` 的库不在支持范围——`CREATE TABLE IF NOT EXISTS` 不会补列，迁移会失败并报 `Migration "schema_v1" failed`，处置方式是重建库。
 
-部署到点升级之间（新代码已在跑、`schema_v2` 还没执行）站内仍可用：写路径用 `PRAGMA table_info` 探列，列不存在就按旧形态写版本行，升级时由 `schema_v2` 一并转换。
+存量页一律可读：
+
+- 部署后、管理员点「检查并升级数据库」之前，`pages.content_md` 列还不存在，`read_tokens` 表也一样；写路径用 `PRAGMA table_info` 探列，列不在就按旧形态写（只是不存 MD，保存不失败）；
+- 读路径（`GET /api/pages/:id` 的 `contentMd`、`GET /api/read/pages/:id` 的 `markdown`）遇到 `content_md` 为空/缺失时**按需从 `content_json` 现生成**，不报错、不回空文档；升级由 `schema_v4` 一次性回填补齐。
 
 回滚方式：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态（等同整库重建）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
 
@@ -197,6 +202,23 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 - 失效条件：吊销、重置、用户被停用或未批准。校验每次回表并连 `users` 查激活/审批状态，所以停用立即生效。
 - 令牌只用于 `/api/import/*`，权限等同本人；令牌管理本身仍要会话 Cookie。
 
+### read_tokens（只读接口令牌，schema_v4）
+
+与 `import_tokens` **形状相同、表独立**，两套令牌互不通用：
+
+| 列           | 类型          | 说明                                  |
+| ------------ | ------------- | ------------------------------------- |
+| user_id      | TEXT PK       | 每用户一行；生成/重置即覆盖，不新增行 |
+| token_hash   | TEXT NOT NULL | 令牌的 SHA-256 hex，唯一索引          |
+| created_at   | TEXT NOT NULL | ISO 时间；重置时刷新                  |
+| last_used_at | TEXT NULL     | 每次通过该令牌调用读接口时更新        |
+| revoked_at   | TEXT NULL     | 非空即吊销                            |
+
+- 明文只存于生成/重置响应一次，库内只有哈希；不设过期列。
+- 失效条件：吊销、重置、用户被停用或未批准（校验每次回表并连 `users`）。
+- 令牌只用于 `/api/read/*`；令牌管理本身要会话 Cookie。
+- **双向隔离**在服务端落地：读接口的中间件只查本表，导入接口的中间件只查 `import_tokens`；所以导入令牌调读接口、只读令牌调导入接口与会话写接口都是 401，不靠前端约定。
+
 ### spaces
 
 | 列                     | 类型                       | 说明                                              |
@@ -223,21 +245,24 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 ### pages
 
-| 列                     | 类型                       | 说明                              |
-| ---------------------- | -------------------------- | --------------------------------- |
-| id                     | TEXT PK                    | UUID                              |
-| space_id               | TEXT NOT NULL DEFAULT ''   | 所属空间；初始化迁移回填默认空间  |
-| parent_id              | TEXT NULL                  | 根页为 NULL；父子关系只在同空间内 |
-| title                  | TEXT NOT NULL              |                                   |
-| sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1                       |
-| content_json           | TEXT NOT NULL DEFAULT ''   | TipTap JSON 文本                  |
-| content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML               |
-| content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要                       |
-| created_by, updated_by | TEXT NOT NULL              | 用户 id                           |
-| created_at, updated_at | TEXT NOT NULL              | ISO 时间                          |
-| deleted_at             | TEXT NULL                  | 软删时间                          |
+| 列                     | 类型                       | 说明                                                                                 |
+| ---------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
+| id                     | TEXT PK                    | UUID                                                                                 |
+| space_id               | TEXT NOT NULL DEFAULT ''   | 所属空间；初始化迁移回填默认空间                                                     |
+| parent_id              | TEXT NULL                  | 根页为 NULL；父子关系只在同空间内                                                    |
+| title                  | TEXT NOT NULL              |                                                                                      |
+| sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1                                                                          |
+| content_json           | TEXT NOT NULL DEFAULT ''   | TipTap JSON 文本（真源）                                                             |
+| content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML                                                                  |
+| content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要                                                                          |
+| content_md             | TEXT NULL                  | `schema_v4` 补列；从 `content_json` 派生的 Markdown（导出/机读用，**永不反写正文**） |
+| created_by, updated_by | TEXT NOT NULL              | 用户 id                                                                              |
+| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                                                             |
+| deleted_at             | TEXT NULL                  | 软删时间                                                                             |
 
 索引：`(space_id, parent_id, sort_order)`、`(space_id, deleted_at)`、`(parent_id, sort_order)`、`(deleted_at)`、`(updated_at)`。
+
+`content_md` 是 `content_json` 的派生件（派生规则见「Markdown 派生规则」）：写路径与 HTML/纯文本在同一处生成、同一次 `db.batch()` 落库，正常保存/导入覆盖/回滚三条入口共用；它**不参与无改动保存的判等**（判等仍是标题 + JSON + HTML + 纯文本四项），也没有历史版本副本（`page_revisions` 仍只存 JSON）。代价是将来如果调整了派生规则，旧页会继续返回旧 MD——需要重刷时把对应行的 `content_md` 置 NULL 并重跑升级通道（`content_md IS NULL` 的行会被重新回填）。
 
 ### page_revisions
 
@@ -1000,12 +1025,15 @@ SpaceCandidate = { userId, username, publicId, email }
   "contentJson": "{\"type\":\"doc\",…}",
   "contentHtml": "<p>…</p>",
   "contentText": "…",
+  "contentMd": "## 小节\n\n正文",
   "createdBy": "用户 id",
   "updatedBy": "用户 id",
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
+
+`contentMd` 是从 `contentJson` 派生的 Markdown（**只读、不含标题行**）：库里有 `content_md` 就给库里的值，没有（升级回填完成前）就按需现生成；空正文页是空串，绝不会是 `null`。阅读页的「下载 .md」走登录会话读它（文件名 = 标题 + `.md`，内容 = `# 标题` + `contentMd`），不经过只读令牌接口。
 
 已软删、非成员或所属空间不可见均返回 404。
 
@@ -1264,7 +1292,103 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 | 展开   | `{"language":"js","collapsed":false}`       | `<pre data-collapsed="false"><code class="language-js">…</code></pre>` |
 | 未表态 | `{"language":"js"}`（或 `collapsed: null`） | `<pre><code class="language-js">…</code></pre>`                        |
 
-- 错误：400 参数非法（标题、`parentId` / `space_id` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；403 `code:"SPACE_FORBIDDEN"`；404 `code:"SPACE_NOT_FOUND"`；409 `code:"DEFAULT_SPACE_MISSING"` / `code:"PARENT_DELETED"`（父页不存在或已软删）/ `code:"SPACE_MISMATCH"`；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、三件套合计 ≤1,900,000 B）；401；429。
+- 错误：400 参数非法（标题、`parentId` / `space_id` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；403 `code:"SPACE_FORBIDDEN"`；404 `code:"SPACE_NOT_FOUND"`；409 `code:"DEFAULT_SPACE_MISSING"` / `code:"PARENT_DELETED"`（父页不存在或已软删）/ `code:"SPACE_MISMATCH"`；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、四件套含派生 MD 合计 ≤1,900,000 B）；401；429。
+
+### 只读接口（只读令牌）
+
+一期供外部连接器（Muse）接入的一组**只读**接口：只有读，没有任何写接口；不接受会话 Cookie，导入令牌与只读令牌两边互不通用（见「read_tokens」）。
+
+#### 令牌管理（均需会话 Cookie）
+
+##### GET /api/me/read-token
+
+```json
+{
+  "active": true,
+  "createdAt": "2026-11-10T12:00:00.000Z",
+  "lastUsedAt": null,
+  "revokedAt": null
+}
+```
+
+从未生成过时三个时间字段均为 `null`、`active` 为 `false`。永不返回哈希或明文。
+
+##### POST /api/me/read-token
+
+生成或重置当前用户的只读令牌（覆盖既有令牌，旧令牌立即失效），200：
+
+```json
+{ "token": "…", "createdAt": "2026-11-10T12:00:00.000Z" }
+```
+
+**明文只在此响应出现一次**。限流 10 次 / 5 分钟（按用户），超出 429 `code:"RATE_LIMITED"`。
+
+##### DELETE /api/me/read-token
+
+吊销当前用户的只读令牌：200 `{"success":true}`。从未生成过 404；已吊销再调用仍 200（幂等）。
+
+#### 读接口通用约定
+
+- 鉴权：只认 `Authorization: Bearer <只读令牌>`。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。**会话 Cookie 与查询参数都不认**。
+- 权限 = 令牌所属用户本人的读权限：站点管理员可见全部空间，其余人只见自己是成员的空间；非成员空间的内容在 SQL 层就被过滤（与站内页面树/搜索同一口径）。
+- 限流沿用 `auth_counters`：失败按 IP（`read_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`read` 3000 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
+- **软删页面**（`deleted_at` 非空）在三处一律排除。
+- 响应统一 JSON、UTF-8；**不加分页、不做版本协商**。字段是 snake_case（本文件 camelCase 通则的唯一例外，接入方按此对接）。
+- 每次成功调用都刷新令牌的 `lastUsedAt`。
+
+#### GET /api/read/tree
+
+全部未删页面的扁平表（不分页、不建树；`parent_id` 给调用方自己拼层级），按「空间 → 同级顺序 → 创建时间」排序：
+
+```json
+[{ "id": "…", "title": "首页", "parent_id": null, "updated_at": "…" }]
+```
+
+#### GET /api/read/search?q=<词>
+
+全文搜索，与站内搜索（`GET /api/search`）同一支 FTS5 查询与 `bm25` 排序，上限固定 20 条：
+
+```json
+[
+  {
+    "id": "…",
+    "title": "团队知识库",
+    "snippet": "…命中附近的纯文本片段…",
+    "updated_at": "…"
+  }
+]
+```
+
+`snippet` 是纯文本（不含 HTML）。空词或只有标点返回 `[]`。
+
+#### GET /api/read/pages/:id
+
+```json
+{
+  "id": "…",
+  "title": "…",
+  "parent_id": null,
+  "created_at": "…",
+  "updated_at": "…",
+  "markdown": "## 小节\n\n正文"
+}
+```
+
+- `markdown` 即 `pages.content_md`（不含标题行）；列为空或尚未回填时按需现生成，不报错也不回空文档。
+- 带 `?format=json` 时改回真源：`{…, "content_json": "{\"type\":\"doc\",…}"}`（不再返回 `markdown`）。
+- 页面不存在或已软删 → 404 `{"error":"Page not found"}`；所属空间非令牌用户可见也同样 404（不泄露存在性）。
+
+#### Markdown 派生规则（`content_md` / `markdown` / `contentMd` 三者同一口径）
+
+派生方向只有一个：`content_json` → Markdown。**任何路径不得以 MD 反写正文**；MD 有损，只作导出/机读视图。
+
+- 标题→`#` 级别对应；段落、粗/斜/删除线、行内代码、链接按 GFM 常规；有序列表保留起始序号，嵌套列表每层缩进 2 空格；任务列表→`- [ ]` / `- [x]`。
+- 代码块→带语言标注的围栏（内容里有反引号时自动加长围栏）；引用块→`>`（信息面板在粘贴/导入时已降级为引用块）；分割线→`---`；硬换行→行尾两空格。
+- 表格→GFM 管道表：合并单元格降级——内容只留锚点格、被覆盖格留空，行列按网格展开并补空；表头取原表头行，原表无表头则第一行升为表头位；单元格里的 `|` 转义为 `\|`。
+- 图片→`![alt](绝对地址)`：本站路径（`/api/files/...`）补全为 `https://ciki.oneboy.app` + 路径；已是绝对地址或 `data:` 原样保留；只有 `data-original-src` 的未转存占位图用它。
+- 颜色/高亮→丢弃只留文字；下划线→降为纯文字；未知节点降级为它的文字内容。
+- 派生**永不报错**：JSON 无法解析或不合当前 schema 时退回已消毒的纯文本（`content_text`）。
+- `content_md` 不参与无改动保存的判等（判等仍是标题 + `content_json` + `content_html` + `content_text` 四项）；历史版本不存 MD。
 
 ### 服务端消毒规则（content_html）
 
