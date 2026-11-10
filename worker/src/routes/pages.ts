@@ -44,7 +44,17 @@ import {
   type SpaceRole
 } from "../core/space-access"
 import { indexPageStatements } from "../lib/fts"
+import {
+  cleanPageFilename,
+  contentDisposition,
+  imageEntryNames,
+  imageLink,
+  markdownDocument,
+  rewriteSiteImageLinks,
+  siteImageKeys
+} from "../lib/markdown-download"
 import { normalizePageInput, type PageContentResult } from "../lib/page-input"
+import { zipStream } from "../lib/zip-stream"
 import { createPage, savePageContent } from "../core/page-write"
 import { revisionContent } from "../lib/revision-content"
 import { resolvePageMarkdown } from "../lib/tiptap-markdown"
@@ -70,8 +80,9 @@ function toDetail(row: PageRow) {
     contentJson: row.content_json,
     contentHtml: row.content_html,
     contentText: row.content_text,
-    // 派生件（只读）：阅读页「下载 .md」走登录会话读它，不经过只读令牌接口。
-    // 列尚未回填时按需现生成，与 GET /api/read/pages/:id 的 markdown 同一口径。
+    // 派生件（只读）：下载端点（GET /api/pages/:id/download）取的是同一份 MD，
+    // 这里照旧下发；列尚未回填时按需现生成，与 GET /api/read/pages/:id 的 markdown
+    // 同一口径，也不经过只读令牌接口。
     contentMd: resolvePageMarkdown(row),
     createdBy: row.created_by,
     updatedBy: row.updated_by,
@@ -216,6 +227,71 @@ pageRoutes.get("/trash", async (c) => {
       updatedAt: row.updated_at
     }))
   )
+})
+
+/**
+ * 下载 .md（规格 v1.0）：按页面 MD 里有没有**站内图**自动分流。
+ *
+ * - 无站内图 → 与一期前端产物逐字节一致的 `.md`；
+ * - 有站内图 → zip 包：根目录 `<标题>.md` + `images/<basename>`。图从 R2 按 key
+ *   直读、逐块流式入包（不读整图），MD 里的站内图链接改写成 `images/<basename>`。
+ *
+ * 存储版 `content_md` 一字不动（相对化只发生在组装 zip 时）；站外图不抓取、不改写；
+ * R2 里已不存在的图不入包、其链接保留原绝对地址，不因个别缺图让整包失败。
+ *
+ * 权限与 `GET /:id` 同一口径：非成员、页面不存在、已软删一律 404（不泄露空间存在性）。
+ * 走 /api/pages 的会话中间件，只读令牌与导入令牌都进不来。
+ */
+pageRoutes.get("/:id/download", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const row = await getPageRow(c.env.DB, prefix, c.req.param("id"))
+  if (!row || row.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, row)
+  if (!role) return pageNotFound(c)
+
+  // 与只读接口 / 页面详情同一口径：库里有 content_md 就用，没有就按需现生成。
+  const document = markdownDocument({
+    title: row.title,
+    contentMd: resolvePageMarkdown(row)
+  })
+  const name = cleanPageFilename(row.title)
+  const keys = siteImageKeys(document)
+
+  if (keys.length === 0) {
+    return new Response(document, {
+      headers: {
+        "Content-Type": "text/markdown; charset=utf-8",
+        "Content-Disposition": contentDisposition(name, ".md")
+      }
+    })
+  }
+
+  const entries = imageEntryNames(keys)
+  // 真的进了包的图：R2 里已经没有的（孤儿清理过）不入包，链接也保持绝对地址。
+  const included = new Set<string>()
+  const body = zipStream(async (zip) => {
+    // 图在前、MD 在后：包内 MD 要按「哪些图真的取到了」决定改写哪些链接，
+    // 取不到的图必须原样保留绝对地址，所以它的字节只能最后写。
+    for (const key of keys) {
+      const object = await c.env.R2.get(key)
+      if (!object) continue
+      included.add(key)
+      await zip.addBinary(imageLink(entries.get(key)!), object.body)
+    }
+    const markdown = rewriteSiteImageLinks(document, (key) => {
+      const entry = entries.get(key)
+      return entry && included.has(key) ? entry : null
+    })
+    await zip.addText(`${name}.md`, markdown)
+  })
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "application/zip",
+      "Content-Disposition": contentDisposition(name, ".zip")
+    }
+  })
 })
 
 pageRoutes.get("/:id", async (c) => {

@@ -1033,9 +1033,33 @@ SpaceCandidate = { userId, username, publicId, email }
 }
 ```
 
-`contentMd` 是从 `contentJson` 派生的 Markdown（**只读、不含标题行**）：库里有 `content_md` 就给库里的值，没有（升级回填完成前）就按需现生成；空正文页是空串，绝不会是 `null`。阅读页的「下载 .md」走登录会话读它（文件名 = 标题 + `.md`，内容 = `# 标题` + `contentMd`），不经过只读令牌接口。
+`contentMd` 是从 `contentJson` 派生的 Markdown（**只读、不含标题行**）：库里有 `content_md` 就给库里的值，没有（升级回填完成前）就按需现生成；空正文页是空串，绝不会是 `null`。阅读页「下载 .md」由服务端下载端点取同一份 MD（见下条 `GET /api/pages/:id/download`），本接口照旧下发该字段，两者都不经过只读令牌接口。
 
 已软删、非成员或所属空间不可见均返回 404。
+
+#### GET /api/pages/:id/download
+
+阅读页「下载 .md」的服务端入口：按页面 MD 里有没有**站内图**自动分流，含站内图的页面下 zip 包（入口与按钮文案不变）。权限与 `GET /api/pages/:id` 同一口径：非成员、页面不存在、已软删一律 404；走 `/api/pages` 的会话中间件，只读令牌与导入令牌都进不来。
+
+- **站内图**（分流依据）= MD 里形如 `![alt](https://ciki.oneboy.app/api/files/<key>)` 的图片引用，且 `<key>` 满足 `/api/files` 的 key 形状（`pages|imports|avatars/<uuid>.<ext>` 或存量平铺 `<uuid>.<ext>`）。站外图、形状不合规的本站地址（`svg`、非 UUID 等）都不算。
+- **产物口径**：文件名主名沿用一期 `markdownFilename` 的规则（丢控制字符 → `[\\/:*?"<>|]` 换 `-` → 连续 `-` 折成一个 → 去首尾 `-` / `.` / 空白 → 空则「未命名页面」），中文原样由 `filename*` 承载；`filename` 给 ASCII 兜底（非 ASCII 字符换 `-` 后折叠，折叠后为空用 `page`）。
+- 正文取值与只读接口一致：库里有 `content_md` 就用，没有就按需现生成。
+
+**无站内图 → 200 `.md`**：`Content-Type: text/markdown; charset=utf-8`，`Content-Disposition: attachment; filename="<ASCII兜底>.md"; filename*=UTF-8''<百分号编码>`。正文与一期前端产物逐字节一致：`# <title.trim()>\n\n<contentMd.trimEnd()>\n`，正文为空时只有 `# <title.trim()>\n`。
+
+**有站内图 → 200 zip**：`Content-Type: application/zip`，主名同 `.md`、扩展名换 `.zip`。包结构：
+
+```text
+<标题>.md           # 与 .md 产物同款：标题行 + 空行 + 正文
+images/<basename>   # 每张被引用站内图一份；同图被多次引用只入一份
+```
+
+- `images/` 下的文件名取 key 的 basename（`pages/<uuid>.png` → `<uuid>.png`）；真撞名（如 `pages/<uuid>.png` 与 `imports/<uuid>.png`）按 key 全路径下划线化兜底。
+- 包内条目按 Unix 语义写：中央目录的 `version made by` = 3（Unix）、外部属性含 `0644` 权限位，非 ASCII 条目名带 UTF-8 标志位（bit 11）。因此 macOS 的系统 `/usr/bin/unzip`、Finder 与其它标准实现都能正确解出中文标题的 `.md`（不置 Unix 语义时 Info-ZIP 会按 DOS 代码页解码中文名而失败）。
+- 包内 MD 只改站内图链接为 `images/<basename>`：alt 原样、站外图地址原样，其余内容与 `.md` 产物逐字一致。
+- 引用的图在 R2 已不存在（如已被孤儿清理）：该图不入包，链接保留原绝对地址，不因个别缺图让整包失败。分流只看引用，所以全部缺图时仍是 zip（包内只有 MD）。
+- 只动下载产物：库里 `content_md` 仍是绝对地址版（`GET /api/pages/:id` 的 `contentMd` 口径不变），相对化只发生在组装 zip 时。
+- 组装是流式的：图从 R2 按 key 直读（与 `/api/files` 同源）、逐块写入 zip 响应，不把整包或整图先读进内存；zip 由 fflate 生成。
 
 #### POST /api/pages
 

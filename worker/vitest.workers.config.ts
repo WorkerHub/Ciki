@@ -2,8 +2,9 @@
  * 在 workerd 里跑的测试（`@cloudflare/vitest-plugin`，底层 Miniflare + 本机 workerd）。
  *
  * 与 `vitest.config.ts`（Node 环境）并存、互不影响：Node 那套照旧跑既有全部用例，
- * 这里只跑 `test/workers/**`——会在 Workers 打包/运行时下表现不同的那条路径
- * （导入渲染：TipTap JSON → HTML → 消毒）。背景见 #32：Node 下全绿、线上仍然炸。
+ * 这里只跑 `test/workers/**`——会在 Workers 打包/运行时下表现不同的那几条路径
+ * （导入渲染：TipTap JSON → HTML → 消毒；下载包的流式 zip 组装）。背景见 #32：
+ * Node 下全绿、线上仍然炸。
  *
  * 兼容性日期与标志不在这里另写一份：直接读 `wrangler.toml`，保证测试运行时与线上
  * Worker 是同一套。读不到就立刻抛错（宁可红，也不要静默跑在错误的兼容面上）。
