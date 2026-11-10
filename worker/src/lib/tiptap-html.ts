@@ -27,7 +27,8 @@
  *
  * 扩展集是 `web/src/editor/extensions.ts` 的服务端镜像，只去掉渲染层才需要的东西
  * （NodeView、Placeholder、lowlight）：基础 codeBlock 已输出 `language-*` 类，
- * 与 §4 消毒白名单一致。
+ * 折叠态另由 `ImportCodeBlockCollapse` 输出 `pre[data-collapsed]`，
+ * 两者都与 §4 消毒白名单一致。
  */
 import {
   Extension,
@@ -160,6 +161,57 @@ const ImportColor = Extension.create({
   }
 })
 
+/**
+ * 代码块折叠（三态）：`true` = 明确折叠、`false` = 明确展开（永不自动折）、
+ * `null`/缺省 = 未表态（阅读页按行数自动决定），三种状态落库时都只是 codeBlock 的
+ * `collapsed` 属性，不迁移、不回填。
+ *
+ * HTML 载具是 `pre[data-collapsed="true"|"false"]`——挂在 codeBlock 的 `pre` 外壳
+ * 上（`code` 仍只带 `language-*`），与 web 侧同一支扩展同名同形；未表态**不输出**该
+ * 属性。`false` 必须显式写出来：它与「未表态」在阅读页行为不同（明确展开 vs 30 行
+ * 自动折），只有两种取值都出现，HTML 才能把三态区分开——照 `li[data-checked]` 的
+ * data 载具先例。
+ *
+ * 值校验交给 ProseMirror 自带的 attribute `validate`（`Node.fromJSON` 时调用）：
+ * 非布尔的脏值抛 RangeError，由 renderTiptapHtml 包成 TiptapRenderError → 400，
+ * 这样插件侧写错的值会显形，而不是被静默丢掉属性后落库。`null` 按未表态放行：
+ * TipTap 属性默认值本身就是 null，插件写 null 语义是对的。
+ *
+ * `parseHTML` 在 Worker 里用不到（服务端只做 JSON → HTML），保留是为了与 web 的
+ * 扩展保持同形，免得两边口径分叉。
+ */
+const ImportCodeBlockCollapse = Extension.create({
+  name: "codeBlockCollapse",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["codeBlock"],
+        attributes: {
+          collapsed: {
+            default: null,
+            validate: (value: unknown) => {
+              if (value === null || typeof value === "boolean") return
+              throw new RangeError(
+                `collapsed must be a boolean, got ${typeof value}`
+              )
+            },
+            parseHTML: (element) => {
+              const value = element.getAttribute("data-collapsed")
+              return value === "true" ? true : value === "false" ? false : null
+            },
+            renderHTML: (attributes: Record<string, unknown>) =>
+              typeof attributes.collapsed === "boolean"
+                ? {
+                    "data-collapsed": attributes.collapsed ? "true" : "false"
+                  }
+                : {}
+          }
+        }
+      }
+    ]
+  }
+})
+
 /** 单元格底色：与 web 侧 WikiTableCell/WikiTableHeader 同名同形，只渲染 data 载具。 */
 function backgroundColorAttribute() {
   return {
@@ -223,6 +275,7 @@ const extensions: Extensions = [
   Underline,
   TextStyle,
   ImportColor,
+  ImportCodeBlockCollapse,
   Highlight.configure({ multicolor: true }),
   Link.configure({
     autolink: true,
