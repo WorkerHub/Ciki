@@ -31,6 +31,21 @@ const renderLogin = () =>
   )
 
 /**
+ * 未登录页的旧标语已整行删除（用户 2026-11-10 拍板，不留替代文案）：
+ * AuthShell 的 subtitle 可选，不传就不渲染 <p>，标题块不留空位。
+ */
+describe("登录页标语", () => {
+  it("标题块只有 Logo 与标题，不渲染标语段落（故不留空位）", () => {
+    renderLogin()
+    const heading = screen.getByRole("heading", { level: 1 })
+    const header = heading.parentElement as HTMLElement
+    // AuthShell 的 subtitle 可选：不传就完全没有 <p>，没有留给标语的空段落
+    expect(header.querySelector("p")).toBeNull()
+    expect(header.textContent?.trim()).toBe(heading.textContent?.trim())
+  })
+})
+
+/**
  * 规格 §8：两步登录换步必须换 DOM 节点，且 TOTP 输入框不能继承密码框的
  * type/autocomplete —— 否则 Bitwarden 之类的填充器会把账号密码填进验证码框。
  */

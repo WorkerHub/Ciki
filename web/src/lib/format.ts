@@ -1,4 +1,7 @@
-/** 展示层格式化：全站时间统一按北京时间（UTC+8）展示。 */
+/**
+ * 展示层格式化：全站时间统一按北京时间（UTC+8）展示。
+ * 例外：要求按注入值原样呈现的时刻（如关于页的构建时间）用 formatIsoUtc 直出 UTC。
+ */
 
 const TIME_ZONE = "Asia/Shanghai"
 
@@ -24,6 +27,18 @@ export function formatDateTime(iso: string | null | undefined): string {
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return "—"
   return dateTimeFormatter.format(date).replace(/\//g, "-")
+}
+
+/**
+ * ISO 8601 UTC（秒级精度、`Z` 后缀）：给需要按注入值原样呈现的时刻用（如构建时间）。
+ * 用 UTC 直出，不经运行环境本地时区换算，展示值与被注入的时刻是同一瞬间。
+ */
+export function formatIsoUtc(iso: string | null | undefined): string {
+  if (!iso) return "—"
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return "—"
+  // toISOString() 恒为 UTC（`...sssZ`）；裁掉秒后的小数部分即所需精度。
+  return `${date.toISOString().slice(0, 19)}Z`
 }
 
 export function formatDate(iso: string | null | undefined): string {
