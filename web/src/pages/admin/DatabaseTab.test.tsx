@@ -55,7 +55,7 @@ describe("系统管理 · 数据库升级", () => {
     expect(screen.queryByText(/迁移是追加式的/)).toBeNull()
   })
 
-  it("有清理记录时只渲染一行六项摘要（北京时间）", async () => {
+  it("有清理记录时只渲染一行六项摘要（Asia/Shanghai 口径）", async () => {
     vi.mocked(adminApi.r2Cleanup).mockResolvedValue({ lastRun })
     render(<DatabaseTab />)
 
