@@ -1253,8 +1253,16 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 { "pageId": "…", "url": "/p/<pageId>" }
 ```
 
-- 渲染与消毒：`contentHtml = sanitizePageHtml(renderTiptapHtml(contentJson))`——服务端按编辑器扩展集建 schema，用 ProseMirror 的 `DOMSerializer` 在 happy-dom（Worker 内的 `GlobalWindow`，不依赖 Worker 外的 DOM）上原生渲染，再过 §4 同一支白名单消毒；`contentText` 由消毒后的 HTML 生成。插件侧的 HTML/纯文本不被信任，**消毒结果为准**。服务端渲染把表格列宽写成 `col[width]`，读态列宽比例保留；任务项勾选态为 `data-checked="true"|"false"`；颜色写成 data 载具（见下一条）。
+- 渲染与消毒：`contentHtml = sanitizePageHtml(renderTiptapHtml(contentJson))`——服务端按编辑器扩展集建 schema，用 ProseMirror 的 `DOMSerializer` 在 happy-dom（Worker 内的 `GlobalWindow`，不依赖 Worker 外的 DOM）上原生渲染，再过 §4 同一支白名单消毒；`contentText` 由消毒后的 HTML 生成。插件侧的 HTML/纯文本不被信任，**消毒结果为准**。服务端渲染把表格列宽写成 `col[width]`，读态列宽比例保留；任务项勾选态为 `data-checked="true"|"false"`；颜色写成 data 载具（见下一条）；代码块折叠态写成 `pre[data-collapsed]`（见下下条）。
 - 颜色（插件侧需要产出的 JSON 形态）：文字颜色 `marks: [{ "type": "textStyle", "attrs": { "color": "#rrggbb" } }]`，高亮 `marks: [{ "type": "highlight", "attrs": { "color": "#rrggbb" } }]`，单元格底色 `tableCell` / `tableHeader` 的 `attrs.backgroundColor: "#rrggbb"`（与 `colspan` / `rowspan` / `colwidth` 并列，表头同样适用）。值只认 `#rrggbb`；其它写法（命名色、`rgb()`、`var()`、带透明度）不会报错，但颜色会被丢弃。
+- 代码块折叠（插件侧需要产出的 JSON 形态）：`codeBlock` 的 `attrs.collapsed`，三态——`true` = 作者/来源明确设为折叠；`false` = 明确设为展开（永不自动折）；不写该属性（或写 `null`）= 未表态，阅读页按代码行数自动决定（>20 行初始折叠，≤20 行展开）。服务端把它渲染成挂在 `pre` 上的 `data-collapsed`，`code` 仍只带 `language-*`；未表态**不输出**该属性，三态因此都能区分。值只认布尔（`null` 等同未表态）；`"true"` 这类字符串、数字、对象一律 400 `code:"INVALID_CONTENT_JSON"`，不静默丢属性。折叠是显示状态：不改正文、不进 `contentText`、不影响搜索与版本内容比对；但属性本身属于节点属性，变化照常算一次编辑存版（无改动的判等口径不变）。三态样例（`attrs` → `content_html`）：
+
+| 状态   | `codeBlock.attrs`                           | 渲染出的 `content_html`                                                |
+| ------ | ------------------------------------------- | ---------------------------------------------------------------------- |
+| 折叠   | `{"language":"js","collapsed":true}`        | `<pre data-collapsed="true"><code class="language-js">…</code></pre>`  |
+| 展开   | `{"language":"js","collapsed":false}`       | `<pre data-collapsed="false"><code class="language-js">…</code></pre>` |
+| 未表态 | `{"language":"js"}`（或 `collapsed: null`） | `<pre><code class="language-js">…</code></pre>`                        |
+
 - 错误：400 参数非法（标题、`parentId` / `space_id` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；403 `code:"SPACE_FORBIDDEN"`；404 `code:"SPACE_NOT_FOUND"`；409 `code:"DEFAULT_SPACE_MISSING"` / `code:"PARENT_DELETED"`（父页不存在或已软删）/ `code:"SPACE_MISMATCH"`；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、四件套含派生 MD 合计 ≤1,900,000 B）；401；429。
 
 ### 只读接口（只读令牌）
@@ -1359,7 +1367,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 - 表格：`colspan` / `rowspan`（td/th）、`col` 的 `width` 或受限 `style`（仅 `width`/`min-width` 的 px/% 数值）、`table` 的受限 `style`（仅 `min-width: Npx`）、`colgroup`。
 - 颜色：`span[data-text-color]`（文字颜色）、`mark[data-color]`（高亮）、`td[data-cell-bg]` / `th[data-cell-bg]`（单元格底色），值仅 `#rrggbb`（大小写都收，入库统一小写）。颜色**不走内联 `style`**：编辑器/粘贴/插件导入三条入口都落成同一套 data 载具，读态由编辑器扩展还原成内联样式；所以 `content_html` 里不会出现颜色相关的 CSS，非法色值只丢颜色、不动文字。
-- 代码：`code[class="language-*"]`。
+- 代码：`pre[data-collapsed="true"|"false"]`（代码块折叠三态，见「POST /api/import/pages」；值不是这两个就只删该属性、代码正文照常保留）、`code[class="language-*"]`。
 - 任务列表：`ul[data-type]`、`li[data-type][data-checked]`、`label`、只读 `input[type=checkbox][checked]`。
 - 链接：`a[href]` 仅 http/https/mailto/相对路径。
 - 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>`（存量平铺）或 `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀；`avatars/` 只服务资料页，不进正文），或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
@@ -1373,6 +1381,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。
 - 受限会话（`needs2faSetup`）：只能进 2FA 设置，配置成功后受限标记自动清零，无需重新登录。
 - 页面读态渲染 `contentHtml`；编辑态使用 `contentJson`。外链图片以 `data-original-src` + `data-confluence-img` 呈现「未转存」。文字颜色/高亮/单元格底色在 `contentHtml` 里是 data 载具（见「服务端消毒规则」），由读态扩展还原成内联样式，前端不要另外拼颜色样式。
+- 代码块折叠：`content_html` 里三态由 `pre[data-collapsed]` 承载（`"true"` / `"false"` / 无此属性），读态由编辑器扩展还原成节点属性 `collapsed`。无属性时的初始状态由前端按代码行数自动决定（>20 行折叠、≤20 行展开）——这是前端行为，服务端不参与、也不在 `content_html` 里预判。折叠只影响显示：MD 派生仍是围栏代码块、`collapsed` 丢弃，属已知降级。
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，只渲染一行（运行时间 + 五个计数），不加说明文字；触发清理没有按钮。
 - 主题等纯前端偏好不进本契约（客户端持久化）。

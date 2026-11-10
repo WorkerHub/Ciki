@@ -539,6 +539,52 @@
   border-radius: 0.375rem;
 }
 
+/* ------------------------------------------------------------------ *
+ * 图片缩放（编辑态）：ResizableNodeView 生成的容器/手柄是裸 DOM，样式全在这里。
+ * 手柄只在选中图片（ProseMirror 给节点视图 dom 加的 .ProseMirror-selectednode）
+ * 时出现；阅读态永远不选中，所以读态一个手柄都看不到。
+ * ------------------------------------------------------------------ */
+/* React 节点视图的壳默认撑满正文列：图片态收窄到图片宽度，选中框与手柄才能贴住
+   图片；未转存的占位卡片仍要整列，所以只匹配含 figure 的那个壳。 */
+.wiki-content .react-renderer.node-image:has(figure[data-image-block]),
+.wiki-content figure[data-image-block],
+.wiki-content [data-resize-wrapper] {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.wiki-content [data-resize-handle] {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--background);
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 120ms ease;
+}
+
+.wiki-content .ProseMirror-selectednode [data-resize-handle] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.wiki-content [data-resize-handle="bottom-right"] {
+  cursor: nwse-resize;
+  /* 手柄内缩半个身位：贴边会被正文容器的 overflow 裁掉 */
+  transform: translate(-4px, -4px);
+}
+
+/* 触屏上 12px 的圆点抓不住，放大到 20px */
+@media (pointer: coarse) {
+  .wiki-content [data-resize-handle] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
 .wiki-content .is-empty::before {
   float: left;
   height: 0;

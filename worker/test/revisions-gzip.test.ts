@@ -188,6 +188,60 @@ describe("版本正文：新写入只落一份 gzip 的 content_json", () => {
     expect(row.content_text).toContain("第一版正文")
   })
 
+  it("代码块折叠：版本预览与回滚都保留 pre[data-collapsed]", async () => {
+    const context = await initializedContext()
+    const { env, admin } = await adminWithPage(context, "折叠版本页")
+    const page = await createPage(env, admin, {
+      title: "折叠版本页",
+      contentJson: JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "折叠正文" }]
+          },
+          {
+            type: "codeBlock",
+            attrs: { language: "js", collapsed: true },
+            content: [{ type: "text", text: "line 1\nline 2" }]
+          }
+        ]
+      })
+    })
+
+    // 预览：HTML 由版本行的 JSON 按需重渲染，与阅读页同一生成链。
+    const revisions = await listRevisions(env, admin, page.id)
+    expect(revisions).toHaveLength(1)
+    const first = revisions[0].id
+    const preview = (await (
+      await getRevision(env, admin, page.id, first)
+    ).json()) as {
+      contentJson: string
+      contentHtml: string
+      contentText: string
+    }
+    expect(preview.contentJson).toContain('"collapsed":true')
+    expect(preview.contentHtml).toContain(
+      '<pre data-collapsed="true"><code class="language-js">'
+    )
+    // 折叠态不进纯文本：搜索/摘要与改前同口径。
+    expect(preview.contentText).not.toContain("collapsed")
+
+    // 回滚：属性跟着 JSON 一起回来，页面上的折叠态不丢。
+    await savePage(env, admin, page.id, {
+      title: "折叠版本页",
+      text: "改后的正文"
+    })
+    const restore = await restoreRevision(env, admin, page.id, first)
+    expect(restore.status).toBe(200)
+    const restored = (await restore.json()) as {
+      contentJson: string
+      contentHtml: string
+    }
+    expect(restored.contentJson).toContain('"collapsed":true')
+    expect(restored.contentHtml).toContain('<pre data-collapsed="true">')
+  })
+
   it("部署后到点升级之间（库里还没有 content_gzip 列）：保存、查看、回滚照常可用", async () => {
     const context = await initializedContext()
     // 模拟升级前的库：schema_v2 还没跑，列不存在（顺带清掉探列缓存）。

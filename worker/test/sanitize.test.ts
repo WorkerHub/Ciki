@@ -49,6 +49,25 @@ describe("服务端二次消毒白名单", () => {
     expect(html).toContain("checked")
   })
 
+  it("代码块折叠标记：只放行 true/false，非法值只删属性不动代码正文", () => {
+    const kept = sanitizePageHtml(
+      '<pre data-collapsed="true"><code class="language-js">a</code></pre>' +
+        '<pre data-collapsed="false"><code>a</code></pre>'
+    )
+    expect(kept).toContain('<pre data-collapsed="true">')
+    expect(kept).toContain('<pre data-collapsed="false">')
+
+    // 非法值、裸属性、大小写变体一律只删属性：代码正文与语言标记照常保留。
+    for (const value of ["yes", "", "TRUE", "1"]) {
+      const html = sanitizePageHtml(
+        `<pre data-collapsed="${value}" class="x"><code class="language-js">a</code></pre>`
+      )
+      expect(html).not.toContain("data-collapsed")
+      expect(html).not.toContain('class="x"')
+      expect(html).toContain('<pre><code class="language-js">a</code></pre>')
+    }
+  })
+
   it("本站图片与 data: 预览原样保留", () => {
     const html = sanitizePageHtml(
       `<img src="${FILE_URL}" alt="x"><img src="data:image/png;base64,iVBORw0KGgo=">`

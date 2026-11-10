@@ -2,6 +2,8 @@ import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
 import { ImageOff, RefreshCw, Upload } from "lucide-react"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { imageWidth } from "@/editor/image-attributes"
+import { ResizableImage } from "@/editor/ResizableImage"
 import { describeApiError } from "@/lib/api"
 import { isSafeExternalUrl } from "@/lib/media"
 import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
@@ -16,7 +18,12 @@ import { useImageBridgeStore } from "@/stores/image-bridge"
  * alt 只作为 <img> 的无障碍文本，不再渲染成可见图注：剪藏导入的图片 alt 兜底取的是
  * 附件文件名，渲染成图注就等于在图下反复念文件名。
  */
-export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
+export function ImageBlock({
+  node,
+  updateAttributes,
+  editor,
+  getPos
+}: NodeViewProps) {
   const src = (node.attrs.src as string | null) || ""
   const originalSrc = (node.attrs.originalSrc as string | null) || ""
   const alt = (node.attrs.alt as string | null) || ""
@@ -35,11 +42,23 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
   if (src) {
     return (
       <NodeViewWrapper as="figure" className="my-4" data-image-block="">
-        <img
-          src={src}
-          alt={alt}
-          title={(node.attrs.title as string | null) || undefined}
-        />
+        {editor.isEditable ? (
+          // 编辑态：缩放手柄由 @tiptap/core 的 ResizableNodeView 提供
+          <ResizableImage
+            node={node}
+            editor={editor}
+            getPos={getPos}
+            updateAttributes={updateAttributes}
+          />
+        ) : (
+          // 阅读态/版本预览：只按已存宽度渲染，不出任何手柄
+          <img
+            src={src}
+            alt={alt}
+            title={(node.attrs.title as string | null) || undefined}
+            width={imageWidth(node.attrs) ?? undefined}
+          />
+        )}
       </NodeViewWrapper>
     )
   }
