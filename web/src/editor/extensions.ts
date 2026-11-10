@@ -116,7 +116,7 @@ export function createExtensions(mode: EditorMode) {
     ...(isEdit
       ? [
           Placeholder.configure({
-            placeholder: "开始输入，或直接从 Confluence 粘贴内容…",
+            placeholder: "开始输入，或直接粘贴内容…",
             showOnlyWhenEditable: true
           })
         ]

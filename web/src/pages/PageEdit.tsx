@@ -1,4 +1,4 @@
-import { ArrowLeft, Save } from "lucide-react"
+import { ArrowLeft, Save, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useBlocker, useNavigate, useParams } from "react-router"
 import {
@@ -50,11 +50,14 @@ export function PageEdit() {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
+  const [cancelOpen, setCancelOpen] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const role = useSpaceRole(page?.spaceId)
   const readOnly = page !== null && !canEdit(role)
   const syncedPage = useRef<string | null>(null)
+  /** 「放弃修改」已经放行过这一次导航：blocker 不能再拦（它读到的是置位前的 dirty）。 */
+  const leavingByCancel = useRef(false)
 
   const editor = useWikiEditor({
     contentJson: page?.contentJson ?? "",
@@ -162,6 +165,24 @@ export function PageEdit() {
     }
   }, [editor, page, pageId, loading, saving, title, loadTree])
 
+  /** 取消编辑：没改动就直接回阅读态；有未保存改动先问一句，不自己丢内容。 */
+  const cancelEdit = useCallback(() => {
+    if (!pageId) return
+    if (dirty) {
+      setCancelOpen(true)
+      return
+    }
+    navigate(`/p/${pageId}`)
+  }, [dirty, navigate, pageId])
+
+  /** 确认放弃：不发保存请求、不生成版本，直接回阅读态（位置由阅读页的锚点恢复）。 */
+  const discardChanges = useCallback(() => {
+    if (!pageId) return
+    setCancelOpen(false)
+    leavingByCancel.current = true
+    navigate(`/p/${pageId}`)
+  }, [navigate, pageId])
+
   // 页面加载完成前不挂 Ctrl/⌘+S：否则会把空文档写回页面
   useEffect(() => {
     if (!ready) return
@@ -187,7 +208,9 @@ export function PageEdit() {
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty && currentLocation.pathname !== nextLocation.pathname
+      !leavingByCancel.current &&
+      dirty &&
+      currentLocation.pathname !== nextLocation.pathname
   )
 
   // 空间列表还在路上时角色未知，先别判只读：否则直链/刷新会闪一下「只读成员」
@@ -313,6 +336,16 @@ export function PageEdit() {
             <Button
               type="button"
               size="sm"
+              variant="outline"
+              onClick={cancelEdit}
+              disabled={saving}
+            >
+              <X aria-hidden="true" />
+              取消
+            </Button>
+            <Button
+              type="button"
+              size="sm"
               onClick={() => void save()}
               disabled={saving || !ready}
             >
@@ -357,6 +390,21 @@ export function PageEdit() {
               className="bg-destructive text-white hover:bg-destructive/90"
               onClick={() => blocker.proceed?.()}
             >
+              放弃修改
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 取消编辑的二次确认：只问这一句，不写说明文字（UI 极简口径）。 */}
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent aria-describedby={undefined}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>放弃未保存的修改？</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>继续编辑</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={discardChanges}>
               放弃修改
             </AlertDialogAction>
           </AlertDialogFooter>
