@@ -194,10 +194,7 @@ export function LoginPage() {
 
   if (step.kind === "password") {
     return (
-      <AuthShell
-        title={`登录 ${siteName}`}
-        subtitle="把 Confluence 页面原样搬进来的团队 wiki"
-      >
+      <AuthShell title={`登录 ${siteName}`}>
         <form
           key="password-step"
           id="password-step"
