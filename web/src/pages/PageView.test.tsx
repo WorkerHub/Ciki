@@ -59,6 +59,7 @@ const page: PageDetail = {
   contentJson: "{}",
   contentHtml: "<p>正文</p>",
   contentText: "正文",
+  contentMd: "正文",
   createdBy: "u2",
   updatedBy: "u2",
   createdAt: "2026-11-08T00:00:00.000Z",
@@ -209,6 +210,47 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(screen.queryByRole("button", { name: "删除" })).toBeNull()
     expect(screen.queryByRole("button", { name: "移动到空间" })).toBeNull()
     expect(screen.getByRole("button", { name: "历史" })).toBeInTheDocument()
+  })
+
+  it("viewer 也能下载 .md：文件是标题行 + contentMd", async () => {
+    useSpacesStore.setState({ spaces: [space({ myRole: "viewer" })] })
+    const user = userEvent.setup()
+    const blobs: Blob[] = []
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: (blob: Blob) => {
+        blobs.push(blob)
+        return "blob:ciki-md"
+      }
+    })
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn()
+    })
+    const clicked: HTMLAnchorElement[] = []
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        clicked.push(this)
+      })
+
+    try {
+      renderView()
+      await screen.findByText("支付服务部署手册")
+      // 下载是读动作：只读成员同样看得到入口
+      const download = screen.getByRole("button", { name: "下载 .md" })
+      expect(download).toBeInTheDocument()
+
+      await user.click(download)
+
+      expect(clicked).toHaveLength(1)
+      expect(clicked[0].download).toBe("支付服务部署手册.md")
+      expect(await blobs[0].text()).toBe("# 支付服务部署手册\n\n正文\n")
+    } finally {
+      clickSpy.mockRestore()
+      delete (URL as unknown as Record<string, unknown>).createObjectURL
+      delete (URL as unknown as Record<string, unknown>).revokeObjectURL
+    }
   })
 
   it("挂载时不自己拉页面树，树的加载交给壳层", async () => {
