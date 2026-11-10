@@ -38,8 +38,13 @@ import {
   normalizeSiteName
 } from "../core/identity"
 import { runSetup } from "../lib/setup"
-import { cleanupRunDto, runR2Cleanup } from "../core/r2-cleanup"
-import { lastCleanupRun } from "../db/queries/r2-cleanup"
+import {
+  cleanupLockRemainingSeconds,
+  cleanupRunDto,
+  R2CleanupBusyError,
+  runR2Cleanup
+} from "../core/r2-cleanup"
+import { lastCleanupRun, readCleanupLock } from "../db/queries/r2-cleanup"
 import {
   normalizeRetentionInput,
   pruneAllPages,
@@ -519,19 +524,35 @@ adminRoutes.post("/setup", async (c) => {
 })
 
 /**
- * R2 孤儿清理的验收通道（规格 §3）：管理员手动触发，页面不加按钮。
+ * R2 孤儿清理的手动入口（规格 §3）：管理员手动触发，页面上的两步 UI 调它。
  *
- * `{"dryRun": true}` 只算不删（不构成双跑，因此永不被 20 天幂等兜底拦住）；
- * 不传 / 传 false 则真实删除，此时与两个自动入口同口径：距上次真实成功运行
- * 不足 20 天会跳过，并记一行 status=skipped 的日志。
+ * `{"dryRun": true}` 只算不删，响应里多带 `prunable` / `prunableBytes`（全量可清理数
+ * 与总字节，不受单轮 200 上限截断）；不传 / 传 false 则真实删除。
+ *
+ * 手动实跑**不受 20 天幂等闸约束**（定版第 4 条：闸只约束自动入口），30 天龄规则照旧。
+ * 并发互斥仍在：已有一轮在跑就回 409 `CLEANUP_IN_PROGRESS`，什么也不做、不写日志行。
  */
 adminRoutes.post("/r2-cleanup", async (c) => {
   const body = await readJsonBody<{ dryRun?: unknown }>(c)
   const dryRun = body?.dryRun === true
   try {
-    const summary = await runR2Cleanup(c.env, { trigger: "manual", dryRun })
+    const summary = await runR2Cleanup(c.env, {
+      trigger: "manual",
+      dryRun,
+      rerunGuard: "bypass"
+    })
     return c.json(summary)
   } catch (err) {
+    if (err instanceof R2CleanupBusyError) {
+      return c.json(
+        {
+          error: "Cleanup already running",
+          code: "CLEANUP_IN_PROGRESS",
+          retryAfter: err.retryAfterSeconds
+        },
+        409
+      )
+    }
     console.error(
       "Admin r2 cleanup failed:",
       err instanceof Error ? err.message : err
@@ -541,11 +562,25 @@ adminRoutes.post("/r2-cleanup", async (c) => {
 })
 
 /**
- * 「数据库维护」页那一行摘要的数据源：最近一轮真实运行（dry_run / skipped 不算）。
- * 形状对前端冻结，页面渲染见前端单。
+ * 「数据库维护」页的数据源：最近一轮真实运行（dry_run / skipped 不算）+ 运行态。
+ * `running` 读 `system_settings` 的清理锁行、按同一 TTL 判占用是否仍有效（过期锁
+ * 不算在跑），前端据此禁用触发按钮并显示「清理进行中」。形状对前端冻结。
  */
 adminRoutes.get("/r2-cleanup", async (c) => {
   const prefix = getTablePrefix(c.env)
   const last = await lastCleanupRun(c.env.DB, prefix)
-  return c.json({ lastRun: last === null ? null : cleanupRunDto(last) })
+  const record = (await readCleanupLock(c.env.DB, prefix))?.record ?? null
+  const retryAfter = cleanupLockRemainingSeconds(record, Date.now())
+  return c.json({
+    lastRun: last === null ? null : cleanupRunDto(last),
+    running:
+      record !== null && retryAfter !== null
+        ? {
+            startedAt: record.startedAt,
+            trigger: record.trigger,
+            dryRun: record.dryRun,
+            retryAfter
+          }
+        : null
+  })
 })
