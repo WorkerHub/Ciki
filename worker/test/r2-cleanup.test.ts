@@ -10,6 +10,7 @@ import handler from "../src/index"
 import {
   CLEANUP_LOCK_TTL_MS,
   DELETE_LIMIT_PER_RUN,
+  R2CleanupBusyError,
   runR2Cleanup
 } from "../src/core/r2-cleanup"
 import { CLEANUP_LOCK_KEY } from "../src/db/queries/r2-cleanup"
@@ -600,6 +601,36 @@ describe("并发互斥：同一时刻只许一轮", () => {
     )
     expect(ok.status).toBe(200)
     expect(((await ok.json()) as { deleted: number }).deleted).toBe(1)
+    expect(r2.store.has(OLD_ORPHAN)).toBe(false)
+  })
+
+  it("同一时刻并发发起两轮：只有一个跑，另一个直接判忙（不扫不删）", async () => {
+    const { env, db, r2 } = await initializedContext()
+    await seedOldObject(r2, OLD_ORPHAN)
+
+    const results = await Promise.allSettled([
+      runR2Cleanup(env, {
+        trigger: "cron",
+        dryRun: false,
+        rerunGuard: "enforce"
+      }),
+      runR2Cleanup(env, {
+        trigger: "manual",
+        dryRun: false,
+        rerunGuard: "bypass"
+      })
+    ])
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled")
+    const rejected = results.filter((r) => r.status === "rejected")
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+    const reason = (rejected[0] as PromiseRejectedResult).reason
+    expect(reason).toBeInstanceOf(R2CleanupBusyError)
+    expect((reason as R2CleanupBusyError).retryAfterSeconds).toBeGreaterThan(0)
+    // 只有赢家写了一行日志，输的那轮什么都没碰；锁已释放。
+    expect(countRuns(db)).toBe(1)
+    expect(lockValue(db)).toBeUndefined()
     expect(r2.store.has(OLD_ORPHAN)).toBe(false)
   })
 
