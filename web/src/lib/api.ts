@@ -318,8 +318,11 @@ export interface PasswordResetGrant {
   expiresIn: number
 }
 
-/** 导入令牌状态：只回状态与时间，从不回哈希与明文。 */
-export interface ImportTokenStatus {
+/**
+ * 个人 API 令牌状态：只回状态与时间，从不回哈希与明文。
+ * 导入令牌与只读接口令牌同形（两张卡共用一套展示）。
+ */
+export interface ApiTokenStatus {
   active: boolean
   createdAt: string | null
   lastUsedAt: string | null
@@ -327,7 +330,7 @@ export interface ImportTokenStatus {
 }
 
 /** 生成 / 重置时唯一的明文返回，展示一次后即不可再取。 */
-export interface ImportTokenIssued {
+export interface ApiTokenIssued {
   token: string
   createdAt: string
 }
@@ -359,6 +362,8 @@ export interface PageDetail {
   contentJson: string
   contentHtml: string
   contentText: string
+  /** 服务端派生的 Markdown（只读展示/导出用，空页为空串）；前端从不回写。 */
+  contentMd: string
   createdBy: string
   updatedBy: string
   createdAt: string
@@ -671,10 +676,14 @@ export const meApi = {
   sessions: () => api.get<SessionInfo[]>("/me/sessions"),
   revokeSession: (id: string) =>
     api.del<{ success: true }>(`/me/sessions/${id}`),
-  importToken: () => api.get<ImportTokenStatus>("/me/import-token"),
+  importToken: () => api.get<ApiTokenStatus>("/me/import-token"),
   // POST 已有令牌时覆盖（即「重置」），明文只在这一个响应里出现
-  createImportToken: () => api.post<ImportTokenIssued>("/me/import-token", {}),
-  revokeImportToken: () => api.del<{ success: true }>("/me/import-token")
+  createImportToken: () => api.post<ApiTokenIssued>("/me/import-token", {}),
+  revokeImportToken: () => api.del<{ success: true }>("/me/import-token"),
+  /** 只读接口令牌：与导入令牌同一套契约形状，互相独立、各管各的。 */
+  readToken: () => api.get<ApiTokenStatus>("/me/read-token"),
+  createReadToken: () => api.post<ApiTokenIssued>("/me/read-token", {}),
+  revokeReadToken: () => api.del<{ success: true }>("/me/read-token")
 }
 
 /**

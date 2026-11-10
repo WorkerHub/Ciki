@@ -78,6 +78,7 @@ describe("页面树空状态", () => {
       contentJson: "",
       contentHtml: "",
       contentText: "",
+      contentMd: "",
       createdBy: "u1",
       updatedBy: "u1",
       createdAt: "2026-11-07T00:00:00.000Z",

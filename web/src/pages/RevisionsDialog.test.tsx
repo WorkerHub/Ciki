@@ -78,6 +78,7 @@ const restoredPage: PageDetail = {
   contentJson: "{}",
   contentHtml: "<p>第一版</p>",
   contentText: "第一版",
+  contentMd: "第一版",
   createdBy: "user-aaa-1",
   updatedBy: "user-aaa-1",
   createdAt: "2026-11-09T04:00:00.000Z",
