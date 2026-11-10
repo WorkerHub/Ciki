@@ -98,9 +98,29 @@ describe("解析 Content-Disposition 里的文件名", () => {
     expect(dispositionFilename("attachment; filename*=UTF-8''")).toBeNull()
   })
 
-  it("头字段大小写不敏感，filename* 空值时退回 filename", () => {
+  it("filename* 为空串时退回 filename", () => {
     const header = `ATTACHMENT; FILENAME="fallback.md"; FILENAME*=UTF-8''`
     expect(dispositionFilename(header)).toBe("fallback.md")
+  })
+
+  it("头字段名大小写不敏感（filename* 与 filename 均认）", () => {
+    const extendedOnly = `ATTACHMENT; FiLeNaMe*=UTF-8''${encodeURIComponent("部署.md")}`
+    expect(dispositionFilename(extendedOnly)).toBe("部署.md")
+    expect(dispositionFilename('ATTACHMENT; FiLeNaMe="fallback.md"')).toBe(
+      "fallback.md"
+    )
+  })
+
+  it("filename* 不是 UTF-8 时不拿它充数，退回 filename，不把 *= 段当成名字", () => {
+    const header =
+      "attachment; filename*=ISO-8859-1''caf%e9.md; filename=\"fallback.md\""
+    expect(dispositionFilename(header)).toBe("fallback.md")
+  })
+
+  it("filename* 不是 UTF-8 且没有 filename 时返回 null，交给本地兜底", () => {
+    expect(
+      dispositionFilename("attachment; filename*=ISO-8859-1''caf%e9.md")
+    ).toBeNull()
   })
 
   it("百分号编码残缺时退回原串，不让整次下载因为文件名失败", () => {

@@ -446,7 +446,7 @@ export interface UploadedFile {
   size: number
 }
 
-/** 二进制下载的回执：文件本体 + 服务端给的文件名头（原样，由下载模块解析）。 */
+/** 二进制下载的回执：文件本体 + 服务端原样下发的 Content-Disposition 头（这里不解析）。 */
 export interface FileDownload {
   blob: Blob
   contentDisposition: string | null

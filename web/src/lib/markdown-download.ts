@@ -28,14 +28,14 @@ export function markdownFilename(title: string): string {
 
 /**
  * RFC 5987 的编码值：`UTF-8''%E4%B8%AD.md`，charset 与语言标记之后才是文件名。
- * 解不出来（百分号编码残缺）时退回原串，总比整次下载没有文件名好。
+ * 只有 UTF-8 认（别的 charset 按 latin-1 解会出乱码），不合形态的一律返回
+ * null 交给 `filename` 兜底；百分号编码残缺时退回原串，总比整次下载没有文件名好。
  */
 function decodeExtendedValue(raw: string): string | null {
   const unquoted = raw.trim().replace(/^"(.*)"$/s, "$1")
-  const parts = unquoted.split("'")
-  const encoded = (
-    parts.length >= 3 ? parts.slice(2).join("'") : unquoted
-  ).trim()
+  const [charset, , ...value] = unquoted.split("'")
+  if (value.length === 0 || charset?.toLowerCase() !== "utf-8") return null
+  const encoded = value.join("'").trim()
   if (!encoded) return null
   try {
     return decodeURIComponent(encoded)
@@ -45,15 +45,17 @@ function decodeExtendedValue(raw: string): string | null {
 }
 
 /**
- * 从 Content-Disposition 里取文件名：先 `filename*`（UTF-8 百分号编码，中文原样
- * 还原），再 `filename`（ASCII 兜底）；都没有时返回 null，由调用方按标题兜底。
+ * 从 Content-Disposition 里取文件名：先 `filename*`（RFC 5987，charset 必须是
+ * UTF-8，值按百分号编码还原），再 `filename`（ASCII 兜底）；都没有时返回 null，
+ * 由调用方按标题兜底。
  */
 export function dispositionFilename(header: string | null): string | null {
   if (!header) return null
   const extended = /filename\*\s*=\s*([^;]+)/i.exec(header)
   const fromExtended = extended ? decodeExtendedValue(extended[1]) : null
   if (fromExtended) return fromExtended
-  const plain = /filename\s*=\s*("[^"]*"|[^;]+)/i.exec(header)
+  // 参数名必须从 `;` 或头部开头起算：否则 `filename*=…` 里的 `filename` 会被误命中
+  const plain = /(?:^|;)\s*filename\s*=\s*("[^"]*"|[^;]+)/i.exec(header)
   if (!plain) return null
   const name = plain[1]
     .trim()
