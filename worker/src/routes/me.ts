@@ -1,5 +1,5 @@
 /**
- * 我的：资料、改密、会话列表/吊销、个人导入令牌（规格 §12.1）。
+ * 我的：资料、改密、会话列表/吊销、个人导入令牌（规格 §12.1）、只读接口令牌（一期）。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
@@ -21,6 +21,12 @@ import {
   revokeImportToken,
   toImportTokenStatus
 } from "../core/import-token"
+import {
+  getReadTokenRow,
+  issueReadToken,
+  revokeReadToken,
+  toReadTokenStatus
+} from "../core/read-token"
 import { clearPasswordResetCredentials } from "../core/password-reset"
 import { clientIp, readJsonBody } from "../lib/http"
 import type { HonoEnv } from "../types"
@@ -261,5 +267,41 @@ meRoutes.delete("/import-token", async (c) => {
   const prefix = getTablePrefix(c.env)
   const revoked = await revokeImportToken(c.env.DB, prefix, c.get("userId"))
   if (!revoked) return c.json({ error: "Import token not found" }, 404)
+  return c.json({ success: true })
+})
+
+// ── 只读接口令牌（会话 Cookie 鉴权；令牌本身只用于 /api/read/*） ────────────
+//
+// 与导入令牌并列、互不通用：形状对齐 ImportTokenStatus / Issued，但存另一张表。
+// 一期只有这三个管理端点（生成/重置/吊销），读接口本身没有任何写操作。
+
+/** 是否有可用令牌 + 时间线；永不返回哈希或明文。 */
+meRoutes.get("/read-token", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const row = await getReadTokenRow(c.env.DB, prefix, c.get("userId"))
+  return c.json(toReadTokenStatus(row))
+})
+
+/** 生成或重置：明文只在这一个响应里出现一次，库里只留 SHA-256。 */
+meRoutes.post("/read-token", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const limit = await consumeCounter(c.env.DB, prefix, {
+    action: "read_token",
+    account: userId,
+    windowSeconds: 300
+  })
+  if (limit.count > 10) {
+    return c.json({ error: "Too many requests", code: "RATE_LIMITED" }, 429)
+  }
+  const { token, createdAt } = await issueReadToken(c.env.DB, prefix, userId)
+  return c.json({ token, createdAt })
+})
+
+/** 吊销：从未生成过 404；已吊销再删仍成功（幂等）。 */
+meRoutes.delete("/read-token", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const revoked = await revokeReadToken(c.env.DB, prefix, c.get("userId"))
+  if (!revoked) return c.json({ error: "Read token not found" }, 404)
   return c.json({ success: true })
 })

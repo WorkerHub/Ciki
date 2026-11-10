@@ -10,7 +10,11 @@
  */
 import type { RevisionRow } from "../db/queries/revisions"
 import { GzipError, gunzipText } from "./gzip"
-import { normalizeImportedContent, type PageContentResult } from "./page-input"
+import {
+  normalizeImportedContent,
+  withDerivedMarkdown,
+  type PageContentResult
+} from "./page-input"
 import { sanitizePageHtml, toPlainText } from "./sanitize"
 
 /**
@@ -40,13 +44,14 @@ export async function revisionContent(
     return normalizeImportedContent({ title: row.title, contentJson })
   }
   // 旧形态：三列文本就是答案，重消毒的口径与改前一致。
+  // MD 仍按同一口径从 JSON 派生（`withDerivedMarkdown`），回滚才与保存走同一条路。
   return {
     ok: true,
-    value: {
+    value: withDerivedMarkdown({
       title: toPlainText(row.title),
       contentJson: row.content_json,
       contentHtml: sanitizePageHtml(row.content_html),
       contentText: toPlainText(row.content_text)
-    }
+    })
   }
 }

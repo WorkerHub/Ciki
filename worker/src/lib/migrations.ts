@@ -29,7 +29,12 @@ import {
   listLegacyRevisionsBatch,
   probeGzipColumn
 } from "../db/queries/revisions"
+import {
+  backfillContentMdStatement,
+  listPagesMissingMarkdownBatch
+} from "../db/queries/pages"
 import { gzipText, gunzipText } from "./gzip"
+import { derivePageMarkdown } from "./tiptap-markdown"
 import {
   challengesTable,
   countersTable,
@@ -39,6 +44,7 @@ import {
   pagesTable,
   passkeysTable,
   r2CleanupRunsTable,
+  readTokensTable,
   revisionsTable,
   sessionsTable,
   settingsTable,
@@ -455,6 +461,114 @@ async function prepareSchemaV3(db: D1Database, prefix: string): Promise<void> {
     .run()
 }
 
+/**
+ * `schema_v4` 第一步：`pages` 补 `content_md` 列（规格一期：MD 派生存储）。
+ *
+ * SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以先用 PRAGMA 探一下：列已在就是幂等空
+ * 操作（中断重跑、重复 setup 都命中这条）。表本身不在时（只跑过部分迁移的库）本轮
+ * 不动——正常情况 `schema_v1` 已在同一轮里先建出 `pages`。
+ *
+ * 返回值是「本轮结束时列是否就绪」；列补不上（表不在）时回填也无从下手，与之一并跳过。
+ */
+async function ensureContentMdColumn(
+  db: D1Database,
+  prefix: string
+): Promise<boolean> {
+  const table = pagesTable(prefix)
+  const columns = await db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all<{ name: string }>()
+  if (columns.results.length === 0) return false
+  if (columns.results.some((column) => column.name === "content_md")) {
+    return true
+  }
+  await db.prepare(`ALTER TABLE ${table} ADD COLUMN content_md TEXT`).run()
+  return true
+}
+
+/**
+ * 存量页每批回填的页面数（口径同 `GZIP_BACKFILL_BATCH`）。
+ *
+ * 太小会把一次升级拆成很多次 D1 往返（受单请求子请求数限制），太大则一批的 CPU 峰值
+ * 变高（每行都要解析 JSON 并序列化 MD）。中断后重跑只会处理剩下的行。
+ */
+export const CONTENT_MD_BACKFILL_BATCH = 25
+
+/**
+ * `schema_v4` 第二步：把存量页面的 `content_md` 逐行派生出来。
+ *
+ * 每轮只拉「当前仍缺 MD 的前 N 行」，`derivePageMarkdown` **永不抛错**（JSON 坏掉的
+ * 历史脏数据退回纯文本），写回语句自己带 `content_md IS NULL` 守卫。所以：
+ * - 幂等：已回填的行不再出现在待办里，写回也再拦一道；
+ * - 可中断续跑：`prepare` 抛错则该迁移不记账，下次 setup 从剩下的行继续；
+ * - 不会死循环：一批行仍待办却一行都没写进去（只可能是并发改了状态）就中止，既不
+ *   静默记账也不空转；
+ * - 只动 `content_md`：标题、正文三列、`updated_at` / `updated_by` 一字不改——回填是
+ *   纯派生，不是一次编辑。
+ *
+ * 刻意不用 id 游标：`pages.id` 是随机 UUID，与写入先后无关；迁移期间并发新建的页
+ * （id 可能很小）会被游标跳过。每轮重新问「现在谁还缺 MD」就不会漏。
+ */
+async function backfillPageMarkdown(
+  db: D1Database,
+  prefix: string
+): Promise<void> {
+  for (;;) {
+    const rows = await listPagesMissingMarkdownBatch(
+      db,
+      prefix,
+      CONTENT_MD_BACKFILL_BATCH
+    )
+    if (rows.length === 0) return
+
+    const statements = rows.map((row) =>
+      backfillContentMdStatement(
+        db,
+        prefix,
+        row.id,
+        derivePageMarkdown(row.content_json, row.content_text)
+      )
+    )
+    const results = await db.batch(statements)
+    const changed = results.reduce(
+      (sum, result) => sum + result.meta.changes,
+      0
+    )
+    if (changed === 0) {
+      throw new Error(
+        `content_md backfill made no progress on ${rows.length} page(s) still pending; nothing was overwritten`
+      )
+    }
+  }
+}
+
+/**
+ * schema_v4 — MD 派生存储（规格一期 §一）。
+ *
+ * 两件事：①`pages` 加 `content_md`（派生列，真源仍是 `content_json`）；②新建只读接口
+ * 令牌表 `read_tokens`（与 `import_tokens` 并列、互不通用）。
+ *
+ * 形式：`read_tokens` 是纯 DDL，放进 `sql`；加列与存量回填放 `prepare`（先探列、
+ * 缺了才 ALTER，再按批回填）——与 `schema_v2` 同一个 prepare-only 思路，区别只是这次
+ * 不需要调 Worker 的压缩 API，所以 sql 部分照常可写。
+ */
+const SCHEMA_V4 = `CREATE TABLE IF NOT EXISTS {prefix}read_tokens (
+  user_id      TEXT PRIMARY KEY,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS {prefix}read_tokens_token_hash
+  ON {prefix}read_tokens(token_hash)`
+
+/** schema_v4 的结构补齐与存量回填（幂等、可中断续跑，见各函数注释）。 */
+async function prepareSchemaV4(db: D1Database, prefix: string): Promise<void> {
+  if (!(await ensureContentMdColumn(db, prefix))) return
+  await backfillPageMarkdown(db, prefix)
+}
+
 export function getMigrations(prefix: string): Migration[] {
   // 说明：表名统一由 tables.ts 的 helper 提供；这里只做前缀替换，
   // 并断言 helper 与迁移 SQL 用的是同一套名字（改一处就会在这里暴露）。
@@ -489,9 +603,17 @@ export function getMigrations(prefix: string): Migration[] {
     )
   }
 
+  const sqlV4 = render(SCHEMA_V4, prefix)
+  if (!sqlV4.includes(readTokensTable(prefix))) {
+    throw new Error(
+      `migration schema_v4 is missing table ${readTokensTable(prefix)}`
+    )
+  }
+
   return [
     { name: "schema_v1", sql },
     SCHEMA_V2,
-    { name: "schema_v3", sql: sqlV3, prepare: prepareSchemaV3 }
+    { name: "schema_v3", sql: sqlV3, prepare: prepareSchemaV3 },
+    { name: "schema_v4", sql: sqlV4, prepare: prepareSchemaV4 }
   ]
 }
