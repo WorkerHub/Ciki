@@ -1020,7 +1020,8 @@ export function describeApiError(error: unknown): string {
   }
   if (error.status === 413) return "内容太大，服务器拒绝了这次请求。"
   if (error.status === 429) return "操作太频繁，请稍后再试。"
-  // POST /admin/r2-cleanup 扫描期异常：500 只有英文原文，别直接摆给管理员
+  // 清理接口扫描期异常回 500 {"error":"Cleanup failed"}；与同文件其余按原文匹配的
+  // 规则一致，这里认的是文案而不是端点，别把英文原文直接摆给管理员
   if (error.status === 500 && /^cleanup failed$/i.test(error.message)) {
     return "清理失败，请稍后重试。"
   }

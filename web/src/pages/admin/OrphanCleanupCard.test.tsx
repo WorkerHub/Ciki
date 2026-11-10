@@ -235,4 +235,36 @@ describe("孤儿图片清理 · 两步流程", () => {
     )
     expect(screen.queryByRole("button", { name: "立即清理" })).toBeNull()
   })
+
+  it("实跑撞 409 时同样切到进行中、关掉确认框，也不另报错", async () => {
+    const user = userEvent.setup()
+    vi.mocked(adminApi.runR2Cleanup)
+      .mockResolvedValueOnce(dryRun)
+      .mockRejectedValueOnce(
+        new ApiError(
+          409,
+          "Cleanup already running",
+          "CLEANUP_IN_PROGRESS",
+          42,
+          undefined,
+          "/admin/r2-cleanup"
+        )
+      )
+    const onBlocked = vi.fn()
+    renderCard({ onBlocked })
+
+    await user.click(screen.getByRole("button", { name: "扫描孤儿图片" }))
+    await user.click(await screen.findByRole("button", { name: "立即清理" }))
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "删除 260 个"
+      })
+    )
+
+    await waitFor(() => expect(onBlocked).toHaveBeenCalledWith(42))
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
+    // 这一轮什么都没删：扫描结果留着，锁释放后可继续
+    expect(screen.getByRole("button", { name: "立即清理" })).toBeInTheDocument()
+  })
 })
