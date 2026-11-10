@@ -35,6 +35,32 @@ function stopForInteractive({ event }: { event: Event }): boolean {
 
 /** 代码块：语言角标 + 复制按钮，编辑态与阅读态共用同一个 NodeView。 */
 export const WikiCodeBlock = CodeBlockLowlight.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      /**
+       * 折叠三态（契约见 docs/api-contract.md「代码块折叠」）：
+       * true/false 是显式表态，null 为未表态（阅读页按「> 20 行」自动折叠）。
+       * HTML 载具是 pre 上的 data-collapsed，只认小写 true/false；
+       * 显式 false 必须输出——它与「未表态」在阅读页行为不同。
+       */
+      collapsed: {
+        default: null,
+        parseHTML: (element) => {
+          const value = element.getAttribute("data-collapsed")
+          if (value === "true") return true
+          if (value === "false") return false
+          return null
+        },
+        renderHTML: (attributes) => {
+          if (attributes.collapsed === true) return { "data-collapsed": "true" }
+          if (attributes.collapsed === false)
+            return { "data-collapsed": "false" }
+          return {}
+        }
+      }
+    }
+  },
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockView, {
       stopEvent: stopForInteractive
