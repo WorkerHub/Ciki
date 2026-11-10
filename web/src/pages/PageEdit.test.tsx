@@ -223,6 +223,116 @@ describe("编辑页的保存保护", () => {
       (await screen.findAllByText(/超过了单次保存上限/)).length
     ).toBeGreaterThan(0)
   })
+
+  it("空正文的占位文案只说「直接粘贴内容」，不再提 Confluence", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      contentJson: JSON.stringify({
+        type: "doc",
+        content: [{ type: "paragraph" }]
+      }),
+      contentHtml: "<p></p>",
+      contentText: ""
+    })
+    renderEdit()
+
+    await screen.findByLabelText("页面标题")
+    await waitFor(() =>
+      expect(document.querySelector(".wiki-content .is-empty")).toHaveAttribute(
+        "data-placeholder",
+        "开始输入，或直接粘贴内容…"
+      )
+    )
+  })
+
+  it("「取消」与「保存」同处吸顶工具条，全页只有这一处取消", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    renderEdit()
+
+    const toolbar = await screen.findByRole("toolbar")
+    const cancelButtons = screen.getAllByRole("button", { name: "取消" })
+    expect(cancelButtons).toHaveLength(1)
+    expect(toolbar).toContainElement(cancelButtons[0])
+    // 保存入口仍然只有一处，取消不给第二个入口
+    expect(screen.getAllByRole("button", { name: "保存" })).toHaveLength(1)
+  })
+
+  it("没有改动时点「取消」直接回阅读页，不弹确认也不发保存请求", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    const user = userEvent.setup()
+    renderEdit()
+
+    await screen.findByLabelText("页面标题")
+    await user.click(screen.getByRole("button", { name: "取消" }))
+
+    expect(await screen.findByText("阅读页占位")).toBeInTheDocument()
+    expect(screen.queryByText("放弃未保存的修改？")).toBeNull()
+    expect(pagesApi.update).not.toHaveBeenCalled()
+  })
+
+  it("有未保存改动时点「取消」先确认；选「继续编辑」留在原地且内容不丢", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    const user = userEvent.setup()
+    renderEdit()
+
+    const title = await screen.findByLabelText("页面标题")
+    await user.type(title, "！")
+
+    await user.click(screen.getByRole("button", { name: "取消" }))
+    expect(await screen.findByText("放弃未保存的修改？")).toBeInTheDocument()
+    // 「放弃修改」是危险色：直接用 Button 的 destructive 变体表达
+    expect(screen.getByRole("button", { name: "放弃修改" })).toHaveAttribute(
+      "data-variant",
+      "destructive"
+    )
+    // 也就是弹一句确认：还没有导航走，也没有偷偷保存
+    expect(screen.queryByText("阅读页占位")).toBeNull()
+    expect(pagesApi.update).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole("button", { name: "继续编辑" }))
+    await waitFor(() =>
+      expect(screen.queryByText("放弃未保存的修改？")).toBeNull()
+    )
+    expect(screen.getByLabelText("页面标题")).toHaveValue(`${page.title}！`)
+    expect(screen.queryByText("阅读页占位")).toBeNull()
+    expect(pagesApi.update).not.toHaveBeenCalled()
+  })
+
+  it("保存进行中「取消」禁用，不会把在途保存当成丢弃", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.update).mockImplementation(
+      () => new Promise<PageDetail>(() => {})
+    )
+    const user = userEvent.setup()
+    renderEdit()
+
+    const title = await screen.findByLabelText("页面标题")
+    await user.type(title, "！")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "取消" })).toBeDisabled()
+    )
+    expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
+  })
+
+  it("「放弃修改」不发保存请求，也不被旧的离开确认再拦一次", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    const user = userEvent.setup()
+    renderEdit()
+
+    const title = await screen.findByLabelText("页面标题")
+    await user.type(title, "！")
+
+    await user.click(screen.getByRole("button", { name: "取消" }))
+    await screen.findByText("放弃未保存的修改？")
+    await user.click(screen.getByRole("button", { name: "放弃修改" }))
+
+    expect(await screen.findByText("阅读页占位")).toBeInTheDocument()
+    // 放弃这条路径必须绕过 blocker：「还有未保存的修改」不能再弹一次
+    expect(screen.queryByText("还有未保存的修改")).toBeNull()
+    expect(pagesApi.update).not.toHaveBeenCalled()
+  })
 })
 
 describe("编辑页按记忆锚点定位", () => {
