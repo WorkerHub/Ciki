@@ -1,6 +1,7 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
 import {
   ArrowRightLeft,
+  Download,
   History,
   Pencil,
   Plus,
@@ -9,6 +10,7 @@ import {
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link, useLocation, useNavigate, useParams } from "react-router"
+import { toast } from "sonner"
 import { ArticleToc } from "@/components/ArticleToc"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { MovePageDialog } from "@/components/MovePageDialog"
@@ -48,6 +50,7 @@ import {
   pagesApi
 } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
+import { downloadMarkdown } from "@/lib/markdown-download"
 import {
   captureScrollAnchor,
   rememberScrollAnchor,
@@ -388,6 +391,22 @@ export function PageView() {
                 ) : null}
               </>
             ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                // 单 A 的 contentMd 没下发时宁可不生成文件，也不写一份不完整的 MD
+                if (typeof page.contentMd !== "string") {
+                  toast.error("Markdown 版本暂不可用，请刷新页面后重试。")
+                  return
+                }
+                downloadMarkdown(page)
+              }}
+            >
+              <Download aria-hidden="true" />
+              下载 .md
+            </Button>
             <Button
               type="button"
               size="sm"
