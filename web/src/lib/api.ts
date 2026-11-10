@@ -136,24 +136,41 @@ async function rawRequest(
   })
 }
 
+/** 非 2xx 一律转成 ApiError：JSON 请求与二进制下载共用这一个口径。 */
+function toApiError(res: Response, body: unknown, path: string): ApiError {
+  const error = (body ?? {}) as ApiErrorBody
+  return new ApiError(
+    res.status,
+    error.error || `请求失败（${res.status}）`,
+    error.code,
+    error.retryAfter,
+    error,
+    path
+  )
+}
+
 async function request<T>(
   path: string,
   init: RequestInit & { skipRefresh?: boolean } = {}
 ): Promise<T> {
   const res = await rawRequest(path, init)
   const body = await parseBody(res)
-  if (!res.ok) {
-    const error = (body ?? {}) as ApiErrorBody
-    throw new ApiError(
-      res.status,
-      error.error || `请求失败（${res.status}）`,
-      error.code,
-      error.retryAfter,
-      error,
-      path
-    )
-  }
+  if (!res.ok) throw toApiError(res, body, path)
   return body as T
+}
+
+/**
+ * 二进制下载：成功回 blob 与 Content-Disposition 原文（文件名解析交给调用方），
+ * 失败体仍是 JSON，按 request 同口径抛 ApiError。走 rawRequest 才能共用
+ * `credentials: "include"` 与 401 刷新。
+ */
+async function downloadFile(path: string): Promise<FileDownload> {
+  const res = await rawRequest(path, { method: "GET" })
+  if (!res.ok) throw toApiError(res, await parseBody(res), path)
+  return {
+    blob: await res.blob(),
+    contentDisposition: res.headers.get("Content-Disposition")
+  }
 }
 
 function json(body: unknown, method = "POST") {
@@ -427,6 +444,12 @@ export interface UploadedFile {
   url: string
   contentType: string
   size: number
+}
+
+/** 二进制下载的回执：文件本体 + 服务端给的文件名头（原样，由下载模块解析）。 */
+export interface FileDownload {
+  blob: Blob
+  contentDisposition: string | null
 }
 
 export interface AdminUser extends User {
@@ -712,6 +735,11 @@ export const pagesApi = {
   trash: (spaceId?: string | null) =>
     api.get<TrashNode[]>(`/pages/trash${spaceQuery(spaceId)}`),
   get: (id: string) => api.get<PageDetail>(`/pages/${id}`),
+  /**
+   * 阅读页「下载 .md」：服务端按该页 MD 是否引用站内图自动分流（无图回 .md、
+   * 含图回 zip），都是二进制，文件名在 Content-Disposition 里。
+   */
+  download: (id: string) => downloadFile(`/pages/${id}/download`),
   create: (input: PageInput & { parentId: string | null; spaceId?: string }) =>
     api.post<PageDetail>("/pages", input),
   update: (id: string, input: PageInput) =>

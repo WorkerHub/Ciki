@@ -50,7 +50,7 @@ import {
   pagesApi
 } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
-import { downloadMarkdown } from "@/lib/markdown-download"
+import { downloadPageMarkdown } from "@/lib/markdown-download"
 import {
   captureScrollAnchor,
   rememberScrollAnchor,
@@ -396,12 +396,10 @@ export function PageView() {
               size="sm"
               variant="outline"
               onClick={() => {
-                // 单 A 的 contentMd 没下发时宁可不生成文件，也不写一份不完整的 MD
-                if (typeof page.contentMd !== "string") {
-                  toast.error("Markdown 版本暂不可用，请刷新页面后重试。")
-                  return
-                }
-                downloadMarkdown(page)
+                // 内容与文件名都由服务端决定（含站内图时是 zip），这里只触发一次下载
+                void downloadPageMarkdown(page).catch((downloadError) => {
+                  toast.error(describeApiError(downloadError))
+                })
               }}
             >
               <Download aria-hidden="true" />

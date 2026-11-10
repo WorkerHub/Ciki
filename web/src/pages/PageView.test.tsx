@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
+import { toast } from "sonner"
 import {
   afterEach,
   beforeAll,
@@ -26,7 +27,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
     pagesApi: {
       ...actual.pagesApi,
       get: vi.fn(),
-      tree: vi.fn()
+      tree: vi.fn(),
+      download: vi.fn()
     }
   }
 })
@@ -197,6 +199,7 @@ describe("阅读页按空间角色收口写入口", () => {
     })
     vi.mocked(pagesApi.get).mockResolvedValue(page)
     vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.download).mockReset()
   })
 
   it("viewer 看不到编辑、子页面、删除与移动入口，但能看历史", async () => {
@@ -212,7 +215,7 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(screen.getByRole("button", { name: "历史" })).toBeInTheDocument()
   })
 
-  it("viewer 也能下载 .md：文件是标题行 + contentMd", async () => {
+  it("viewer 也能下载 .md：走服务端端点，文件名取 Content-Disposition", async () => {
     useSpacesStore.setState({ spaces: [space({ myRole: "viewer" })] })
     const user = userEvent.setup()
     const blobs: Blob[] = []
@@ -233,6 +236,12 @@ describe("阅读页按空间角色收口写入口", () => {
       .mockImplementation(function (this: HTMLAnchorElement) {
         clicked.push(this)
       })
+    vi.mocked(pagesApi.download).mockResolvedValue({
+      blob: new Blob(["# 支付服务部署手册\n\n正文\n"], {
+        type: "text/markdown;charset=utf-8"
+      }),
+      contentDisposition: `attachment; filename="ciki-page.md"; filename*=UTF-8''${encodeURIComponent("支付服务部署手册.md")}`
+    })
 
     try {
       renderView()
@@ -243,13 +252,45 @@ describe("阅读页按空间角色收口写入口", () => {
 
       await user.click(download)
 
-      expect(clicked).toHaveLength(1)
+      await waitFor(() => expect(clicked).toHaveLength(1))
+      expect(pagesApi.download).toHaveBeenCalledWith("a")
       expect(clicked[0].download).toBe("支付服务部署手册.md")
       expect(await blobs[0].text()).toBe("# 支付服务部署手册\n\n正文\n")
     } finally {
       clickSpy.mockRestore()
       delete (URL as unknown as Record<string, unknown>).createObjectURL
       delete (URL as unknown as Record<string, unknown>).revokeObjectURL
+    }
+  })
+
+  it("下载失败按既有错误口径提示，不生成文件", async () => {
+    useSpacesStore.setState({ spaces: [space({ myRole: "viewer" })] })
+    const user = userEvent.setup()
+    vi.mocked(pagesApi.download).mockRejectedValue(
+      new ApiError(
+        404,
+        "Not found",
+        undefined,
+        undefined,
+        undefined,
+        "/pages/a/download"
+      )
+    )
+    const errorSpy = vi.spyOn(toast, "error")
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click")
+
+    try {
+      renderView()
+      await screen.findByText("支付服务部署手册")
+
+      await user.click(screen.getByRole("button", { name: "下载 .md" }))
+
+      await waitFor(() => expect(errorSpy).toHaveBeenCalled())
+      expect(errorSpy.mock.calls[0][0]).toBe("对象不存在，或已被删除。")
+      expect(clickSpy).not.toHaveBeenCalled()
+    } finally {
+      errorSpy.mockRestore()
+      clickSpy.mockRestore()
     }
   })
 
