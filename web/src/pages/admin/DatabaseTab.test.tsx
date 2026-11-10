@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { R2CleanupSummary, SetupResult } from "@/lib/api"
@@ -11,7 +11,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
     adminApi: {
       ...actual.adminApi,
       runAsAdmin: vi.fn(),
-      r2Cleanup: vi.fn()
+      r2Cleanup: vi.fn(),
+      runR2Cleanup: vi.fn()
     }
   }
 })
@@ -42,7 +43,11 @@ describe("系统管理 · 数据库升级", () => {
   beforeEach(() => {
     vi.mocked(adminApi.runAsAdmin).mockReset()
     vi.mocked(adminApi.r2Cleanup).mockReset()
-    vi.mocked(adminApi.r2Cleanup).mockResolvedValue({ lastRun: null })
+    vi.mocked(adminApi.runR2Cleanup).mockReset()
+    vi.mocked(adminApi.r2Cleanup).mockResolvedValue({
+      lastRun: null,
+      running: null
+    })
   })
 
   it("只保留升级区：旧说明文字不再渲染", () => {
@@ -56,7 +61,10 @@ describe("系统管理 · 数据库升级", () => {
   })
 
   it("有清理记录时只渲染一行六项摘要（Asia/Shanghai 口径）", async () => {
-    vi.mocked(adminApi.r2Cleanup).mockResolvedValue({ lastRun })
+    vi.mocked(adminApi.r2Cleanup).mockResolvedValue({
+      lastRun,
+      running: null
+    })
     render(<DatabaseTab />)
 
     expect(
@@ -131,5 +139,99 @@ describe("系统管理 · 数据库升级", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
     expect(screen.queryByText("当前表前缀")).toBeNull()
+  })
+
+  it("页面加载即按 GET 的 running 判定「进行中」，锁释放后自动解禁", async () => {
+    vi.useFakeTimers()
+    try {
+      vi.mocked(adminApi.r2Cleanup)
+        .mockResolvedValueOnce({
+          lastRun: null,
+          running: {
+            startedAt: "2026-11-10T09:00:00.000Z",
+            trigger: "manual",
+            dryRun: false,
+            retryAfter: 20
+          }
+        })
+        .mockResolvedValueOnce({ lastRun: null, running: null })
+      render(<DatabaseTab />)
+
+      // 首轮 GET 落盘后再看渲染结果
+      await act(async () => {
+        await Promise.resolve()
+      })
+
+      expect(
+        screen.getByRole("button", { name: "扫描孤儿图片" })
+      ).toBeDisabled()
+      expect(
+        screen.getByText("清理进行中，约 20 秒后可再试")
+      ).toBeInTheDocument()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000)
+      })
+
+      expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(2)
+      expect(screen.getByRole("button", { name: "扫描孤儿图片" })).toBeEnabled()
+      expect(screen.queryByText(/清理进行中/)).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("实跑结束后重拉最近一轮摘要行", async () => {
+    const user = userEvent.setup()
+    vi.mocked(adminApi.r2Cleanup)
+      .mockResolvedValueOnce({ lastRun: null, running: null })
+      .mockResolvedValueOnce({ lastRun, running: null })
+    vi.mocked(adminApi.runR2Cleanup)
+      .mockResolvedValueOnce({
+        startedAt: "2026-11-10T09:00:00.000Z",
+        finishedAt: "2026-11-10T09:00:02.000Z",
+        trigger: "manual",
+        status: "ok",
+        dryRun: true,
+        scanned: 128,
+        referenced: 96,
+        deleted: 8,
+        youngSkipped: 22,
+        failed: 0,
+        truncated: false,
+        prunable: 8,
+        prunableBytes: 4096
+      })
+      .mockResolvedValueOnce({
+        startedAt: "2026-11-10T09:05:00.000Z",
+        finishedAt: "2026-11-10T09:05:03.000Z",
+        trigger: "manual",
+        status: "ok",
+        dryRun: false,
+        scanned: 128,
+        referenced: 96,
+        deleted: 8,
+        youngSkipped: 22,
+        failed: 0,
+        truncated: false
+      })
+    render(<DatabaseTab />)
+
+    await user.click(
+      await screen.findByRole("button", { name: "扫描孤儿图片" })
+    )
+    await user.click(await screen.findByRole("button", { name: "立即清理" }))
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "删除 8 个"
+      })
+    )
+
+    expect(
+      await screen.findByText(
+        "最近清理 2026-11-02 01:00 · 扫描 128 · 引用 96 · 删除 8 · 未满 30 天跳过 22 · 失败 0"
+      )
+    ).toBeInTheDocument()
+    expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(2)
   })
 })

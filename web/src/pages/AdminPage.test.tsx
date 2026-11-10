@@ -69,7 +69,10 @@ describe("系统管理 · 页签", () => {
       emailConfigured: true,
       config: smtp
     })
-    vi.mocked(adminApi.r2Cleanup).mockResolvedValue({ lastRun: null })
+    vi.mocked(adminApi.r2Cleanup).mockResolvedValue({
+      lastRun: null,
+      running: null
+    })
   })
 
   it("「邮件配置」页签切出 SMTP 表单", async () => {
