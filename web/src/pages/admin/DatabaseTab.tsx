@@ -9,19 +9,37 @@ import {
   type SetupResult
 } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
+import { OrphanCleanupCard } from "@/pages/admin/OrphanCleanupCard"
 
-/** 数据库维护：检查并升级；有清理记录时附一行最近一轮摘要。 */
+/** 清理锁是分钟级的，运行态用短轮询跟着走：锁一释放按钮就能用。 */
+const RUNNING_POLL_MS = 10_000
+
+/**
+ * 数据库维护：检查并升级、孤儿图片两步清理；有清理记录时附一行最近一轮摘要。
+ * 清理入口只调既有手动触发接口，可清理数与删除量全部由服务端给。
+ */
 export function DatabaseTab() {
   const [result, setResult] = useState<SetupResult | null>(null)
   const [lastRun, setLastRun] = useState<R2CleanupSummary | null>(null)
+  const [runningSeconds, setRunningSeconds] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
   // 摘要只做展示：升级前 schema 还没到 v5 时接口会失败，静默留空即可。
+  // 运行态与摘要同源，一次 GET 拿两样，页面加载时就能判定「是否在跑」。
   const loadCleanup = useCallback(async () => {
     try {
-      const { lastRun: latest } = await adminApi.r2Cleanup()
+      const { lastRun: latest, running } = await adminApi.r2Cleanup()
       setLastRun(latest)
+      // retryAfter 缺省（契约漂移）时按 1 秒处理，下一轮轮询就会纠正
+      setRunningSeconds(
+        running
+          ? Math.max(
+              1,
+              typeof running.retryAfter === "number" ? running.retryAfter : 0
+            )
+          : null
+      )
     } catch {
       // 页面唯一的错误提示留给升级操作，摘要读取失败不打扰用户
     }
@@ -30,6 +48,13 @@ export function DatabaseTab() {
   useEffect(() => {
     void loadCleanup()
   }, [loadCleanup])
+
+  // 已有一轮在跑：重读运行态直到锁释放，不要求用户刷新页面
+  useEffect(() => {
+    if (runningSeconds === null) return
+    const timer = setInterval(() => void loadCleanup(), RUNNING_POLL_MS)
+    return () => clearInterval(timer)
+  }, [runningSeconds, loadCleanup])
 
   const run = async () => {
     setBusy(true)
@@ -98,6 +123,12 @@ export function DatabaseTab() {
           </div>
         ) : null}
       </section>
+
+      <OrphanCleanupCard
+        runningSeconds={runningSeconds}
+        onBlocked={(seconds) => setRunningSeconds(Math.max(1, seconds))}
+        onRefresh={() => void loadCleanup()}
+      />
 
       {lastRun ? (
         <p className="text-xs text-muted-foreground">
