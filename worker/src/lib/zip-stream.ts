@@ -5,6 +5,8 @@
  * 为什么是这个形状：
  * - **不手搓 zip**：条目头、CRC、数据描述符、中央目录全交给 fflate；这里只负责把
  *   上游的字节流按块喂进去，并把 fflate 吐出的块交给响应。
+ * - **条目是 Unix 语义**（`os = 3` + 0644）：默认的 DOS 语义会让 macOS 系统 unzip
+ *   按 DOS 代码页解码中文名而解压失败，见 {@link createEntry}。
  * - **图片不压缩**：png/jpg/gif/webp 已经是压缩格式，`ZipPassThrough`（store）一次
  *   搬运即可，省 CPU 也省内存；zip 内的 MD 是文本，用 `ZipDeflate` 压一道。
  * - **背压**：fflate 的 `Zip` 是同步回调，喂多快就吐多快。这里用一个带字节水位的小
@@ -19,6 +21,30 @@ import { Zip, ZipDeflate, ZipPassThrough } from "fflate"
 const HIGH_WATER_BYTES = 1 << 20
 
 const EMPTY = new Uint8Array(0)
+
+/** 条目的宿主系统：3 = Unix（zip 规范里中央目录「version made by」的高字节）。 */
+const ZIP_HOST_UNIX = 3
+
+/**
+ * 条目权限位：普通文件 0644（Unix 语义，左移 16 位才是 zip 的外部属性字段）。
+ * 与上面的 `os = 3` 必须成对出现：只给权限不给宿主系统，解压方仍按 DOS 语义读。
+ */
+const ZIP_FILE_ATTRS = 0o644 << 16
+
+/**
+ * 建条目并把宿主系统/权限说清楚。
+ *
+ * fflate 的默认是 `os = 0`（MS-DOS）、`attrs = 0`：条目名虽然已经带 UTF-8 标志位
+ * （bit 11），Info-ZIP 仍会按 DOS 代码页解码文件名——macOS 的系统 `/usr/bin/unzip`
+ * 因此把中文标题的 `.md` 当成非法 UTF-8、APFS 拒绝创建（实测退出码 50，与孤儿验证
+ * 单 #72 一致）。置成 Unix 语义后同一个包在 macOS 系统 unzip / Finder 里都能正确
+ * 解出中文名；UTF-8 标志位由 fflate 按名字内容自己置位，这里不动它。
+ */
+function createEntry<T extends ZipPassThrough | ZipDeflate>(entry: T): T {
+  entry.os = ZIP_HOST_UNIX
+  entry.attrs = ZIP_FILE_ATTRS
+  return entry
+}
 
 /** 能接收字节的条目（`ZipPassThrough` 与 `ZipDeflate` 的公共形状）。 */
 interface ZipEntrySink {
@@ -173,13 +199,13 @@ export function zipStream(
   const handle: ZipHandle = {
     async addBinary(name, body) {
       if (queue.isCancelled) return
-      const entry = new ZipPassThrough(name)
+      const entry = createEntry(new ZipPassThrough(name))
       zip.add(entry)
       await pipe(entry, body)
     },
     async addText(name, text) {
       if (queue.isCancelled) return
-      const entry = new ZipDeflate(name)
+      const entry = createEntry(new ZipDeflate(name))
       zip.add(entry)
       await write(entry, new TextEncoder().encode(text), true)
     }

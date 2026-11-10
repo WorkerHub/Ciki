@@ -1026,6 +1026,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 ```
 
 - `images/` 下的文件名取 key 的 basename（`pages/<uuid>.png` → `<uuid>.png`）；真撞名（如 `pages/<uuid>.png` 与 `imports/<uuid>.png`）按 key 全路径下划线化兜底。
+- 包内条目按 Unix 语义写：中央目录的 `version made by` = 3（Unix）、外部属性含 `0644` 权限位，非 ASCII 条目名带 UTF-8 标志位（bit 11）。因此 macOS 的系统 `/usr/bin/unzip`、Finder 与其它标准实现都能正确解出中文标题的 `.md`（不置 Unix 语义时 Info-ZIP 会按 DOS 代码页解码中文名而失败）。
 - 包内 MD 只改站内图链接为 `images/<basename>`：alt 原样、站外图地址原样，其余内容与 `.md` 产物逐字一致。
 - 引用的图在 R2 已不存在（如已被孤儿清理）：该图不入包，链接保留原绝对地址，不因个别缺图让整包失败。分流只看引用，所以全部缺图时仍是 zip（包内只有 MD）。
 - 只动下载产物：库里 `content_md` 仍是绝对地址版（`GET /api/pages/:id` 的 `contentMd` 口径不变），相对化只发生在组装 zip 时。

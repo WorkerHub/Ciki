@@ -133,6 +133,62 @@ function expectMarkdownHeaders(
   )
 }
 
+interface ZipHeader {
+  name: string
+  /** 中央目录「version made by」的高字节：0 = MS-DOS，3 = Unix。 */
+  hostOs: number
+  /** 通用位标志：bit 11 = 条目名是 UTF-8。 */
+  flags: number
+  /** 外部文件属性：Unix 语义时高 16 位是权限位。 */
+  externalAttrs: number
+}
+
+/**
+ * 读中央目录的条目头（zip 规范的固定布局，字段位置见 APPNOTE 4.3.12）。
+ *
+ * `unzipSync` 只回内容，看不到宿主系统与外部属性，而 macOS 系统 unzip 能不能解出中文
+ * 名恰恰取决于这两个字段（#72），所以测试侧自己按规范读字节。
+ */
+function zipHeaders(bytes: Uint8Array): ZipHeader[] {
+  const view = new DataView(
+    bytes.buffer as ArrayBuffer,
+    bytes.byteOffset,
+    bytes.byteLength
+  )
+  let eocd = -1
+  for (let offset = bytes.byteLength - 22; offset >= 0; offset -= 1) {
+    if (view.getUint32(offset, true) === 0x06054b50) {
+      eocd = offset
+      break
+    }
+  }
+  if (eocd < 0) throw new Error("zip 末尾找不到中央目录结束记录（EOCD）")
+
+  const count = view.getUint16(eocd + 10, true)
+  let pointer = view.getUint32(eocd + 16, true)
+  const decoder = new TextDecoder()
+  const headers: ZipHeader[] = []
+  for (let index = 0; index < count; index += 1) {
+    if (view.getUint32(pointer, true) !== 0x02014b50) {
+      throw new Error("中央目录条目签名不对")
+    }
+    const madeBy = view.getUint16(pointer + 4, true)
+    const nameLength = view.getUint16(pointer + 28, true)
+    const extraLength = view.getUint16(pointer + 30, true)
+    const commentLength = view.getUint16(pointer + 32, true)
+    headers.push({
+      name: decoder.decode(
+        bytes.subarray(pointer + 46, pointer + 46 + nameLength)
+      ),
+      hostOs: madeBy >> 8,
+      flags: view.getUint16(pointer + 8, true),
+      externalAttrs: view.getUint32(pointer + 38, true)
+    })
+    pointer += 46 + nameLength + extraLength + commentLength
+  }
+  return headers
+}
+
 describe("含图页：下载得 zip（验收 §1）", () => {
   const TITLE = "含图的页面"
   const DETAIL = docWith([
@@ -330,6 +386,77 @@ describe("缺图兜底：R2 里已不存在（验收 §3）", () => {
     expect(names).toEqual(["全缺图.md"])
     expect(strFromU8(entries["全缺图.md"])).toBe(
       `# 全缺图\n\n![缺一](${SITE}/${KEY_PAGES})\n`
+    )
+  })
+})
+
+describe("zip 条目头：Unix 语义 + UTF-8 标志位（macOS 系统 unzip 兼容，#72）", () => {
+  it("中文标题：每个条目都是 os=3 + 0644，中文名带 UTF-8 标志位", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(
+      env,
+      admin,
+      "含图的页面",
+      docWith([textBlock("正文"), imageBlock(`/api/files/${KEY_PAGES}`, "图")])
+    )
+    await (env.R2 as unknown as MemoryR2).put(KEY_PAGES, imageBytes(6))
+
+    const res = await download(env, page.id, admin)
+    expect(res.status).toBe(200)
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    const headers = zipHeaders(bytes)
+    expect(headers.map((header) => header.name).sort()).toEqual(
+      [`images/${UUID_PAGES}`, "含图的页面.md"].sort()
+    )
+
+    for (const header of headers) {
+      // fflate 默认 os = 0（MS-DOS）、attrs = 0：Info-ZIP 会按 DOS 代码页解码
+      // 中文名，macOS 的系统 unzip 因此解不出 .md（退出码 50）。
+      expect(header.hostOs, header.name).toBe(3)
+      expect(header.externalAttrs >>> 16, header.name).toBe(0o644)
+    }
+    const markdown = headers.find((header) => header.name.endsWith(".md"))!
+    const image = headers.find((header) => header.name.startsWith("images/"))!
+    // UTF-8 标志位由 fflate 按名字内容置位：中文名有、ASCII 名没有。
+    expect(markdown.flags & 0x800, "中文条目名应带 UTF-8 标志位").toBeTruthy()
+    expect(image.flags & 0x800).toBeFalsy()
+
+    // 标准实现照旧能解（头部字段改动不能弄坏内容）。
+    const entries = unzipSync(bytes)
+    expect(Object.keys(entries).sort()).toEqual(
+      [`images/${UUID_PAGES}`, "含图的页面.md"].sort()
+    )
+    expect(strFromU8(entries["含图的页面.md"])).toBe(
+      `# 含图的页面\n\n正文\n\n![图](images/${UUID_PAGES})\n`
+    )
+  })
+
+  it("ASCII 标题：同样 Unix 语义，且不带 UTF-8 标志位（不回归）", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(
+      env,
+      admin,
+      "Deploy Runbook",
+      docWith([textBlock("正文"), imageBlock(`/api/files/${KEY_FLAT}`, "图")])
+    )
+    await (env.R2 as unknown as MemoryR2).put(KEY_FLAT, imageBytes(7))
+
+    const res = await download(env, page.id, admin)
+    expect(res.status).toBe(200)
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    const headers = zipHeaders(bytes)
+    expect(headers.map((header) => header.name).sort()).toEqual(
+      ["Deploy Runbook.md", `images/${UUID_FLAT}`].sort()
+    )
+    for (const header of headers) {
+      expect(header.hostOs, header.name).toBe(3)
+      expect(header.externalAttrs >>> 16, header.name).toBe(0o644)
+      expect(header.flags & 0x800, header.name).toBeFalsy()
+    }
+    expect(strFromU8(unzipSync(bytes)["Deploy Runbook.md"])).toBe(
+      `# Deploy Runbook\n\n正文\n\n![图](images/${UUID_FLAT})\n`
     )
   })
 })
