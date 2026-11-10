@@ -11,6 +11,7 @@ import {
   RequireAuth,
   RootGate
 } from "@/components/guards"
+import { Toaster } from "@/components/ui/sonner"
 
 // 页面按路由懒加载：编辑器（TipTap + lowlight）与二维码库只在对应页面才下载。
 const AdminPage = lazy(() =>
@@ -144,5 +145,11 @@ export const routes: RouteObject[] = [
 export const router = createBrowserRouter(routes)
 
 export function App() {
-  return <RouterProvider router={router} />
+  return (
+    <>
+      <RouterProvider router={router} />
+      {/* 全局轻提示：浮在所有弹层之上，供删除成功这类瞬时反馈使用。 */}
+      <Toaster />
+    </>
+  )
 }

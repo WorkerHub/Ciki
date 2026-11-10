@@ -1,5 +1,6 @@
-import { History, RotateCcw, Trash2 } from "lucide-react"
+import { RotateCcw, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,17 +11,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { ReadView } from "@/editor/ReadView"
 import {
   ApiError,
@@ -32,9 +31,15 @@ import {
 } from "@/lib/api"
 import { formatDateTime, formatRelative } from "@/lib/format"
 
+/** 删除成功的轻提示：浮在弹窗之上，约 3 秒自动消失，不占版面。 */
+const TOAST_DURATION = 3000
+
 /**
  * 版本历史：列表 + 旧版预览 + 回滚（回滚本身会生成一条新版本），
  * 以及删除单条版本 / 按页只保留最新一条（权限与回滚同档：能编辑该页才渲染入口）。
+ *
+ * 骨架只有两段：标题栏 + 主体。主体左列表右预览，各自栏内滚动；
+ * 没有独立页脚——回滚按钮挂在预览栏头部，批量入口挂在列表栏头部。
  */
 export function RevisionsDialog({
   pageId,
@@ -54,7 +59,6 @@ export function RevisionsDialog({
   const [selected, setSelected] = useState<RevisionDetail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
-  const [notice, setNotice] = useState("")
   const [restoring, setRestoring] = useState(false)
   // 删除与批量修剪共用：任一请求在飞时锁住全部删除入口
   const [busy, setBusy] = useState(false)
@@ -66,7 +70,6 @@ export function RevisionsDialog({
     let alive = true
     setLoading(true)
     setError("")
-    setNotice("")
     setSelected(null)
     setDeleteTarget(null)
     setPruneOpen(false)
@@ -110,7 +113,6 @@ export function RevisionsDialog({
     if (!selected) return
     setRestoring(true)
     setError("")
-    setNotice("")
     try {
       const updated = await pagesApi.restoreRevision(pageId, selected.id)
       onRestored(updated)
@@ -127,7 +129,6 @@ export function RevisionsDialog({
     const targetId = deleteTarget.id
     setBusy(true)
     setError("")
-    setNotice("")
     try {
       await pagesApi.deleteRevision(pageId, targetId)
       // 只删这一条版本行：其余版本、页面当前内容都不受影响，本地去掉即可
@@ -135,7 +136,7 @@ export function RevisionsDialog({
         prev.filter((revision) => revision.id !== targetId)
       )
       setSelected((prev) => (prev?.id === targetId ? null : prev))
-      setNotice("版本已删除。")
+      toast.success("版本已删除。", { duration: TOAST_DURATION })
     } catch (deleteError: unknown) {
       setError(describeApiError(deleteError))
       // 别处刚保存过（目标不再是最新）或已被删除：重拉列表纠正「最新」的落点
@@ -155,15 +156,18 @@ export function RevisionsDialog({
   const pruneRest = async () => {
     setBusy(true)
     setError("")
-    setNotice("")
     try {
       const { deleted } = await pagesApi.pruneRevisions(pageId)
       const kept = revisions[0] ?? null
       setRevisions(kept ? [kept] : [])
       setSelected((prev) => (prev && kept && prev.id === kept.id ? prev : null))
-      setNotice(
-        deleted > 0 ? `已删除 ${deleted} 条版本。` : "没有可删除的版本。"
-      )
+      if (deleted > 0) {
+        toast.success(`已删除 ${deleted} 条版本。`, {
+          duration: TOAST_DURATION
+        })
+      } else {
+        toast("没有可删除的版本。", { duration: TOAST_DURATION })
+      }
     } catch (pruneError: unknown) {
       setError(describeApiError(pruneError))
     } finally {
@@ -175,134 +179,154 @@ export function RevisionsDialog({
   // 列表按 created_at DESC, rowid DESC 排序，首项就是最新的一条
   const latestId = revisions[0]?.id
   const prunableCount = Math.max(revisions.length - 1, 0)
+  // 未选中、或选中的就是最新一条：不渲染回滚按钮（连禁用态都不留）
+  const canRestore = !readOnly && selected !== null && selected.id !== latestId
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[80vh] max-h-[80vh] sm:max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[80vh] w-full flex-col gap-3 overflow-hidden p-5 sm:max-w-[900px] sm:p-6">
+        <DialogHeader className="shrink-0 pr-8">
           <DialogTitle>版本历史</DialogTitle>
-          <DialogDescription>
-            每次保存都会留下一条记录。最新的那条版本不能删除；回滚会用旧版内容写回页面，并生成一条新记录。
-          </DialogDescription>
         </DialogHeader>
 
         {error ? (
           <p
             role="alert"
-            className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+            className="shrink-0 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
           >
             {error}
           </p>
         ) : null}
-        {notice ? (
-          <p
-            role="status"
-            className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
+
+        <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[288px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]">
+          <section
+            aria-label="版本列表"
+            className="flex max-h-[30vh] min-h-0 flex-col overflow-hidden rounded-lg border border-border md:max-h-none"
           >
-            {notice}
-          </p>
-        ) : null}
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-[15rem_1fr]">
-          <ScrollArea className="h-full min-h-0 rounded-md border border-border">
-            <ul className="divide-y divide-border">
-              {loading ? (
-                <li className="px-3 py-4 text-sm text-muted-foreground">
-                  加载中…
-                </li>
-              ) : revisions.length === 0 ? (
-                <li className="px-3 py-4 text-sm text-muted-foreground">
-                  还没有版本记录。
-                </li>
-              ) : (
-                revisions.map((revision) => {
-                  const canDelete = !readOnly && revision.id !== latestId
-                  return (
-                    <li key={revision.id} className="flex items-stretch">
-                      <button
-                        type="button"
-                        onClick={() => void preview(revision.id)}
-                        className={`flex min-w-0 flex-1 flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition-colors hover:bg-accent ${
-                          selected?.id === revision.id ? "bg-accent" : ""
-                        }`}
-                      >
-                        <span className="font-medium">
-                          {formatDateTime(revision.createdAt)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {formatRelative(revision.createdAt)} ·{" "}
-                          {revision.editorId.slice(0, 8)}
-                        </span>
-                      </button>
-                      {canDelete ? (
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          className="my-1 mr-1 shrink-0 text-muted-foreground hover:text-destructive"
-                          aria-label="删除这个版本"
-                          title="删除这个版本"
-                          disabled={busy}
-                          onClick={() => setDeleteTarget(revision)}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      ) : null}
-                    </li>
-                  )
-                })
-              )}
-            </ul>
-          </ScrollArea>
-
-          <div className="flex min-h-0 flex-col rounded-md border border-border">
-            <div className="flex items-center justify-between gap-2 px-3 py-2">
-              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <History className="size-3.5" aria-hidden="true" />
-                {selected ? `${selected.title}` : "选择左侧任一版本查看内容"}
+            <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border pr-1.5 pl-3">
+              <span className="text-xs text-muted-foreground">
+                {loading ? "加载中…" : `${revisions.length} 个版本`}
               </span>
-            </div>
-            <Separator />
-            <ScrollArea className="min-h-0 flex-1 p-3">
-              {selected ? <ReadView html={selected.contentHtml} /> : null}
-            </ScrollArea>
-          </div>
-        </div>
-
-        <DialogFooter className="items-center justify-between gap-2 sm:justify-between">
-          <span className="text-xs text-muted-foreground">
-            {readOnly
-              ? "只读成员可以查看历史，删除与回滚需要编辑权限。"
-              : "删除版本不可恢复；每页最新的一条不能删。"}
-          </span>
-          <div className="flex items-center gap-2">
-            {readOnly ? null : (
-              <>
-                {prunableCount > 0 ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => setPruneOpen(true)}
-                  >
-                    <Trash2 aria-hidden="true" />
-                    只保留最新一条
-                  </Button>
-                ) : null}
+              {!readOnly && prunableCount > 0 ? (
                 <Button
                   type="button"
-                  size="sm"
-                  onClick={() => void restore()}
-                  disabled={!selected || restoring}
+                  size="xs"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => setPruneOpen(true)}
                 >
-                  <RotateCcw aria-hidden="true" />
-                  {restoring ? "回滚中…" : "回滚到这个版本"}
+                  <Trash2 aria-hidden="true" />
+                  只保留最新一条
                 </Button>
+              ) : null}
+            </div>
+            <ScrollArea className="min-h-0 flex-1">
+              <ul className="divide-y divide-border">
+                {loading ? (
+                  <li className="px-3 py-4 text-sm text-muted-foreground">
+                    加载中…
+                  </li>
+                ) : revisions.length === 0 ? (
+                  <li className="px-3 py-4 text-sm text-muted-foreground">
+                    还没有版本记录。
+                  </li>
+                ) : (
+                  revisions.map((revision) => {
+                    const isLatest = revision.id === latestId
+                    const isSelected = selected?.id === revision.id
+                    return (
+                      <li key={revision.id} className="relative">
+                        <button
+                          type="button"
+                          onClick={() => void preview(revision.id)}
+                          aria-current={isSelected ? "true" : undefined}
+                          className={`flex w-full min-w-0 flex-col items-start gap-0.5 py-3 pr-9 pl-3 text-left transition-colors hover:bg-accent ${
+                            isSelected ? "bg-accent" : ""
+                          }`}
+                        >
+                          <span className="flex w-full items-center gap-1.5">
+                            <span className="truncate text-sm font-medium">
+                              {formatDateTime(revision.createdAt)}
+                            </span>
+                            {isLatest ? (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 shrink-0 rounded px-1.5 text-[0.65rem]"
+                              >
+                                最新
+                              </Badge>
+                            ) : null}
+                          </span>
+                          <span className="max-w-full truncate text-xs text-muted-foreground">
+                            {formatRelative(revision.createdAt)} ·{" "}
+                            {revision.editorId.slice(0, 8)}
+                          </span>
+                        </button>
+                        {isSelected ? (
+                          <span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-primary"
+                          />
+                        ) : null}
+                        {!readOnly && !isLatest ? (
+                          <Button
+                            type="button"
+                            size="icon-xs"
+                            variant="ghost"
+                            className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground hover:text-destructive"
+                            aria-label="删除这个版本"
+                            title="删除这个版本"
+                            disabled={busy}
+                            onClick={() => setDeleteTarget(revision)}
+                          >
+                            <Trash2 aria-hidden="true" />
+                          </Button>
+                        ) : null}
+                      </li>
+                    )
+                  })
+                )}
+              </ul>
+            </ScrollArea>
+          </section>
+
+          <section
+            aria-label="版本预览"
+            className="flex max-h-[34vh] min-h-[7rem] flex-col overflow-hidden rounded-lg border border-border md:max-h-none md:min-h-0"
+          >
+            {selected ? (
+              <>
+                <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border pr-1.5 pl-3">
+                  <span className="min-w-0 truncate text-xs text-muted-foreground">
+                    {formatDateTime(selected.createdAt)} 的版本
+                  </span>
+                  {canRestore ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={restoring}
+                      onClick={() => void restore()}
+                    >
+                      <RotateCcw aria-hidden="true" />
+                      {restoring ? "回滚中…" : "回滚到这个版本"}
+                    </Button>
+                  ) : null}
+                </div>
+                <ScrollArea className="min-h-0 flex-1">
+                  <div className="px-4 py-3">
+                    <ReadView html={selected.contentHtml} />
+                  </div>
+                </ScrollArea>
               </>
+            ) : (
+              <div className="flex flex-1 items-center justify-center px-6 py-8">
+                <p className="text-xs text-muted-foreground">
+                  选择左侧任一版本查看内容
+                </p>
+              </div>
             )}
-          </div>
-        </DialogFooter>
+          </section>
+        </div>
       </DialogContent>
 
       <AlertDialog
