@@ -123,7 +123,26 @@ function sampleDoc(text = "导入正文") {
           alt: "外链",
           title: null,
           originalSrc: null,
-          confluenceImg: false
+          confluenceImg: false,
+          width: 360
+        }
+      },
+      {
+        type: "image",
+        attrs: {
+          src: "/api/files/0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b.png",
+          alt: "脏宽度",
+          title: null,
+          width: "50%"
+        }
+      },
+      {
+        type: "image",
+        attrs: {
+          src: "/api/files/1f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b.png",
+          alt: "布尔宽度",
+          title: null,
+          width: true
         }
       }
     ]
@@ -214,6 +233,16 @@ describe("导入接口：令牌鉴权与四个端点", () => {
       'data-original-src="https://confluence.example/download/a.png"'
     )
     expect(page.contentHtml).toContain('data-confluence-img="true"')
+    // 宽度口径与 web 一致：正整数像素原样落成 width 属性，非整数（"50%"）、
+    // 布尔值（true 不得被 Number() 强转成 1）都不输出
+    expect(page.contentHtml).toContain('width="360"')
+    expect(page.contentHtml).not.toContain("50%")
+    expect(page.contentHtml).not.toContain('width="1"')
+    // 布尔宽度那张图整段不带 width 属性（否则 true 会被序列化成宽度）
+    const booleanImg =
+      /<img[^>]*alt="布尔宽度"[^>]*>/.exec(page.contentHtml)?.[0] ?? ""
+    expect(booleanImg).toContain('alt="布尔宽度"')
+    expect(booleanImg).not.toContain("width=")
 
     // contentText 是纯文本（搜索与摘要用），来自消毒后的 HTML。
     expect(page.contentText).toContain("导入正文")

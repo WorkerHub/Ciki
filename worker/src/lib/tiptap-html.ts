@@ -66,11 +66,29 @@ export class TiptapRenderError extends Error {
 /**
  * 图片：额外两个属性承载「未转存」标记（契约 §三 图片白名单同名），
  * 与 web 的 WikiImage 一致——这样含占位图的内容经服务端渲染还能还原成占位。
+ * width 同口径：只输出正整数像素（与 web 的 imageWidth 同一规则），
+ * 非整数值（如脏 JSON 里的 "50%"）不输出，回退自然尺寸。
  */
 const ImportImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      width: {
+        default: null,
+        // 与 web 的 imageWidth（web/src/editor/image-attributes.ts）逐条同口径：
+        // 只认正整数像素——字符串必须是纯数字，布尔/数组/小数串一律丢弃，
+        // 不猜用户意图（否则 width:true 会被 Number() 强转成 1）。
+        renderHTML: (attributes) => {
+          const raw = attributes.width
+          const value =
+            typeof raw === "string" && /^\d+$/.test(raw.trim())
+              ? Number(raw)
+              : raw
+          if (typeof value !== "number" || !Number.isFinite(value)) return {}
+          const width = Math.round(value)
+          return width > 0 ? { width: String(width) } : {}
+        }
+      },
       originalSrc: {
         default: null,
         parseHTML: (element) => element.getAttribute("data-original-src"),
