@@ -11,6 +11,7 @@
  * 放行会让 2MB 的 D1 单行限制在保存时炸掉。
  */
 import { renderTiptapHtml, TiptapRenderError } from "./tiptap-html"
+import { derivePageMarkdown } from "./tiptap-markdown"
 import {
   MAX_HTML_BYTES,
   MAX_JSON_BYTES,
@@ -20,12 +21,37 @@ import {
   toPlainText
 } from "./sanitize"
 
-/** 页面三件套（落库/写 revision 的最终形态）。 */
+/**
+ * 页面正文四件套（落库/写 revision 的最终形态）。
+ *
+ * `contentMd` 是 `content_json` 的派生件（lib/tiptap-markdown.ts）：只在保存/导入/回滚
+ * 这条唯一写路径上生成，且是在生成 html/纯文本的同一处生成。它是导出用的平面视图，
+ * 不参与无改动判定，也永远不会反写回 `content_json`。
+ */
 export interface PageContent {
   title: string
   contentJson: string
   contentHtml: string
   contentText: string
+  contentMd: string
+}
+
+/**
+ * 补齐派生出来的 MD：给已经有 html/纯文本的正文补 `contentMd`。
+ *
+ * 导出给 `lib/revision-content.ts` 的旧形态分支用——那条分支的三列文本直接来自库里，
+ * 但 MD 仍要按同一口径从 JSON 派生，回滚才和保存走同一条路。
+ */
+export function withDerivedMarkdown(input: {
+  title: string
+  contentJson: string
+  contentHtml: string
+  contentText: string
+}): PageContent {
+  return {
+    ...input,
+    contentMd: derivePageMarkdown(input.contentJson, input.contentText)
+  }
 }
 
 export type PageContentResult =
@@ -53,16 +79,25 @@ function payloadTooLarge(): PageContentResult {
   }
 }
 
-/** 消毒后的三件套必须落在契约上限与 D1 单行上限之内。 */
+/**
+ * 消毒后的正文必须落在契约上限与 D1 单行上限之内。
+ *
+ * 派生出来的 MD 也算进合计：它和 JSON/HTML/纯文本落在同一行，不计入就会出现「保存
+ * 通过、写库时撞上 2MB 单行上限」的窗口（HTML 与 MD 都不保证比对方小）。
+ */
 function checkOutputSize(
   safeHtml: string,
   contentJson: string,
-  plainText: string
+  plainText: string,
+  markdown: string
 ): PageContentResult | null {
   if (utf8Length(safeHtml) > MAX_HTML_BYTES) return payloadTooLarge()
   if (utf8Length(plainText) > MAX_TEXT_BYTES) return payloadTooLarge()
   if (
-    utf8Length(safeHtml) + utf8Length(contentJson) + utf8Length(plainText) >
+    utf8Length(safeHtml) +
+      utf8Length(contentJson) +
+      utf8Length(plainText) +
+      utf8Length(markdown) >
     MAX_ROW_BYTES
   ) {
     return payloadTooLarge()
@@ -102,7 +137,9 @@ export function normalizePageInput(
   }
   const safeHtml = sanitizePageHtml(contentHtml)
   const plainText = toPlainText(contentText)
-  const tooLarge = checkOutputSize(safeHtml, contentJson, plainText)
+  // MD 永远从 JSON 派生，不看客户端送来的 HTML/纯文本（两者只影响 html/text 两列）。
+  const markdown = derivePageMarkdown(contentJson, plainText)
+  const tooLarge = checkOutputSize(safeHtml, contentJson, plainText, markdown)
   if (tooLarge) return tooLarge
 
   return {
@@ -111,7 +148,8 @@ export function normalizePageInput(
       title: plainTitle,
       contentJson,
       contentHtml: safeHtml,
-      contentText: plainText
+      contentText: plainText,
+      contentMd: markdown
     }
   }
 }
@@ -174,7 +212,8 @@ export function normalizeImportedContent(input: {
 
   const safeHtml = sanitizePageHtml(rendered)
   const plainText = toPlainText(safeHtml)
-  const tooLarge = checkOutputSize(safeHtml, read.text, plainText)
+  const markdown = derivePageMarkdown(read.text, plainText)
+  const tooLarge = checkOutputSize(safeHtml, read.text, plainText, markdown)
   if (tooLarge) return tooLarge
 
   return {
@@ -183,7 +222,8 @@ export function normalizeImportedContent(input: {
       title: plainTitle,
       contentJson: read.text,
       contentHtml: safeHtml,
-      contentText: plainText
+      contentText: plainText,
+      contentMd: markdown
     }
   }
 }

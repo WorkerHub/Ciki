@@ -47,6 +47,7 @@ import { indexPageStatements } from "../lib/fts"
 import { normalizePageInput, type PageContentResult } from "../lib/page-input"
 import { createPage, savePageContent } from "../core/page-write"
 import { revisionContent } from "../lib/revision-content"
+import { resolvePageMarkdown } from "../lib/tiptap-markdown"
 import { readJsonBody, readParentId, readSpaceId } from "../lib/http"
 import type { HonoEnv } from "../types"
 
@@ -69,6 +70,9 @@ function toDetail(row: PageRow) {
     contentJson: row.content_json,
     contentHtml: row.content_html,
     contentText: row.content_text,
+    // 派生件（只读）：阅读页「下载 .md」走登录会话读它，不经过只读令牌接口。
+    // 列尚未回填时按需现生成，与 GET /api/read/pages/:id 的 markdown 同一口径。
+    contentMd: resolvePageMarkdown(row),
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     createdAt: row.created_at
