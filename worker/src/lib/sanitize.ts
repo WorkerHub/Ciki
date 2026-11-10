@@ -48,7 +48,7 @@ const whitelist = {
   h4: [],
   h5: [],
   h6: [],
-  pre: [],
+  pre: ["data-collapsed"],
   br: [],
   hr: [],
   strong: [],
@@ -123,6 +123,11 @@ const filter = new FilterXSS({
     }
     if (tag === "code" && name === "class") {
       return /^language-[a-z0-9+#-]+$/i.test(value) ? undefined : ""
+    }
+    // 代码块折叠态：只认显式的 true/false（未表态就是没有这个属性）。
+    // 与前端 li[data-checked] 同口径：合法放行，非法只删属性、不动代码正文。
+    if (tag === "pre" && name === "data-collapsed") {
+      return value === "true" || value === "false" ? undefined : ""
     }
     if (tag === "table" && name === "style") {
       return TABLE_STYLE.test(value) ? undefined : ""

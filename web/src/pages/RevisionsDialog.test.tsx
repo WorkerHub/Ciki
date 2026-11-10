@@ -352,6 +352,35 @@ describe("版本历史：布局与动作归位", () => {
     expect(screen.queryByRole("button", { name: "删除这个版本" })).toBeNull()
   })
 
+  it("版本预览与阅读页同口径：折叠块显示「展开代码」并可展开", async () => {
+    vi.mocked(pagesApi.revision)
+      .mockReset()
+      .mockImplementation(async (_pageId, revisionId) => {
+        const found = revisions.find((item) => item.id === revisionId)
+        if (!found) throw new Error("missing revision fixture")
+        return {
+          ...detail(found),
+          contentHtml:
+            '<pre data-collapsed="true"><code class="language-sql">select 1;</code></pre>'
+        }
+      })
+    const user = userEvent.setup()
+    renderDialog()
+    await rowReady()
+
+    await user.click(screen.getByRole("button", { name: /user-aaa/ }))
+    const dialog = within(screen.getByRole("dialog"))
+    const expand = await dialog.findByRole("button", { name: /展开代码/ })
+    const panel = screen
+      .getByRole("dialog")
+      .querySelector(".code-block > pre") as HTMLElement
+    expect(panel).not.toBeVisible()
+
+    await user.click(expand)
+    expect(panel).toBeVisible()
+    expect(dialog.getByRole("button", { name: /收起代码/ })).toBeInTheDocument()
+  })
+
   it("服务端判定目标已是最新（并发保存）：中文提示并重拉列表", async () => {
     const user = userEvent.setup()
     vi.mocked(pagesApi.deleteRevision).mockRejectedValue(

@@ -141,6 +141,50 @@ describe("导入渲染：在 Worker 运行时里跑", () => {
     expect(result.value.contentText).not.toContain("<")
   })
 
+  it("代码块折叠态：三态在 Worker 运行时里同样落在 pre[data-collapsed] 上", () => {
+    // 与 test/code-block-collapse.test.ts 同一口径，但跑在 workerd：这条标记要过
+    // 真实的 happy-dom + xss 打包路径（#32 的教训：Node 下绿不等于线上绿）。
+    const render = (attrs: Record<string, unknown>) =>
+      normalizeImportedContent({
+        title: "折叠",
+        contentJson: JSON.stringify({
+          type: "doc",
+          content: [
+            {
+              type: "codeBlock",
+              attrs,
+              content: [{ type: "text", text: "line 1\nline 2" }]
+            }
+          ]
+        })
+      })
+
+    const folded = render({ language: "js", collapsed: true })
+    expect(folded.ok).toBe(true)
+    if (!folded.ok) return
+    expect(folded.value.contentHtml).toContain(
+      '<pre data-collapsed="true"><code class="language-js">'
+    )
+
+    const expanded = render({ language: "js", collapsed: false })
+    expect(expanded.ok).toBe(true)
+    if (!expanded.ok) return
+    expect(expanded.value.contentHtml).toContain('<pre data-collapsed="false">')
+
+    const unstated = render({ language: "js" })
+    expect(unstated.ok).toBe(true)
+    if (!unstated.ok) return
+    expect(unstated.value.contentHtml).not.toContain("data-collapsed")
+    expect(unstated.value.contentHtml).toContain(
+      '<pre><code class="language-js">'
+    )
+
+    const broken = render({ language: "js", collapsed: "true" })
+    expect(broken.ok).toBe(false)
+    if (broken.ok) return
+    expect(broken.code).toBe("INVALID_CONTENT_JSON")
+  })
+
   it("渲染不了的 contentJson 按契约报 INVALID_CONTENT_JSON", () => {
     const result = normalizeImportedContent({
       title: "坏内容",

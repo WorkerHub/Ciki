@@ -19,6 +19,7 @@ import {
   WikiTextStyle
 } from "@/editor/colors/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
+import { imageWidth } from "@/editor/image-attributes"
 
 /** lowlight 只在模块加载时建一次；common 覆盖了 Confluence 里常见语言。 */
 export const lowlight = createLowlight(common)
@@ -34,6 +35,32 @@ function stopForInteractive({ event }: { event: Event }): boolean {
 
 /** 代码块：语言角标 + 复制按钮，编辑态与阅读态共用同一个 NodeView。 */
 export const WikiCodeBlock = CodeBlockLowlight.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      /**
+       * 折叠三态（契约见 docs/api-contract.md「代码块折叠」）：
+       * true/false 是显式表态，null 为未表态（阅读页按「> 20 行」自动折叠）。
+       * HTML 载具是 pre 上的 data-collapsed，只认小写 true/false；
+       * 显式 false 必须输出——它与「未表态」在阅读页行为不同。
+       */
+      collapsed: {
+        default: null,
+        parseHTML: (element) => {
+          const value = element.getAttribute("data-collapsed")
+          if (value === "true") return true
+          if (value === "false") return false
+          return null
+        },
+        renderHTML: (attributes) => {
+          if (attributes.collapsed === true) return { "data-collapsed": "true" }
+          if (attributes.collapsed === false)
+            return { "data-collapsed": "false" }
+          return {}
+        }
+      }
+    }
+  },
   addNodeView() {
     return ReactNodeViewRenderer(CodeBlockView, {
       stopEvent: stopForInteractive
@@ -44,6 +71,9 @@ export const WikiCodeBlock = CodeBlockLowlight.extend({
 /**
  * 图片：额外两个属性承载「未转存」标记（与契约 §三 图片白名单同名），
  * 这样 contentHtml 读进来后能恢复成占位，而不是变成一个空图。
+ *
+ * width 是 @tiptap/extension-image 基类已声明的属性（不加 schema、不迁移），
+ * 这里只把口径收紧成「正整数像素」，见 image-attributes.ts 的 imageWidth。
  */
 export const WikiImage = Image.extend({
   addAttributes() {
@@ -62,10 +92,23 @@ export const WikiImage = Image.extend({
         parseHTML: (element) => element.hasAttribute("data-confluence-img"),
         renderHTML: (attributes) =>
           attributes.confluenceImg ? { "data-confluence-img": "true" } : {}
+      },
+      // 宽度只认裸整数像素：粘进来的 width="50%" 直接丢弃，回退自然尺寸
+      width: {
+        default: null,
+        parseHTML: (element) => {
+          const raw = element.getAttribute("width")?.trim() ?? ""
+          return /^\d+$/.test(raw) ? Number(raw) : null
+        },
+        renderHTML: (attributes) => {
+          const width = imageWidth(attributes)
+          return width === null ? {} : { width: String(width) }
+        }
       }
     }
   },
   addNodeView() {
+    // 一个图片节点视图盖三种态：未转存占位、阅读态渲染、编辑态可缩放（见 ImageBlock）
     return ReactNodeViewRenderer(ImageBlock, { stopEvent: stopForInteractive })
   },
   // 未转存的图片没有 src（只有 data-original-src），默认的 img[src] 规则会把它丢掉。
