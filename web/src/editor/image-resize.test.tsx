@@ -76,6 +76,8 @@ describe("图片手动缩放（编辑态手柄 + 宽度持久化）", () => {
       "figure[data-image-block] img"
     ) as HTMLImageElement
     expect(img.style.width).toBe("320px")
+    // 编辑态的 live DOM 与阅读态/服务端同口径：宽度也落到 HTML 属性上
+    expect(img).toHaveAttribute("width", "320")
     // 高恒自动：节点上没有 height，行内也不该有像素高度
     expect(img.style.height).toBe("")
     expect(img).not.toHaveAttribute("height")
@@ -108,6 +110,7 @@ describe("图片手动缩放（编辑态手柄 + 宽度持久化）", () => {
     ) as HTMLImageElement
     expect(img.style.width).toBe("")
     expect(img.style.height).toBe("")
+    expect(img).not.toHaveAttribute("width")
     // 没有宽度的图同样可以拖：手柄照出
     expect(
       container.querySelector('[data-resize-handle="bottom-right"]')
@@ -197,7 +200,7 @@ describe("图片手动缩放（编辑态手柄 + 宽度持久化）", () => {
     })
   })
 
-  it("未转存占位换成真图后，节点视图重建为可缩放视图", async () => {
+  it("未转存占位换成真图后即可缩放，不在 DOM 里留下旧卡片", async () => {
     let editor: Editor | null = null
     const { container } = render(
       <Harness
@@ -223,5 +226,41 @@ describe("图片手动缩放（编辑态手柄 + 宽度持久化）", () => {
     ) as HTMLImageElement
     expect(img.getAttribute("src")).toBe(UPLOADED)
     expect(screen.getByRole("img", { name: "架构图" })).toBe(img)
+    // 只有一块图片（占位卡片已消失）：过渡不能留下重叠的旧 DOM
+    expect(container.querySelectorAll("[data-image-block]")).toHaveLength(1)
+    expect(container.querySelector("[data-untransferred-image]")).toBeNull()
+  })
+
+  it("上传替换后撤销，回到未转存占位卡片", async () => {
+    let editor: Editor | null = null
+    const { container } = render(
+      <Harness
+        mode="edit"
+        content={UNTRANSFERRED_HTML}
+        onEditor={(instance) => {
+          editor = instance
+        }}
+      />
+    )
+    expect(await screen.findByText("未转存的图片")).toBeInTheDocument()
+
+    const instance = editor as unknown as Editor
+    instance.commands.setNodeSelection(imagePosition(instance))
+    instance.commands.updateAttributes("image", { src: UPLOADED })
+    await waitFor(() => {
+      expect(container.querySelector("[data-resize-container]")).not.toBeNull()
+    })
+    expect(screen.queryByText("未转存的图片")).toBeNull()
+
+    // 撤销这次替换：src 清空后必须重建回占位卡片，而不是留一张带手柄的空图
+    expect(instance.can().undo()).toBe(true)
+    instance.commands.undo()
+    await waitFor(() => {
+      expect(screen.getByText("未转存的图片")).toBeInTheDocument()
+    })
+    expect(container.querySelector("[data-resize-container]")).toBeNull()
+    expect(container.querySelector("[data-resize-handle]")).toBeNull()
+    expect(container.querySelector("figure[data-image-block]")).toBeNull()
+    expect(container.querySelectorAll("[data-image-block]")).toHaveLength(1)
   })
 })

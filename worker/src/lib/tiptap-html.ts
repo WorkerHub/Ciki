@@ -75,11 +75,18 @@ const ImportImage = Image.extend({
       ...this.parent?.(),
       width: {
         default: null,
+        // 与 web 的 imageWidth（web/src/editor/image-attributes.ts）逐条同口径：
+        // 只认正整数像素——字符串必须是纯数字，布尔/数组/小数串一律丢弃，
+        // 不猜用户意图（否则 width:true 会被 Number() 强转成 1）。
         renderHTML: (attributes) => {
-          const width = Number(attributes.width)
-          return Number.isFinite(width) && width > 0
-            ? { width: String(Math.round(width)) }
-            : {}
+          const raw = attributes.width
+          const value =
+            typeof raw === "string" && /^\d+$/.test(raw.trim())
+              ? Number(raw)
+              : raw
+          if (typeof value !== "number" || !Number.isFinite(value)) return {}
+          const width = Math.round(value)
+          return width > 0 ? { width: String(width) } : {}
         }
       },
       originalSrc: {

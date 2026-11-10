@@ -544,9 +544,11 @@
  * 手柄只在选中图片（ProseMirror 给节点视图 dom 加的 .ProseMirror-selectednode）
  * 时出现；阅读态永远不选中，所以读态一个手柄都看不到。
  * ------------------------------------------------------------------ */
+/* React 节点视图的壳默认撑满正文列：图片态收窄到图片宽度，选中框与手柄才能贴住
+   图片；未转存的占位卡片仍要整列，所以只匹配含 figure 的那个壳。 */
+.wiki-content .react-renderer.node-image:has(figure[data-image-block]),
 .wiki-content figure[data-image-block],
 .wiki-content [data-resize-wrapper] {
-  /* 收缩到图片实际宽度：选中框与右下角手柄才能贴住图片，而不是贴正文列 */
   width: fit-content;
   max-width: 100%;
 }
@@ -564,9 +566,7 @@
   transition: opacity 120ms ease;
 }
 
-.wiki-content
-  figure[data-image-block].ProseMirror-selectednode
-  [data-resize-handle] {
+.wiki-content .ProseMirror-selectednode [data-resize-handle] {
   opacity: 1;
   pointer-events: auto;
 }
