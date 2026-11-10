@@ -2,6 +2,7 @@ import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
 import { ImageOff, RefreshCw, Upload } from "lucide-react"
 import { useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { imageWidth } from "@/editor/image-view"
 import { describeApiError } from "@/lib/api"
 import { isSafeExternalUrl } from "@/lib/media"
 import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
@@ -39,6 +40,7 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
           src={src}
           alt={alt}
           title={(node.attrs.title as string | null) || undefined}
+          width={imageWidth(node.attrs) ?? undefined}
         />
       </NodeViewWrapper>
     )

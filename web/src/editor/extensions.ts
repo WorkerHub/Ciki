@@ -19,6 +19,7 @@ import {
   WikiTextStyle
 } from "@/editor/colors/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
+import { createImageNodeView, imageWidth } from "@/editor/image-view"
 
 /** lowlight 只在模块加载时建一次；common 覆盖了 Confluence 里常见语言。 */
 export const lowlight = createLowlight(common)
@@ -41,9 +42,17 @@ export const WikiCodeBlock = CodeBlockLowlight.extend({
   }
 })
 
+/** 未转存占位的 React 视图：阅读态与编辑态共用，模块里只建一次。 */
+const placeholderImageView = ReactNodeViewRenderer(ImageBlock, {
+  stopEvent: stopForInteractive
+})
+
 /**
  * 图片：额外两个属性承载「未转存」标记（与契约 §三 图片白名单同名），
  * 这样 contentHtml 读进来后能恢复成占位，而不是变成一个空图。
+ *
+ * width 是 @tiptap/extension-image 基类已声明的属性（不加 schema、不迁移），
+ * 这里只把口径收紧成「正整数像素」，见 image-view.ts 的 imageWidth。
  */
 export const WikiImage = Image.extend({
   addAttributes() {
@@ -62,11 +71,23 @@ export const WikiImage = Image.extend({
         parseHTML: (element) => element.hasAttribute("data-confluence-img"),
         renderHTML: (attributes) =>
           attributes.confluenceImg ? { "data-confluence-img": "true" } : {}
+      },
+      // 宽度只认裸整数像素：粘进来的 width="50%" 直接丢弃，回退自然尺寸
+      width: {
+        default: null,
+        parseHTML: (element) => {
+          const raw = element.getAttribute("width")?.trim() ?? ""
+          return /^\d+$/.test(raw) ? Number(raw) : null
+        },
+        renderHTML: (attributes) => {
+          const width = imageWidth(attributes)
+          return width === null ? {} : { width: String(width) }
+        }
       }
     }
   },
   addNodeView() {
-    return ReactNodeViewRenderer(ImageBlock, { stopEvent: stopForInteractive })
+    return (props) => createImageNodeView(props, placeholderImageView)
   },
   // 未转存的图片没有 src（只有 data-original-src），默认的 img[src] 规则会把它丢掉。
   parseHTML() {
