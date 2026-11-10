@@ -464,12 +464,12 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 **管理面一次性静态注册**（舰队侧动作，ciki 不代填、不调注册 API）：
 
-| 项       | 值                                                 |
-| -------- | -------------------------------------------------- |
-| 回调 URL | `https://<站点域名>/_waker/execute`                |
-| 任务名   | `monthly-r2-orphan-cleanup`                        |
-| cron     | `0 1 1 * *`                                        |
-| 时区     | `Asia/Shanghai`（= 北京时间每月 1 日 01:00，低峰） |
+| 项       | 值                                         |
+| -------- | ------------------------------------------ |
+| 回调 URL | `https://<站点域名>/_waker/execute`        |
+| 任务名   | `monthly-r2-orphan-cleanup`                |
+| cron     | `0 1 1 * *`                                |
+| 时区     | `Asia/Shanghai`（= 每月 1 日 01:00，低峰） |
 
 ### 鉴权
 

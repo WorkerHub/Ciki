@@ -56,7 +56,7 @@ export const CLEANUP_LOCK_TTL_MS = 30 * 60 * 1000
  * waker 管理面里注册的任务名（舰队侧一次性静态注册）。必须与平台里建的任务名
  * 逐字一致：receiver 按名字分发，不一致会回 404 `unknown_job`。
  * 注册信息：回调 URL `<站点域名>/_waker/execute`、cron `0 1 1 * *`、
- * 时区 `Asia/Shanghai`（= 北京时间每月 1 日 01:00）。
+ * 时区 `Asia/Shanghai`（= 每月 1 日 01:00）。
  */
 export const R2_CLEANUP_JOB_NAME = "monthly-r2-orphan-cleanup"
 
