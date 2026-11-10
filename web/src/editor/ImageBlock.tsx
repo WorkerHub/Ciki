@@ -76,15 +76,9 @@ export function ImageBlock({ node, updateAttributes, editor }: NodeViewProps) {
       data-image-block=""
       data-untransferred-image=""
     >
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="inline-flex items-center gap-1 text-xs font-medium">
-          <ImageOff className="size-3.5" aria-hidden="true" />
-          未转存的图片
-        </span>
-        <span className="text-xs opacity-80">
-          这份 Confluence 图片没有随剪贴板过来。装了 Ciki
-          插件可以自动补抓，也可以手动上传替换。
-        </span>
+      <div className="flex items-center gap-1 text-xs font-medium">
+        <ImageOff className="size-3.5" aria-hidden="true" />
+        未转存的图片
       </div>
       {originalSrc ? (
         <p className="mt-1 truncate text-xs opacity-80" title={originalSrc}>
