@@ -160,14 +160,15 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 `key` TEXT PK、`value` TEXT、`updated_at` TEXT。键与默认值：
 
-| key                            | 值               | 默认           |
-| ------------------------------ | ---------------- | -------------- |
-| site_name                      | 站点名称         | `Ciki`         |
-| setup_page_enabled             | `0` / `1`        | 初始化后写 `0` |
-| registration_enabled           | `true` / `false` | `true`         |
-| registration_approval_required | `true` / `false` | `true`         |
-| require_2fa                    | `true` / `false` | `false`        |
-| smtp_config                    | SMTP 配置 JSON   | 未设置         |
+| key                            | 值                                                                                  | 默认                           |
+| ------------------------------ | ----------------------------------------------------------------------------------- | ------------------------------ |
+| site_name                      | 站点名称                                                                            | `Ciki`                         |
+| setup_page_enabled             | `0` / `1`                                                                           | 初始化后写 `0`                 |
+| registration_enabled           | `true` / `false`                                                                    | `true`                         |
+| registration_approval_required | `true` / `false`                                                                    | `true`                         |
+| require_2fa                    | `true` / `false`                                                                    | `false`                        |
+| smtp_config                    | SMTP 配置 JSON                                                                      | 未设置                         |
+| r2_cleanup_lock                | 清理互斥锁 JSON（`{"token","startedAt","trigger","dryRun"}`），运行期存在、跑完即删 | 无（只有一轮清理在跑时才存在） |
 
 `site_name` 是站点作用域的单值（浏览器页签标题、品牌区文字、登录页标题），仅管理员可改，长度 1–32 字符、不含控制字符；未播种时读端回退 `Ciki`。
 
@@ -289,16 +290,16 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 ### r2_cleanup_runs
 
-| 列                                                                  | 类型          | 说明                                                                  |
-| ------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------- |
-| id                                                                  | TEXT PK       | UUID                                                                  |
-| started_at / finished_at                                            | TEXT NOT NULL | ISO 时间                                                              |
-| trigger                                                             | TEXT NOT NULL | `cron` / `waker` / `manual`                                           |
-| status                                                              | TEXT NOT NULL | `ok`（跑完）/ `skipped`（20 天幂等兜底命中）/ `failed`（扫描期异常）  |
-| dry_run                                                             | INTEGER       | 1 = 只算不删；dry_run 行不计入 20 天兜底、也不进「最近一轮」          |
-| scanned / referenced / deleted / young_skipped / failed / truncated | INTEGER       | 扫描数 / 引用数 / 删除数 / 未满 30 天跳过数 / 失败数 / 是否因上限截断 |
+| 列                                                                  | 类型          | 说明                                                                                   |
+| ------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------- |
+| id                                                                  | TEXT PK       | UUID                                                                                   |
+| started_at / finished_at                                            | TEXT NOT NULL | ISO 时间                                                                               |
+| trigger                                                             | TEXT NOT NULL | `cron` / `waker` / `manual`                                                            |
+| status                                                              | TEXT NOT NULL | `ok`（跑完）/ `skipped`（20 天幂等兜底命中，只有自动入口会有）/ `failed`（扫描期异常） |
+| dry_run                                                             | INTEGER       | 1 = 只算不删；dry_run 行不计入 20 天兜底、也不进「最近一轮」                           |
+| scanned / referenced / deleted / young_skipped / failed / truncated | INTEGER       | 扫描数 / 引用数 / 删除数 / 未满 30 天跳过数 / 失败数 / 是否因上限截断                  |
 
-索引 `(started_at)`。每轮一行，不含任何对象内容；清理自身不写其它表。
+索引 `(started_at)`。每轮一行，不含任何对象内容；清理自身除本表外只写 `system_settings` 的清理锁行（见「system_settings」与「POST /api/admin/r2-cleanup」），不动任何业务表。
 
 ### waker_executions
 
@@ -368,12 +369,16 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 #### POST /api/admin/r2-cleanup（管理员会话）
 
-手动触发一轮 R2 孤儿清理——§3 的验收通道，页面不提供按钮（curl 用）。
+手动触发一轮 R2 孤儿清理：跳板是「系统管理 → 数据库维护」页的两步 UI（第一步 dry run 预览、第二步实跑再确认；按钮与文案见前端单）。
 
 请求体可选：`{"dryRun": true}` 只算不删；缺省或 `false` 为真实删除。
 
-- 真实运行与两个自动入口同口径：距上次真实成功运行不足 20 天即跳过，回 `status:"skipped"`（计数全 0），仍记一行日志；`dryRun` 永不受该限制。
-- 200 返回本轮摘要（字段见下）；扫描期异常时失败行已落库，接口回 `500 {"error":"Cleanup failed"}`。
+- **手动实跑不受 20 天幂等闸约束**（定版第 4 条：该闸只约束 Cron / waker 两个自动入口），30 天龄规则照旧——因此手动接口不会再回 `status:"skipped"`。
+- **并发互斥**：同一时刻只许一轮清理在跑（自动或手动、真实或 dry run 都算）。已有在跑的一轮时回 `409 {"error":"Cleanup already running","code":"CLEANUP_IN_PROGRESS","retryAfter":<秒>}`，不扫、不删、不写日志行；`retryAfter` 是当前清理锁的剩余秒数（整数 ≥1），到点后以同样请求重试即可。
+- **单轮真删上限沿用 200**：触顶即停止删除、`deleted` 停在 200、`truncated: true`（扫描照常跑完，计数完整）。
+- 200 返回本轮摘要；扫描期异常时失败行已落库，接口回 `500 {"error":"Cleanup failed"}`。
+
+`{"dryRun": true}` 的 200：
 
 ```json
 {
@@ -387,11 +392,17 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "deleted": 5,
   "youngSkipped": 7,
   "failed": 0,
-  "truncated": false
+  "truncated": false,
+  "prunable": 5,
+  "prunableBytes": 7340032
 }
 ```
 
-字段口径：`scanned` = R2 对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数（`users.avatar_key` ∪ 全部页面与历史版本正文里的 `/api/files/<key>`，回收站页面同样计入；历史版本只有 gzip 的 JSON，扫描前先解压，尚未转换的旧行按原三列扫，口径与结果不因存储形态改变）；`deleted` = 本轮删除数（`dryRun` 时为「将删数」）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除。
+`{"dryRun": false}` 的 200 与上面逐字段相同，只是**不含** `prunable` / `prunableBytes`。
+
+字段口径：`scanned` = R2 对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数（`users.avatar_key` ∪ 全部页面与历史版本正文里的 `/api/files/<key>`，回收站页面同样计入；历史版本只有 gzip 的 JSON，扫描前先解压，尚未转换的旧行按原三列扫，口径与结果不因存储形态改变）；`deleted` = 本轮删除数（`dryRun` 时为「按 200 上限的将删数」，触顶同样置 `truncated`）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除；`prunable` = 满足「未被引用且 uploaded 距今 >30 天」的对象总数，**不受 200 上限截断**；`prunableBytes` = 上述对象的 R2 对象大小之和（字节）。
+
+`prunable` / `prunableBytes` 只出现在 dry run 响应里，不入日志表——实跑命中 200 上限时 `deleted` 会小于第一步看到的 `prunable`，这是「再点一次接着删」的正常状态（不是失败）：前端第二步据 `truncated: true` 提示「本轮已删 200 个，仍有剩余，可再跑一轮」。
 
 #### GET /api/admin/r2-cleanup（管理员会话）
 
@@ -409,11 +420,29 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
     "youngSkipped": 7,
     "failed": 0,
     "truncated": false
+  },
+  "running": {
+    "startedAt": "2026-11-08T17:00:00.000Z",
+    "trigger": "manual",
+    "dryRun": true,
+    "retryAfter": 900
   }
 }
 ```
 
-`lastRun` 是最近一轮**真实**运行（`dry_run=0` 且 `status<>"skipped"`），从未跑过为 `null`。这是「系统管理 → 数据库维护」页那一行摘要的唯一数据源（页面只显示这一行，不加说明文字）。
+`lastRun` 是最近一轮**真实**运行（`dry_run=0` 且 `status<>"skipped"`），从未跑过为 `null`。这是「系统管理 → 数据库维护」页那一行摘要的唯一数据源。
+
+`running` 是此刻的运行态，读 `system_settings` 的清理锁行、按 30 分钟 TTL 判它是否仍有效：
+
+| 字段                 | 类型                              | 口径                                                                 |
+| -------------------- | --------------------------------- | -------------------------------------------------------------------- |
+| `running`            | object \| null                    | `null` = 没人持有有效清理锁（无锁行，或锁已过期）                    |
+| `running.startedAt`  | string（ISO 8601）                | 持锁那一轮的起始时刻                                                 |
+| `running.trigger`    | `"cron"` / `"waker"` / `"manual"` | 持锁入口                                                             |
+| `running.dryRun`     | boolean                           | 持锁那一轮是否只算不删                                               |
+| `running.retryAfter` | number（整数 ≥1，秒）             | 锁剩余有效期；与 POST 的 409 `retryAfter` 同一算法，同一时刻取值相同 |
+
+`running` 与 `lastRun` 互不影响：前者只读锁行、后者只读日志表，有人正在跑也不会改变摘要行。前端在页面加载时按 `running` 禁用触发按钮并显示「清理进行中」，`null` 才可点。
 
 ### waker 回调（`POST /_waker/execute`，不走会话）
 
@@ -435,12 +464,12 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 **管理面一次性静态注册**（舰队侧动作，ciki 不代填、不调注册 API）：
 
-| 项       | 值                                                 |
-| -------- | -------------------------------------------------- |
-| 回调 URL | `https://<站点域名>/_waker/execute`                |
-| 任务名   | `monthly-r2-orphan-cleanup`                        |
-| cron     | `0 1 1 * *`                                        |
-| 时区     | `Asia/Shanghai`（= 北京时间每月 1 日 01:00，低峰） |
+| 项       | 值                                         |
+| -------- | ------------------------------------------ |
+| 回调 URL | `https://<站点域名>/_waker/execute`        |
+| 任务名   | `monthly-r2-orphan-cleanup`                |
+| cron     | `0 1 1 * *`                                |
+| 时区     | `Asia/Shanghai`（= 每月 1 日 01:00，低峰） |
 
 ### 鉴权
 
@@ -1407,6 +1436,6 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 页面读态渲染 `contentHtml`；编辑态使用 `contentJson`。外链图片以 `data-original-src` + `data-confluence-img` 呈现「未转存」。文字颜色/高亮/单元格底色在 `contentHtml` 里是 data 载具（见「服务端消毒规则」），由读态扩展还原成内联样式，前端不要另外拼颜色样式。
 - 代码块折叠：`content_html` 里三态由 `pre[data-collapsed]` 承载（`"true"` / `"false"` / 无此属性），读态由编辑器扩展还原成节点属性 `collapsed`。无属性时的初始状态由前端按代码行数自动决定（>20 行折叠、≤20 行展开）——这是前端行为，服务端不参与、也不在 `content_html` 里预判。折叠只影响显示：MD 派生仍是围栏代码块、`collapsed` 丢弃，属已知降级。
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
-- 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，只渲染一行（运行时间 + 五个计数），不加说明文字；触发清理没有按钮。
+- 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
 - 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、注册邮箱验证与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱验证码 2FA 与找回密码端点见「鉴权」）。

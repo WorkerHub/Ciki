@@ -36,7 +36,7 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 
 - **Spaces and member roles** — Every space has its own member list with `admin`, `editor` and `viewer` roles. Regular users only see spaces they belong to; site admins see all of them.
 - **Page tree** — A tree in the sidebar; drag to change hierarchy and order. Pages can move within a space, and a whole subtree can move to another space.
-- **Editor** — TipTap 2. Code blocks get light syntax highlighting, a language badge and a copy button (identical in edit and reading views), table columns are resizable, and images upload straight to R2.
+- **Editor** — TipTap 3. Code blocks get light syntax highlighting, a language badge and a copy button (identical in edit and reading views), table columns are resizable, and images upload straight to R2.
 - **Version history** — Every save creates a version record; open an old version and roll back. A rollback is itself recorded as a new version.
 - **Full-text search** — Search from the top bar matches both titles and bodies via FTS5 with CJK tokenization; results include snippets.
 - **Trash** — Deleting a page soft-deletes its whole subtree; restore it or delete it permanently. Permanent deletion also removes the version history.
@@ -51,7 +51,7 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 
 - **Backend**: Cloudflare Workers + Hono (TypeScript), D1 (SQLite) + FTS5 full-text search
 - **Frontend**: React 19 + Vite + TypeScript, Tailwind CSS v4, shadcn/ui (Nova style) + Kumo + Radix UI
-- **Editor**: TipTap 2 (StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline)
+- **Editor**: TipTap 3 (StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline)
 - **Storage**: D1 for pages, versions and users; R2 for images; the Worker also serves the frontend static assets
 - **Interaction**: react-resizable-panels (split panes), dnd-kit (page tree drag and drop), Zustand (state), Lucide (icons), Motion (animation)
 - **Tooling and deployment**: pnpm monorepo, GitHub Actions + Wrangler
@@ -162,15 +162,15 @@ Images in R2 are swept once a month: an object is deleted only when it is **not 
 
 There is exactly one switch — whether the GitHub Secret `WAKER_SIGNING_KEY` exists:
 
-- **Absent (default)**: the Worker's built-in Cron Trigger runs it, configured in `worker/wrangler.toml` as `0 17 1 * *` (UTC). Cloudflare cron is always interpreted in UTC and "01:00 Beijing time on the 1st" falls on the previous UTC month's last day, which a 5-field cron cannot express, so this is 17:00 UTC on the 1st = **01:00 Beijing time on the 2nd** (low-traffic, once a month). The waker callback then fails closed with `500 signing_key_missing`.
+- **Absent (default)**: the Worker's built-in Cron Trigger runs it, configured in `worker/wrangler.toml` as `0 17 1 * *` (UTC). Cloudflare cron is always interpreted in UTC and "01:00 in Asia/Shanghai on the 1st" falls on the previous UTC month's last day, which a 5-field cron cannot express, so this is 17:00 UTC on the 1st = **01:00 in Asia/Shanghai on the 2nd** (low-traffic, once a month). The waker callback then fails closed with `500 signing_key_missing`.
 - **Present**: waker platform callbacks drive it and `scheduled()` notices the key and steps aside (the `[triggers]` block stays, the key decides). Register one job once in the waker console:
 
-| Field        | Value                                                          |
-| ------------ | -------------------------------------------------------------- |
-| Callback URL | `https://<your-site-domain>/_waker/execute`                    |
-| Job name     | `monthly-r2-orphan-cleanup`                                    |
-| cron         | `0 1 1 * *`                                                    |
-| Timezone     | `Asia/Shanghai` (= 01:00 Beijing time on the 1st, low traffic) |
+| Field        | Value                                             |
+| ------------ | ------------------------------------------------- |
+| Callback URL | `https://<your-site-domain>/_waker/execute`       |
+| Job name     | `monthly-r2-orphan-cleanup`                       |
+| cron         | `0 1 1 * *`                                       |
+| Timezone     | `Asia/Shanghai` (= 01:00 on the 1st, low traffic) |
 
 Delete `WAKER_SIGNING_KEY` and redeploy to fall back to the built-in Cron. Every run appends one row to `{prefix}r2_cleanup_runs` in D1, and a real run that comes less than 20 days after the last successful one is skipped (with a skip row logged) so the two entries can never double-run.
 

@@ -18,7 +18,7 @@ const STACK = [
   ],
   [
     "编辑器",
-    "TipTap 2（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）"
+    "TipTap 3（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）"
   ],
   ["后端", "Cloudflare Workers + Hono，D1（SQLite）+ FTS5 全文检索"],
   ["图片", "Cloudflare R2，经 /api/files 会话校验后回源"],
@@ -36,19 +36,15 @@ export function AboutPage() {
           <Info className="size-4 text-muted-foreground" aria-hidden="true" />
           关于 ciki
         </h1>
-        <p className="text-xs text-muted-foreground">
-          把 Confluence 页面原样粘进来的团队 wiki。
-        </p>
       </header>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">这是什么</CardTitle>
           <CardDescription>
-            ciki 是给团队内部用的 wiki：从 Confluence
-            里选中内容复制，粘进编辑器就能保住标题层级、
-            代码块、表格合并与列宽、嵌套列表与任务勾选、链接与行内样式。页面按树组织，每次保存都会留下
-            可回滚的版本记录，正文进全文检索。
+            {
+              "ciki 是团队内部使用的 wiki。页面按树组织，编辑器支持标题、代码块、表格、任务列表与图片；每次保存都会留下版本记录，可随时回滚，正文支持全文检索。成员按空间协作，登录支持 Passkey 与两步验证，也可用浏览器插件把外部页面剪藏进来。"
+            }
           </CardDescription>
         </CardHeader>
       </Card>
@@ -83,9 +79,6 @@ export function AboutPage() {
             />
             构建信息
           </CardTitle>
-          <CardDescription>
-            版本号与构建时间由 CI 在构建时注入，源码里不写死。
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <dl className="grid gap-2 text-sm sm:grid-cols-[6rem_1fr] sm:gap-3">
@@ -108,23 +101,6 @@ export function AboutPage() {
             开源地址：{REPO_URL}
             <ExternalLink className="size-3.5" aria-hidden="true" />
           </a>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">粘贴保真的边界</CardTitle>
-          <CardDescription>
-            文字颜色与表格背景色不保留（列宽比例保留）；Info / Warning
-            等面板降级为带标签的引用块； Confluence
-            附件图片不会自动转存，需要手动上传替换；某些 Confluence
-            插件表格的表头本身 无法被选中，因此不会进入剪贴板。
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-xs text-muted-foreground">
-            顶栏的「帮助」里有完整支持矩阵与操作快捷键。
-          </p>
         </CardContent>
       </Card>
     </div>

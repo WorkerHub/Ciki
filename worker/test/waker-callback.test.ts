@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { R2_CLEANUP_JOB_NAME } from "../src/core/r2-cleanup"
+import { CLEANUP_LOCK_KEY } from "../src/db/queries/r2-cleanup"
 import { initializedContext, request } from "./support/app"
 
 const SIGNING_KEY = "unit-test-signing-key"
@@ -195,5 +196,50 @@ describe("waker 回调：验签与防重放", () => {
     expect(second.status).toBe(200)
     expect(second.body.duplicate).toBe(true)
     expect(countRuns(db)).toBe(1)
+  })
+})
+
+describe("waker 回调：撞上另一轮清理的锁", () => {
+  it("另一轮持锁 → 200 且降级为 skipped，不跑、不写日志行", async () => {
+    const { env, db, r2 } = await initializedContext({
+      WAKER_SIGNING_KEY: SIGNING_KEY
+    })
+    await r2.putWithUploaded(
+      "orphan.png",
+      new Uint8Array([1]),
+      new Date(Date.now() - 31 * 24 * 60 * 60 * 1000)
+    )
+    // 管理员正在手动实跑：锁行未过期。
+    db.db
+      .prepare(
+        `INSERT INTO ciki_system_settings (key, value, updated_at)
+         VALUES (?, ?, ?)`
+      )
+      .run(
+        CLEANUP_LOCK_KEY,
+        JSON.stringify({
+          token: "manual-holder",
+          startedAt: new Date().toISOString(),
+          trigger: "manual",
+          dryRun: false
+        }),
+        new Date().toISOString()
+      )
+
+    const res = await send(env)
+    expect(res.status).toBe(200)
+    expect(res.body.ok).toBe(true)
+    expect(res.body.skipped).toBe(true)
+    expect(res.body.reason).toBe("cleanup_in_progress")
+    expect(countRuns(db)).toBe(0)
+    expect(r2.store.has("orphan.png")).toBe(true)
+
+    // 交给平台的响应体同样带 skipped（平台按 2xx 判成功，不会重试）。
+    const ledger = db.db
+      .prepare(
+        "SELECT response_json FROM ciki_waker_executions WHERE execution_id = 'exec-1'"
+      )
+      .get() as { response_json: string }
+    expect(JSON.parse(ledger.response_json)).toMatchObject({ skipped: true })
   })
 })
