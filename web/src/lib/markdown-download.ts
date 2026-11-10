@@ -1,12 +1,11 @@
 /**
- * 阅读页「下载 .md」：把页面详情里的服务端派生 MD 落成本地文件。
+ * 阅读页「下载 .md」：内容由服务端组装，前端只触发一次下载。
  *
- * 内容口径（规格 §一.5）：标题一级标题 + content_md。MD 是派生件，这里只做
- * 拼装与浏览器下载，绝不解析、改写或回写正文；空正文只留标题行。
+ * 服务端按该页 MD 是否引用站内托管图片自动分流：无站内图回 `.md`，有则回 zip
+ * （`<标题>.md` + `images/`，包内链接已相对化）。文件名由服务端写在
+ * Content-Disposition 里，取不到时退回本地按标题拼的名字；正文绝不在这里拼装。
  */
-import type { PageDetail } from "@/lib/api"
-
-type MarkdownPage = Pick<PageDetail, "title" | "contentMd">
+import { type PageDetail, pagesApi } from "@/lib/api"
 
 /** 文件名里不能出现的字符：换成 `-`，避免下载失败或被截断。 */
 const ILLEGAL_FILENAME = /[\\/:*?"<>|]/g
@@ -18,7 +17,7 @@ function stripControlChars(value: string): string {
     .join("")
 }
 
-/** 文件名 = 页面标题.md；标题清不出一段可用名字时退回「未命名页面」。 */
+/** 文件名 = 页面标题.md；只在服务端没给文件名时兜底。 */
 export function markdownFilename(title: string): string {
   const cleaned = stripControlChars(title)
     .replace(ILLEGAL_FILENAME, "-")
@@ -28,28 +27,67 @@ export function markdownFilename(title: string): string {
 }
 
 /**
- * 标题行 + 空行 + content_md，末尾恰好一个换行。
- * content_md 尾部自带空行时先去掉，保证与读接口返回的 markdown 相比只多标题行。
+ * RFC 5987 的编码值：`UTF-8''%E4%B8%AD.md`，charset 与语言标记之后才是文件名。
+ * 只有 UTF-8 认（别的 charset 按 latin-1 解会出乱码），不合形态的一律返回
+ * null 交给 `filename` 兜底；百分号编码残缺时退回原串，总比整次下载没有文件名好。
  */
-export function markdownDocument(page: MarkdownPage): string {
-  const heading = `# ${page.title.trim()}`
-  const body = page.contentMd.trimEnd()
-  return body ? `${heading}\n\n${body}\n` : `${heading}\n`
+function decodeExtendedValue(raw: string): string | null {
+  const unquoted = raw.trim().replace(/^"(.*)"$/s, "$1")
+  const [charset, , ...value] = unquoted.split("'")
+  if (value.length === 0 || charset?.toLowerCase() !== "utf-8") return null
+  const encoded = value.join("'").trim()
+  if (!encoded) return null
+  try {
+    return decodeURIComponent(encoded)
+  } catch {
+    return encoded
+  }
+}
+
+/**
+ * 从 Content-Disposition 里取文件名：先 `filename*`（RFC 5987，charset 必须是
+ * UTF-8，值按百分号编码还原），再 `filename`（ASCII 兜底）；都没有时返回 null，
+ * 由调用方按标题兜底。
+ */
+export function dispositionFilename(header: string | null): string | null {
+  if (!header) return null
+  const extended = /filename\*\s*=\s*([^;]+)/i.exec(header)
+  const fromExtended = extended ? decodeExtendedValue(extended[1]) : null
+  if (fromExtended) return fromExtended
+  // 参数名必须从 `;` 或头部开头起算：否则 `filename*=…` 里的 `filename` 会被误命中
+  const plain = /(?:^|;)\s*filename\s*=\s*("[^"]*"|[^;]+)/i.exec(header)
+  if (!plain) return null
+  const name = plain[1]
+    .trim()
+    .replace(/^"(.*)"$/s, "$1")
+    .trim()
+  return name || null
 }
 
 /** 触发一次本地下载（Blob + 临时链接触发，读完即释放）。 */
-export function downloadMarkdown(page: MarkdownPage): void {
-  const blob = new Blob([markdownDocument(page)], {
-    type: "text/markdown;charset=utf-8"
-  })
+export function saveBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement("a")
   anchor.href = url
-  anchor.download = markdownFilename(page.title)
+  anchor.download = filename
   anchor.style.display = "none"
   document.body.append(anchor)
   anchor.click()
   anchor.remove()
   // 立刻 revoke 会让个别浏览器拿不到内容：让出一轮事件循环再释放
   window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
+/**
+ * 下载当前页面的 Markdown 产物（`.md` 或含站内图时的 zip）。
+ * 只发一次请求；失败原样抛出，由调用方按 describeApiError 的口径提示。
+ */
+export async function downloadPageMarkdown(
+  page: Pick<PageDetail, "id" | "title">
+): Promise<void> {
+  const { blob, contentDisposition } = await pagesApi.download(page.id)
+  saveBlob(
+    blob,
+    dispositionFilename(contentDisposition) ?? markdownFilename(page.title)
+  )
 }

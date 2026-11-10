@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest"
-import { ApiError, describeApiError } from "@/lib/api"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { ApiError, describeApiError, pagesApi } from "@/lib/api"
 import { describeWebAuthnError } from "@/lib/webauthn"
 
 /**
@@ -309,6 +309,64 @@ describe("describeApiError：找回密码的三个入口", () => {
     expect(
       describeApiError(apiError(401, "Nope", "/auth/password/verify"))
     ).toBe("验证未通过，请重试。")
+  })
+})
+
+/** 阅读页「下载 .md」的传输层：一条 GET 拿二进制，错误仍是 JSON 口径。 */
+function stubFetch(response: Response) {
+  const fetchMock = vi.fn<
+    (url: string, init?: RequestInit) => Promise<Response>
+  >(async () => response)
+  vi.stubGlobal("fetch", fetchMock)
+  return fetchMock
+}
+
+describe("pagesApi.download：服务端分流的二进制下载", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("请求 /pages/:id/download，带会话 Cookie，回 blob 与 Content-Disposition", async () => {
+    const fetchMock = stubFetch(
+      new Response("PK", {
+        status: 200,
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="ciki-page.zip"; filename*=UTF-8''${encodeURIComponent("部署.zip")}`
+        }
+      })
+    )
+
+    const result = await pagesApi.download("p1")
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/pages/p1/download")
+    expect(init?.method).toBe("GET")
+    expect(init?.credentials).toBe("include")
+    expect(init?.cache).toBe("no-store")
+    expect(result.contentDisposition).toContain("filename*=UTF-8")
+    expect(result.blob.type).toBe("application/zip")
+    expect(await result.blob.text()).toBe("PK")
+  })
+
+  it("非 2xx 与 JSON 请求同口径抛 ApiError，走既有错误提示", async () => {
+    stubFetch(
+      new Response(
+        JSON.stringify({ error: "Not found", code: "PAGE_NOT_FOUND" }),
+        { status: 404, headers: { "Content-Type": "application/json" } }
+      )
+    )
+
+    const failure = await pagesApi
+      .download("p9")
+      .catch((error: unknown) => error)
+
+    expect(failure).toBeInstanceOf(ApiError)
+    expect((failure as ApiError).status).toBe(404)
+    expect((failure as ApiError).code).toBe("PAGE_NOT_FOUND")
+    expect((failure as ApiError).path).toBe("/pages/p9/download")
+    expect(describeApiError(failure)).toBe("对象不存在，或已被删除。")
   })
 })
 
