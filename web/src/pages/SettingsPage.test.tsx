@@ -30,16 +30,25 @@ vi.mock("@/lib/api", async (importOriginal) => {
       changePassword: vi.fn(),
       importToken: vi.fn(),
       createImportToken: vi.fn(),
-      revokeImportToken: vi.fn()
+      revokeImportToken: vi.fn(),
+      readToken: vi.fn(),
+      createReadToken: vi.fn(),
+      revokeReadToken: vi.fn()
     }
   }
 })
 
 const { authApi, meApi } = await import("@/lib/api")
 
-// 设置页里的导入令牌卡挂载时会拉一次状态：给默认值，别让旧用例打到真 fetch。
+// 设置页里的两张令牌卡挂载时各拉一次状态：给默认值，别让旧用例打到真 fetch。
 beforeEach(() => {
   vi.mocked(meApi.importToken).mockResolvedValue({
+    active: false,
+    createdAt: null,
+    lastUsedAt: null,
+    revokedAt: null
+  })
+  vi.mocked(meApi.readToken).mockResolvedValue({
     active: false,
     createdAt: null,
     lastUsedAt: null,
@@ -219,7 +228,7 @@ describe("受限会话在配置完成后解除", () => {
   })
 })
 
-describe("导入令牌卡接入", () => {
+describe("令牌卡接入", () => {
   beforeEach(() => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
   })
@@ -230,9 +239,21 @@ describe("导入令牌卡接入", () => {
 
     expect(await screen.findByText("导入令牌")).toBeInTheDocument()
     expect(meApi.importToken).toHaveBeenCalledTimes(1)
+    // 两张卡都处于空态：各自一个「生成令牌」，互不抢对方的按钮
     expect(
-      await screen.findByRole("button", { name: "生成令牌" })
-    ).toBeInTheDocument()
+      await screen.findAllByRole("button", { name: "生成令牌" })
+    ).toHaveLength(2)
+  })
+
+  it("只读接口令牌卡与导入令牌并列，各自拉自己的状态", async () => {
+    setUser({ totpEnabled: true, passkeyCount: 0, emailOtpEnabled: false })
+    renderSettings()
+
+    expect(await screen.findByText("只读接口令牌")).toBeInTheDocument()
+    expect(await screen.findByText("还没有只读接口令牌")).toBeInTheDocument()
+    expect(meApi.readToken).toHaveBeenCalledTimes(1)
+    // 两张卡各发各的：只读卡的存在不改变导入卡的状态来源
+    expect(meApi.importToken).toHaveBeenCalledTimes(1)
   })
 })
 

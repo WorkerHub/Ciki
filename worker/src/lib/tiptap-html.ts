@@ -417,21 +417,32 @@ function validateContent(
 }
 
 /**
- * TipTap JSON → HTML 字符串。结构不合法时抛 TiptapRenderError（路由转 400）。
- * 输出的 HTML 仍是「原样渲染」的结果，安全边界在 lib/sanitize.ts。
+ * TipTap JSON → ProseMirror 节点树（按编辑器 schema 校验后构建）。
+ *
+ * 结构不合法（未知节点/属性、根不是 doc）时抛 TiptapRenderError。HTML 渲染与
+ * Markdown 派生（lib/tiptap-markdown.ts）共用这一份校验与同一棵节点树：两条输出
+ * 口径只有一套「什么算合法文档」的判断，不各写一份。
  */
-export function renderTiptapHtml(json: unknown): string {
+export function parseTiptapDoc(json: unknown): ProseMirrorNode {
   if (!isPlainObject(json) || json.type !== "doc") {
     throw new TiptapRenderError("contentJson must be a doc node")
   }
   const docSchema = schema()
   try {
     validateContent(docSchema, json, "doc", 0)
-    return serialize(ProseMirrorNode.fromJSON(docSchema, json as JSONContent))
+    return ProseMirrorNode.fromJSON(docSchema, json as JSONContent)
   } catch (err) {
     if (err instanceof TiptapRenderError) throw err
     throw new TiptapRenderError(
       err instanceof Error ? err.message : "contentJson cannot be rendered"
     )
   }
+}
+
+/**
+ * TipTap JSON → HTML 字符串。结构不合法时抛 TiptapRenderError（路由转 400）。
+ * 输出的 HTML 仍是「原样渲染」的结果，安全边界在 lib/sanitize.ts。
+ */
+export function renderTiptapHtml(json: unknown): string {
+  return serialize(parseTiptapDoc(json))
 }

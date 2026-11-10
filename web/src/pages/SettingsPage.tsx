@@ -11,6 +11,7 @@ import QRCode from "qrcode"
 import { useCallback, useEffect, useState } from "react"
 import { useNavigate } from "react-router"
 import { ImportTokenCard } from "@/components/ImportTokenCard"
+import { ReadTokenCard } from "@/components/ReadTokenCard"
 import { ThemeSegmented } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -726,6 +727,8 @@ export function SettingsPage() {
       </Card>
 
       <ImportTokenCard />
+
+      <ReadTokenCard />
 
       <Card>
         <CardHeader>
