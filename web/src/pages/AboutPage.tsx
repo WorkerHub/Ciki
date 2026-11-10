@@ -7,7 +7,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { formatDateTime } from "@/lib/format"
+import { formatIsoUtc } from "@/lib/format"
 
 const REPO_URL = "https://github.com/WorkerHub/Ciki"
 
@@ -96,7 +96,7 @@ export function AboutPage() {
             <dt className="text-xs font-medium text-muted-foreground">
               构建时间
             </dt>
-            <dd>{formatDateTime(__APP_BUILD_TIME__)}（北京时间）</dd>
+            <dd>{formatIsoUtc(__APP_BUILD_TIME__)}</dd>
           </dl>
           <Separator />
           <a
