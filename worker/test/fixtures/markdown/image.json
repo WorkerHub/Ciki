@@ -1,0 +1,36 @@
+{
+  "type": "doc",
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "下面是三张图："
+        }
+      ]
+    },
+    {
+      "type": "image",
+      "attrs": {
+        "src": "/api/files/pages/a.png",
+        "alt": "站内图"
+      }
+    },
+    {
+      "type": "image",
+      "attrs": {
+        "src": "https://example.com/b.png",
+        "alt": "外链图"
+      }
+    },
+    {
+      "type": "image",
+      "attrs": {
+        "src": null,
+        "alt": "未转存",
+        "originalSrc": "https://cdn.example.com/c.png"
+      }
+    }
+  ]
+}
