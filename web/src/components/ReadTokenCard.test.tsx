@@ -69,7 +69,7 @@ describe("只读接口令牌卡", () => {
     render(<ReadTokenCard />)
 
     expect(await screen.findByText("生效中")).toBeInTheDocument()
-    // formatDateTime 统一按北京时间（UTC+8）展示
+    // formatDateTime 统一按 Asia/Shanghai（UTC+8）展示
     expect(screen.getByText(/^创建于 /)).toHaveTextContent(
       "创建于 2026-11-10 22:10"
     )

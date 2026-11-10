@@ -291,6 +291,29 @@ export interface R2CleanupSummary {
   truncated: boolean
 }
 
+/** 此刻正持锁的那一轮清理（读锁行 + 按 TTL 判有效）；过期锁不算在跑。 */
+export interface R2CleanupRunning {
+  startedAt: string
+  trigger: R2CleanupSummary["trigger"]
+  dryRun: boolean
+  /** 锁剩余秒数，与 POST 409 的 retryAfter 同一算法。 */
+  retryAfter: number
+}
+
+/** GET /admin/r2-cleanup：最近一轮摘要 + 运行态，两者互不影响。 */
+export interface R2CleanupStatus {
+  lastRun: R2CleanupSummary | null
+  running: R2CleanupRunning | null
+}
+
+/** 手动触发一轮清理的返回；prunable 两项只在 dry run 响应里出现。 */
+export interface R2CleanupRunResult extends R2CleanupSummary {
+  /** 不受单轮 200 上限截断的可清理总数（dryRun=true 才有）。 */
+  prunable?: number
+  /** 上述可清理对象的字节数之和（dryRun=true 才有）。 */
+  prunableBytes?: number
+}
+
 export interface SessionInfo {
   id: string
   createdAt: string
@@ -820,8 +843,10 @@ export const adminApi = {
     api.post<{ success: true }>(`/admin/users/${id}/reject`),
   runAsAdmin: () => api.post<SetupResult>("/admin/setup"),
   /** 最近一轮真实清理（排除 dry-run 与被防双跑守卫跳过的运行）。 */
-  r2Cleanup: () =>
-    api.get<{ lastRun: R2CleanupSummary | null }>("/admin/r2-cleanup"),
+  r2Cleanup: () => api.get<R2CleanupStatus>("/admin/r2-cleanup"),
+  /** 手动触发清理：dryRun=true 只算不删，false 走真实删除。 */
+  runR2Cleanup: (dryRun: boolean) =>
+    api.post<R2CleanupRunResult>("/admin/r2-cleanup", { dryRun }),
   spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
@@ -917,6 +942,9 @@ export function describeApiError(error: unknown): string {
       return "每页最新的一条版本不能删除。"
     case "RETENTION_UNLIMITED":
       return "当前设置为不限，没有可修剪的版本。"
+    case "CLEANUP_IN_PROGRESS":
+      // 倒计时由数据库维护页的「进行中」提示行按 retryAfter 给出，这里只说状态
+      return "清理正在进行，请稍后再试。"
     case "REVISION_UNRENDERABLE":
       return "这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。"
     case "PAGE_MOVE_CYCLE":
@@ -1020,5 +1048,10 @@ export function describeApiError(error: unknown): string {
   }
   if (error.status === 413) return "内容太大，服务器拒绝了这次请求。"
   if (error.status === 429) return "操作太频繁，请稍后再试。"
+  // 清理接口扫描期异常回 500 {"error":"Cleanup failed"}；与同文件其余按原文匹配的
+  // 规则一致，这里认的是文案而不是端点，别把英文原文直接摆给管理员
+  if (error.status === 500 && /^cleanup failed$/i.test(error.message)) {
+    return "清理失败，请稍后重试。"
+  }
   return error.message || "请求失败，请稍后重试。"
 }

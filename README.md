@@ -36,7 +36,7 @@ Ciki 是团队内部使用的 wiki：页面按空间与树形层级组织，支�
 
 - **多空间与成员权限** — 每个空间有独立的成员名单，角色分 `admin` / `editor` / `viewer`；普通用户只看得见自己加入的空间，站点管理员可见全部。
 - **页面树** — 侧边栏树形组织，拖拽调整层级与顺序；页面可在空间内移动，也可把整棵子树移到别的空间。
-- **编辑器** — TipTap 2；代码块浅色高亮、语言角标与复制按钮（编辑态与阅读态一致），表格可拖拽列宽，图片直接上传到 R2。
+- **编辑器** — TipTap 3；代码块浅色高亮、语言角标与复制按钮（编辑态与阅读态一致），表格可拖拽列宽，图片直接上传到 R2。
 - **版本历史** — 每次保存生成一条版本记录，可查看旧版并回滚；回滚本身也生成一条新版本。
 - **全文检索** — 顶栏搜索框，标题与正文都命中，FTS5 + CJK 分词，结果页给出命中片段。
 - **回收站** — 删除页面时整棵子树一起软删除，可恢复或彻底删除；彻底删除会连版本历史一起清掉。
@@ -51,7 +51,7 @@ Ciki 是团队内部使用的 wiki：页面按空间与树形层级组织，支�
 
 - **后端**: Cloudflare Workers + Hono（TypeScript），D1（SQLite）+ FTS5 全文检索
 - **前端**: React 19 + Vite + TypeScript，Tailwind CSS v4，shadcn/ui（Nova 风格）+ Kumo + Radix UI
-- **编辑器**: TipTap 2（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）
+- **编辑器**: TipTap 3（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）
 - **存储**: D1 存页面、版本与用户数据，R2 存图片，Worker 同时托管前端静态资源
 - **交互基础**: react-resizable-panels（分栏）、dnd-kit（页面树拖拽）、Zustand（状态）、Lucide（图标）、Motion（动效）
 - **工程与部署**: pnpm monorepo，GitHub Actions + Wrangler
@@ -162,15 +162,15 @@ R2 里的图片每月自动清理一轮孤儿对象：只删「不在引用集�
 
 触发方式只有一个开关——GitHub Secret 里**有没有** `WAKER_SIGNING_KEY`：
 
-- **没配（默认）**：走 Worker 内置 Cron Trigger，`worker/wrangler.toml` 里是 `0 17 1 * *`（UTC）。Cloudflare Cron 只按 UTC 解释，而「北京时间每月 1 日凌晨」落在 UTC 上个月最后一天、5 字段 cron 表达不了，所以取 UTC 每月 1 日 17:00 = **北京时间每月 2 日 01:00**（凌晨低峰、每月一次）。waker 触发口此时 fail closed（回 `500 signing_key_missing`）。
+- **没配（默认）**：走 Worker 内置 Cron Trigger，`worker/wrangler.toml` 里是 `0 17 1 * *`（UTC）。Cloudflare Cron 只按 UTC 解释，而「`Asia/Shanghai` 时区每月 1 日凌晨」落在 UTC 上个月最后一天、5 字段 cron 表达不了，所以取 UTC 每月 1 日 17:00 = **`Asia/Shanghai` 每月 2 日 01:00**（凌晨低峰、每月一次）。waker 触发口此时 fail closed（回 `500 signing_key_missing`）。
 - **配了**：由 waker 平台回调驱动，内置 Cron 的 `scheduled()` 检测到 key 存在会自行让路（`[triggers]` 配置保留，靠 key 有无让路）。在 waker 管理面一次性静态注册一项：
 
-| 项       | 值                                                 |
-| -------- | -------------------------------------------------- |
-| 回调 URL | `https://<你的站点域名>/_waker/execute`            |
-| 任务名   | `monthly-r2-orphan-cleanup`                        |
-| cron     | `0 1 1 * *`                                        |
-| 时区     | `Asia/Shanghai`（= 北京时间每月 1 日 01:00，低峰） |
+| 项       | 值                                         |
+| -------- | ------------------------------------------ |
+| 回调 URL | `https://<你的站点域名>/_waker/execute`    |
+| 任务名   | `monthly-r2-orphan-cleanup`                |
+| cron     | `0 1 1 * *`                                |
+| 时区     | `Asia/Shanghai`（= 每月 1 日 01:00，低峰） |
 
 删掉 `WAKER_SIGNING_KEY` 重新部署即回到内置 Cron。每轮结束都会往 D1 的 `{prefix}r2_cleanup_runs` 写一行日志；距上次真实成功运行不足 20 天的触发会被跳过（并记一行跳过日志），避免两个入口双跑。
 

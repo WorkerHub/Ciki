@@ -369,3 +369,22 @@ describe("pagesApi.download：服务端分流的二进制下载", () => {
     expect(describeApiError(failure)).toBe("对象不存在，或已被删除。")
   })
 })
+
+describe("describeApiError：孤儿图片清理接口", () => {
+  it("另一轮清理在跑（409）→ 中文提示，不摆英文原文", () => {
+    const error = apiError(
+      409,
+      "Cleanup already running",
+      "/admin/r2-cleanup",
+      "CLEANUP_IN_PROGRESS",
+      42
+    )
+    expect(describeApiError(error)).toBe("清理正在进行，请稍后再试。")
+    expect(describeApiError(error)).not.toContain("Cleanup")
+  })
+
+  it("扫描期异常（500 Cleanup failed）→ 中文提示", () => {
+    const error = apiError(500, "Cleanup failed", "/admin/r2-cleanup")
+    expect(describeApiError(error)).toBe("清理失败，请稍后重试。")
+  })
+})

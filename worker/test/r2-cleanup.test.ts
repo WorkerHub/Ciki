@@ -1,11 +1,19 @@
 /**
  * 月度 R2 孤儿清理（规格 §3）的端到端测试：
  * 引用集四类来源、30 天门槛、删除上限与截断、单个失败不中断、20 天幂等兜底、
- * dry_run 只算不删、日志行、管理接口与 scheduled 的让路。
+ * dry_run 只算不删、日志行、管理接口与 scheduled 的让路；
+ * 手动入口另测：并发互斥（撞锁 409 / 过期接管 / 锁必释放）、绕过 20 天闸、
+ * dry run 的可清理数与总大小、GET 的运行态。
  */
 import { describe, expect, it } from "vitest"
 import handler from "../src/index"
-import { DELETE_LIMIT_PER_RUN, runR2Cleanup } from "../src/core/r2-cleanup"
+import {
+  CLEANUP_LOCK_TTL_MS,
+  DELETE_LIMIT_PER_RUN,
+  R2CleanupBusyError,
+  runR2Cleanup
+} from "../src/core/r2-cleanup"
+import { CLEANUP_LOCK_KEY } from "../src/db/queries/r2-cleanup"
 import {
   adminSession,
   initializedContext,
@@ -134,6 +142,40 @@ function lastRunRow(db: Db) {
   }
 }
 
+/** 直接写一行清理锁：模拟「另一轮正在跑」，或一条过期锁。 */
+function writeLock(
+  db: Db,
+  ageMs: number,
+  overrides: Partial<{ trigger: string; dryRun: boolean }> = {}
+): void {
+  const now = new Date()
+  const value = JSON.stringify({
+    token: "holder-token",
+    startedAt: new Date(now.getTime() - ageMs).toISOString(),
+    trigger: overrides.trigger ?? "cron",
+    dryRun: overrides.dryRun ?? false
+  })
+  db.db
+    .prepare(
+      `INSERT INTO ciki_system_settings (key, value, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+    )
+    .run(CLEANUP_LOCK_KEY, value, now.toISOString())
+}
+
+function clearLock(db: Db): void {
+  db.db
+    .prepare("DELETE FROM ciki_system_settings WHERE key = ?")
+    .run(CLEANUP_LOCK_KEY)
+}
+
+function lockValue(db: Db): string | undefined {
+  const row = db.db
+    .prepare("SELECT value FROM ciki_system_settings WHERE key = ?")
+    .get(CLEANUP_LOCK_KEY) as { value: string } | undefined
+  return row?.value
+}
+
 describe("引用集：头像 + 页面当前版本（JSON/HTML）+ 历史版本 + 回收站", () => {
   it("命中引用集的一律保留，只删「未引用且 >30 天」的对象", async () => {
     const { env, db, r2 } = await initializedContext()
@@ -164,7 +206,8 @@ describe("引用集：头像 + 页面当前版本（JSON/HTML）+ 历史版本 +
 
     const summary = await runR2Cleanup(env, {
       trigger: "manual",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
 
     expect(summary.status).toBe("ok")
@@ -208,7 +251,8 @@ describe("引用集：头像 + 页面当前版本（JSON/HTML）+ 历史版本 +
     }
     const summary = await runR2Cleanup(env, {
       trigger: "manual",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
     expect(summary.scanned).toBe(10)
     expect(summary.deleted).toBe(9)
@@ -228,7 +272,8 @@ describe("引用集：key 形状与 #24 的前缀 key 解耦", () => {
 
     const summary = await runR2Cleanup(env, {
       trigger: "manual",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
 
     expect(summary.referenced).toBe(2)
@@ -251,11 +296,13 @@ describe("引用集：gzip 化的版本行同样算引用（迁移前后口径�
 
     const beforeSummary = await runR2Cleanup(before.env, {
       trigger: "manual",
-      dryRun: true
+      dryRun: true,
+      rerunGuard: "enforce"
     })
     const afterSummary = await runR2Cleanup(after.env, {
       trigger: "manual",
-      dryRun: true
+      dryRun: true,
+      rerunGuard: "enforce"
     })
 
     expect(afterSummary.referenced).toBe(beforeSummary.referenced)
@@ -266,7 +313,8 @@ describe("引用集：gzip 化的版本行同样算引用（迁移前后口径�
     await seedOldObject(after.r2, REVISION_KEY)
     const real = await runR2Cleanup(after.env, {
       trigger: "manual",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
     expect(real.deleted).toBe(0)
     expect(after.r2.store.has(REVISION_KEY)).toBe(true)
@@ -278,7 +326,11 @@ describe("dry_run：只算不删", () => {
     const { env, db, r2 } = await initializedContext()
     await seedOldObject(r2, OLD_ORPHAN)
 
-    const summary = await runR2Cleanup(env, { trigger: "manual", dryRun: true })
+    const summary = await runR2Cleanup(env, {
+      trigger: "manual",
+      dryRun: true,
+      rerunGuard: "enforce"
+    })
 
     expect(summary.dryRun).toBe(true)
     expect(summary.deleted).toBe(1)
@@ -292,8 +344,10 @@ describe("dry_run：只算不删", () => {
       headers: { cookie }
     })
     expect(res.status).toBe(200)
+    // GET 形状按冻结契约多了 running（此刻无锁 → null），lastRun 口径不变。
     expect((await res.json()) as { lastRun: unknown }).toEqual({
-      lastRun: null
+      lastRun: null,
+      running: null
     })
   })
 })
@@ -313,7 +367,8 @@ describe("防双跑：20 天幂等兜底", () => {
 
     const skipped = await runR2Cleanup(env, {
       trigger: "cron",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
     expect(skipped.status).toBe("skipped")
     expect(skipped.deleted).toBe(0)
@@ -321,7 +376,11 @@ describe("防双跑：20 天幂等兜底", () => {
     expect(countRuns(db)).toBe(2)
     expect(lastRunRow(db).status).toBe("skipped")
 
-    const dry = await runR2Cleanup(env, { trigger: "manual", dryRun: true })
+    const dry = await runR2Cleanup(env, {
+      trigger: "manual",
+      dryRun: true,
+      rerunGuard: "enforce"
+    })
     expect(dry.status).toBe("ok")
     expect(dry.deleted).toBe(1)
   })
@@ -340,7 +399,8 @@ describe("防双跑：20 天幂等兜底", () => {
 
     const summary = await runR2Cleanup(env, {
       trigger: "waker",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
     expect(summary.status).toBe("ok")
     expect(summary.deleted).toBe(1)
@@ -359,7 +419,8 @@ describe("执行安全：删除上限与单个失败", () => {
 
     const summary = await runR2Cleanup(env, {
       trigger: "manual",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
 
     expect(summary.scanned).toBe(total)
@@ -377,7 +438,8 @@ describe("执行安全：删除上限与单个失败", () => {
 
     const summary = await runR2Cleanup(env, {
       trigger: "manual",
-      dryRun: false
+      dryRun: false,
+      rerunGuard: "enforce"
     })
 
     expect(summary.status).toBe("ok")
@@ -420,7 +482,8 @@ describe("管理接口：手动触发与摘要", () => {
       headers: { cookie: admin }
     })
     expect((await before.json()) as { lastRun: unknown }).toEqual({
-      lastRun: null
+      lastRun: null,
+      running: null
     })
 
     const real = await jsonRequest(
@@ -490,5 +553,281 @@ describe("scheduled：两个入口按 WAKER_SIGNING_KEY 有无让路", () => {
     expect(countRuns(db)).toBe(1)
     expect(lastRunRow(db).trigger).toBe("cron")
     expect(r2.store.has(OLD_ORPHAN)).toBe(false)
+  })
+})
+
+describe("并发互斥：同一时刻只许一轮", () => {
+  it("另一轮持锁时手动接口 409 CLEANUP_IN_PROGRESS、不扫不删不写日志行；释放后恢复", async () => {
+    const { env, db, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    await seedOldObject(r2, OLD_ORPHAN)
+    writeLock(db, 0, { trigger: "cron" })
+
+    const dry = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      { dryRun: true },
+      admin
+    )
+    expect(dry.status).toBe(409)
+    const dryBody = (await dry.json()) as {
+      error: string
+      code: string
+      retryAfter: number
+    }
+    expect(dryBody.code).toBe("CLEANUP_IN_PROGRESS")
+    expect(dryBody.retryAfter).toBeGreaterThan(0)
+
+    const real = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      {},
+      admin
+    )
+    expect(real.status).toBe(409)
+
+    expect(countRuns(db)).toBe(0)
+    expect(r2.store.has(OLD_ORPHAN)).toBe(true)
+
+    clearLock(db)
+    const ok = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      {},
+      admin
+    )
+    expect(ok.status).toBe(200)
+    expect(((await ok.json()) as { deleted: number }).deleted).toBe(1)
+    expect(r2.store.has(OLD_ORPHAN)).toBe(false)
+  })
+
+  it("同一时刻并发发起两轮：只有一个跑，另一个直接判忙（不扫不删）", async () => {
+    const { env, db, r2 } = await initializedContext()
+    await seedOldObject(r2, OLD_ORPHAN)
+
+    const results = await Promise.allSettled([
+      runR2Cleanup(env, {
+        trigger: "cron",
+        dryRun: false,
+        rerunGuard: "enforce"
+      }),
+      runR2Cleanup(env, {
+        trigger: "manual",
+        dryRun: false,
+        rerunGuard: "bypass"
+      })
+    ])
+
+    const fulfilled = results.filter((r) => r.status === "fulfilled")
+    const rejected = results.filter((r) => r.status === "rejected")
+    expect(fulfilled).toHaveLength(1)
+    expect(rejected).toHaveLength(1)
+    const reason = (rejected[0] as PromiseRejectedResult).reason
+    expect(reason).toBeInstanceOf(R2CleanupBusyError)
+    expect((reason as R2CleanupBusyError).retryAfterSeconds).toBeGreaterThan(0)
+    // 只有赢家写了一行日志，输的那轮什么都没碰；锁已释放。
+    expect(countRuns(db)).toBe(1)
+    expect(lockValue(db)).toBeUndefined()
+    expect(r2.store.has(OLD_ORPHAN)).toBe(false)
+  })
+
+  it("锁过期（超过 TTL）可被接管，跑完锁行消失", async () => {
+    const { env, db, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    await seedOldObject(r2, OLD_ORPHAN)
+    writeLock(db, CLEANUP_LOCK_TTL_MS + 60_000)
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      {},
+      admin
+    )
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { status: string }).status).toBe("ok")
+    expect(r2.store.has(OLD_ORPHAN)).toBe(false)
+    expect(lockValue(db)).toBeUndefined()
+  })
+
+  it("跑完与扫描异常都释放锁：异常那轮仍落一行 failed", async () => {
+    const { env, db, r2 } = await initializedContext()
+    await seedOldObject(r2, OLD_ORPHAN)
+
+    const ok = await runR2Cleanup(env, {
+      trigger: "manual",
+      dryRun: false,
+      rerunGuard: "bypass"
+    })
+    expect(ok.status).toBe("ok")
+    expect(lockValue(db)).toBeUndefined()
+
+    // 坏 gzip 版本行：解压抛错 → 整轮 failed，锁同样不能留下。
+    db.db
+      .prepare(
+        `INSERT INTO ciki_page_revisions
+          (id, page_id, title, content_json, content_html, content_text,
+           editor_id, created_at, content_gzip)
+         VALUES ('bad-revision', 'p1', 'bad', '', '', '', 'u1', ?, ?)`
+      )
+      .run(new Date().toISOString(), new Uint8Array([1, 2, 3, 4]))
+
+    await expect(
+      runR2Cleanup(env, {
+        trigger: "manual",
+        dryRun: false,
+        rerunGuard: "bypass"
+      })
+    ).rejects.toThrow()
+    expect(lastRunRow(db).status).toBe("failed")
+    expect(lockValue(db)).toBeUndefined()
+  })
+})
+
+describe("手动实跑：绕过 20 天闸，自动入口照旧受闸", () => {
+  it("19 天前成功过 → POST 真跑仍执行并删除；随后 scheduled 仍写 skipped", async () => {
+    const { env, db, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    await seedOldObject(r2, OLD_ORPHAN)
+    db.db
+      .prepare(
+        `INSERT INTO ciki_r2_cleanup_runs
+          (id, started_at, finished_at, trigger, status, dry_run,
+           scanned, referenced, deleted, young_skipped, failed, truncated)
+         VALUES ('seed', ?, ?, 'cron', 'ok', 0, 3, 0, 0, 0, 0, 0)`
+      )
+      .run(daysAgo(19).toISOString(), daysAgo(19).toISOString())
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      {},
+      admin
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      status: string
+      deleted: number
+      trigger: string
+    }
+    expect(body.status).toBe("ok")
+    expect(body.trigger).toBe("manual")
+    expect(body.deleted).toBe(1)
+    expect(r2.store.has(OLD_ORPHAN)).toBe(false)
+
+    // 手动轮已写入「最近一次成功」，自动入口照旧在 20 天窗口内跳过（闸只约束自动入口）。
+    await handler.scheduled!(
+      {} as ScheduledController,
+      env,
+      {} as ExecutionContext
+    )
+    expect(lastRunRow(db).status).toBe("skipped")
+    expect(lastRunRow(db).trigger).toBe("cron")
+  })
+})
+
+describe("dry run：可清理数与总大小（不受单轮上限截断）", () => {
+  it("超过删除上限时 prunable 给全量、deleted 仍只到上限；真跑响应不含这两个字段", async () => {
+    const { env, r2 } = await initializedContext()
+    const total = DELETE_LIMIT_PER_RUN + 5
+    for (let index = 0; index < total; index += 1) {
+      await seedOldObject(r2, `orphan-${String(index).padStart(4, "0")}.png`)
+    }
+
+    const dry = await runR2Cleanup(env, {
+      trigger: "manual",
+      dryRun: true,
+      rerunGuard: "bypass"
+    })
+    if (!dry.dryRun) throw new Error("dry run must report dryRun: true")
+    expect(dry.prunable).toBe(total)
+    expect(dry.prunableBytes).toBe(total) // 每个对象 1 字节
+    expect(dry.deleted).toBe(DELETE_LIMIT_PER_RUN)
+    expect(dry.truncated).toBe(true)
+
+    const real = await runR2Cleanup(env, {
+      trigger: "manual",
+      dryRun: false,
+      rerunGuard: "bypass"
+    })
+    expect(real.dryRun).toBe(false)
+    expect("prunable" in real).toBe(false)
+    expect("prunableBytes" in real).toBe(false)
+    expect(real.deleted).toBe(DELETE_LIMIT_PER_RUN)
+    expect(real.truncated).toBe(true)
+  })
+
+  it("空桶：prunable 与 prunableBytes 都是 0", async () => {
+    const { env } = await initializedContext()
+    const dry = await runR2Cleanup(env, {
+      trigger: "manual",
+      dryRun: true,
+      rerunGuard: "bypass"
+    })
+    if (!dry.dryRun) throw new Error("dry run must report dryRun: true")
+    expect(dry.prunable).toBe(0)
+    expect(dry.prunableBytes).toBe(0)
+  })
+})
+
+describe("运行态：GET 的 running", () => {
+  it("无锁 → null；持锁 → 与 409 同一算法；过期 → null 且可接管", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const getIdle = () =>
+      request(env, "/api/admin/r2-cleanup", { headers: { cookie: admin } })
+
+    expect((await (await getIdle()).json()) as unknown).toEqual({
+      lastRun: null,
+      running: null
+    })
+
+    writeLock(db, 0, { trigger: "manual", dryRun: true })
+    const busy = (await (await getIdle()).json()) as {
+      running: {
+        startedAt: string
+        trigger: string
+        dryRun: boolean
+        retryAfter: number
+      } | null
+    }
+    expect(busy.running?.trigger).toBe("manual")
+    expect(busy.running?.dryRun).toBe(true)
+    expect(busy.running?.retryAfter).toBeGreaterThan(0)
+
+    const conflict = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      { dryRun: true },
+      admin
+    )
+    expect(conflict.status).toBe(409)
+    const conflictBody = (await conflict.json()) as { retryAfter: number }
+    // 同一个 TTL 判定，两处只差调用之间流逝的毫秒数（跨秒边界时差 1）。
+    expect(conflictBody.retryAfter).toBeLessThanOrEqual(
+      busy.running?.retryAfter ?? 0
+    )
+    expect(conflictBody.retryAfter).toBeGreaterThanOrEqual(
+      (busy.running?.retryAfter ?? 0) - 1
+    )
+
+    writeLock(db, CLEANUP_LOCK_TTL_MS + 60_000, { trigger: "waker" })
+    const stale = (await (await getIdle()).json()) as { running: unknown }
+    expect(stale.running).toBeNull()
+
+    const takeover = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      { dryRun: true },
+      admin
+    )
+    expect(takeover.status).toBe(200)
+    expect(lockValue(db)).toBeUndefined()
   })
 })

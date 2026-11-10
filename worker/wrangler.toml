@@ -28,9 +28,9 @@ bucket_name = "ciki-assets"
 # 月度 R2 孤儿清理（规格 §3）的内置触发器。
 #
 # Cloudflare Cron Trigger **只按 UTC 解释**（没有时区字段，也不支持 `L`），
-# 因此「北京时间每月 1 日凌晨」这个时刻无法直接表达（它落在 UTC 上个月的最后一天）。
-# 取 UTC 每月 1 日 17:00 = **北京时间每月 2 日 01:00**（凌晨低峰、每月一次）；
-# waker 侧的任务则按自己的时区写 `0 1 1 * *` + Asia/Shanghai，正好是北京 1 日 01:00。
+# 因此「`Asia/Shanghai` 时区每月 1 日凌晨」这个时刻无法直接表达（它落在 UTC 上个月的最后一天）。
+# 取 UTC 每月 1 日 17:00 = **`Asia/Shanghai` 每月 2 日 01:00**（凌晨低峰、每月一次）；
+# waker 侧的任务则按自己的时区写 `0 1 1 * *` + Asia/Shanghai，正好是 `Asia/Shanghai` 的 1 日 01:00。
 #
 # 两个入口只靠 `WAKER_SIGNING_KEY` 配没配让路：配了 → waker 接管，`scheduled()`
 # 检测到 key 就跳过；没配 → 走下面这条 Cron。删掉该 secret 重新部署即回到 Cron。
