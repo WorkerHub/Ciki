@@ -1097,6 +1097,17 @@ export function describeApiError(error: unknown): string {
       return "目标父页面还在回收站里，请先恢复父页面。"
     case "PAGE_NOT_DELETED":
       return "只有已删除的页面才能彻底删除。"
+    // 页尾评论（契约「页尾评论」）：软删的评论仍以占位保留，
+    // 并发删除时再编辑会撞 409；只说结果，不讲软删之类的机制。
+    case "COMMENT_EMPTY":
+      return "评论内容不能为空。"
+    case "COMMENT_NOT_FOUND":
+      return "找不到这条评论，可能已被删除。"
+    case "COMMENT_DELETED":
+      return "这条评论已被删除，不能再修改。"
+    // 导入专用：contentJson 解析不了、或按当前 schema 渲染不了。
+    case "INVALID_CONTENT_JSON":
+      return "页面内容的格式不正确，无法保存。"
     case "PAYLOAD_TOO_LARGE":
       return "内容或图片超过了单次保存上限，请精简后重试。"
     case "FILE_TOO_LARGE":
@@ -1121,6 +1132,12 @@ export function describeApiError(error: unknown): string {
       return "空间里还有页面，请先把页面移动到其他空间，或彻底删除回收站里的页面。"
     case "SPACE_MISMATCH":
       return "目标父页面不在这个空间里。"
+    // 导入是唯一带这个码的入口（页面直链无权时仍走 404 口径）。
+    case "SPACE_FORBIDDEN":
+      return "你在这个空间里没有导入页面的权限。"
+    // 导入与建页面都可能在站点缺默认空间时撞上（409）。
+    case "DEFAULT_SPACE_MISSING":
+      return "站点还没有可用的默认空间，请联系管理员。"
     case "ALREADY_MEMBER":
       return "该用户已经是这个空间的成员。"
     case "USER_NOT_ELIGIBLE":
