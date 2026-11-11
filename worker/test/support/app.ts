@@ -1,5 +1,12 @@
 import { app } from "../../src/index"
+import { getTablePrefix } from "../../src/lib/table-prefix"
+import {
+  emailCodesTable,
+  settingsTable,
+  usersTable
+} from "../../src/lib/tables"
 import { runSetup } from "../../src/lib/setup"
+import { SMTP_CONFIG_KEY } from "../../src/services/email"
 import type { Env } from "../../src/types"
 import { MemoryR2 } from "./memory-r2"
 import { SqliteD1 } from "./sqlite-d1"
@@ -132,6 +139,60 @@ export function cookieOf(res: Response): string | null {
   return cookies[0].split(";")[0]
 }
 
+/**
+ * 测试替身：写入一份「非密字段合法」的 SMTP 配置。
+ *
+ * 只为了让 `POST /api/auth/register` 的站点可发信判定通过；真实投递在 Node 下必然
+ * 失败（`cloudflare:sockets` 不可用），`sendSmtpMessage` 只返回失败并打一行日志，
+ * 不影响用例。需要断言邮件内容的用例自己 mock 传输层并从捕获的 HTML 里取码。
+ */
+export async function enableSmtpConfig(env: Env): Promise<void> {
+  const prefix = getTablePrefix(env)
+  const config = {
+    host: "smtp.example.com",
+    port: 587,
+    encryption: "starttls",
+    username: "mailer@example.com",
+    password: "",
+    from: "noreply@example.com",
+    fromName: "Ciki"
+  }
+  await env.DB.prepare(
+    `INSERT INTO ${settingsTable(prefix)} (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  )
+    .bind(SMTP_CONFIG_KEY, JSON.stringify(config), new Date().toISOString())
+    .run()
+}
+
+/**
+ * 测试替身：直接把账号标成已验证（等价于走完注册邮箱验证流程）。
+ * 顺带删掉注册时发出的 `register_verify` 码——真实验码成功后该码会被消费，
+ * 这样「验证码行数」类断言与走真实流程时一致。
+ */
+export async function markEmailVerified(
+  env: Env,
+  email: string
+): Promise<void> {
+  const prefix = getTablePrefix(env)
+  const user = await env.DB.prepare(
+    `SELECT id FROM ${usersTable(prefix)} WHERE email = ?`
+  )
+    .bind(email)
+    .first<{ id: number }>()
+  if (!user) return
+  await env.DB.prepare(
+    `UPDATE ${usersTable(prefix)} SET email_verified = 1 WHERE id = ?`
+  )
+    .bind(user.id)
+    .run()
+  await env.DB.prepare(
+    `DELETE FROM ${emailCodesTable(prefix)} WHERE user_id = ? AND purpose = 'register_verify'`
+  )
+    .bind(user.id)
+    .run()
+}
+
 export async function register(
   env: Env,
   email: string,
@@ -170,12 +231,16 @@ export async function adminSession(
   return loginAs(env, email)
 }
 
-/** 建一个已登录的普通用户（由管理员批准）。 */
+/**
+ * 建一个已登录的普通用户：自助注册（因此先让站点可发信）→ 管理员批准 →
+ * 标记邮箱已验证 → 登录。验证流程本身由 auth-email-verify.test.ts 单独覆盖。
+ */
 export async function userSession(
   env: Env,
   adminCookie: string,
   email = "user@example.com"
 ): Promise<string> {
+  await enableSmtpConfig(env)
   const res = await register(env, email)
   if (res.status !== 201) throw new Error(`register failed: ${res.status}`)
   const users = (await (
@@ -196,5 +261,6 @@ export async function userSession(
     undefined,
     adminCookie
   )
+  await markEmailVerified(env, email)
   return loginAs(env, email)
 }

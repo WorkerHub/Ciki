@@ -40,7 +40,7 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 - **Version history** — Every save creates a version record; open an old version and roll back. A rollback is itself recorded as a new version.
 - **Full-text search** — Search from the top bar matches both titles and bodies via FTS5 with CJK tokenization; results include snippets.
 - **Trash** — Deleting a page soft-deletes its whole subtree; restore it or delete it permanently. Permanent deletion also removes the version history.
-- **Login and two-factor auth** — Password plus TOTP / Passkey. The first registered user becomes an admin automatically; later registrations need admin approval by default. Adding a second factor requires re-entering the password once.
+- **Login and two-factor auth** — Password plus TOTP / Passkey. The first registered user becomes an admin automatically; later registrations need admin approval by default and must verify their email first (a 6-digit code is sent on sign-up, and unverified accounts cannot log in). Adding a second factor requires re-entering the password once.
 - **Import tokens** — Generate a personal token in Settings and use the companion Ciki Helper browser extension to clip source pages into Ciki (title, body, code blocks, tables and images). The token plaintext is shown only once.
 - **Settings** — Appearance (light / dark / system, no first-paint flash), password change, two-factor auth, import token, signed-in devices.
 - **Admin panel** — Users and registration approval, space overview, site settings (site name, open registration, registration approval, setup page toggle), access and security (enforce two-factor), email delivery (SMTP server settings and a test message), database maintenance.
@@ -157,7 +157,7 @@ After each upgrade deployment, an admin clicks "Check and upgrade database" unde
 
 ### 6. Register the admin
 
-Once initialization finishes, open the site and register an account. The first registered user becomes an admin, approved and active automatically; later registrations require admin approval by default. Change open registration and the approval requirement under Admin → Site Settings (系统管理 → 应用设置).
+Once initialization finishes, open the site and register an account. The first registered user becomes an admin, approved, active and already email-verified; later registrations require admin approval by default and must verify their email first — a 6-digit code (valid for 10 minutes) arrives right after sign-up, and the account cannot log in before it is verified. Email verification relies on the SMTP settings under Admin → Email delivery; without working email delivery, ordinary self-registration is rejected (503) so no account is left permanently unverifiable. Change open registration and the approval requirement under Admin → Site Settings (系统管理 → 应用设置).
 
 ## Local Development
 

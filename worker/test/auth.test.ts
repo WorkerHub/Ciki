@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest"
 import {
   adminSession,
   cookieOf,
+  enableSmtpConfig,
   initializedContext,
   jsonRequest,
   loginAs,
+  markEmailVerified,
   register,
   userSession
 } from "./support/app"
@@ -25,14 +27,15 @@ async function sha256Hex(value: string): Promise<string> {
 }
 
 describe("注册与审批", () => {
-  it("首个用户是管理员、直接批准；第二个用户默认待批准", async () => {
+  it("首个用户是管理员、直接批准并已验证；第二个用户待批准且待验证", async () => {
     const { env } = await initializedContext()
 
     const first = await register(env, "admin@example.com")
     expect(first.status).toBe(201)
     expect(await first.json()).toEqual({
       success: true,
-      approvalRequired: false
+      approvalRequired: false,
+      emailVerificationRequired: false
     })
 
     const cookie = await loginAs(env, "admin@example.com")
@@ -42,25 +45,30 @@ describe("注册与审批", () => {
     expect(me.role).toBe("admin")
     expect(me.approvalStatus).toBe("approved")
 
+    // 注册要发验证码，站点必须先能发信（未配置时普通注册直接 503）。
+    await enableSmtpConfig(env)
     const second = await register(env, "pending@example.com")
     expect(await second.json()).toEqual({
       success: true,
-      approvalRequired: true
+      approvalRequired: true,
+      emailVerificationRequired: true
     })
 
+    // 未验证 + 待审批：先报未验证（验证是用户自己能完成的动作）。
     const blocked = await jsonRequest(env, "POST", "/api/auth/login", {
       email: "pending@example.com",
       password: PASSWORD
     })
     expect(blocked.status).toBe(403)
     expect(await blocked.json()).toMatchObject({
-      code: "ACCOUNT_PENDING_APPROVAL"
+      code: "EMAIL_NOT_VERIFIED"
     })
   })
 
   it("管理员批准后才能登录；拒绝后登录报 ACCOUNT_REJECTED", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
+    await enableSmtpConfig(env)
     await register(env, "ok@example.com")
     await register(env, "no@example.com")
 
@@ -95,6 +103,8 @@ describe("注册与审批", () => {
       admin
     )
 
+    // 批准只解决审批这一道；邮箱验证由用户自助完成（测试里直接置位）。
+    await markEmailVerified(env, "ok@example.com")
     await expect(loginAs(env, "ok@example.com")).resolves.toContain(
       "ciki_session="
     )
@@ -297,7 +307,8 @@ describe("权限分层", () => {
       siteName: "Ciki",
       registrationEnabled: true,
       registrationApprovalRequired: true,
-      emailConfigured: false
+      // userSession 的注册要走发信门禁，站点配置已置上。
+      emailConfigured: true
     })
   })
 })
