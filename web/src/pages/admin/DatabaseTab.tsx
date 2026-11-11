@@ -17,7 +17,7 @@ const RUNNING_POLL_MS = 10_000
 
 /**
  * 数据库维护：检查并升级、孤儿图片两步清理；有数据时附两行状态——
- * 一行库体积与页数（服务端按 PRAGMA 口径给，D1 是 Ciki 独占库，不写 scope 字样），
+ * 一行库体积与页数（服务端按 Cloudflare D1 REST API 口径给，D1 是 Ciki 独占库，不写 scope 字样），
  * 一行最近一轮清理摘要。清理入口只调既有手动触发接口，可清理数与删除量全部由服务端给。
  */
 export function DatabaseTab() {
