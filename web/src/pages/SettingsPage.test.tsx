@@ -63,8 +63,7 @@ function setUser(twofa: {
 }) {
   useAuthStore.setState({
     user: {
-      id: "u1",
-      publicId: "AB23CD45",
+      id: 1,
       username: "管理员",
       avatarUrl: null,
       email: "admin@example.com",
@@ -107,8 +106,7 @@ describe("两步验证新增因子的重认证", () => {
   beforeEach(() => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
     vi.mocked(meApi.get).mockResolvedValue({
-      id: "u1",
-      publicId: "AB23CD45",
+      id: 1,
       username: "管理员",
       avatarUrl: null,
       email: "admin@example.com",
@@ -188,8 +186,7 @@ describe("受限会话在配置完成后解除", () => {
   beforeEach(() => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
     vi.mocked(meApi.get).mockResolvedValue({
-      id: "u1",
-      publicId: "AB23CD45",
+      id: 1,
       username: "管理员",
       avatarUrl: null,
       email: "admin@example.com",
@@ -324,8 +321,7 @@ describe("邮箱验证码 2FA", () => {
     const user = userEvent.setup()
     setUser({ totpEnabled: false, passkeyCount: 1 })
     vi.mocked(meApi.get).mockResolvedValue({
-      id: "u1",
-      publicId: "AB23CD45",
+      id: 1,
       username: "管理员",
       avatarUrl: null,
       email: "admin@example.com",

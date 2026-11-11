@@ -48,7 +48,7 @@ export function RevisionsDialog({
   readOnly = false,
   onRestored
 }: {
-  pageId: string
+  pageId: number
   open: boolean
   onOpenChange: (open: boolean) => void
   /** 只读空间：可以看历史，但不渲染回滚与删除入口。 */
@@ -99,10 +99,10 @@ export function RevisionsDialog({
     }
   }
 
-  const preview = async (revisionId: string) => {
+  const preview = async (versionNo: number) => {
     setError("")
     try {
-      const detail = await pagesApi.revision(pageId, revisionId)
+      const detail = await pagesApi.revision(pageId, versionNo)
       setSelected(detail)
     } catch (previewError) {
       setError(describeApiError(previewError))
@@ -114,7 +114,7 @@ export function RevisionsDialog({
     setRestoring(true)
     setError("")
     try {
-      const updated = await pagesApi.restoreRevision(pageId, selected.id)
+      const updated = await pagesApi.restoreRevision(pageId, selected.versionNo)
       onRestored(updated)
       onOpenChange(false)
     } catch (restoreError) {
@@ -126,16 +126,16 @@ export function RevisionsDialog({
 
   const removeRevision = async () => {
     if (!deleteTarget) return
-    const targetId = deleteTarget.id
+    const targetVersion = deleteTarget.versionNo
     setBusy(true)
     setError("")
     try {
-      await pagesApi.deleteRevision(pageId, targetId)
+      await pagesApi.deleteRevision(pageId, targetVersion)
       // 只删这一条版本行：其余版本、页面当前内容都不受影响，本地去掉即可
       setRevisions((prev) =>
-        prev.filter((revision) => revision.id !== targetId)
+        prev.filter((revision) => revision.versionNo !== targetVersion)
       )
-      setSelected((prev) => (prev?.id === targetId ? null : prev))
+      setSelected((prev) => (prev?.versionNo === targetVersion ? null : prev))
       toast.success("版本已删除。", { duration: TOAST_DURATION })
     } catch (deleteError: unknown) {
       setError(describeApiError(deleteError))
@@ -160,7 +160,9 @@ export function RevisionsDialog({
       const { deleted } = await pagesApi.pruneRevisions(pageId)
       const kept = revisions[0] ?? null
       setRevisions(kept ? [kept] : [])
-      setSelected((prev) => (prev && kept && prev.id === kept.id ? prev : null))
+      setSelected((prev) =>
+        prev && kept && prev.versionNo === kept.versionNo ? prev : null
+      )
       if (deleted > 0) {
         toast.success(`已删除 ${deleted} 条版本。`, {
           duration: TOAST_DURATION
@@ -176,11 +178,12 @@ export function RevisionsDialog({
     }
   }
 
-  // 列表按 created_at DESC, rowid DESC 排序，首项就是最新的一条
-  const latestId = revisions[0]?.id
+  // 列表按 version_no DESC 排序，首项就是最新的一条
+  const latestVersion = revisions[0]?.versionNo
   const prunableCount = Math.max(revisions.length - 1, 0)
   // 未选中、或选中的就是最新一条：不渲染回滚按钮（连禁用态都不留）
-  const canRestore = !readOnly && selected !== null && selected.id !== latestId
+  const canRestore =
+    !readOnly && selected !== null && selected.versionNo !== latestVersion
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -232,13 +235,14 @@ export function RevisionsDialog({
                   </li>
                 ) : (
                   revisions.map((revision) => {
-                    const isLatest = revision.id === latestId
-                    const isSelected = selected?.id === revision.id
+                    const isLatest = revision.versionNo === latestVersion
+                    const isSelected =
+                      selected?.versionNo === revision.versionNo
                     return (
-                      <li key={revision.id} className="relative">
+                      <li key={revision.versionNo} className="relative">
                         <button
                           type="button"
-                          onClick={() => void preview(revision.id)}
+                          onClick={() => void preview(revision.versionNo)}
                           aria-current={isSelected ? "true" : undefined}
                           className={`flex w-full min-w-0 flex-col items-start gap-0.5 py-3 pr-9 pl-3 text-left transition-colors hover:bg-accent ${
                             isSelected ? "bg-accent" : ""
@@ -246,7 +250,7 @@ export function RevisionsDialog({
                         >
                           <span className="flex w-full items-center gap-1.5">
                             <span className="truncate text-sm font-medium">
-                              {formatDateTime(revision.createdAt)}
+                              第 {revision.versionNo} 版
                             </span>
                             {isLatest ? (
                               <Badge
@@ -258,8 +262,8 @@ export function RevisionsDialog({
                             ) : null}
                           </span>
                           <span className="max-w-full truncate text-xs text-muted-foreground">
-                            {formatRelative(revision.createdAt)} ·{" "}
-                            {revision.editorId.slice(0, 8)}
+                            {formatDateTime(revision.createdAt)} ·{" "}
+                            {formatRelative(revision.createdAt)}
                           </span>
                         </button>
                         {isSelected ? (
@@ -298,7 +302,8 @@ export function RevisionsDialog({
               <>
                 <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border pr-1.5 pl-3">
                   <span className="min-w-0 truncate text-xs text-muted-foreground">
-                    {formatDateTime(selected.createdAt)} 的版本
+                    第 {selected.versionNo} 版 ·{" "}
+                    {formatDateTime(selected.createdAt)}
                   </span>
                   {canRestore ? (
                     <Button
@@ -340,7 +345,7 @@ export function RevisionsDialog({
             <AlertDialogTitle>删除这个版本？</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget
-                ? `${formatDateTime(deleteTarget.createdAt)} 的版本`
+                ? `第 ${deleteTarget.versionNo} 版（${formatDateTime(deleteTarget.createdAt)}）`
                 : "这个版本"}
               将被永久删除，无法恢复。页面当前内容与其他版本不受影响。
             </AlertDialogDescription>

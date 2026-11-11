@@ -39,8 +39,7 @@ const { setupApi, meApi, pagesApi, adminApi, authApi, siteApi, spacesApi } =
   await import("@/lib/api")
 
 const admin: Me = {
-  id: "u1",
-  publicId: "AB23CD45",
+  id: 1,
   username: "管理员",
   avatarUrl: null,
   email: "admin@example.com",
@@ -57,8 +56,7 @@ const admin: Me = {
 
 const member: Me = {
   ...admin,
-  id: "u2",
-  publicId: "EF45GH67",
+  id: 2,
   username: "成员",
   email: "member@example.com",
   role: "user"
@@ -99,7 +97,8 @@ describe("路由守卫与初始化门", () => {
     useSpacesStore.setState({
       spaces: [
         {
-          id: "space-default",
+          id: 1,
+          slug: "default",
           name: "默认空间",
           description: "",
           myRole: "editor",
@@ -110,7 +109,7 @@ describe("路由守卫与初始化门", () => {
       ],
       status: "ready",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
     vi.mocked(spacesApi.list).mockResolvedValue(
       useSpacesStore.getState().spaces

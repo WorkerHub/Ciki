@@ -10,7 +10,7 @@ import {
   it,
   vi
 } from "vitest"
-import { ApiError, type PageDetail } from "@/lib/api"
+import { ApiError, type PageContentDetail } from "@/lib/api"
 import { rememberScrollAnchor } from "@/lib/scroll-anchor"
 import { PageEdit } from "@/pages/PageEdit"
 import { usePagesStore } from "@/stores/pages"
@@ -24,7 +24,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     ...actual,
     pagesApi: {
       ...actual.pagesApi,
-      get: vi.fn(),
+      getForEditor: vi.fn(),
       update: vi.fn(),
       tree: vi.fn()
     }
@@ -33,10 +33,10 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 const { pagesApi } = await import("@/lib/api")
 
-const page: PageDetail = {
-  id: "a",
+const page: PageContentDetail = {
+  id: 1,
   parentId: null,
-  spaceId: "space-default",
+  spaceId: 1,
   title: "支付服务部署手册",
   sortOrder: 0,
   contentJson: JSON.stringify({
@@ -46,14 +46,15 @@ const page: PageDetail = {
   contentHtml: "<p>正文</p>",
   contentText: "正文",
   contentMd: "正文",
-  createdBy: "u1",
-  updatedBy: "u1",
+  createdBy: 1,
+  updatedBy: 1,
   createdAt: "2026-11-07T00:00:00.000Z",
   updatedAt: "2026-11-07T00:00:00.000Z"
 }
 
 const space = {
-  id: "space-default",
+  id: 1,
+  slug: "default",
   name: "默认空间",
   description: "",
   myRole: "editor" as const,
@@ -71,7 +72,7 @@ const routes = [
 const renderEdit = () =>
   render(
     <RouterProvider
-      router={createMemoryRouter(routes, { initialEntries: ["/p/a/edit"] })}
+      router={createMemoryRouter(routes, { initialEntries: ["/p/1/edit"] })}
     />
   )
 
@@ -83,7 +84,7 @@ describe("编辑页的保存保护", () => {
   beforeEach(() => {
     usePagesStore.setState({
       tree: [],
-      spaceId: "space-default",
+      spaceId: 1,
       loading: false,
       error: null,
       expanded: []
@@ -92,7 +93,7 @@ describe("编辑页的保存保护", () => {
       spaces: [space],
       status: "ready",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
     vi.mocked(pagesApi.tree).mockResolvedValue([])
     vi.mocked(pagesApi.update).mockReset()
@@ -100,8 +101,8 @@ describe("编辑页的保存保护", () => {
 
   it("页面还没加载完成时按 Ctrl/⌘+S 不会写回空内容", async () => {
     // 永不 resolve：模拟慢请求/卡住的加载
-    vi.mocked(pagesApi.get).mockImplementation(
-      () => new Promise<PageDetail>(() => {})
+    vi.mocked(pagesApi.getForEditor).mockImplementation(
+      () => new Promise<PageContentDetail>(() => {})
     )
     renderEdit()
 
@@ -115,7 +116,9 @@ describe("编辑页的保存保护", () => {
   })
 
   it("加载失败时只显示重试入口，不给出空编辑器", async () => {
-    vi.mocked(pagesApi.get).mockRejectedValue(new ApiError(500, "boom"))
+    vi.mocked(pagesApi.getForEditor).mockRejectedValue(
+      new ApiError(500, "boom")
+    )
     renderEdit()
 
     expect(await screen.findByText("boom")).toBeInTheDocument()
@@ -128,9 +131,9 @@ describe("编辑页的保存保护", () => {
       spaces: [],
       status: "loading",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     renderEdit()
 
     expect(await screen.findByLabelText("页面加载中")).toBeInTheDocument()
@@ -142,7 +145,7 @@ describe("编辑页的保存保护", () => {
   it("只读空间直链进编辑页时只给说明，不渲染编辑器", async () => {
     const user = userEvent.setup()
     useSpacesStore.setState({ spaces: [{ ...space, myRole: "viewer" }] })
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     renderEdit()
 
     expect(
@@ -155,8 +158,8 @@ describe("编辑页的保存保护", () => {
   })
 
   it("编辑页没有刷新入口，也不会被切回标签页刷新冲掉", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
-    const calls = vi.mocked(pagesApi.get).mock.calls.length
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
+    const calls = vi.mocked(pagesApi.getForEditor).mock.calls.length
     renderEdit()
 
     await screen.findByLabelText("页面标题")
@@ -165,12 +168,12 @@ describe("编辑页的保存保护", () => {
     document.dispatchEvent(new Event("visibilitychange"))
     window.dispatchEvent(new Event("focus"))
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(vi.mocked(pagesApi.get).mock.calls.length).toBe(calls + 1)
+    expect(vi.mocked(pagesApi.getForEditor).mock.calls.length).toBe(calls + 1)
     expect(screen.getByLabelText("页面标题")).toHaveValue(page.title)
   })
 
   it("保存入口只有一处：落在吸顶的工具条行尾", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     renderEdit()
 
     const toolbar = await screen.findByRole("toolbar")
@@ -186,7 +189,7 @@ describe("编辑页的保存保护", () => {
   })
 
   it("保存状态与保存按钮同处一处：改标题后在工具条里变成「有未保存的更改」", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     const user = userEvent.setup()
     renderEdit()
 
@@ -200,7 +203,7 @@ describe("编辑页的保存保护", () => {
   })
 
   it("「保存并离开」保存失败时留在当前页，不丢内容", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     vi.mocked(pagesApi.update).mockRejectedValue(
       new ApiError(413, "Payload too large", "PAYLOAD_TOO_LARGE")
     )
@@ -226,7 +229,7 @@ describe("编辑页的保存保护", () => {
   })
 
   it("空正文的占位文案只说「直接粘贴内容」，不再提 Confluence", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue({
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue({
       ...page,
       contentJson: JSON.stringify({
         type: "doc",
@@ -247,7 +250,7 @@ describe("编辑页的保存保护", () => {
   })
 
   it("「取消」与「保存」同处吸顶工具条，全页只有这一处取消", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     renderEdit()
 
     const toolbar = await screen.findByRole("toolbar")
@@ -259,7 +262,7 @@ describe("编辑页的保存保护", () => {
   })
 
   it("没有改动时点「取消」直接回阅读页，不弹确认也不发保存请求", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     const user = userEvent.setup()
     renderEdit()
 
@@ -272,7 +275,7 @@ describe("编辑页的保存保护", () => {
   })
 
   it("有未保存改动时点「取消」先确认；选「继续编辑」留在原地且内容不丢", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     const user = userEvent.setup()
     renderEdit()
 
@@ -300,9 +303,9 @@ describe("编辑页的保存保护", () => {
   })
 
   it("保存进行中「取消」禁用，不会把在途保存当成丢弃", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     vi.mocked(pagesApi.update).mockImplementation(
-      () => new Promise<PageDetail>(() => {})
+      () => new Promise<PageContentDetail>(() => {})
     )
     const user = userEvent.setup()
     renderEdit()
@@ -318,7 +321,7 @@ describe("编辑页的保存保护", () => {
   })
 
   it("「放弃修改」不发保存请求，也不被旧的离开确认再拦一次", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
     const user = userEvent.setup()
     renderEdit()
 
@@ -337,7 +340,7 @@ describe("编辑页的保存保护", () => {
 })
 
 describe("编辑页按记忆锚点定位", () => {
-  const longPage = (): PageDetail => {
+  const longPage = (): PageContentDetail => {
     const blocks = ["甲", "乙", "丙", "丁"]
     return {
       ...page,
@@ -369,7 +372,7 @@ describe("编辑页按记忆锚点定位", () => {
   const renderEditInScroller = () =>
     render(
       <RouterProvider
-        router={createMemoryRouter(routes, { initialEntries: ["/p/a/edit"] })}
+        router={createMemoryRouter(routes, { initialEntries: ["/p/1/edit"] })}
       />
     )
 
@@ -382,7 +385,7 @@ describe("编辑页按记忆锚点定位", () => {
   beforeEach(() => {
     usePagesStore.setState({
       tree: [],
-      spaceId: "space-default",
+      spaceId: 1,
       loading: false,
       error: null,
       expanded: []
@@ -391,7 +394,7 @@ describe("编辑页按记忆锚点定位", () => {
       spaces: [space],
       status: "ready",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
     vi.mocked(pagesApi.tree).mockResolvedValue([])
     vi.mocked(pagesApi.update).mockReset()
@@ -404,8 +407,8 @@ describe("编辑页按记忆锚点定位", () => {
   })
 
   it("从阅读页进来时把同一块送回判定线下方", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(longPage())
-    rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(longPage())
+    rememberScrollAnchor(1, { blockIndex: 2, ratio: 0.5 })
     renderEditInScroller()
 
     await screen.findByLabelText("页面标题")
@@ -415,7 +418,7 @@ describe("编辑页按记忆锚点定位", () => {
   })
 
   it("没有记忆锚点时停在顶部，不自行滚动", async () => {
-    vi.mocked(pagesApi.get).mockResolvedValue(longPage())
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(longPage())
     renderEditInScroller()
 
     await screen.findByLabelText("页面标题")

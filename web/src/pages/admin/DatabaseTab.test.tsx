@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { R2CleanupSummary, SetupResult } from "@/lib/api"
+import type { AdminStorage, R2CleanupSummary, SetupResult } from "@/lib/api"
 import { DatabaseTab } from "@/pages/admin/DatabaseTab"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -12,7 +12,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...actual.adminApi,
       runAsAdmin: vi.fn(),
       r2Cleanup: vi.fn(),
-      runR2Cleanup: vi.fn()
+      runR2Cleanup: vi.fn(),
+      storage: vi.fn()
     }
   }
 })
@@ -23,6 +24,15 @@ const result: SetupResult = {
   success: true,
   tablePrefix: "ciki_",
   migrations: [{ name: "schema_v1", status: "applied" }]
+}
+
+const storage: AdminStorage = {
+  pageCount: 12,
+  trashedPageCount: 3,
+  revisionCount: 40,
+  databaseSizeBytes: 3_565_158,
+  sizeScope: "own-database",
+  measure: "pragma"
 }
 
 const lastRun: R2CleanupSummary = {
@@ -44,10 +54,12 @@ describe("系统管理 · 数据库升级", () => {
     vi.mocked(adminApi.runAsAdmin).mockReset()
     vi.mocked(adminApi.r2Cleanup).mockReset()
     vi.mocked(adminApi.runR2Cleanup).mockReset()
+    vi.mocked(adminApi.storage).mockReset()
     vi.mocked(adminApi.r2Cleanup).mockResolvedValue({
       lastRun: null,
       running: null
     })
+    vi.mocked(adminApi.storage).mockResolvedValue(storage)
   })
 
   it("只保留升级区：旧说明文字不再渲染", () => {
@@ -75,6 +87,40 @@ describe("系统管理 · 数据库升级", () => {
     expect(screen.getAllByText(/最近清理/)).toHaveLength(1)
     expect(screen.queryByRole("alert")).toBeNull()
     expect(screen.queryByText(/每月/)).toBeNull()
+  })
+
+  it("库体积与页数并成一行：体积取服务端口径，页数是未删除页面数", async () => {
+    render(<DatabaseTab />)
+
+    expect(
+      await screen.findByText("数据库体积 3.4 MB · 页面 12")
+    ).toBeInTheDocument()
+    // 只此一行、无说明文字，也不出现共享库 scope 字样
+    expect(screen.queryByText(/共享/)).toBeNull()
+    expect(screen.queryByText(/PRAGMA/)).toBeNull()
+    expect(screen.getAllByText(/数据库体积/)).toHaveLength(1)
+  })
+
+  it("体积读不到时显式「不可得」，不拿页数估算", async () => {
+    vi.mocked(adminApi.storage).mockResolvedValue({
+      ...storage,
+      databaseSizeBytes: null
+    })
+    render(<DatabaseTab />)
+
+    expect(
+      await screen.findByText("数据库体积 不可得 · 页面 12")
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/\d MB/)).toBeNull()
+  })
+
+  it("体积接口失败时整行不渲染，也不占错误位", async () => {
+    vi.mocked(adminApi.storage).mockRejectedValue(new Error("boom"))
+    render(<DatabaseTab />)
+
+    await waitFor(() => expect(adminApi.storage).toHaveBeenCalledTimes(1))
+    expect(screen.queryByText(/数据库体积/)).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
   })
 
   it("没有清理记录时不渲染摘要，也不留空态文字", async () => {
@@ -114,6 +160,8 @@ describe("系统管理 · 数据库升级", () => {
     expect(screen.getByText("schema_v1")).toBeInTheDocument()
     expect(screen.getByText("已应用")).toBeInTheDocument()
     await waitFor(() => expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(2))
+    // 升级后体积行同样重拉一次
+    await waitFor(() => expect(adminApi.storage).toHaveBeenCalledTimes(2))
   })
 
   it("已记账的迁移（skipped）显示「已是最新」而非「已应用」", async () => {

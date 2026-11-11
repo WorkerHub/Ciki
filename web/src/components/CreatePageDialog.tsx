@@ -23,7 +23,7 @@ export function CreatePageDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  parentId: string | null
+  parentId: number | null
   parentTitle?: string
   onCreated: (page: PageDetail) => void
 }) {

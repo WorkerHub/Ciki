@@ -18,8 +18,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { pagesApi } = await import("@/lib/api")
 
 const user: Me = {
-  id: "u1",
-  publicId: "AB23CD45",
+  id: 1,
   username: "小明",
   avatarUrl: null,
   email: "u1@example.com",
@@ -35,7 +34,8 @@ const user: Me = {
 }
 
 const defaultSpace: Space = {
-  id: "space-default",
+  id: 1,
+  slug: "default",
   name: "默认空间",
   description: "",
   myRole: "editor",
@@ -46,13 +46,14 @@ const defaultSpace: Space = {
 
 const teamSpace: Space = {
   ...defaultSpace,
-  id: "space-2",
+  id: 2,
+  slug: "pay-team",
   name: "支付团队",
   myRole: "editor",
   isDefault: false
 }
 
-function trashNode(id: string, title: string): TrashNode {
+function trashNode(id: number, title: string): TrashNode {
   return {
     id,
     parentId: null,
@@ -65,10 +66,10 @@ function trashNode(id: string, title: string): TrashNode {
 function renderTrash() {
   const router = createMemoryRouter(
     [
-      { path: "/trash", element: <TrashPage /> },
+      { path: "/s/:slug/trash", element: <TrashPage /> },
       { path: "/", element: <div>首页占位</div> }
     ],
-    { initialEntries: ["/trash"] }
+    { initialEntries: ["/s/default/trash"] }
   )
   render(<RouterProvider router={router} />)
   return router
@@ -81,12 +82,12 @@ describe("回收站页头的空间切换", () => {
       spaces: [defaultSpace, teamSpace],
       status: "ready",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
     vi.mocked(pagesApi.trash).mockImplementation(async (spaceId) =>
       spaceId === teamSpace.id
-        ? [trashNode("p2", "支付接口规范")]
-        : [trashNode("p1", "旧版首页")]
+        ? [trashNode(2, "支付接口规范")]
+        : [trashNode(1, "旧版首页")]
     )
   })
 
@@ -97,7 +98,7 @@ describe("回收站页头的空间切换", () => {
       "默认空间"
     )
     expect(await screen.findByText("旧版首页")).toBeInTheDocument()
-    expect(pagesApi.trash).toHaveBeenCalledWith("space-default")
+    expect(pagesApi.trash).toHaveBeenCalledWith(1)
   })
 
   it("切换空间后留在回收站，列表按新空间重拉", async () => {
@@ -108,11 +109,11 @@ describe("回收站页头的空间切换", () => {
     await click.click(screen.getByRole("button", { name: "切换空间" }))
     await click.click(await screen.findByRole("menuitem", { name: /支付团队/ }))
 
-    expect(useSpacesStore.getState().currentId).toBe("space-2")
+    expect(useSpacesStore.getState().currentId).toBe(2)
     // 不绕首页：还停在回收站
-    expect(router.state.location.pathname).toBe("/trash")
+    expect(router.state.location.pathname).toBe("/s/pay-team/trash")
     expect(await screen.findByText("支付接口规范")).toBeInTheDocument()
     expect(screen.queryByText("旧版首页")).toBeNull()
-    expect(pagesApi.trash).toHaveBeenLastCalledWith("space-2")
+    expect(pagesApi.trash).toHaveBeenLastCalledWith(2)
   })
 })

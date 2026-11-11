@@ -50,8 +50,7 @@ beforeEach(() => {
 })
 
 const memberUser: Me = {
-  id: "u1",
-  publicId: "AB23CD45",
+  id: 1,
   username: "小明",
   avatarUrl: null,
   email: "u1@example.com",
@@ -67,24 +66,24 @@ const memberUser: Me = {
 }
 
 const page: PageDetail = {
-  id: "a",
+  id: 1,
   parentId: null,
-  spaceId: "s1",
+  spaceId: 1,
   title: "支付服务部署手册",
   sortOrder: 0,
-  contentJson: "{}",
   contentHtml: "<p>正文</p>",
   contentText: "正文",
   contentMd: "正文",
-  createdBy: "u2",
-  updatedBy: "u2",
+  createdBy: 2,
+  updatedBy: 2,
   createdAt: "2026-11-08T00:00:00.000Z",
   updatedAt: "2026-11-08T00:00:00.000Z"
 }
 
 function space(overrides: Partial<Space>): Space {
   return {
-    id: "s1",
+    id: 1,
+    slug: "pay-team",
     name: "支付团队",
     description: "",
     myRole: "editor",
@@ -95,7 +94,7 @@ function space(overrides: Partial<Space>): Space {
   }
 }
 
-function renderView(initialEntry = "/p/a") {
+function renderView(initialEntry = "/p/1") {
   const router = createMemoryRouter(
     [
       { path: "/p/:pageId", element: <PageView /> },
@@ -107,7 +106,7 @@ function renderView(initialEntry = "/p/a") {
 }
 
 /** 把阅读页放进主区那种滚动容器里：位置保持要靠它找滚动父级。 */
-function renderViewInScroller(initialEntry = "/p/a") {
+function renderViewInScroller(initialEntry = "/p/1") {
   const router = createMemoryRouter(
     [
       {
@@ -131,13 +130,6 @@ function longPage(): PageDetail {
   const blocks = ["甲", "乙", "丙", "丁"]
   return {
     ...page,
-    contentJson: JSON.stringify({
-      type: "doc",
-      content: blocks.map((text) => ({
-        type: "paragraph",
-        content: [{ type: "text", text }]
-      }))
-    }),
     contentHtml: blocks.map((text) => `<p>${text}</p>`).join(""),
     contentText: blocks.join("\n")
   }
@@ -157,31 +149,9 @@ function setViewportWide(wide: boolean) {
   })) as unknown as typeof window.matchMedia
 }
 
-const tocContentJson = JSON.stringify({
-  type: "doc",
-  content: [
-    {
-      type: "heading",
-      attrs: { level: 2 },
-      content: [{ type: "text", text: "部署" }]
-    },
-    {
-      type: "heading",
-      attrs: { level: 3 },
-      content: [{ type: "text", text: "配置" }]
-    },
-    {
-      type: "heading",
-      attrs: { level: 2 },
-      content: [{ type: "text", text: "回滚" }]
-    }
-  ]
-})
-
 function pageWithToc(): PageDetail {
   return {
     ...page,
-    contentJson: tocContentJson,
     contentHtml: "<h2>部署</h2><h3>配置</h3><h2>回滚</h2>",
     contentText: "部署\n配置\n回滚"
   }
@@ -200,7 +170,7 @@ describe("阅读页按空间角色收口写入口", () => {
     })
     usePagesStore.setState({
       tree: [],
-      spaceId: "s1",
+      spaceId: 1,
       loading: false,
       error: null,
       expanded: []
@@ -209,7 +179,7 @@ describe("阅读页按空间角色收口写入口", () => {
       spaces: [space({ myRole: "editor" })],
       status: "ready",
       error: null,
-      currentId: "s1"
+      currentId: 1
     })
     vi.mocked(pagesApi.get).mockResolvedValue(page)
     vi.mocked(pagesApi.tree).mockResolvedValue([])
@@ -289,7 +259,7 @@ describe("阅读页按空间角色收口写入口", () => {
       await user.click(download)
 
       await waitFor(() => expect(clicked).toHaveLength(1))
-      expect(pagesApi.download).toHaveBeenCalledWith("a")
+      expect(pagesApi.download).toHaveBeenCalledWith(1)
       expect(clicked[0].download).toBe("支付服务部署手册.md")
       expect(await blobs[0].text()).toBe("# 支付服务部署手册\n\n正文\n")
     } finally {
@@ -340,7 +310,10 @@ describe("阅读页按空间角色收口写入口", () => {
 
   it("editor 有编辑、子页面、删除，并在有别的可编辑空间时显示移动入口", async () => {
     useSpacesStore.setState({
-      spaces: [space({ myRole: "editor" }), space({ id: "s2", name: "另一个" })]
+      spaces: [
+        space({ myRole: "editor" }),
+        space({ id: 2, slug: "other", name: "另一个" })
+      ]
     })
     renderView()
 
@@ -382,13 +355,13 @@ describe("阅读页按空间角色收口写入口", () => {
     useSpacesStore.setState({
       spaces: [
         space({ myRole: "editor" }),
-        space({ id: "s2", name: "另一个" })
+        space({ id: 2, slug: "other", name: "另一个" })
       ],
-      currentId: "s2"
+      currentId: 2
     })
     renderView()
 
-    await waitFor(() => expect(useSpacesStore.getState().currentId).toBe("s1"))
+    await waitFor(() => expect(useSpacesStore.getState().currentId).toBe(1))
   })
 
   it("≥1280px 时正文右侧出现索引轨，条目是原生锚点", async () => {
@@ -412,16 +385,6 @@ describe("阅读页按空间角色收口写入口", () => {
     setViewportWide(true)
     vi.mocked(pagesApi.get).mockResolvedValue({
       ...page,
-      contentJson: JSON.stringify({
-        type: "doc",
-        content: [
-          {
-            type: "heading",
-            attrs: { level: 2 },
-            content: [{ type: "text", text: "唯一标题" }]
-          }
-        ]
-      }),
       contentHtml: "<h2>唯一标题</h2>"
     })
     renderView()
@@ -443,7 +406,7 @@ describe("阅读页按空间角色收口写入口", () => {
     setViewportWide(true)
     vi.mocked(pagesApi.get).mockResolvedValue(pageWithToc())
     const spy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
-    renderView("/p/a#heading-2")
+    renderView("/p/1#heading-2")
 
     await waitFor(() => expect(spy).toHaveBeenCalled())
     const hits = spy.mock.instances.filter(
@@ -457,28 +420,27 @@ describe("阅读页按空间角色收口写入口", () => {
     setViewportWide(true)
     const pageA: PageDetail = {
       ...page,
-      id: "a",
+      id: 1,
       title: "A 页",
-      contentJson: tocContentJson,
       contentHtml: "<h2>部署</h2><h3>配置</h3><h2>回滚</h2>"
     }
-    const pageB: PageDetail = { ...pageA, id: "b", title: "B 页" }
+    const pageB: PageDetail = { ...pageA, id: 2, title: "B 页" }
     vi.mocked(pagesApi.get).mockImplementation((id) =>
-      Promise.resolve(id === "b" ? pageB : pageA)
+      Promise.resolve(id === 2 ? pageB : pageA)
     )
     const router = createMemoryRouter(
       [
         { path: "/p/:pageId", element: <PageView /> },
         { path: "/", element: <div>首页占位</div> }
       ],
-      { initialEntries: ["/p/a"] }
+      { initialEntries: ["/p/1"] }
     )
     const spy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
     render(<RouterProvider router={router} />)
     await screen.findByText("A 页")
 
     // 切页瞬间 contentRoot 还是 A 页的：不能提前记帐，否则新页就绪后不再恢复
-    await router.navigate("/p/b#heading-2")
+    await router.navigate("/p/2#heading-2")
     await screen.findByText("B 页")
     await waitFor(() =>
       expect(
@@ -499,7 +461,7 @@ describe("阅读页按空间角色收口写入口", () => {
     })
 
     /** 按「块高 100、视口 600」装布局桩：块顶 = 序号×100 − 容器 scrollTop。 */
-    function renderWithLayout(initialEntry = "/p/a") {
+    function renderWithLayout(initialEntry = "/p/1") {
       layout = installScrollLayout()
       return renderViewInScroller(initialEntry)
     }
@@ -514,7 +476,7 @@ describe("阅读页按空间角色收口写入口", () => {
       await userEvent.click(screen.getByRole("link", { name: "编辑" }))
 
       // 块顶：-250 / -150 / -50 / 50；判定线 24 落在第 3 块内（(24+50)/100）
-      const anchor = readScrollAnchor("a")
+      const anchor = readScrollAnchor(1)
       expect(anchor?.blockIndex).toBe(2)
       expect(anchor?.ratio).toBeCloseTo(0.74)
     })
@@ -526,12 +488,12 @@ describe("阅读页按空间角色收口写入口", () => {
 
       await userEvent.click(screen.getByRole("link", { name: "编辑" }))
 
-      expect(readScrollAnchor("a")).toBeNull()
+      expect(readScrollAnchor(1)).toBeNull()
     })
 
     it("从编辑页返回时把同一块送回判定线", async () => {
       vi.mocked(pagesApi.get).mockResolvedValue(longPage())
-      rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
+      rememberScrollAnchor(1, { blockIndex: 2, ratio: 0.5 })
       renderWithLayout()
       await screen.findByText("甲")
 
@@ -539,16 +501,16 @@ describe("阅读页按空间角色收口写入口", () => {
       // 第 3 块顶 200 + 0.5 × 100 = 250，判定线 24 → 滚到 226，而不是回到顶部
       await waitFor(() => expect(scroller.scrollTop).toBeCloseTo(226))
       // 用完即删：之后的普通访问不会再跳到这个位置
-      expect(readScrollAnchor("a")).toBeNull()
+      expect(readScrollAnchor(1)).toBeNull()
     })
 
     it("URL 带 hash 时让位给 hash 恢复，记忆锚点作废", async () => {
       vi.mocked(pagesApi.get).mockResolvedValue(pageWithToc())
-      rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
-      renderWithLayout("/p/a#heading-2")
+      rememberScrollAnchor(1, { blockIndex: 2, ratio: 0.5 })
+      renderWithLayout("/p/1#heading-2")
       await screen.findAllByRole("heading", { level: 2 })
 
-      expect(readScrollAnchor("a")).toBeNull()
+      expect(readScrollAnchor(1)).toBeNull()
       expect(screen.getByTestId("scroller").scrollTop).toBe(0)
     })
   })
@@ -567,7 +529,7 @@ describe("文章页原地刷新", () => {
     })
     usePagesStore.setState({
       tree: [],
-      spaceId: "s1",
+      spaceId: 1,
       loading: false,
       error: null,
       expanded: []
@@ -576,7 +538,7 @@ describe("文章页原地刷新", () => {
       spaces: [space({ myRole: "editor" })],
       status: "ready",
       error: null,
-      currentId: "s1"
+      currentId: 1
     })
     vi.mocked(pagesApi.get).mockReset()
     vi.mocked(pagesApi.tree).mockReset()
@@ -692,16 +654,16 @@ describe("文章页原地刷新", () => {
 
   it("刷新途中切到别的页面时，旧页的结果不会盖到新页上", async () => {
     const user = userEvent.setup()
-    const pageB: PageDetail = { ...page, id: "b", title: "B 页" }
+    const pageB: PageDetail = { ...page, id: 2, title: "B 页" }
     vi.mocked(pagesApi.get).mockImplementation((id) =>
-      Promise.resolve(id === "b" ? pageB : page)
+      Promise.resolve(id === 2 ? pageB : page)
     )
     const router = createMemoryRouter(
       [
         { path: "/p/:pageId", element: <PageView /> },
         { path: "/", element: <div>首页占位</div> }
       ],
-      { initialEntries: ["/p/a"] }
+      { initialEntries: ["/p/1"] }
     )
     render(<RouterProvider router={router} />)
     await screen.findByText("支付服务部署手册")
@@ -716,7 +678,7 @@ describe("文章页原地刷新", () => {
     )
     await user.click(screen.getByRole("button", { name: "刷新" }))
 
-    await router.navigate("/p/b")
+    await router.navigate("/p/2")
     await screen.findByText("B 页")
 
     releaseRefresh({ ...page, title: "A 页的旧结果" })
@@ -727,16 +689,16 @@ describe("文章页原地刷新", () => {
 
   it("切页时清掉上一页的刷新报错，并重置自动刷新的节流基准", async () => {
     const user = userEvent.setup()
-    const pageB: PageDetail = { ...page, id: "b", title: "B 页" }
+    const pageB: PageDetail = { ...page, id: 2, title: "B 页" }
     vi.mocked(pagesApi.get).mockImplementation((id) =>
-      Promise.resolve(id === "b" ? pageB : page)
+      Promise.resolve(id === 2 ? pageB : page)
     )
     const router = createMemoryRouter(
       [
         { path: "/p/:pageId", element: <PageView /> },
         { path: "/", element: <div>首页占位</div> }
       ],
-      { initialEntries: ["/p/a"] }
+      { initialEntries: ["/p/1"] }
     )
     render(<RouterProvider router={router} />)
     await screen.findByText("支付服务部署手册")
@@ -747,7 +709,7 @@ describe("文章页原地刷新", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("boom")
 
     // 切到 B 页：残留报错不能跟过来
-    await router.navigate("/p/b")
+    await router.navigate("/p/2")
     await screen.findByText("B 页")
     expect(screen.queryByRole("alert")).toBeNull()
 
@@ -761,20 +723,20 @@ describe("文章页原地刷新", () => {
 
   it("切页后评论区按新页面重拉，草稿不跟过去", async () => {
     const user = userEvent.setup()
-    const pageB: PageDetail = { ...page, id: "b", title: "B 页" }
+    const pageB: PageDetail = { ...page, id: 2, title: "B 页" }
     vi.mocked(pagesApi.get).mockImplementation((id) =>
-      Promise.resolve(id === "b" ? pageB : page)
+      Promise.resolve(id === 2 ? pageB : page)
     )
     const router = createMemoryRouter(
       [
         { path: "/p/:pageId", element: <PageView /> },
         { path: "/", element: <div>首页占位</div> }
       ],
-      { initialEntries: ["/p/a"] }
+      { initialEntries: ["/p/1"] }
     )
     render(<RouterProvider router={router} />)
     await screen.findByText("支付服务部署手册")
-    expect(vi.mocked(commentsApi.list)).toHaveBeenLastCalledWith("a")
+    expect(vi.mocked(commentsApi.list)).toHaveBeenLastCalledWith(1)
 
     // A 页留半截草稿：评论是跟着页面走的，换页不能把它带过去
     await user.type(
@@ -782,10 +744,10 @@ describe("文章页原地刷新", () => {
       "半截草稿"
     )
 
-    await router.navigate("/p/b")
+    await router.navigate("/p/2")
     await screen.findByText("B 页")
     await waitFor(() =>
-      expect(vi.mocked(commentsApi.list)).toHaveBeenLastCalledWith("b")
+      expect(vi.mocked(commentsApi.list)).toHaveBeenLastCalledWith(2)
     )
     expect(screen.getByRole("textbox", { name: "发表评论" })).toHaveValue("")
   })
@@ -805,5 +767,28 @@ describe("文章页原地刷新", () => {
     expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
     expect(screen.queryByText("boom")).toBeNull()
     now.mockRestore()
+  })
+})
+
+/** 旧 UUID 地址不再识别：数字 id 之外的任何形态都按「页面不存在」处理。 */
+describe("页面地址只认数字 id", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  it("旧 UUID 地址直接说不存在，且一次接口都不打", async () => {
+    vi.mocked(pagesApi.get).mockClear()
+    renderView("/p/0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b")
+
+    expect(await screen.findByText("页面不存在或已删除")).toBeInTheDocument()
+    expect(pagesApi.get).not.toHaveBeenCalled()
+  })
+
+  it("非正整数（0、负数、小数）同样按不存在处理", async () => {
+    vi.mocked(pagesApi.get).mockClear()
+    renderView("/p/0")
+
+    expect(await screen.findByText("页面不存在或已删除")).toBeInTheDocument()
+    expect(pagesApi.get).not.toHaveBeenCalled()
   })
 })

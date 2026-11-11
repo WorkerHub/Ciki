@@ -12,7 +12,8 @@ import {
 
 function space(overrides: Partial<Space>): Space {
   return {
-    id: "s1",
+    id: 1,
+    slug: "space-1",
     name: "空间一",
     description: "",
     myRole: "viewer",
@@ -39,11 +40,11 @@ describe("空间角色口径", () => {
   })
 
   it("空间不在列表里时角色是 null（写入口全部不渲染）", () => {
-    const spaces = [space({ id: "s1" }), space({ id: "s2", myRole: "editor" })]
-    expect(roleForSpace(spaces, "s2", false)).toBe("editor")
-    expect(roleForSpace(spaces, "gone", false)).toBeNull()
+    const spaces = [space({ id: 1 }), space({ id: 2, myRole: "editor" })]
+    expect(roleForSpace(spaces, 2, false)).toBe("editor")
+    expect(roleForSpace(spaces, 99, false)).toBeNull()
     expect(roleForSpace(spaces, null, false)).toBeNull()
-    expect(roleForSpace(spaces, "s1", true)).toBe("admin")
+    expect(roleForSpace(spaces, 1, true)).toBe("admin")
   })
 
   it("角色徽章文案固定", () => {
@@ -56,42 +57,39 @@ describe("空间角色口径", () => {
 })
 
 describe("进入应用时的当前空间", () => {
-  const fallback = space({ id: "default", isDefault: true })
-  const other = space({ id: "s2", myRole: "editor" })
+  const fallback = space({ id: 10, isDefault: true })
+  const other = space({ id: 2, myRole: "editor" })
   const spaces = [fallback, other]
 
   it("优先本机记住的 id", () => {
-    expect(pickInitialSpace(spaces, "s2")?.id).toBe("s2")
+    expect(pickInitialSpace(spaces, 2)?.id).toBe(2)
   })
 
   it("持久 id 失效（空间被删 / 不再是成员）时回落默认空间", () => {
-    expect(pickInitialSpace(spaces, "deleted")?.id).toBe("default")
-    expect(pickInitialSpace(spaces, null)?.id).toBe("default")
+    expect(pickInitialSpace(spaces, 99)?.id).toBe(10)
+    expect(pickInitialSpace(spaces, null)?.id).toBe(10)
   })
 
   it("没有默认空间时取第一个，空列表返回 null", () => {
-    expect(pickInitialSpace([other], "deleted")?.id).toBe("s2")
-    expect(pickInitialSpace([], "s1")).toBeNull()
+    expect(pickInitialSpace([other], 99)?.id).toBe(2)
+    expect(pickInitialSpace([], 1)).toBeNull()
   })
 })
 
 describe("跨空间移动的目标空间", () => {
   const spaces = [
-    space({ id: "s1", myRole: "admin" }),
-    space({ id: "s2", myRole: "editor" }),
-    space({ id: "s3", myRole: "viewer" })
+    space({ id: 1, myRole: "admin" }),
+    space({ id: 2, myRole: "editor" }),
+    space({ id: 3, myRole: "viewer" })
   ]
 
   it("只留当前用户可编辑、且不是当前所在的空间", () => {
-    expect(editableSpaces(spaces, false, "s1").map((item) => item.id)).toEqual([
-      "s2"
-    ])
+    expect(editableSpaces(spaces, false, 1).map((item) => item.id)).toEqual([2])
   })
 
   it("站点管理员对所有空间都有编辑权", () => {
-    expect(editableSpaces(spaces, true, "s1").map((item) => item.id)).toEqual([
-      "s2",
-      "s3"
+    expect(editableSpaces(spaces, true, 1).map((item) => item.id)).toEqual([
+      2, 3
     ])
   })
 })

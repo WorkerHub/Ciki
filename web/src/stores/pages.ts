@@ -18,25 +18,25 @@ const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] }
 interface PagesState {
   tree: PageNode[]
   /** 当前页面树所属空间；null = 走后端缺省的默认空间。 */
-  spaceId: string | null
+  spaceId: number | null
   loading: boolean
   error: string | null
-  expanded: string[]
-  load: (spaceId?: string | null) => Promise<void>
-  toggle: (id: string) => void
-  expand: (id: string) => void
-  expandTo: (id: string) => void
-  createPage: (title: string, parentId: string | null) => Promise<PageDetail>
-  renamePage: (id: string, title: string) => Promise<void>
+  expanded: number[]
+  load: (spaceId?: number | null) => Promise<void>
+  toggle: (id: number) => void
+  expand: (id: number) => void
+  expandTo: (id: number) => void
+  createPage: (title: string, parentId: number | null) => Promise<PageDetail>
+  renamePage: (id: number, title: string) => Promise<void>
   movePage: (
-    id: string,
-    parentId: string | null,
+    id: number,
+    parentId: number | null,
     sortOrder: number
   ) => Promise<void>
-  movePageToSpace: (id: string, targetSpaceId: string) => Promise<void>
-  removePage: (id: string) => Promise<void>
-  restorePage: (id: string) => Promise<void>
-  purgePage: (id: string) => Promise<void>
+  movePageToSpace: (id: number, targetSpaceId: number) => Promise<void>
+  removePage: (id: number) => Promise<void>
+  restorePage: (id: number) => Promise<void>
+  purgePage: (id: number) => Promise<void>
 }
 
 /**
@@ -46,7 +46,7 @@ interface PagesState {
  * 客户端按当前显示顺序把这一级重排成 0..n-1。
  */
 export const usePagesStore = create<PagesState>((set, get) => {
-  const repairOrder = async (parentIds: (string | null)[]) => {
+  const repairOrder = async (parentIds: (number | null)[]) => {
     for (const parentId of parentIds) {
       const siblings = siblingsOf(get().tree, parentId)
       if (!needsRenumber(siblings)) continue
@@ -57,7 +57,7 @@ export const usePagesStore = create<PagesState>((set, get) => {
     }
   }
 
-  const load = async (spaceId?: string | null) => {
+  const load = async (spaceId?: number | null) => {
     // 省略参数 = 沿用当前空间（写操作后重拉）；显式传 null = 走后端缺省的默认空间
     const next = spaceId === undefined ? get().spaceId : spaceId
     const switching = next !== get().spaceId
@@ -118,10 +118,10 @@ export const usePagesStore = create<PagesState>((set, get) => {
         contentJson: JSON.stringify(EMPTY_DOC),
         contentHtml: "",
         contentText: "",
-        ...(get().spaceId ? { spaceId: get().spaceId as string } : {})
+        ...(get().spaceId !== null ? { spaceId: get().spaceId as number } : {})
       })
       await load()
-      if (parentId) get().expand(parentId)
+      if (parentId !== null) get().expand(parentId)
       return page
     },
 
@@ -129,7 +129,9 @@ export const usePagesStore = create<PagesState>((set, get) => {
       const tree = get().tree
       const node = findNode(tree, id)
       if (!node) return
-      const detail = await pagesApi.get(id)
+      // 改名只是换标题，但 PUT /pages/:id 的契约要求带正文三件套：
+      // 正文 JSON 只在 R2 里，得先按 content_hash 取一次（列表不缓正文）。
+      const detail = await pagesApi.getForEditor(id)
       await pagesApi.update(id, {
         title,
         contentJson: detail.contentJson,
@@ -145,7 +147,7 @@ export const usePagesStore = create<PagesState>((set, get) => {
       await load()
       await repairOrder([parentId, before?.parentId ?? null])
       await load()
-      if (parentId) get().expand(parentId)
+      if (parentId !== null) get().expand(parentId)
     },
 
     movePageToSpace: async (id, targetSpaceId) => {

@@ -40,8 +40,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { pagesApi, spacesApi } = await import("@/lib/api")
 
 const memberUser: Me = {
-  id: "u1",
-  publicId: "AB23CD45",
+  id: 1,
   username: "小明",
   avatarUrl: null,
   email: "u1@example.com",
@@ -57,7 +56,8 @@ const memberUser: Me = {
 }
 
 const space: Space = {
-  id: "s1",
+  id: 1,
+  slug: "pay-team",
   name: "支付团队",
   description: "支付相关文档",
   myRole: "admin",
@@ -68,28 +68,26 @@ const space: Space = {
 
 const members: SpaceMember[] = [
   {
-    userId: "u1",
+    userId: 1,
     username: "小明",
-    publicId: "AB23CD45",
     email: "u1@example.com",
     role: "admin",
     createdAt: "2026-11-08T00:00:00.000Z"
   },
   {
-    userId: "u2",
+    userId: 2,
     username: "小红",
-    publicId: "EF45GH67",
     email: "u2@example.com",
     role: "editor",
     createdAt: "2026-11-08T00:00:00.000Z"
   }
 ]
 
-function page(id: string, children: PageNode[] = []): PageNode {
+function page(id: number, children: PageNode[] = []): PageNode {
   return {
     id,
     parentId: null,
-    title: id,
+    title: `页面 ${id}`,
     sortOrder: 0,
     updatedAt: "2026-11-08T00:00:00.000Z",
     children
@@ -99,10 +97,10 @@ function page(id: string, children: PageNode[] = []): PageNode {
 function renderSettings() {
   const router = createMemoryRouter(
     [
-      { path: "/spaces/:spaceId/settings", element: <SpaceSettingsPage /> },
+      { path: "/s/:slug/settings", element: <SpaceSettingsPage /> },
       { path: "/", element: <div>首页占位</div> }
     ],
-    { initialEntries: ["/spaces/s1/settings"] }
+    { initialEntries: ["/s/pay-team/settings"] }
   )
   return render(<RouterProvider router={router} />)
 }
@@ -118,7 +116,7 @@ describe("空间设置与成员管理", () => {
       spaces: [space],
       status: "ready",
       error: null,
-      currentId: "s1"
+      currentId: 1
     })
     vi.mocked(spacesApi.get).mockResolvedValue(space)
     vi.mocked(spacesApi.members).mockResolvedValue(members)
@@ -149,7 +147,7 @@ describe("空间设置与成员管理", () => {
     await user.type(screen.getByLabelText("描述"), "新的描述")
     await user.click(screen.getByRole("button", { name: "保存" }))
 
-    expect(spacesApi.update).toHaveBeenCalledWith("s1", {
+    expect(spacesApi.update).toHaveBeenCalledWith(1, {
       name: "支付中台",
       description: "新的描述"
     })
@@ -183,7 +181,7 @@ describe("空间设置与成员管理", () => {
     await user.click(within(row).getByRole("combobox"))
     await user.click(await screen.findByRole("option", { name: "管理员" }))
 
-    expect(spacesApi.updateMember).toHaveBeenCalledWith("s1", "u2", "admin")
+    expect(spacesApi.updateMember).toHaveBeenCalledWith(1, 2, "admin")
   })
 
   it("移除成员要过一次确认", async () => {
@@ -196,21 +194,20 @@ describe("空间设置与成员管理", () => {
     const dialog = await screen.findByRole("alertdialog")
     await user.click(within(dialog).getByRole("button", { name: "移除成员" }))
 
-    expect(spacesApi.removeMember).toHaveBeenCalledWith("s1", "u2")
+    expect(spacesApi.removeMember).toHaveBeenCalledWith(1, 2)
   })
 
   it("搜索候选用户并按所选角色加入空间", async () => {
     const user = userEvent.setup()
     const candidate: SpaceCandidate = {
-      userId: "u3",
+      userId: 3,
       username: "小刚",
-      publicId: "JK67MN89",
       email: "u3@example.com"
     }
     vi.mocked(spacesApi.candidates).mockResolvedValue([candidate])
     vi.mocked(spacesApi.addMember).mockResolvedValue({
       ...members[1],
-      userId: "u3",
+      userId: 3,
       username: "小刚",
       email: "u3@example.com",
       role: "editor"
@@ -220,11 +217,11 @@ describe("空间设置与成员管理", () => {
     await user.type(await screen.findByLabelText("添加成员"), "小刚")
     await user.click(screen.getByRole("button", { name: "搜索" }))
 
-    expect(spacesApi.candidates).toHaveBeenCalledWith("s1", "小刚")
+    expect(spacesApi.candidates).toHaveBeenCalledWith(1, "小刚")
     await user.click(await screen.findByRole("button", { name: "添加" }))
 
-    expect(spacesApi.addMember).toHaveBeenCalledWith("s1", {
-      userId: "u3",
+    expect(spacesApi.addMember).toHaveBeenCalledWith(1, {
+      userId: 3,
       role: "editor"
     })
   })
@@ -238,12 +235,12 @@ describe("空间设置与成员管理", () => {
   })
 
   it("空间里还有页面（含回收站）时禁用删除并引导迁移", async () => {
-    vi.mocked(pagesApi.tree).mockResolvedValue([page("p1", [page("p2")])])
+    vi.mocked(pagesApi.tree).mockResolvedValue([page(1, [page(2)])])
     vi.mocked(pagesApi.trash).mockResolvedValue([
       {
-        id: "t1",
+        id: 9,
         parentId: null,
-        title: "t1",
+        title: "回收站页面",
         deletedAt: "2026-11-08T00:00:00.000Z",
         updatedAt: "2026-11-08T00:00:00.000Z"
       }
@@ -268,7 +265,7 @@ describe("空间设置与成员管理", () => {
     const dialog = await screen.findByRole("alertdialog")
     await user.click(within(dialog).getByRole("button", { name: "删除空间" }))
 
-    expect(spacesApi.remove).toHaveBeenCalledWith("s1")
+    expect(spacesApi.remove).toHaveBeenCalledWith(1)
     expect(await screen.findByText("首页占位")).toBeInTheDocument()
   })
 

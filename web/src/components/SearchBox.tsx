@@ -2,11 +2,16 @@ import { Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router"
 import { Input } from "@/components/ui/input"
+import { spaceSearchPath } from "@/lib/routes"
+import { useSpacesStore } from "@/stores/spaces"
 
 /** 顶栏搜索框：提交后进结果页（结果页自己读 ?q= 发起请求）。 */
 export function SearchBox({ className }: { className?: string }) {
   const navigate = useNavigate()
   const [params] = useSearchParams()
+  const spaces = useSpacesStore((state) => state.spaces)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const slug = spaces.find((space) => space.id === currentSpaceId)?.slug ?? null
   const [value, setValue] = useState(params.get("q") ?? "")
 
   useEffect(() => {
@@ -19,7 +24,9 @@ export function SearchBox({ className }: { className?: string }) {
       onSubmit={(event) => {
         event.preventDefault()
         const query = value.trim()
-        navigate(query ? `/search?q=${encodeURIComponent(query)}` : "/search")
+        // 空间列表还没到（或一个空间都没有）时没有可去的 slug，先不跳转
+        if (!slug) return
+        navigate(spaceSearchPath(slug, query))
       }}
     >
       <div className="relative">

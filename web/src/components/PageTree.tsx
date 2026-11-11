@@ -43,7 +43,9 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { describeApiError } from "@/lib/api"
+import { pageEditPath, pagePath, parseIdParam } from "@/lib/routes"
 import { canEdit, editableSpaces } from "@/lib/space"
 import {
   flattenVisible,
@@ -51,15 +53,15 @@ import {
   siblingsOf,
   type TreeRow
 } from "@/lib/tree"
-import { usePagesStore } from "@/stores/pages"
-import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { useAuthStore } from "@/stores/auth"
+import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
 /** 侧边栏页面树：展开/收起、点击进页面、拖拽改层级与排序、行内菜单做增删改。 */
 export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate()
   const params = useParams<{ pageId?: string }>()
+  const activePageId = parseIdParam(params.pageId)
   const tree = usePagesStore((state) => state.tree)
   const loading = usePagesStore((state) => state.loading)
   const error = usePagesStore((state) => state.error)
@@ -82,7 +84,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
     () => flattenVisible(tree, new Set(expanded)),
     [tree, expanded]
   )
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [activeId, setActiveId] = useState<number | null>(null)
   const [offsetLeft, setOffsetLeft] = useState(0)
   const [createOpen, setCreateOpen] = useState(false)
   const [createParent, setCreateParent] = useState<TreeRow | null>(null)
@@ -108,7 +110,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
 
   const openPage = (row: TreeRow) => {
     expandTo(row.id)
-    navigate(`/p/${row.id}`)
+    navigate(pagePath(row.id))
     onNavigate?.()
   }
 
@@ -155,7 +157,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(String(event.active.id))
+    setActiveId(Number(event.active.id))
     setOffsetLeft(0)
   }
 
@@ -164,8 +166,8 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
-    const active = String(event.active.id)
-    const over = event.over ? String(event.over.id) : null
+    const active = Number(event.active.id)
+    const over = event.over ? Number(event.over.id) : null
     setActiveId(null)
     setOffsetLeft(0)
     if (!over || readOnly) return
@@ -267,7 +269,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
                     row={row}
                     readOnly={readOnly}
                     expanded={expanded.includes(row.id)}
-                    active={params.pageId === row.id}
+                    active={activePageId === row.id}
                     canMoveUp={index > 0}
                     canMoveDown={index >= 0 && index < siblings.length - 1}
                     canMoveToSpace={!readOnly && moveTargets.length > 0}
@@ -302,13 +304,13 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
         }}
         parentId={createParent?.id ?? null}
         parentTitle={createParent?.title}
-        onCreated={(page) => navigate(`/p/${page.id}/edit`)}
+        onCreated={(page) => navigate(pageEditPath(page.id))}
       />
 
       <MovePageDialog
-        pageId={moveTarget?.id ?? ""}
+        pageId={moveTarget?.id ?? 0}
         pageTitle={moveTarget?.title ?? ""}
-        sourceSpaceId={currentSpaceId ?? ""}
+        sourceSpaceId={currentSpaceId ?? 0}
         open={moveTarget !== null}
         onOpenChange={(open) => {
           if (!open) setMoveTarget(null)
@@ -318,7 +320,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
             moveTargets.find((space) => space.id === targetSpaceId)?.name ??
             "目标空间"
           setActionNotice(`已移动到「${name}」。`)
-          if (params.pageId === moveTarget?.id) navigate("/")
+          if (activePageId === moveTarget?.id) navigate("/")
           setMoveTarget(null)
         }}
       />
@@ -402,7 +404,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
                 setBusy(true)
                 try {
                   await removePage(deleteTarget.id)
-                  if (params.pageId === deleteTarget.id) navigate("/")
+                  if (activePageId === deleteTarget.id) navigate("/")
                   setDeleteTarget(null)
                 } catch (error) {
                   setActionError(describeApiError(error))

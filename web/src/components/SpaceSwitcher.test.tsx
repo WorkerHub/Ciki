@@ -22,8 +22,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { spacesApi } = await import("@/lib/api")
 
 const user: Me = {
-  id: "u1",
-  publicId: "AB23CD45",
+  id: 1,
   username: "小明",
   avatarUrl: null,
   email: "u1@example.com",
@@ -41,7 +40,8 @@ const user: Me = {
 const siteAdmin: Me = { ...user, role: "admin" }
 
 const defaultSpace: Space = {
-  id: "space-default",
+  id: 1,
+  slug: "default",
   name: "默认空间",
   description: "",
   myRole: "editor",
@@ -52,7 +52,8 @@ const defaultSpace: Space = {
 
 const teamSpace: Space = {
   ...defaultSpace,
-  id: "space-2",
+  id: 2,
+  slug: "pay-team",
   name: "支付团队",
   myRole: "admin",
   isDefault: false
@@ -85,7 +86,7 @@ describe("空间切换器", () => {
       spaces: [defaultSpace, teamSpace],
       status: "ready",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
     vi.mocked(spacesApi.create).mockReset()
   })
@@ -113,14 +114,14 @@ describe("空间切换器", () => {
     await click.click(screen.getByRole("button", { name: "切换空间" }))
     await click.click(await screen.findByRole("menuitem", { name: /支付团队/ }))
 
-    expect(useSpacesStore.getState().currentId).toBe("space-2")
+    expect(useSpacesStore.getState().currentId).toBe(2)
     expect(screen.getByTestId("location")).toHaveTextContent("/")
   })
 
   it("viewer 看不到空间设置入口，但仍能新建空间", async () => {
     useSpacesStore.setState({
       spaces: [defaultSpace, { ...teamSpace, myRole: "viewer" }],
-      currentId: "space-2"
+      currentId: 2
     })
     renderSwitcher()
 
@@ -143,7 +144,7 @@ describe("空间切换器", () => {
     await click.click(await screen.findByRole("menuitem", { name: "空间设置" }))
 
     expect(screen.getByTestId("location")).toHaveTextContent(
-      "/spaces/space-2/settings"
+      "/s/pay-team/settings"
     )
   })
 
@@ -165,7 +166,8 @@ describe("空间切换器", () => {
     const click = userEvent.setup()
     vi.mocked(spacesApi.create).mockResolvedValue({
       ...defaultSpace,
-      id: "space-new",
+      id: 3,
+      slug: "design",
       name: "设计系统",
       myRole: "admin",
       isDefault: false
@@ -181,7 +183,7 @@ describe("空间切换器", () => {
       name: "设计系统",
       description: ""
     })
-    expect(useSpacesStore.getState().currentId).toBe("space-new")
+    expect(useSpacesStore.getState().currentId).toBe(3)
     expect(screen.getByTestId("location")).toHaveTextContent("/")
   })
 

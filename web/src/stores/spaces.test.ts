@@ -18,7 +18,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { spacesApi } = await import("@/lib/api")
 
 const defaultSpace: Space = {
-  id: "space-default",
+  id: 1,
+  slug: "default",
   name: "默认空间",
   description: "",
   myRole: "editor",
@@ -29,7 +30,8 @@ const defaultSpace: Space = {
 
 const secondSpace: Space = {
   ...defaultSpace,
-  id: "space-2",
+  id: 2,
+  slug: "space-2",
   name: "支付团队",
   myRole: "admin",
   isDefault: false
@@ -49,33 +51,33 @@ describe("空间 store：本机偏好与回落", () => {
   })
 
   it("持久化的空间 id 仍可见时保留它", async () => {
-    useSpacesStore.setState({ currentId: "space-2" })
+    useSpacesStore.setState({ currentId: 2 })
     vi.mocked(spacesApi.list).mockResolvedValue([defaultSpace, secondSpace])
 
     await useSpacesStore.getState().load()
 
-    expect(useSpacesStore.getState().currentId).toBe("space-2")
+    expect(useSpacesStore.getState().currentId).toBe(2)
     expect(useSpacesStore.getState().spaces).toHaveLength(2)
     expect(useSpacesStore.getState().status).toBe("ready")
   })
 
   it("持久化的空间已不可见（被删 / 被移出成员）时回落默认空间", async () => {
-    useSpacesStore.setState({ currentId: "deleted-space" })
+    useSpacesStore.setState({ currentId: 99 })
     vi.mocked(spacesApi.list).mockResolvedValue([defaultSpace, secondSpace])
 
     await useSpacesStore.getState().load()
 
-    expect(useSpacesStore.getState().currentId).toBe("space-default")
+    expect(useSpacesStore.getState().currentId).toBe(1)
   })
 
   it("切换空间写进 localStorage（ciki-space），刷新后仍记得", () => {
     useSpacesStore.setState({ spaces: [defaultSpace, secondSpace] })
 
-    useSpacesStore.getState().select("space-2")
+    useSpacesStore.getState().select(2)
 
     const raw = localStorage.getItem(SPACE_STORAGE_KEY)
     expect(raw).toBeTruthy()
-    expect(JSON.parse(raw as string).state.currentId).toBe("space-2")
+    expect(JSON.parse(raw as string).state.currentId).toBe(2)
   })
 
   it("空间列表加载失败时进入 error，不抛异常", async () => {
@@ -92,15 +94,13 @@ describe("空间 store：本机偏好与回落", () => {
     useSpacesStore.setState({
       spaces: [defaultSpace, secondSpace],
       status: "ready",
-      currentId: "space-2"
+      currentId: 2
     })
     vi.mocked(spacesApi.remove).mockResolvedValue({ success: true })
 
-    await useSpacesStore.getState().remove("space-2")
+    await useSpacesStore.getState().remove(2)
 
-    expect(useSpacesStore.getState().currentId).toBe("space-default")
-    expect(useSpacesStore.getState().spaces.map((item) => item.id)).toEqual([
-      "space-default"
-    ])
+    expect(useSpacesStore.getState().currentId).toBe(1)
+    expect(useSpacesStore.getState().spaces.map((item) => item.id)).toEqual([1])
   })
 })
