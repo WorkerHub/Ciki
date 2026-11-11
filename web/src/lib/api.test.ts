@@ -233,6 +233,21 @@ describe("describeApiError：版本治理相关错误码", () => {
     ).toBe("这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。")
   })
 
+  it("正文取不到（内容存储不可用/对象缺失）→ 指向内容存储，不说成内容坏了", () => {
+    expect(
+      describeApiError(
+        apiError(
+          500,
+          "Page content unavailable",
+          "/pages/p1/revisions/r1",
+          "CONTENT_MISSING"
+        )
+      )
+    ).toBe(
+      "页面正文暂时取不到（内容存储不可用或对象缺失），请稍后重试；持续失败请让管理员检查内容存储（ciki-content）。"
+    )
+  })
+
   it("保留数校验失败的 400 用中文说明，不摆后端英文原文", () => {
     expect(
       describeApiError(

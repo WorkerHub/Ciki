@@ -70,8 +70,13 @@ const SECRET_KEYS = [
  * 可选项 `WAKER_SIGNING_KEY`：它是月度 R2 孤儿清理的触发开关（规格 §3），
  * 不是部署必需项——**绝不能放进 REQUIRED**，否则“删 key 重部署回 Cron”
  * 这条回退路径会直接部署失败。空缺/占位值 = 未配置，就不往 secrets.json 里写。
+ * 保留值 `false` 是合法配置值（= 显式关闭自动清理），照常写进 secrets.json：
+ * 运行时要看到这个字面值才知道该停，不写等于回到未配置、Cron 照跑。
  */
 const OPTIONAL_SECRET_KEYS = ["WAKER_SIGNING_KEY"]
+
+/** 与 worker/src/core/waker-gate.ts 的保留值同口径（大小写敏感，只认小写）。 */
+const WAKER_SIGNING_KEY_DISABLED = "false"
 
 const config = {}
 const problems = []
@@ -143,8 +148,9 @@ if (toml.includes("_PLACEHOLDER")) {
 const secrets = {}
 for (const key of SECRET_KEYS) secrets[key] = config[key]
 
-// 可选项单独判定：只认“非空且不是占位值”，否则当作未配置（与运行时的
-// wakerSigningKey() 同口径）。日志只说配没配，绝不打印值。
+// 可选项单独判定三态：只认“非空且不是占位值”，否则当作未配置（与运行时的
+// wakerSigningKey() 同口径）；trim 后全等保留值 `false` 则是「显式关闭」，
+// 该值必须原样上传给运行时才能生效。日志只说配没配/关没关，绝不打印值。
 const optional = []
 for (const name of OPTIONAL_SECRET_KEYS) {
   const raw = process.env[name]
@@ -155,6 +161,12 @@ for (const name of OPTIONAL_SECRET_KEYS) {
   }
   secrets[name] = value
   optional.push(name)
+  if (value === WAKER_SIGNING_KEY_DISABLED) {
+    console.log(
+      `${name}: 已关闭（月度 R2 清理不再自动触发，管理员手动清理仍可用）`
+    )
+    continue
+  }
   console.log(`${name}: 已配置（月度 R2 清理由 waker 回调驱动，Cron 入口让路）`)
 }
 

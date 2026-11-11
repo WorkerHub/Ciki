@@ -16,7 +16,7 @@
 | 用户对外身份           | `id` + `publicId`                     | 只剩 `username`（`publicId` 字段已删除，别读它）                  |
 | 页面正文存储           | D1 的 `content_json` 列               | 内容桶里的 `content/<sha256>` 对象（D1 只留 `content_hash` 指针） |
 
-- **一次升级、不可回退**：升级前必须做一次完整 D1 导出备份；迁移失败不会改动任何旧数据（详见「schema_v6」）。
+- **一次升级、不可回退**：升级前必须用 `wrangler d1 time-travel info <库名>` 记下当前 bookmark 作为回退点（`wrangler d1 export` 因库里的 FTS5 虚拟表不可用）；迁移失败不会改动任何旧数据（详见「schema_v6」）。
 - **正文只在三种情况下读 R2**：`GET /api/pages/:id?format=json`（编辑器）、`GET /api/pages/:id/revisions/:versionNo`（版本查看）、回滚/导入覆盖（服务端读旧内容比对）。阅读页只读 D1 的 `contentHtml` / `contentText` / `contentMd`，不碰 R2。
 - **写路径顺序固定「先 R2 再 D1」**：先上传正文对象拿到哈希，再在同一个 `db.batch()` 里写页面行 + 版本行 + FTS。上传成功而 D1 失败只会留一个无引用的孤儿对象，由月度内容 GC 在 30 天后收走（绝不出现「指针指向不存在的对象」）。
 - **内容不重复存**：同一份正文（sha256 相同）全站只存一个对象；无改动保存既不上传也不写库。
@@ -61,11 +61,11 @@
   - 顺序与幂等：已有新结构（`pages.content_hash` 存在）→ 只补索引直接记账；空库 → 什么都不做。
   - TOTP 密文的 AAD 内嵌用户 id，迁移会解密后用新 id 重新加密；任一用户的密文解不开就整轮中止（不生成半套数据），要求先重置该用户 2FA。
   - `auth_counters` / `system_settings` / `waker_executions` 不重建（无 id 变更、不存正文）。
-  - **升级前必须备份**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先做一次完整 D1 导出（`wrangler d1 export --remote <库名> --output ciki-YYYY-MM-DD.sql`）。回滚只能靠这份备份还原（重建迁移不可逆：旧 uuid 与新整数之间不保留对照表）。
+  - **升级前必须记下回退点**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先跑一次 `wrangler d1 time-travel info <库名>`，把输出的 bookmark 留档（Time Travel 始终开启，回溯窗口为最近 30 天，Workers Free 套餐 7 天；`wrangler d1 info <库名>` 需显示 `version: production`，wrangler v3.4.0+）。不要再试 `wrangler d1 export`：库里有 FTS5 虚拟表，Cloudflare 会拒绝（`cannot export databases with virtual tables (fts5)`）。回退只能按这个 bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`，原地覆盖整库；重建迁移不可逆：旧 uuid 与新整数之间不保留对照表）；Time Travel 只管 D1，R2 里的正文对象不可变、不参与回退。
 
 Ciki 不提供逐版本升级路径：全新库直接跑 `schema_v1`；存量库一次 `schema_v6` 重建到位。今后结构变化仍只在末尾追加迁移，不改动已有迁移。
 
-回滚方式（全新库/整库重置）：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态；生产库执行前必须经用户批准，UI 不提供删表/清库入口。**已跑过 `schema_v6` 的库不能靠删表回到旧结构**——要回到升级前只能还原备份。
+回滚方式（全新库/整库重置）：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态；生产库执行前必须经用户批准，UI 不提供删表/清库入口。**已跑过 `schema_v6` 的库不能靠删表回到旧结构**——要回到升级前只能按升级前记下的 Time Travel bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`）。
 
 账本表名带前导下划线、排在业务表之前（如默认前缀下为 `_ciki_schema_migrations`，无前缀时为 `_schema_migrations`）。旧版部署用的账本名是 `{prefix}schema_migrations`（无前导下划线）：setup 在跑迁移之前先探旧账本，旧在/新不在则 `ALTER TABLE … RENAME TO …` 改名承接（已应用记录原样保留，迁移全显示 `skipped`，重复执行不会重复改名）；新旧都不在则按现行 DDL 新建。新旧账本同时存在（或旧账本表结构不符、不是 ciki 的账本）属异常，setup 以 409 `LEDGER_CONFLICT` 中止并回报，不自行合并或删除任何一边。
 
@@ -307,7 +307,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 索引 `(page_id, version_no DESC)`、`(content_hash)`。新建页面追加首条；之后只有**正文有实际改动**的保存/回滚才追加一条（正文哈希 + HTML + 纯文本全等 = 无改动，不追加）；仅改标题不追加（标题当页级元数据原地更新，版本的 `title` 保留保存当时的快照）。版本号只在插入时由 `MAX(version_no)+1` 生成，删中间版本不会重排编号。
 
 - 正文只有一份：内容桶里的 `content/<content_hash>`（gzip 的 TipTap JSON）。版本的 HTML/纯文本**不落库**，查看版本时按需渲染；`pages` 表另存了当前内容的派生列，阅读页不读 R2。
-- 版本的 JSON 无法按当前编辑器 schema 渲染、或对象在但 gzip 字节已损坏时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面；`content_hash` 指向的对象**整个不存在**（指针脏了，不是版本内容问题）回 `500 {"error":"Page content unavailable","code":"CONTENT_MISSING"}`，与阅读接口取不到 JSON 同一口径。
+- 版本的 JSON 取到了、但无法按当前编辑器 schema 渲染时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面；正文**取不到**（`content_hash` 指向的对象整个不存在、内容桶整体不可用、gzip 字节已损坏）一律回 `500 {"error":"Page content unavailable","code":"CONTENT_MISSING"}`，与 `GET /api/pages/:id?format=json` 取不到正文同一口径。
 - 「新 → 旧」的唯一排序口径是 `version_no DESC`（列表、修剪、最新一条判定、删除护栏共用）；`created_at` 只是与保存时刻对齐的展示时间戳，不参与排序，也不维持单调递增。
 - 保留数（每页保留多少条）的读写与两处修剪见「GET /api/admin/settings」「PUT /api/admin/settings」「GET /api/admin/revisions/retention」「POST /api/admin/revisions/prune」，以及下方页面版本接口：写入时按设置在同事务里删除该页超出上限的最旧版本。
 
@@ -530,21 +530,22 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ### waker 回调（`POST /_waker/execute`，不走会话）
 
-月度清理的第二个触发入口：只看 `WAKER_SIGNING_KEY` 配没配，不设 `WAKER_MODE`。
+月度清理的第二个触发入口：只看 `WAKER_SIGNING_KEY` 的取值（三态），不设 `WAKER_MODE`。
 
-- 已配置：waker 平台回调本入口，验签通过后执行一轮；Worker 内置 Cron 的 `scheduled()` 检测到 key 存在直接跳过（`wrangler.toml` 的 `[triggers] crons` 保留，靠 key 有无让路）。
-- 未配置：本入口 fail closed，回 `500 {"ok":false,"error":{"code":"signing_key_missing"}}`，不碰数据库、不进业务；清理走内置 Cron。
+- 已配置（其余非空值）：waker 平台回调本入口，验签通过后执行一轮；Worker 内置 Cron 的 `scheduled()` 检测到真 key 直接跳过（`wrangler.toml` 的 `[triggers] crons` 保留，靠取值让路）。
+- 显式关闭（保留值 `false`，大小写敏感）：本入口与内置 Cron 都不自动跑；本入口 fail closed，回 `500 signing_key_missing`（`false` 绝不当验签钥）；`scheduled()` 跳过且不回落 Cron，只记一条「显式关闭」日志。管理员手动清理不受影响。
+- 未配置（非字符串 / 空 / 空白 / `*_PLACEHOLDER`）：本入口 fail closed，回 `500 {"ok":false,"error":{"code":"signing_key_missing"}}`，不碰数据库、不进业务；清理走内置 Cron。
 
 协议按 waker 客户端 SDK 的冻结契约（ciki 不另发明）：头 `X-Waker-Timestamp`（epoch 秒）、`X-Waker-Execution-Id`、`X-Waker-Job-Id`、`X-Waker-Signature`（`v2=<hex>`）；HMAC-SHA256 覆盖 `<timestamp>\n<executionId>\n<jobId>\n<rawBody>`；时间窗 300s；`executionId` 由 `{prefix}waker_executions` 去重，重复投递回 200 `duplicate` 且不再跑业务。
 
-| 状态码 | `error.code`          | 含义                                      |
-| ------ | --------------------- | ----------------------------------------- |
-| 400    | `invalid_request`     | 缺签名头 / 请求体非法 / id 与头不一致     |
-| 401    | `invalid_signature`   | 签名校验失败                              |
-| 401    | `stale_timestamp`     | 时间戳超出 300s 窗口（防重放）            |
-| 404    | `unknown_job`         | 任务名不是 `monthly-r2-orphan-cleanup`    |
-| 500    | `job_failed`          | 业务抛错（平台按同一 executionId 重试）   |
-| 500    | `signing_key_missing` | 未配置 `WAKER_SIGNING_KEY`（fail closed） |
+| 状态码 | `error.code`          | 含义                                                                                          |
+| ------ | --------------------- | --------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request`     | 缺签名头 / 请求体非法 / id 与头不一致                                                         |
+| 401    | `invalid_signature`   | 签名校验失败                                                                                  |
+| 401    | `stale_timestamp`     | 时间戳超出 300s 窗口（防重放）                                                                |
+| 404    | `unknown_job`         | 任务名不是 `monthly-r2-orphan-cleanup`                                                        |
+| 500    | `job_failed`          | 业务抛错（平台按同一 executionId 重试）                                                       |
+| 500    | `signing_key_missing` | 未配置 `WAKER_SIGNING_KEY`（含空值与占位值），或设为保留值 `false` 显式关闭（均 fail closed） |
 
 **管理面一次性静态注册**（舰队侧动作，ciki 不代填、不调注册 API）：
 
@@ -1229,7 +1230,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 }
 ```
 
-`contentJson` 是从内容桶取回并解压的原文，`contentHtml` / `contentText` 由服务端按需渲染（详见「page_revisions」）。`viewer` 可读；非成员 404；该页没有这个版本号 → 404 `{"error":"Revision not found"}`。该版本的 JSON 无法按当前编辑器 schema 渲染时 422 `code:"REVISION_UNRENDERABLE"`；指针指向的正文对象整个不存在时 500 `code:"CONTENT_MISSING"`（两种失败都不返回正文）。
+`contentJson` 是从内容桶取回并解压的原文，`contentHtml` / `contentText` 由服务端按需渲染（详见「page_revisions」）。`viewer` 可读；非成员 404；该页没有这个版本号 → 404 `{"error":"Revision not found"}`。该版本的 JSON 取到了、但无法按当前编辑器 schema 渲染时 422 `code:"REVISION_UNRENDERABLE"`；正文取不到（指针指向的对象整个不存在、内容桶不可用、gzip 字节损坏）时 500 `code:"CONTENT_MISSING"`（两种失败都不返回正文，与 `?format=json` 同口径）。
 
 #### DELETE /api/pages/:id/revisions/:versionNo
 
@@ -1243,7 +1244,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 #### POST /api/pages/:id/revisions/:versionNo/restore
 
-以该快照写回页面并生成新 revision（`versionNo` = 当前最大 +1），返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；正文与当前全等（即回滚到当前版本）→ 不新增 revision（标题不同则按改名口径原地更新），响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`、对象缺失 500 `code:"CONTENT_MISSING"`，两种情况下页面内容保持原样。
+以该快照写回页面并生成新 revision（`versionNo` = 当前最大 +1），返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；正文与当前全等（即回滚到当前版本）→ 不新增 revision（标题不同则按改名口径原地更新），响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`、正文取不到 500 `code:"CONTENT_MISSING"`，两种情况下页面内容保持原样。
 
 ### 评论
 

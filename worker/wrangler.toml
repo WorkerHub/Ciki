@@ -39,8 +39,10 @@ bucket_name = "ciki-content"
 # 取 UTC 每月 1 日 17:00 = **`Asia/Shanghai` 每月 2 日 01:00**（凌晨低峰、每月一次）；
 # waker 侧的任务则按自己的时区写 `0 1 1 * *` + Asia/Shanghai，正好是 `Asia/Shanghai` 的 1 日 01:00。
 #
-# 两个入口只靠 `WAKER_SIGNING_KEY` 配没配让路：配了 → waker 接管，`scheduled()`
-# 检测到 key 就跳过；没配 → 走下面这条 Cron。删掉该 secret 重新部署即回到 Cron。
+# 两个入口只看 `WAKER_SIGNING_KEY` 的三态：未配置 → 走下面这条 Cron；
+# 配了真 key → waker 接管，`scheduled()` 检测到就跳过；
+# 设为保留值 `false` → 显式关闭自动清理（两个入口都不跑，手动清理照旧）。
+# 删掉该 secret 重新部署即回到 Cron，改成 `false` 则是关闭。
 # 这一段必须保留（不能注释掉 `crons`）：wrangler 只在 `crons` 有定义时才更新
 # Cloudflare 侧的 schedule，删掉整段并不会停掉已存在的 Cron Trigger。
 [triggers]

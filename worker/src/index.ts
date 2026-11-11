@@ -1,7 +1,7 @@
 import { Hono } from "hono"
 import { getTablePrefix, isValidTablePrefix } from "./lib/table-prefix"
 import { isEncryptionKeyUsable } from "./core/secret-box"
-import { isWakerConfigured } from "./core/waker-gate"
+import { wakerGateState } from "./core/waker-gate"
 import { runAllBucketCleanups } from "./core/r2-cleanup"
 import { authMiddleware } from "./middleware/auth"
 import { authRoutes } from "./routes/auth"
@@ -140,17 +140,26 @@ export default {
   fetch: app.fetch,
   /**
    * 内置 Cron Trigger（规格 §3）：`wrangler.toml` 里的 `[triggers] crons` 只认 UTC，
-   * 每月跑一次，一次跑「图片 + 内容」两套清理。配了 `WAKER_SIGNING_KEY` 就说明
-   * waker 接管，这里直接让路——既不跑也不写日志行（下一轮仍由日志表兜底）。
+   * 每月跑一次，一次跑「图片 + 内容」两套清理。判定只有一个来源
+   * （`wakerGateState()`）：已配置 → waker 接管；显式关闭（`false`）→ 自动清理
+   * 整体停掉、**不**回落 Cron。两种让路都不跑也不写日志行（下一轮仍由日志表兜底），
+   * 文案分开写，免得关闭态被误读成「waker 接管」或故障。
    */
   async scheduled(
     _event: ScheduledController,
     env: Env,
     _ctx: ExecutionContext
   ): Promise<void> {
-    if (isWakerConfigured(env)) {
+    const state = wakerGateState(env)
+    if (state === "configured") {
       console.info(
         "scheduled: WAKER_SIGNING_KEY 已配置，waker 接管，Cron 入口跳过本轮 R2 清理"
+      )
+      return
+    }
+    if (state === "disabled") {
+      console.info(
+        "scheduled: WAKER_SIGNING_KEY=false 显式关闭自动清理，Cron 入口跳过本轮 R2 清理（管理员手动清理不受影响）"
       )
       return
     }
