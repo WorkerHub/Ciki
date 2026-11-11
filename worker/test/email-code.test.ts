@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  armEmailCodeCooldown,
   bindingForTempToken,
   consumeEmailCodeSendLimits,
   consumeEmailCodeVerifyLimits,
@@ -84,6 +85,75 @@ describe("验证码：生成与哈希", () => {
 })
 
 describe("验证码：下发、校验与消费", () => {
+  it("register_verify：binding 为空串、哈希口径同一套、CHECK 收下这个用途", async () => {
+    const { env } = await initializedContext()
+    const prefix = getTablePrefix(env)
+    const issued = await issueEmailCode(env.DB, prefix, {
+      userId: 7,
+      purpose: "register_verify"
+    })
+    expect(issued.code).toMatch(/^\d{6}$/)
+
+    const stored = env.DB.prepare(
+      "SELECT binding, code_hash, attempts, created_at, expires_at FROM ciki_email_codes WHERE user_id = 7 AND purpose = 'register_verify'"
+    )
+    const code = (await stored.first()) as {
+      binding: string
+      code_hash: string
+      attempts: number
+      created_at: number
+      expires_at: number
+    }
+    expect(code.binding).toBe("")
+    expect(code.code_hash).toBe(
+      await sha256Hex(`register_verify:7:${issued.code}`)
+    )
+    expect(await hashEmailCode("register_verify", 7, issued.code)).toBe(
+      code.code_hash
+    )
+    expect(code.attempts).toBe(0)
+    expect(code.expires_at - code.created_at).toBe(EMAIL_CODE_TTL_SECONDS)
+
+    // 验码成功即消费；重放失败（与其它用途同一套语义）。
+    expect(
+      await verifyEmailCode(env.DB, prefix, {
+        userId: 7,
+        purpose: "register_verify",
+        code: issued.code
+      })
+    ).toBe(true)
+    expect(
+      await verifyEmailCode(env.DB, prefix, {
+        userId: 7,
+        purpose: "register_verify",
+        code: issued.code
+      })
+    ).toBe(false)
+  })
+
+  it("armEmailCodeCooldown：只 arm 冷却、不占小时配额", async () => {
+    const { env } = await initializedContext()
+    const prefix = getTablePrefix(env)
+    await armEmailCodeCooldown(env.DB, prefix, {
+      purpose: "register_verify",
+      accountKey: USER
+    })
+    expect(
+      await countRow(env.DB, "email_code_cd", "register_verify:user-1")
+    ).toBe(1)
+    expect(
+      await countRow(env.DB, "email_code_send", "register_verify:user-1")
+    ).toBe(0)
+
+    // 紧接着的第一次真发码撞冷却，第二次（计数已写）是 scope=cooldown。
+    const first = await consumeEmailCodeSendLimits(env.DB, prefix, {
+      purpose: "register_verify",
+      accountKey: USER,
+      ip: "203.0.113.1"
+    })
+    expect(first).toMatchObject({ allowed: false, scope: "cooldown" })
+  })
+
   it("落库只有哈希：TTL 600 秒、attempts=0、明文码不出现在库里", async () => {
     const { env, db } = await initializedContext()
     const prefix = getTablePrefix(env)

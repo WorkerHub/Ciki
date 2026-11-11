@@ -2,7 +2,7 @@
 
 English | [中文](./README.md)
 
-Ciki is an internal team wiki: pages are organized by space and in a tree, with multi-member collaboration, version history and full-text search. A single Cloudflare Workers deployment unit serves both the API and the frontend static assets; structured data lives in D1 while page bodies (`content/<sha256>`) and images live in two separate R2 buckets.
+Ciki is an internal team wiki: pages are organized by space and in a tree, with multi-member collaboration, version history and full-text search. A single Cloudflare Workers deployment unit serves both the API and the frontend static assets; structured data lives in D1 while page bodies and images live in two separate R2 buckets.
 
 ## Screenshots
 
@@ -40,7 +40,7 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 - **Version history** — Every save creates a version record; open an old version and roll back. A rollback is itself recorded as a new version.
 - **Full-text search** — Search from the top bar matches both titles and bodies via FTS5 with CJK tokenization; results include snippets.
 - **Trash** — Deleting a page soft-deletes its whole subtree; restore it or delete it permanently. Permanent deletion also removes the version history.
-- **Login and two-factor auth** — Password plus TOTP / Passkey. The first registered user becomes an admin automatically; later registrations need admin approval by default. Adding a second factor requires re-entering the password once.
+- **Login and two-factor auth** — Password plus TOTP / Passkey. The first registered user becomes an admin automatically; later registrations need admin approval by default and must verify their email first (a 6-digit code is sent on sign-up, and unverified accounts cannot log in). Adding a second factor requires re-entering the password once.
 - **Import tokens** — Generate a personal token in Settings and use the companion Ciki Helper browser extension to clip source pages into Ciki (title, body, code blocks, tables and images). The token plaintext is shown only once.
 - **Settings** — Appearance (light / dark / system, no first-paint flash), password change, two-factor auth, import token, signed-in devices.
 - **Admin panel** — Users and registration approval, space overview, site settings (site name, open registration, registration approval, setup page toggle), access and security (enforce two-factor), email delivery (SMTP server settings and a test message), database maintenance.
@@ -59,8 +59,6 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 
 ## Deployment Guide
 
-The steps below follow: fork → create Cloudflare resources → configure Secrets and Variables → deploy → initialize → register the admin. Everything happens in the browser: no local clone and no long-running local service is needed — just a Cloudflare account and a GitHub account.
-
 ### Prerequisites
 
 - A Cloudflare account with Workers, D1 and R2 enabled (R2 must be enabled in the dashboard the first time)
@@ -69,12 +67,12 @@ The steps below follow: fork → create Cloudflare resources → configure Secre
 
 ### 1. Fork the repository
 
-Open <https://github.com/WorkerHub/Ciki> and click **Fork** in the top right to fork it to your own account. Keeping it public is all you need (Actions minutes are free on public repositories; a private fork spends your quota). To pick up upstream changes later, use **Sync fork** on the fork's home page.
+Open <https://github.com/WorkerHub/Ciki> and click **Fork** in the top right to fork it to your own account. Keeping it public is all you need. To pick up upstream changes later, use **Sync fork** on the fork's home page.
 
 Workflows are disabled by default in a fork, so enable them first:
 
 - Open the fork's **Actions** tab and confirm the banner with **I understand my workflows, go ahead and enable them** (Chinese UI: 「我已了解我的工作流，继续启用」).
-- Once enabled, **Actions → Deploy → Run workflow** triggers a deploy manually, and pushing to `main` triggers it automatically (see step 4).
+- Once enabled, **Actions → Deploy → Run workflow** triggers a deploy manually.
 
 ### 2. Create Cloudflare resources
 
@@ -89,7 +87,7 @@ Workflows are disabled by default in a fork, so enable them first:
 You need **two** buckets, with fixed names and bindings (set in `worker/wrangler.toml` and in the deploy workflow):
 
 - `ciki-assets` (binding `R2`): uploaded images and avatars.
-- `ciki-content` (binding `CONTENT`): page bodies and revision bodies, keyed `content/<sha256>`.
+- `ciki-content` (binding `CONTENT`): page bodies and revision bodies.
 
 - The deploy workflow creates both idempotently: it creates a bucket when missing and skips it when present. You can also create them up front under R2 Object Storage → Create bucket; the names must match exactly.
 - The `CLOUDFLARE_API_TOKEN` used for deployment needs **R2 edit** permission; otherwise the bucket step fails the deployment (nothing has been deployed at that point).
@@ -100,21 +98,21 @@ Open the fork's Settings → Secrets and variables → Actions. Keep resource ID
 
 **Secrets** (Secrets tab → New repository secret, one at a time)
 
-| Secret                  | Purpose                                                                                                                                                                                                                                                                                                                                               |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token. The "Edit Cloudflare Workers" template works; make sure the permissions include Workers Scripts edit, D1 edit and R2 edit (add whichever is missing). The same token is shared with the Worker at runtime: it also reads the database size through the D1 REST API, so it needs D1 read (included in "D1 edit")                 |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID (copy it from the right side of the dashboard home page)                                                                                                                                                                                                                                                                        |
-| `D1_DATABASE_ID`        | The D1 Database ID noted in the previous step                                                                                                                                                                                                                                                                                                         |
-| `ENCRYPTION_KEY`        | AES-GCM key for TOTP secrets, 32 bytes, either base64 (44 chars) or hex (64 chars). Store a copy in your password manager first; do not change it after deploying, or every enrolled two-factor setup stops working and users must enroll again                                                                                                       |
-| `SETUP_SECRET`          | Token for database initialization, any random string (e.g. 32 hex chars)                                                                                                                                                                                                                                                                              |
-| `WAKER_SIGNING_KEY`     | **Optional.** When set, the monthly R2 cleanup is driven by waker platform callbacks; when absent, the Worker's built-in Cron Trigger runs it; the reserved value `false` turns automatic cleanup off (manual cleanup still works). The value is shown once by waker when the project is created — keep it in GitHub Secrets, never in the repository |
+| Secret                  | Purpose                                                                                                                                                                                                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token. The "Edit Cloudflare Workers" template works; make sure the permissions include Workers Scripts edit, D1 edit and R2 edit (add whichever is missing). The same token is shared with the Worker at runtime: it also reads the database size through the D1 REST API, so it needs D1 read (included in "D1 edit") |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID (copy it from the right side of the dashboard home page)                                                                                                                                                                                                                                                        |
+| `D1_DATABASE_ID`        | The D1 Database ID noted in the previous step                                                                                                                                                                                                                                                                                         |
+| `ENCRYPTION_KEY`        | AES-GCM key for TOTP secrets, 32 bytes, either base64 (44 chars) or hex (64 chars). Store a copy in your password manager first; do not change it after deploying, or every enrolled two-factor setup stops working and users must enroll again                                                                                       |
+| `SETUP_SECRET`          | Token for database initialization, any random string (e.g. 32 hex chars)                                                                                                                                                                                                                                                              |
+| `WAKER_SIGNING_KEY`     | **Optional.** Absent → the Worker's built-in Cron sweeps orphaned R2 objects monthly; with the key waker gives when the project is created → driven by waker callbacks instead; `false` → automatic cleanup off. Keep it in GitHub Secrets, never in the repository                                                                   |
 
 **Variables** (Variables tab → New repository variable)
 
-| Variable           | Purpose                                                                                                                                 |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `D1_DATABASE_NAME` | D1 database name (plain text, not a secret)                                                                                             |
-| `TABLE_PREFIX`     | Table prefix, optional. Unset or empty → `ciki_`; `none` → no prefix; any other value (e.g. `wiki`) → `wiki_`. See "Table prefix" below |
+| Variable           | Purpose                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `D1_DATABASE_NAME` | D1 database name (plain text, not a secret)                                                                                                       |
+| `TABLE_PREFIX`     | Table prefix, optional. Unset or empty → `ciki_`; `none` → no prefix; any other value (e.g. `wiki`) → `wiki_`. See "Table prefix" in the appendix |
 
 **Generating the keys without a terminal**: open any page, press F12 → Console, and run this for a 44-character base64 value (32 bytes):
 
@@ -132,11 +130,11 @@ Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) =>
 
 `SETUP_SECRET` only has to be random, so either result works for it too. If you prefer a shell, `openssl rand -base64 32` and `openssl rand -hex 16` are equivalent.
 
-These five required Secrets (plus the optional `WAKER_SIGNING_KEY`) and two Variables are everything the deployment needs: `deploy.yml` references only these names. A missing required item, a value still in template form (`*_PLACEHOLDER` / `replace-with-*`), or an `ENCRYPTION_KEY` that is not 32 bytes makes the deploy abort before uploading and name the offending item — no empty or placeholder value is ever substituted. A missing `WAKER_SIGNING_KEY` merely means "use the built-in Cron" and never fails the deploy; the reserved value `false` is a valid "off" setting too and is never rejected as missing or as a placeholder.
+These five required Secrets (plus the optional `WAKER_SIGNING_KEY`) and two Variables are everything the deployment needs: `deploy.yml` references only these names. A missing required item, a value still in template form (`*_PLACEHOLDER` / `replace-with-*`), or an `ENCRYPTION_KEY` that is not 32 bytes makes the deploy abort before uploading and name the offending item — no empty or placeholder value is ever substituted. A missing `WAKER_SIGNING_KEY` merely means "use the built-in Cron" and never fails the deploy.
 
 ### 4. Deploy
 
-Push to your fork's `main` (or merge a pull request): the repository's automated checks (CI) run first, and only a green run triggers the deploy. On a fresh fork with nothing pushed yet, go to **Actions → Deploy → Run workflow** and trigger it manually; both paths run the same deploy workflow.
+Go to **Actions → Deploy → Run workflow** and trigger the deploy manually.
 
 The deploy workflow does four things in order: build the frontend → resolve secrets and the `wrangler.toml` placeholders → create the R2 bucket when missing → `wrangler deploy`. It does not create tables; that happens in the next step.
 
@@ -157,73 +155,9 @@ unset SETUP_SECRET
 
 After each upgrade deployment, an admin clicks "Check and upgrade database" under Admin → Database Maintenance (系统管理 → 数据库维护) to apply pending migrations (`POST /api/admin/setup` with an admin session; no `SETUP_SECRET` needed). Already-applied migrations show as `skipped`, and the UI offers no drop-table or wipe-database action.
 
-**Upgrades that include the one-time rebuild (integer IDs + page content moved to R2, migration `schema_v6`) must record a rollback point first and cannot be undone**: that step rebuilds every table and moves page bodies into `ciki-content`; no uuid-to-integer mapping is kept, so only that rollback point can take you back. D1 backups are handled by Cloudflare's Time Travel: it is always on and needs no manual backup, and restores to any point within the last 30 days (Workers Paid; 7 days on Free). It requires a database whose `wrangler d1 info <database-name>` shows `version: production` (wrangler v3.4.0+; this project pins ^4.14.1). **Do not use `wrangler d1 export`** — the database has FTS5 virtual tables, and Cloudflare rejects that command (`cannot export databases with virtual tables (fts5)`). Record the current bookmark before pressing the button:
-
-```sh
-npx wrangler d1 time-travel info <database-name>
-```
-
-Keep the `The current bookmark is '…'` line together with its timestamp in your ticket or password manager: once a bookmark expires it can no longer serve as a rollback point. A failed migration changes nothing and records nothing, so you can fix the cause and run it again; once the upgrade succeeds, restore that bookmark in place if you need to go back:
-
-```sh
-npx wrangler d1 time-travel restore <database-name> --bookmark=<bookmark>
-```
-
-`restore` overwrites the whole database (it asks for confirmation) and prints the previous bookmark that undoes the restore — keep that one as well. Time Travel only rolls D1 back: the body objects in R2 are immutable and are neither reverted nor deleted, so restoring D1 needs no change to `ciki-content`.
-
 ### 6. Register the admin
 
-Once initialization finishes, open the site and register an account. The first registered user becomes an admin, approved and active automatically; later registrations require admin approval by default. Change open registration and the approval requirement under Admin → Site Settings (系统管理 → 应用设置).
-
-### Table prefix TABLE_PREFIX (optional)
-
-All table names are built by `getTablePrefix()` in `worker/src/lib/table-prefix.ts`; `TABLE_PREFIX` only affects this project's tables, which makes it practical to share one D1 database with other projects.
-
-| Setting                                                                                                                                                     | Effective prefix | Example table |
-| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------- |
-| Unset / empty (default)                                                                                                                                     | `ciki_`          | `ciki_pages`  |
-| Custom value (e.g. `wiki`: must start with a letter or underscore, followed only by letters, digits and underscores; a trailing `_` is added automatically) | `wiki_`          | `wiki_pages`  |
-| `none` (reserved word in GitHub Variables, meaning an explicit empty value)                                                                                 | no prefix        | `pages`       |
-
-Decide the effective prefix before initialization: changing it later means a different, empty set of tables. If the database is already initialized under another prefix, the setup endpoint aborts with 409 instead of creating a second set of tables.
-
-### Monthly R2 cleanup (optional)
-
-Orphaned R2 objects are swept once a month, **once per bucket and logged per bucket** (`r2_cleanup_runs.kind` = `images` / `content`); an object is deleted only when it is **not referenced anywhere and was uploaded more than 30 days ago**:
-
-- Image bucket (`ciki-assets`): the reference set is every user's avatar plus every `/api/files/<key>` found in the current and historical bodies of all pages; pages in the trash still count, so their images are kept until the page is permanently deleted.
-- Content bucket (`ciki-content`): the reference set is every `pages.content_hash` and every `page_revisions.content_hash` (trashed pages and their revisions included); only body objects nothing points at are deleted (this is how orphans left by a failed write get collected).
-
-Each bucket is listed and pruned only by its own cleanup kind, and the lock plus the 20-day rerun guard are kept per kind.
-
-Before enabling content GC for the first time, run a dry run from Admin → Database Maintenance (`POST /api/admin/r2-cleanup` with `{"kind":"content","dryRun":true}`): `prunable` / `prunableBytes` in the response are the number and size of objects that would be deleted (not capped by the per-run limit); check them against expectations (for example orphans left by a failed migration) before running for real.
-
-There is exactly one switch — the value of the GitHub Secret `WAKER_SIGNING_KEY` (three states):
-
-- **Absent (default)**: the Worker's built-in Cron Trigger runs it, configured in `worker/wrangler.toml` as `0 17 1 * *` (UTC). Cloudflare cron is always interpreted in UTC and "01:00 in Asia/Shanghai on the 1st" falls on the previous UTC month's last day, which a 5-field cron cannot express, so this is 17:00 UTC on the 1st = **01:00 in Asia/Shanghai on the 2nd** (low-traffic, once a month). The waker callback then fails closed with `500 signing_key_missing`.
-- **Present**: waker platform callbacks drive it and `scheduled()` notices a real key and steps aside (the `[triggers]` block stays, the value decides). Register one job once in the waker console:
-
-| Field        | Value                                             |
-| ------------ | ------------------------------------------------- |
-| Callback URL | `https://<your-site-domain>/_waker/execute`       |
-| Job name     | `monthly-r2-orphan-cleanup`                       |
-| cron         | `0 1 1 * *`                                       |
-| Timezone     | `Asia/Shanghai` (= 01:00 on the 1st, low traffic) |
-
-- **Set to `false` (explicitly off)**: change the GitHub Secret `WAKER_SIGNING_KEY` to `false` and redeploy and all automatic cleanup stops — neither the built-in Cron nor the waker callback runs (`scheduled()` logs a single "explicitly off" line and skips, the callback endpoint returns `500 signing_key_missing`). It is a reserved value and case-sensitive: only lowercase `false` counts. Only the automatic trigger is switched off; manual cleanup from Admin → Database Maintenance and `POST /api/admin/r2-cleanup` keeps working. **Remember to also disable the `monthly-r2-orphan-cleanup` job in the waker console**, otherwise it keeps calling back once a month and is bound to fail.
-
-Delete `WAKER_SIGNING_KEY` and redeploy to fall back to the built-in Cron; set it to `false` to turn automatic cleanup off. Every run appends one row to `{prefix}r2_cleanup_runs` in D1, and a real run that comes less than 20 days after the last successful one is skipped (with a skip row logged) so the two entries can never double-run.
-
-To dry-run it first (admin session; there is no button in the UI):
-
-```bash
-curl -X POST https://<your-site-domain>/api/admin/r2-cleanup \
-  -H 'content-type: application/json' \
-  -H 'cookie: <your session cookie>' \
-  -d '{"dryRun": true}'
-```
-
-Admin → Database Maintenance shows one line summarising the latest real run (run time, scanned, referenced, deleted, skipped for being under 30 days, failed).
+Once initialization finishes, open the site and register an account. The first registered user becomes an admin, approved, active and already email-verified; later registrations require admin approval by default and must verify their email first — a 6-digit code (valid for 10 minutes) arrives right after sign-up, and the account cannot log in before it is verified. Email verification relies on the SMTP settings under Admin → Email delivery; without working email delivery, ordinary self-registration is rejected (503) so no account is left permanently unverifiable. Change open registration and the approval requirement under Admin → Site Settings (系统管理 → 应用设置).
 
 ## Local Development
 
@@ -288,3 +222,55 @@ The complete API, fields, error codes and migration notes live in [`docs/api-con
 ## License
 
 [MIT](LICENSE)
+
+## Appendix
+
+#### Table prefix TABLE_PREFIX (optional)
+
+All table names are built by `getTablePrefix()` in `worker/src/lib/table-prefix.ts`; `TABLE_PREFIX` only affects this project's tables, which makes it practical to share one D1 database with other projects.
+
+| Setting                                                                                                                                                     | Effective prefix | Example table |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------- |
+| Unset / empty (default)                                                                                                                                     | `ciki_`          | `ciki_pages`  |
+| Custom value (e.g. `wiki`: must start with a letter or underscore, followed only by letters, digits and underscores; a trailing `_` is added automatically) | `wiki_`          | `wiki_pages`  |
+| `none` (reserved word in GitHub Variables, meaning an explicit empty value)                                                                                 | no prefix        | `pages`       |
+
+Decide the effective prefix before initialization: changing it later means a different, empty set of tables. If the database is already initialized under another prefix, the setup endpoint aborts with 409 instead of creating a second set of tables.
+
+#### Monthly R2 cleanup (optional)
+
+Orphaned R2 objects are swept once a month, **once per bucket and logged per bucket** (`r2_cleanup_runs.kind` = `images` / `content`); an object is deleted only when it is **not referenced anywhere and was uploaded more than 30 days ago**:
+
+- Image bucket (`ciki-assets`): the reference set is every user's avatar plus every `/api/files/<key>` found in the current and historical bodies of all pages; pages in the trash still count, so their images are kept until the page is permanently deleted.
+- Content bucket (`ciki-content`): the reference set is every `pages.content_hash` and every `page_revisions.content_hash` (trashed pages and their revisions included); only body objects nothing points at are deleted (this is how orphans left by a failed write get collected).
+
+Each bucket is listed and pruned only by its own cleanup kind, and the lock plus the 20-day rerun guard are kept per kind.
+
+Before enabling content GC for the first time, run a dry run from Admin → Database Maintenance (`POST /api/admin/r2-cleanup` with `{"kind":"content","dryRun":true}`): `prunable` / `prunableBytes` in the response are the number and size of objects that would be deleted (not capped by the per-run limit); check them against expectations (for example orphans left by a failed migration) before running for real.
+
+There is exactly one switch — the value of the GitHub Secret `WAKER_SIGNING_KEY` (three states):
+
+- **Absent (default)**: the Worker's built-in Cron Trigger runs it, configured in `worker/wrangler.toml` as `0 17 1 * *` (UTC). Cloudflare cron is always interpreted in UTC and "01:00 in Asia/Shanghai on the 1st" falls on the previous UTC month's last day, which a 5-field cron cannot express, so this is 17:00 UTC on the 1st = **01:00 in Asia/Shanghai on the 2nd** (low-traffic, once a month). The waker callback then fails closed with `500 signing_key_missing`.
+- **Present**: waker platform callbacks drive it and `scheduled()` notices a real key and steps aside (the `[triggers]` block stays, the value decides). Register one job once in the waker console:
+
+| Field        | Value                                             |
+| ------------ | ------------------------------------------------- |
+| Callback URL | `https://<your-site-domain>/_waker/execute`       |
+| Job name     | `monthly-r2-orphan-cleanup`                       |
+| cron         | `0 1 1 * *`                                       |
+| Timezone     | `Asia/Shanghai` (= 01:00 on the 1st, low traffic) |
+
+- **Set to `false` (explicitly off)**: change the GitHub Secret `WAKER_SIGNING_KEY` to `false` and redeploy and all automatic cleanup stops — neither the built-in Cron nor the waker callback runs (`scheduled()` logs a single "explicitly off" line and skips, the callback endpoint returns `500 signing_key_missing`). It is a reserved value and case-sensitive: only lowercase `false` counts. Only the automatic trigger is switched off; manual cleanup from Admin → Database Maintenance and `POST /api/admin/r2-cleanup` keeps working. **Remember to also disable the `monthly-r2-orphan-cleanup` job in the waker console**, otherwise it keeps calling back once a month and is bound to fail.
+
+Delete `WAKER_SIGNING_KEY` and redeploy to fall back to the built-in Cron; set it to `false` to turn automatic cleanup off. Every run appends one row to `{prefix}r2_cleanup_runs` in D1, and a real run that comes less than 20 days after the last successful one is skipped (with a skip row logged) so the two entries can never double-run.
+
+To dry-run it first (admin session; there is no button in the UI):
+
+```bash
+curl -X POST https://<your-site-domain>/api/admin/r2-cleanup \
+  -H 'content-type: application/json' \
+  -H 'cookie: <your session cookie>' \
+  -d '{"dryRun": true}'
+```
+
+Admin → Database Maintenance shows one line summarising the latest real run (run time, scanned, referenced, deleted, skipped for being under 30 days, failed).

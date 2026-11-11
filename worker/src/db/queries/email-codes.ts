@@ -10,19 +10,29 @@
  */
 import { emailCodesTable } from "../../lib/tables"
 
-/** 验证码用途（#48 契约固定三种）。 */
-export type EmailCodePurpose = "password_reset" | "2fa_login" | "2fa_enable"
+/**
+ * 验证码用途（#48 契约三种 + 注册邮箱验证一种）。
+ *
+ * `register_verify`：自助注册后发的验证码，`binding` 为空串，校验通过后把
+ * `users.email_verified` 置 1（见 routes/auth.ts）。
+ */
+export type EmailCodePurpose =
+  | "password_reset"
+  | "2fa_login"
+  | "2fa_enable"
+  | "register_verify"
 
 export const EMAIL_CODE_PURPOSES: readonly EmailCodePurpose[] = [
   "password_reset",
   "2fa_login",
-  "2fa_enable"
+  "2fa_enable",
+  "register_verify"
 ]
 
 export interface EmailCodeKey {
   userId: number
   purpose: EmailCodePurpose
-  /** `2fa_login` 为 `SHA-256(tempToken)`；`password_reset` / `2fa_enable` 为空串。 */
+  /** `2fa_login` 为 `SHA-256(tempToken)`；其余用途（含 `register_verify`）为空串。 */
   binding?: string
 }
 

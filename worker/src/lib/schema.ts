@@ -2,13 +2,13 @@
  * 新基线表结构的唯一真源（ID 整数化 + 正文上 R2 之后的定版结构）。
  *
  * 为什么单独成文件：同一份 DDL 有两个使用者——
- * - 全新库的初始化迁移（`migrations.ts` 的 `SCHEMA_V1`，表名带生效前缀）；
- * - 存量库的一次性重建迁移（`rebuild.ts`，先建 `v6_*` 临时表、校验通过后改名）。
+ * - 唯一迁移 `schema_v7` 的建表语句（`migrations.ts`，表名带生效前缀）；
+ * - 存量库的一次性重建（`rebuild.ts`，先建 `v7_*` 临时表、校验通过后改名）。
  * 两处各写一份 DDL 迟早会漂移，所以这里只写一份，表名用 `{table}` 占位。
  *
  * 约定：
  * - 每个 DDL 是一条完整语句，内部不得出现 `;`（迁移执行器按 `;` 切分）。
- * - 索引只作用于**正式表名**，所以用 `{prefix}` 占位、切换完成后再建；`v6_*` 临时表
+ * - 索引只作用于**正式表名**，所以用 `{prefix}` 占位、切换完成后再建；`v7_*` 临时表
  *   不带索引，改名之后才补，避免索引名冲突。
  * - 主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`：id 永不复用，删掉的用户/页面不会
  *   被后来的新行「继承」掉旧的引用（`created_by` 等没有外键约束）。
@@ -36,10 +36,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
   is_active      INTEGER NOT NULL DEFAULT 1,
   approval_status TEXT NOT NULL DEFAULT 'approved',
   email_verified INTEGER NOT NULL DEFAULT 0,
-  base_currency  TEXT NOT NULL DEFAULT 'CNY',
-  timezone       TEXT NOT NULL DEFAULT 'UTC',
   language       TEXT NOT NULL DEFAULT 'zh',
-  theme          TEXT NOT NULL DEFAULT 'system',
   username       TEXT NOT NULL DEFAULT '',
   avatar_key     TEXT NOT NULL DEFAULT '',
   created_at     TEXT NOT NULL,
@@ -206,7 +203,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
     name: "email_codes",
     ddl: `CREATE TABLE IF NOT EXISTS {table} (
   user_id    INTEGER NOT NULL,
-  purpose    TEXT NOT NULL CHECK (purpose IN ('password_reset', '2fa_login', '2fa_enable')),
+  purpose    TEXT NOT NULL CHECK (purpose IN ('password_reset', '2fa_login', '2fa_enable', 'register_verify')),
   binding    TEXT NOT NULL DEFAULT '',
   code_hash  TEXT NOT NULL,
   attempts   INTEGER NOT NULL DEFAULT 0,

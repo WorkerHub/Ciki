@@ -64,6 +64,9 @@ const PUBLIC_ROUTES: Array<[string, string]> = [
   ["POST", "/api/auth/password/forgot"],
   ["POST", "/api/auth/password/verify"],
   ["POST", "/api/auth/password/reset"],
+  // 注册邮箱验证两个端点：未验证不能登录，所以必须免会话可用。
+  ["POST", "/api/auth/email/verify"],
+  ["POST", "/api/auth/email/resend"],
   ["POST", "/api/auth/2fa/verify"],
   ["POST", "/api/auth/2fa/passkey/authenticate/options"],
   ["POST", "/api/auth/2fa/passkey/authenticate/verify"],

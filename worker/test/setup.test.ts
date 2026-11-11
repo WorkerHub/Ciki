@@ -364,8 +364,8 @@ describe("初始化迁移：默认空间与播种", () => {
   })
 })
 
-describe("schema_v6：重建迁移在新结构上幂等空转", () => {
-  it("已是新基线（v1 建的表）→ v6 只补索引，不重复建表、不改数据", async () => {
+describe("schema_v7：重建在新结构上幂等空转", () => {
+  it("已是定版结构 → 只补索引，不重复建表、不改数据", async () => {
     const { env, db } = makeContext()
     await setupRequest(env, TEST_SETUP_SECRET)
     const before = db.db
@@ -389,7 +389,7 @@ describe("schema_v6：重建迁移在新结构上幂等空转", () => {
         .prepare("SELECT name FROM sqlite_master WHERE type='table'")
         .all() as Array<{ name: string }>
     ).map((row) => row.name)
-    expect(names.filter((name) => name.includes("v6_"))).toEqual([])
+    expect(names.filter((name) => name.includes("v7_"))).toEqual([])
   })
 
   it("email_codes：复合主键 + purpose 校验，同键重发只留一行", async () => {
@@ -436,13 +436,13 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     }
   }
 
-  /** 复现旧版部署留下的库：业务表已由 schema_v1 建好、账本仍是旧名。 */
+  /** 复现旧版部署留下的库：业务表已建好、账本仍是旧名（记录即当前迁移）。 */
   async function legacyDatabase(prefix: string, legacy: string) {
     const context = makeContext()
     for (const statement of splitStatements(getMigrations(prefix)[0].sql)) {
       await context.env.DB.prepare(statement).run()
     }
-    await createLegacyLedger(context.db, legacy, ["schema_v1"])
+    await createLegacyLedger(context.db, legacy, MIGRATION_NAMES)
     return context
   }
 
@@ -466,7 +466,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     expect(names).not.toContain("_ciki_schema_migrations")
   })
 
-  it("旧账本含 schema_v1 记录 → 升级改名承接，记录保留且迁移全 skipped", async () => {
+  it("旧账本含已应用记录 → 升级改名承接，记录保留且迁移全 skipped", async () => {
     const { env, db } = await legacyDatabase("ciki_", "ciki_schema_migrations")
 
     const res = await setupRequest(env, TEST_SETUP_SECRET)
@@ -476,11 +476,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       migrations: Array<{ name: string; status: string }>
     }
     expect(body.success).toBe(true)
-    // 账本里的记录被认出来：schema_v1 不重跑，后面的重建迁移正常补上。
-    expect(body.migrations).toEqual([
-      { name: MIGRATION_NAMES[0], status: "skipped" },
-      { name: MIGRATION_NAMES[1], status: "applied" }
-    ])
+    // 账本里的记录被认出来：迁移不重跑。
+    expect(body.migrations).toEqual(migrationList("skipped"))
 
     const names = tableNames(db)
     expect(names).toContain("_ciki_schema_migrations")
@@ -505,11 +502,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       const body = (await res.json()) as {
         migrations: Array<{ name: string; status: string }>
       }
-      // 重建迁移首轮补上、次轮 skipped：改名承接只发生一次，记录不丢也不重复。
-      expect(body.migrations).toEqual([
-        { name: MIGRATION_NAMES[0], status: "skipped" },
-        { name: MIGRATION_NAMES[1], status: i === 0 ? "applied" : "skipped" }
-      ])
+      // 改名承接只发生一次，记录不丢也不重复。
+      expect(body.migrations).toEqual(migrationList("skipped"))
     }
 
     const names = tableNames(db)
@@ -523,6 +517,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，两套账本与记录都不动", async () => {
     const { env, db } = makeContext()
+    // 旧版部署遗留的账本行，字面量不参与判定（只要不是当前的 schema_v7）。
     await createLegacyLedger(db, "ciki_schema_migrations", ["schema_v1"])
     await createLegacyLedger(db, "_ciki_schema_migrations", MIGRATION_NAMES)
 
