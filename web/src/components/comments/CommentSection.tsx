@@ -26,15 +26,15 @@ import { type CommentDto, type CommentThread, commentsApi } from "@/lib/api"
  * 回复只一级：对回复点「回复」展开的仍是该串末尾的同一个行内框，提交的 parentId
  * 恒为顶层评论 id（契约的归一规则）。
  */
-export function CommentSection({ pageId }: { pageId: string }) {
+export function CommentSection({ pageId }: { pageId: number }) {
   const { data, status, error, pending, reload, create, update, remove } =
     useComments(pageId)
   const [topDraft, setTopDraft] = useState("")
   const [replyDraft, setReplyDraft] = useState("")
   const [editDraft, setEditDraft] = useState("")
   // 正在回复的顶层评论 id；同一时刻只开一个回复框
-  const [replyTo, setReplyTo] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const [replyTo, setReplyTo] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CommentDto | null>(null)
 
   const preview = (bodyMd: string) =>
@@ -43,7 +43,7 @@ export function CommentSection({ pageId }: { pageId: string }) {
   const total = data?.total ?? 0
   const hasData = data !== null
 
-  function openReplyBox(threadId: string) {
+  function openReplyBox(threadId: number) {
     // 已经是这条串的回复框就保持原样：别把正在敲的草稿清掉
     if (replyTo === threadId) return
     setReplyTo(threadId)
@@ -69,12 +69,12 @@ export function CommentSection({ pageId }: { pageId: string }) {
     if (await create(topDraft, null)) setTopDraft("")
   }
 
-  async function submitReply(threadId: string) {
+  async function submitReply(threadId: number) {
     if (!(await create(replyDraft, threadId))) return
     closeReplyBox()
   }
 
-  async function saveEdit(commentId: string) {
+  async function saveEdit(commentId: number) {
     if (!(await update(commentId, editDraft))) return
     cancelEdit()
   }

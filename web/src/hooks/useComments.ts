@@ -11,7 +11,7 @@ export type CommentsStatus = "loading" | "ready" | "error"
  * 都由服务端算，前端不另存一份可能对不上的状态（也不做乐观更新）。
  * 变更失败用 toast 报错并把 false 交回调用方——表单与草稿保持原样，可以重试。
  */
-export function useComments(pageId: string) {
+export function useComments(pageId: number) {
   const [data, setData] = useState<CommentList | null>(null)
   const [status, setStatus] = useState<CommentsStatus>("loading")
   const [error, setError] = useState("")
@@ -71,19 +71,19 @@ export function useComments(pageId: string) {
   )
 
   const create = useCallback(
-    (bodyMd: string, parentId?: string | null) =>
+    (bodyMd: string, parentId?: number | null) =>
       mutate(() => commentsApi.create(pageId, { bodyMd, parentId })),
     [mutate, pageId]
   )
 
   const update = useCallback(
-    (commentId: string, bodyMd: string) =>
+    (commentId: number, bodyMd: string) =>
       mutate(() => commentsApi.update(pageId, commentId, bodyMd)),
     [mutate, pageId]
   )
 
   const remove = useCallback(
-    (commentId: string) => mutate(() => commentsApi.remove(pageId, commentId)),
+    (commentId: number) => mutate(() => commentsApi.remove(pageId, commentId)),
     [mutate, pageId]
   )
 

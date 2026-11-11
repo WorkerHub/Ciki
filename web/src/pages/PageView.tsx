@@ -52,6 +52,7 @@ import {
 } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
 import { downloadPageMarkdown } from "@/lib/markdown-download"
+import { pageEditPath, pagePath, parseIdParam } from "@/lib/routes"
 import {
   captureScrollAnchor,
   rememberScrollAnchor,
@@ -71,7 +72,9 @@ import { useSpacesStore } from "@/stores/spaces"
 const AUTO_REFRESH_THROTTLE_MS = 10_000
 
 export function PageView() {
-  const { pageId } = useParams<{ pageId: string }>()
+  const params = useParams<{ pageId: string }>()
+  // 地址里的 id 只认十进制正整数：旧 UUID 地址一律按「页面不存在」处理
+  const pageId = parseIdParam(params.pageId)
   const navigate = useNavigate()
   const location = useLocation()
   const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
@@ -95,7 +98,7 @@ export function PageView() {
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState("")
   // 每个页面只跟随一次空间：切空间后本页还没卸载时不能把选择抢回去
-  const syncedPage = useRef<string | null>(null)
+  const syncedPage = useRef<number | null>(null)
   // 刷新中的旗标（防并发）与上次尝试时刻（自动刷新的节流基准）
   const refreshingRef = useRef(false)
   const lastRefreshAt = useRef(Date.now())
@@ -105,11 +108,11 @@ export function PageView() {
   const role = useSpaceRole(page?.spaceId)
   const canWrite = canEdit(role)
 
-  // 索引从详情已下发的 contentJson 同步提取：与正文同一次渲染出现，没有第二次请求，
+  // 索引从详情已下发的 contentHtml 同步解析：与正文同一次渲染出现，没有第二次请求，
   // 正文宽度不会在轨插入时跳变；标题不足 2 条的页面返回空，整轨不渲染。
   const toc = useMemo(
-    () => extractToc(page?.contentJson ?? ""),
-    [page?.contentJson]
+    () => extractToc(page?.contentHtml ?? ""),
+    [page?.contentHtml]
   )
   const headingIds = useMemo(() => toc.map((item) => item.id), [toc])
   const [contentRoot, setContentRoot] = useState<HTMLElement | null>(null)
@@ -119,7 +122,7 @@ export function PageView() {
   // 每页只恢复一次 hash：浏览器首屏时标题元素还不存在，要等锚点补齐后再跳。
   // 只有目标真在当前正文根元素里才记帐——切页瞬间 contentRoot 可能还是上一页的，
   // 先记帐会让新页的就绪回调直接 return，滚动就永远丢了。
-  const hashRestored = useRef<string | null>(null)
+  const hashRestored = useRef<number | null>(null)
   useEffect(() => {
     if (!contentRoot || !page) return
     if (hashRestored.current === page.id) return
@@ -139,7 +142,7 @@ export function PageView() {
   // 从编辑页回到阅读时，按「进入编辑前」记下的锚点复位（每次载入只做一次）。
   // URL 带 hash 说明是明确的跳转意图：让位给上面的 hash 恢复并丢弃记忆锚点，
   // 否则两边各滚一次，最终落到哪儿取决于谁后跑。
-  const anchorRestored = useRef<string | null>(null)
+  const anchorRestored = useRef<number | null>(null)
   useEffect(() => {
     if (!contentRoot || !page) return
     // 切页瞬间 page 可能还是上一页的，别把旧页的锚点恢复进旧 DOM
@@ -153,7 +156,14 @@ export function PageView() {
   }, [contentRoot, page, pageId, location.hash])
 
   useEffect(() => {
-    if (!pageId) return
+    if (pageId === null) {
+      // 非数字 id：不发请求，直接落到「页面不存在」
+      setPage(null)
+      setLoading(false)
+      setError("")
+      setNotFound(true)
+      return
+    }
     let alive = true
     setLoading(true)
     setError("")
@@ -190,7 +200,7 @@ export function PageView() {
    * 那会把整页换成骨架屏，刷新只在按钮与提示上体现，正文一直是旧数据。
    */
   const refresh = useCallback(async () => {
-    if (!pageId || refreshingRef.current) return
+    if (pageId === null || refreshingRef.current) return
     refreshingRef.current = true
     setRefreshing(true)
     setRefreshError("")
@@ -247,7 +257,7 @@ export function PageView() {
     if (page.spaceId !== currentSpaceId) selectSpace(page.spaceId)
   }, [page, spaces, spacesStatus, currentSpaceId, selectSpace])
 
-  const path = pageId ? findPath(tree, pageId) : []
+  const path = pageId === null ? [] : findPath(tree, pageId)
   const canMoveToSpace =
     canWrite &&
     Boolean(page) &&
@@ -306,7 +316,10 @@ export function PageView() {
                 </BreadcrumbPage>
               ) : (
                 <BreadcrumbLink asChild>
-                  <Link to={`/p/${node.id}`} className="max-w-[24ch] truncate">
+                  <Link
+                    to={pagePath(node.id)}
+                    className="max-w-[24ch] truncate"
+                  >
                     {node.title}
                   </Link>
                 </BreadcrumbLink>
@@ -357,7 +370,7 @@ export function PageView() {
               <>
                 <Button asChild size="sm">
                   <Link
-                    to={`/p/${page.id}/edit`}
+                    to={pageEditPath(page.id)}
                     onClick={() =>
                       // 每次点都重新捕获：第二轮进出编辑也从当次位置算起
                       rememberScrollAnchor(
@@ -458,7 +471,7 @@ export function PageView() {
             这个页面还是空的。点「编辑」，把 Confluence 里的内容直接粘进来。
           </p>
           <Button asChild size="sm" variant="outline" className="mt-3">
-            <Link to={`/p/${page.id}/edit`}>开始编辑</Link>
+            <Link to={pageEditPath(page.id)}>开始编辑</Link>
           </Button>
         </div>
       )}

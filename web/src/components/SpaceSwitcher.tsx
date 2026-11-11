@@ -23,7 +23,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { describeApiError } from "@/lib/api"
+import { describeApiError, type Space } from "@/lib/api"
+import { spaceSettingsPath } from "@/lib/routes"
 import { canManage, effectiveRole, SPACE_ROLE_LABELS } from "@/lib/space"
 import { useAuthStore } from "@/stores/auth"
 import { useSpacesStore } from "@/stores/spaces"
@@ -35,14 +36,14 @@ import { useSpacesStore } from "@/stores/spaces"
  */
 export function SpaceSwitcher({
   onNavigate,
-  navigateOnSwitch = true
+  switchPath = () => "/"
 }: {
   onNavigate?: () => void
   /**
-   * 切换空间后是否回首页（默认 true）。
-   * 回收站这类系统页传 false：留在原地，由页面自己按新空间重拉列表。
+   * 切换空间后去哪：缺省回首页（`/` → 当前空间的 `/s/<slug>`）。
+   * 回收站这类系统页传自己的 slug 路径，切完留在同一页、由页面按新空间重拉列表。
    */
-  navigateOnSwitch?: boolean
+  switchPath?: (space: Space) => string
 }) {
   const navigate = useNavigate()
   const spaces = useSpacesStore((state) => state.spaces)
@@ -70,11 +71,11 @@ export function SpaceSwitcher({
     }
   }, [createOpen])
 
-  const switchTo = (id: string) => {
-    if (id !== currentId) select(id)
+  const switchTo = (space: Space) => {
+    if (space.id !== currentId) select(space.id)
     onNavigate?.()
-    // 空间换了，首页会跳到新空间的第一页；系统页（回收站）原地按新空间刷新
-    if (navigateOnSwitch) navigate("/")
+    // 空间换了，首页会跳到新空间的第一页；系统页（回收站）按自己的 slug 路径留在原地
+    navigate(switchPath(space))
   }
 
   const submitCreate = async () => {
@@ -153,7 +154,7 @@ export function SpaceSwitcher({
             return (
               <DropdownMenuItem
                 key={space.id}
-                onSelect={() => switchTo(space.id)}
+                onSelect={() => switchTo(space)}
                 className="gap-2"
               >
                 <Check
@@ -180,7 +181,7 @@ export function SpaceSwitcher({
             <DropdownMenuItem
               onSelect={() => {
                 onNavigate?.()
-                navigate(`/spaces/${current.id}/settings`)
+                navigate(spaceSettingsPath(current.slug))
               }}
             >
               <Settings aria-hidden="true" />

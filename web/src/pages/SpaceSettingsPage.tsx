@@ -1,4 +1,3 @@
-import type { FormEvent } from "react"
 import { Empty } from "@cloudflare/kumo/components/empty"
 import {
   ArrowLeft,
@@ -8,8 +7,9 @@ import {
   UserPlus,
   Users
 } from "lucide-react"
+import type { FormEvent } from "react"
 import { useCallback, useEffect, useState } from "react"
-import { Link, useNavigate, useParams } from "react-router"
+import { Link, useNavigate } from "react-router"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,7 +72,9 @@ const ROLE_OPTIONS: SpaceRole[] = ["admin", "editor", "viewer"]
  * 页面数量由前端用页面树 + 回收站现算（Space DTO 不含统计字段）。
  */
 export function SpaceSettingsPage() {
-  const { spaceId } = useParams<{ spaceId: string }>()
+  // 路由是 /s/:slug/settings：SpaceRoute 已把当前空间切到 slug 对应的那个，
+  // 这里直接用当前空间 id 取数（slug 只在路由层解析一次）。
+  const spaceId = useSpacesStore((state) => state.currentId)
   const navigate = useNavigate()
   const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
   const upsertSpace = useSpacesStore((state) => state.upsert)
@@ -92,7 +94,7 @@ export function SpaceSettingsPage() {
   const [members, setMembers] = useState<SpaceMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [membersError, setMembersError] = useState("")
-  const [busyMemberId, setBusyMemberId] = useState<string | null>(null)
+  const [busyMemberId, setBusyMemberId] = useState<number | null>(null)
   const [removeTarget, setRemoveTarget] = useState<SpaceMember | null>(null)
 
   const [candidateQuery, setCandidateQuery] = useState("")
@@ -100,7 +102,7 @@ export function SpaceSettingsPage() {
   const [candidates, setCandidates] = useState<SpaceCandidate[]>([])
   const [candidatesLoading, setCandidatesLoading] = useState(false)
   const [candidateError, setCandidateError] = useState("")
-  const [addingId, setAddingId] = useState<string | null>(null)
+  const [addingId, setAddingId] = useState<number | null>(null)
 
   const [pageCount, setPageCount] = useState(0)
   const [trashedCount, setTrashedCount] = useState(0)
@@ -482,7 +484,7 @@ export function SpaceSettingsPage() {
                           {member.username || member.email}
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
-                          {member.email} · {member.publicId}
+                          {member.email}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -593,7 +595,7 @@ export function SpaceSettingsPage() {
                         {candidate.username || candidate.email}
                       </p>
                       <p className="truncate text-[11px] text-muted-foreground">
-                        {candidate.email} · {candidate.publicId}
+                        {candidate.email}
                       </p>
                     </div>
                     <Button

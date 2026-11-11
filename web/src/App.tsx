@@ -11,7 +11,9 @@ import {
   RequireAuth,
   RootGate
 } from "@/components/guards"
+import { SpaceRoute } from "@/components/SpaceRoute"
 import { Toaster } from "@/components/ui/sonner"
+import { NotFound } from "@/pages/NotFound"
 
 // 页面按路由懒加载：编辑器（TipTap + lowlight）与二维码库只在对应页面才下载。
 const AdminPage = lazy(() =>
@@ -25,8 +27,10 @@ const HomeRedirect = lazy(() =>
     default: module.HomeRedirect
   }))
 )
-const NotFound = lazy(() =>
-  import("@/pages/NotFound").then((module) => ({ default: module.NotFound }))
+const RootRedirect = lazy(() =>
+  import("@/pages/HomeRedirect").then((module) => ({
+    default: module.RootRedirect
+  }))
 )
 const PageEdit = lazy(() =>
   import("@/pages/PageEdit").then((module) => ({ default: module.PageEdit }))
@@ -118,14 +122,22 @@ export const routes: RouteObject[] = [
           </RequireAuth>
         ),
         children: [
-          { index: true, element: <HomeRedirect /> },
+          { index: true, element: <RootRedirect /> },
+          {
+            // 空间上下文一律以 slug 进路径；`/s/:slug` 本身是空间首页（页面树根）
+            path: "s/:slug",
+            element: <SpaceRoute />,
+            children: [
+              { index: true, element: <HomeRedirect /> },
+              { path: "trash", element: <TrashPage /> },
+              { path: "search", element: <SearchPage /> },
+              { path: "settings", element: <SpaceSettingsPage /> }
+            ]
+          },
           { path: "p/:pageId", element: <PageView /> },
           { path: "p/:pageId/edit", element: <PageEdit /> },
-          { path: "search", element: <SearchPage /> },
-          { path: "trash", element: <TrashPage /> },
           { path: "profile", element: <ProfilePage /> },
           { path: "settings", element: <SettingsPage /> },
-          { path: "spaces/:spaceId/settings", element: <SpaceSettingsPage /> },
           { path: "about", element: <AboutPage /> },
           {
             path: "admin",

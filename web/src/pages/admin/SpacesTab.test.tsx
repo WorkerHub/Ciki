@@ -15,11 +15,12 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { adminApi } = await import("@/lib/api")
 
 const defaultSpace: AdminSpace = {
-  id: "space-default",
+  id: 1,
+  slug: "default",
   name: "默认空间",
   description: "",
   isDefault: true,
-  createdBy: "u1",
+  createdBy: 1,
   createdAt: "2026-11-08T00:00:00.000Z",
   updatedAt: "2026-11-08T00:00:00.000Z",
   memberCount: 5,
@@ -29,7 +30,8 @@ const defaultSpace: AdminSpace = {
 
 const teamSpace: AdminSpace = {
   ...defaultSpace,
-  id: "space-2",
+  id: 2,
+  slug: "pay-team",
   name: "支付团队",
   description: "支付相关文档",
   isDefault: false,
@@ -76,9 +78,23 @@ describe("系统管理 · 空间总览", () => {
     const teamRow = (await screen.findByText("支付团队")).closest(
       "tr"
     ) as HTMLElement
-    expect(
-      teamRow.querySelector('a[href="/spaces/space-2/settings"]')
-    ).toBeTruthy()
+    expect(teamRow.querySelector('a[href="/s/pay-team/settings"]')).toBeTruthy()
+  })
+
+  it("后端没下发 slug 时不给空间设置死链", async () => {
+    const { slug: _slug, ...spaceWithoutSlug } = teamSpace
+    vi.mocked(adminApi.spaces).mockResolvedValue([spaceWithoutSlug])
+    render(
+      <MemoryRouter>
+        <SpacesTab />
+      </MemoryRouter>
+    )
+
+    const row = (await screen.findByText("支付团队")).closest(
+      "tr"
+    ) as HTMLElement
+    expect(row.querySelector("a")).toBeNull()
+    expect(row).not.toHaveTextContent("/s/")
   })
 
   it("加载失败显示错误", async () => {

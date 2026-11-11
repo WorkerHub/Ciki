@@ -34,12 +34,12 @@ export function MovePageDialog({
   onOpenChange,
   onMoved
 }: {
-  pageId: string
+  pageId: number
   pageTitle: string
-  sourceSpaceId: string
+  sourceSpaceId: number
   open: boolean
   onOpenChange: (open: boolean) => void
-  onMoved: (targetSpaceId: string) => void
+  onMoved: (targetSpaceId: number) => void
 }) {
   const spaces = useSpacesStore((state) => state.spaces)
   const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
@@ -48,27 +48,29 @@ export function MovePageDialog({
     () => editableSpaces(spaces, isSiteAdmin, sourceSpaceId),
     [spaces, isSiteAdmin, sourceSpaceId]
   )
+  // Radix Select 的 value 只收字符串：数字 id 只在控件边界转换
   const [targetId, setTargetId] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
     if (!open) return
-    setTargetId(targets[0]?.id ?? "")
+    setTargetId(targets[0] ? String(targets[0].id) : "")
     setError("")
   }, [open, targets])
 
   const submit = async () => {
-    if (!targetId) {
+    const target = Number(targetId)
+    if (!targetId || !Number.isSafeInteger(target) || target <= 0) {
       setError("请选择目标空间")
       return
     }
     setBusy(true)
     setError("")
     try {
-      await movePageToSpace(pageId, targetId)
+      await movePageToSpace(pageId, target)
       onOpenChange(false)
-      onMoved(targetId)
+      onMoved(target)
     } catch (moveError) {
       setError(describeApiError(moveError))
     } finally {
@@ -105,7 +107,7 @@ export function MovePageDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {targets.map((space) => (
-                    <SelectItem key={space.id} value={space.id}>
+                    <SelectItem key={space.id} value={String(space.id)}>
                       {space.name}
                     </SelectItem>
                   ))}

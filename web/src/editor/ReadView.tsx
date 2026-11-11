@@ -22,7 +22,7 @@ interface ReadViewProps {
  * 所以代码块角标/复制按钮、表格列宽、未转存图片占位与编辑态完全一致。
  * 渲染前把 <colgroup> 的列宽还原成单元格 colwidth（服务端白名单不保留 td[colwidth]）。
  *
- * 锚点 id 由调用方从 contentJson 提取、按位置式生成；服务端消毒不保留 id，
+ * 锚点 id 由调用方从 contentHtml 按位置式提取（`extractToc`）；服务端消毒不保留 id，
  * 所以要在渲染就绪后按文档顺序补到顶层标题上——不够数的多余标题不拿 id，
  * 不会把后面的标题顶错位。
  */
@@ -66,7 +66,7 @@ export function ReadView({
     }
     const root = editor.view.dom as HTMLElement
     if (headingIds && headingIds.length > 0) {
-      // 空标题在提取时被跳过（contentJson 里没有文字），DOM 里 TipTap 仍会渲染它，
+      // 空标题在提取时被跳过（HTML 里没有文字），DOM 里 TipTap 仍会渲染它，
       // 这里必须用同一判据跳过，否则空标题会抢走 heading-1、把后面的锚点顶偏一位。
       const headings = Array.from(
         root.querySelectorAll<HTMLElement>(TOP_LEVEL_HEADINGS)

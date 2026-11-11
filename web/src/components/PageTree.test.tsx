@@ -19,7 +19,8 @@ const { pagesApi } = await import("@/lib/api")
 
 function space(role: Space["myRole"]): Space {
   return {
-    id: "space-default",
+    id: 1,
+    slug: "default",
     name: "默认空间",
     description: "",
     myRole: role,
@@ -40,7 +41,7 @@ describe("页面树空状态", () => {
   beforeEach(() => {
     usePagesStore.setState({
       tree: [],
-      spaceId: "space-default",
+      spaceId: 1,
       loading: false,
       error: null,
       expanded: []
@@ -49,7 +50,7 @@ describe("页面树空状态", () => {
       spaces: [space("editor")],
       status: "ready",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
     vi.mocked(pagesApi.tree).mockResolvedValue([])
   })
@@ -70,17 +71,16 @@ describe("页面树空状态", () => {
   it("空树状态下提交标题会调用创建接口", async () => {
     const user = userEvent.setup()
     vi.mocked(pagesApi.create).mockResolvedValue({
-      id: "new-page",
+      id: 1,
       parentId: null,
-      spaceId: "space-default",
+      spaceId: 1,
       title: "新页面",
       sortOrder: 0,
-      contentJson: "",
       contentHtml: "",
       contentText: "",
       contentMd: "",
-      createdBy: "u1",
-      updatedBy: "u1",
+      createdBy: 1,
+      updatedBy: 1,
       createdAt: "2026-11-07T00:00:00.000Z",
       updatedAt: "2026-11-07T00:00:00.000Z"
     })
@@ -94,7 +94,7 @@ describe("页面树空状态", () => {
       expect.objectContaining({
         title: "新页面",
         parentId: null,
-        spaceId: "space-default"
+        spaceId: 1
       })
     )
   })
@@ -104,14 +104,20 @@ describe("页面树空状态", () => {
     useSpacesStore.setState({
       spaces: [
         space("editor"),
-        { ...space("editor"), id: "s2", name: "另一个空间", isDefault: false }
+        {
+          ...space("editor"),
+          id: 2,
+          slug: "space-2",
+          name: "另一个空间",
+          isDefault: false
+        }
       ],
-      currentId: "space-default"
+      currentId: 1
     })
     usePagesStore.setState({
       tree: [
         {
-          id: "p1",
+          id: 1,
           parentId: null,
           title: "可移动页面",
           sortOrder: 0,
@@ -137,7 +143,7 @@ describe("页面树空状态", () => {
     usePagesStore.setState({
       tree: [
         {
-          id: "p1",
+          id: 1,
           parentId: null,
           title: "唯一页面",
           sortOrder: 0,
@@ -160,12 +166,12 @@ describe("页面树空状态", () => {
   it("只读空间：行内不给操作菜单与拖拽手柄", () => {
     useSpacesStore.setState({
       spaces: [space("viewer")],
-      currentId: "space-default"
+      currentId: 1
     })
     usePagesStore.setState({
       tree: [
         {
-          id: "p1",
+          id: 1,
           parentId: null,
           title: "只读页面",
           sortOrder: 0,
@@ -187,12 +193,12 @@ describe("页面树空状态", () => {
     const title = "很长很长很长很长很长很长很长很长的页面标题"
     useSpacesStore.setState({
       spaces: [space("editor")],
-      currentId: "space-default"
+      currentId: 1
     })
     usePagesStore.setState({
       tree: [
         {
-          id: "p1",
+          id: 1,
           parentId: null,
           title,
           sortOrder: 0,
@@ -231,7 +237,7 @@ describe("页面树空状态", () => {
   it("只读空间的空状态说明只读身份，且没有新建入口", () => {
     useSpacesStore.setState({
       spaces: [space("viewer")],
-      currentId: "space-default"
+      currentId: 1
     })
     renderTree()
 

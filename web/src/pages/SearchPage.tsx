@@ -6,6 +6,7 @@ import { SearchBox } from "@/components/SearchBox"
 import { Badge } from "@/components/ui/badge"
 import { describeApiError, type SearchResponse, searchApi } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
+import { pagePath } from "@/lib/routes"
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -120,7 +121,7 @@ export function SearchPage() {
           {data?.results.map((result) => (
             <li key={result.pageId}>
               <Link
-                to={`/p/${result.pageId}`}
+                to={pagePath(result.pageId)}
                 className="block px-4 py-3 transition-colors hover:bg-accent/60"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">

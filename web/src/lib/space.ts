@@ -19,7 +19,7 @@ export function effectiveRole(space: Space, isSiteAdmin: boolean): SpaceRole {
 
 export function roleForSpace(
   spaces: Space[],
-  spaceId: string | null | undefined,
+  spaceId: number | null | undefined,
   isSiteAdmin: boolean
 ): SpaceRole | null {
   if (!spaceId) return null
@@ -41,7 +41,7 @@ export function canManage(role: SpaceRole | null | undefined): boolean {
  */
 export function pickInitialSpace(
   spaces: Space[],
-  preferredId: string | null | undefined
+  preferredId: number | null | undefined
 ): Space | null {
   if (preferredId) {
     const preferred = spaces.find((space) => space.id === preferredId)
@@ -54,10 +54,16 @@ export function pickInitialSpace(
 export function editableSpaces(
   spaces: Space[],
   isSiteAdmin: boolean,
-  exceptId?: string | null
+  exceptId?: number | null
 ): Space[] {
   return spaces.filter(
     (space) =>
       space.id !== exceptId && canEdit(effectiveRole(space, isSiteAdmin))
   )
+}
+
+/** 路由里的 slug → 空间；列表未到时返回 null（调用方据此给骨架/404）。 */
+export function spaceBySlug(spaces: Space[], slug: string): Space | null {
+  if (!slug) return null
+  return spaces.find((space) => space.slug === slug) ?? null
 }

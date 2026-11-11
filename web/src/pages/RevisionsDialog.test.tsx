@@ -37,24 +37,24 @@ vi.mock("@/lib/api", async (importOriginal) => {
 
 const { pagesApi } = await import("@/lib/api")
 
-/** 列表按 created_at DESC 到达：r3 最新。 */
+/** 列表按 version_no DESC 到达：第 3 版最新。 */
 const revisions: RevisionSummary[] = [
   {
-    id: "r3",
+    versionNo: 3,
     title: "第三版",
-    editorId: "user-ccc-3",
+    editorId: 3,
     createdAt: "2026-11-09T06:00:00.000Z"
   },
   {
-    id: "r2",
+    versionNo: 2,
     title: "第二版",
-    editorId: "user-bbb-2",
+    editorId: 2,
     createdAt: "2026-11-09T05:00:00.000Z"
   },
   {
-    id: "r1",
+    versionNo: 1,
     title: "第一版",
-    editorId: "user-aaa-1",
+    editorId: 1,
     createdAt: "2026-11-09T04:00:00.000Z"
   }
 ]
@@ -62,25 +62,23 @@ const revisions: RevisionSummary[] = [
 function detail(revision: RevisionSummary): RevisionDetail {
   return {
     ...revision,
-    pageId: "p1",
-    contentJson: "{}",
+    pageId: 1,
     contentHtml: `<p>${revision.title}</p>`,
     contentText: revision.title
   }
 }
 
 const restoredPage: PageDetail = {
-  id: "p1",
+  id: 1,
   parentId: null,
-  spaceId: "space-default",
+  spaceId: 1,
   title: "第一版",
   sortOrder: 0,
-  contentJson: "{}",
   contentHtml: "<p>第一版</p>",
   contentText: "第一版",
   contentMd: "第一版",
-  createdBy: "user-aaa-1",
-  updatedBy: "user-aaa-1",
+  createdBy: 1,
+  updatedBy: 1,
   createdAt: "2026-11-09T04:00:00.000Z",
   updatedAt: "2026-11-09T07:00:00.000Z"
 }
@@ -89,7 +87,7 @@ function renderDialog(readOnly = false) {
   return render(
     <>
       <RevisionsDialog
-        pageId="p1"
+        pageId={1}
         open
         onOpenChange={() => {}}
         readOnly={readOnly}
@@ -103,7 +101,7 @@ function renderDialog(readOnly = false) {
 
 /** 等列表真正到位：任一行出现即说明接口已回。 */
 async function rowReady() {
-  return screen.findByRole("button", { name: /user-aaa/ })
+  return screen.findByRole("button", { name: /第 1 版/ })
 }
 
 describe("版本历史：布局与动作归位", () => {
@@ -117,8 +115,8 @@ describe("版本历史：布局与动作归位", () => {
     vi.mocked(pagesApi.revisions).mockReset().mockResolvedValue(revisions)
     vi.mocked(pagesApi.revision)
       .mockReset()
-      .mockImplementation(async (_pageId, revisionId) => {
-        const found = revisions.find((item) => item.id === revisionId)
+      .mockImplementation(async (_pageId, versionNo) => {
+        const found = revisions.find((item) => item.versionNo === versionNo)
         if (!found) throw new Error("missing revision fixture")
         return detail(found)
       })
@@ -175,7 +173,7 @@ describe("版本历史：布局与动作归位", () => {
     expect(screen.queryByRole("button", { name: "只保留最新一条" })).toBeNull()
     expect(screen.queryByRole("button", { name: "回滚到这个版本" })).toBeNull()
 
-    await user.click(screen.getByRole("button", { name: /user-aaa/ }))
+    await user.click(screen.getByRole("button", { name: /第 1 版/ }))
     expect((await screen.findAllByText("第一版")).length).toBeGreaterThan(0)
     expect(screen.queryByRole("button", { name: "回滚到这个版本" })).toBeNull()
   })
@@ -196,7 +194,7 @@ describe("版本历史：布局与动作归位", () => {
     render(
       <>
         <RevisionsDialog
-          pageId="p1"
+          pageId={1}
           open
           onOpenChange={onOpenChange}
           onRestored={onRestored}
@@ -206,10 +204,10 @@ describe("版本历史：布局与动作归位", () => {
     )
     await rowReady()
 
-    await user.click(screen.getByRole("button", { name: /user-aaa/ }))
+    await user.click(screen.getByRole("button", { name: /第 1 版/ }))
     await screen.findByText("第一版")
     expect(
-      screen.getByText("2026-11-09 12:00 的版本", { exact: false })
+      screen.getByText("第 1 版 · 2026-11-09 12:00", { exact: false })
     ).toBeInTheDocument()
 
     const rollback = screen.getByRole("button", {
@@ -218,7 +216,7 @@ describe("版本历史：布局与动作归位", () => {
     await user.click(rollback)
 
     await waitFor(() =>
-      expect(pagesApi.restoreRevision).toHaveBeenCalledWith("p1", "r1")
+      expect(pagesApi.restoreRevision).toHaveBeenCalledWith(1, 1)
     )
     expect(onRestored).toHaveBeenCalledWith(restoredPage)
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -229,7 +227,7 @@ describe("版本历史：布局与动作归位", () => {
     renderDialog()
     await rowReady()
 
-    await user.click(screen.getByRole("button", { name: /user-ccc/ }))
+    await user.click(screen.getByRole("button", { name: /第 3 版/ }))
     await screen.findByText("第三版")
     expect(screen.queryByRole("button", { name: "回滚到这个版本" })).toBeNull()
   })
@@ -243,7 +241,7 @@ describe("版本历史：布局与动作归位", () => {
     expect(screen.queryByRole("button", { name: "只保留最新一条" })).toBeNull()
     expect(screen.queryByRole("button", { name: "删除这个版本" })).toBeNull()
 
-    await user.click(screen.getByRole("button", { name: /user-ccc/ }))
+    await user.click(screen.getByRole("button", { name: /第 3 版/ }))
     await screen.findByText("第三版")
     expect(screen.queryByRole("button", { name: "回滚到这个版本" })).toBeNull()
   })
@@ -253,7 +251,7 @@ describe("版本历史：布局与动作归位", () => {
     renderDialog()
     await rowReady()
 
-    const rowsBefore = screen.getAllByRole("button", { name: /user-/ })
+    const rowsBefore = screen.getAllByRole("button", { name: /第 \d 版/ })
     expect(rowsBefore).toHaveLength(3)
 
     const [firstDelete] = screen.getAllByRole("button", {
@@ -263,7 +261,7 @@ describe("版本历史：布局与动作归位", () => {
 
     const confirm = await screen.findByRole("alertdialog")
     expect(
-      within(confirm).getByText(/2026-11-09 13:00 的版本/)
+      within(confirm).getByText(/第 2 版（2026-11-09 13:00）/)
     ).toBeInTheDocument()
     expect(
       within(confirm).getByText(/将被永久删除，无法恢复/)
@@ -271,7 +269,7 @@ describe("版本历史：布局与动作归位", () => {
     await user.click(within(confirm).getByRole("button", { name: "删除" }))
 
     await waitFor(() =>
-      expect(pagesApi.deleteRevision).toHaveBeenCalledWith("p1", "r2")
+      expect(pagesApi.deleteRevision).toHaveBeenCalledWith(1, 2)
     )
 
     // 轻提示：候选 DOM 里出现 toast 容器，而不是列表上方的绿色色块
@@ -284,17 +282,15 @@ describe("版本历史：布局与动作归位", () => {
       ).toHaveLength(1)
     )
     // 剩下两行，且仍是「最新、第一版」这个顺序（列表没有为新提示让位）
-    const rowsAfter = screen.getAllByRole("button", { name: /user-/ })
+    const rowsAfter = screen.getAllByRole("button", { name: /第 \d 版/ })
     expect(rowsAfter.map((row) => row.textContent)).toEqual([
-      expect.stringContaining("user-ccc"),
-      expect.stringContaining("user-aaa")
+      expect.stringContaining("第 3 版"),
+      expect.stringContaining("第 1 版")
     ])
 
     // 剩下的旧版本仍然可以打开查看
-    await user.click(screen.getByRole("button", { name: /user-aaa/ }))
-    await waitFor(() =>
-      expect(pagesApi.revision).toHaveBeenCalledWith("p1", "r1")
-    )
+    await user.click(screen.getByRole("button", { name: /第 1 版/ }))
+    await waitFor(() => expect(pagesApi.revision).toHaveBeenCalledWith(1, 1))
     expect((await screen.findAllByText("第一版")).length).toBeGreaterThan(0)
   })
 
@@ -303,25 +299,25 @@ describe("版本历史：布局与动作归位", () => {
     renderDialog()
     await rowReady()
 
-    await user.click(screen.getByRole("button", { name: /user-aaa/ }))
+    await user.click(screen.getByRole("button", { name: /第 1 版/ }))
     await screen.findByText("第一版")
     expect(
       screen.queryByText("选择左侧任一版本查看内容")
     ).not.toBeInTheDocument()
 
     // 删除刚选中的 r1：点它自己那一行的行内删除键
-    const row = screen.getByRole("button", { name: /user-aaa/ }).closest("li")
+    const row = screen.getByRole("button", { name: /第 1 版/ }).closest("li")
     await user.click(
       within(row as HTMLElement).getByRole("button", { name: "删除这个版本" })
     )
     const confirm = await screen.findByRole("alertdialog")
     expect(
-      within(confirm).getByText(/2026-11-09 12:00 的版本/)
+      within(confirm).getByText(/第 1 版（2026-11-09 12:00）/)
     ).toBeInTheDocument()
     await user.click(within(confirm).getByRole("button", { name: "删除" }))
 
     await waitFor(() =>
-      expect(pagesApi.deleteRevision).toHaveBeenCalledWith("p1", "r1")
+      expect(pagesApi.deleteRevision).toHaveBeenCalledWith(1, 1)
     )
     expect(
       await screen.findByText("选择左侧任一版本查看内容")
@@ -340,9 +336,7 @@ describe("版本历史：布局与动作归位", () => {
 
     await user.click(within(confirm).getByRole("button", { name: "删除 2 条" }))
 
-    await waitFor(() =>
-      expect(pagesApi.pruneRevisions).toHaveBeenCalledWith("p1")
-    )
+    await waitFor(() => expect(pagesApi.pruneRevisions).toHaveBeenCalledWith(1))
     expect(await screen.findByText("已删除 2 条版本。")).toBeInTheDocument()
     await waitFor(() =>
       expect(
@@ -355,8 +349,8 @@ describe("版本历史：布局与动作归位", () => {
   it("版本预览与阅读页同口径：折叠块显示「展开代码」并可展开", async () => {
     vi.mocked(pagesApi.revision)
       .mockReset()
-      .mockImplementation(async (_pageId, revisionId) => {
-        const found = revisions.find((item) => item.id === revisionId)
+      .mockImplementation(async (_pageId, versionNo) => {
+        const found = revisions.find((item) => item.versionNo === versionNo)
         if (!found) throw new Error("missing revision fixture")
         return {
           ...detail(found),
@@ -368,7 +362,7 @@ describe("版本历史：布局与动作归位", () => {
     renderDialog()
     await rowReady()
 
-    await user.click(screen.getByRole("button", { name: /user-aaa/ }))
+    await user.click(screen.getByRole("button", { name: /第 1 版/ }))
     const dialog = within(screen.getByRole("dialog"))
     const expand = await dialog.findByRole("button", { name: /展开代码/ })
     const panel = screen
@@ -390,7 +384,7 @@ describe("版本历史：布局与动作归位", () => {
         "REVISION_IS_LATEST",
         undefined,
         undefined,
-        "/pages/p1/revisions/r2"
+        "/pages/1/revisions/2"
       )
     )
     renderDialog()

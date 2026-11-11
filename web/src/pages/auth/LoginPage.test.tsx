@@ -57,8 +57,7 @@ describe("登录两步表单", () => {
       availableMethods: ["totp"]
     })
     vi.mocked(meApi.get).mockResolvedValue({
-      id: "u1",
-      publicId: "AB23CD45",
+      id: 1,
       username: "管理员",
       avatarUrl: null,
       email: "a@b.c",
@@ -244,8 +243,7 @@ describe("两步验证的错误提示", () => {
  */
 describe("登录第二步的邮箱验证码", () => {
   const user = () => ({
-    id: "u1",
-    publicId: "AB23CD45",
+    id: 1,
     username: "管理员",
     avatarUrl: null,
     email: "a@b.c",

@@ -141,10 +141,10 @@ describe("downloadPageMarkdown 走服务端产物", () => {
       contentDisposition: `attachment; filename="ciki-page.md"; filename*=UTF-8''${encodeURIComponent("支付服务部署手册.md")}`
     })
 
-    await downloadPageMarkdown({ id: "p1", title: "支付服务部署手册" })
+    await downloadPageMarkdown({ id: 1, title: "支付服务部署手册" })
 
     expect(downloadMock).toHaveBeenCalledTimes(1)
-    expect(downloadMock).toHaveBeenCalledWith("p1")
+    expect(downloadMock).toHaveBeenCalledWith(1)
     expect(stub.clicked).toHaveLength(1)
     expect(stub.clicked[0].download).toBe("支付服务部署手册.md")
     expect(stub.clicked[0].getAttribute("href")).toBe("blob:ciki-download")
@@ -167,7 +167,7 @@ describe("downloadPageMarkdown 走服务端产物", () => {
       contentDisposition: `attachment; filename="ciki-page.zip"; filename*=UTF-8''${encodeURIComponent("支付服务部署手册.zip")}`
     })
 
-    await downloadPageMarkdown({ id: "p2", title: "支付服务部署手册" })
+    await downloadPageMarkdown({ id: 2, title: "支付服务部署手册" })
 
     expect(stub.clicked[0].download).toBe("支付服务部署手册.zip")
     expect(stub.blobs[0].type).toBe("application/zip")
@@ -178,7 +178,7 @@ describe("downloadPageMarkdown 走服务端产物", () => {
     const stub = stubDownloadChain()
     downloadMock.mockResolvedValue(pageMarkdown("正文"))
 
-    await downloadPageMarkdown({ id: "p3", title: "支付服务部署手册" })
+    await downloadPageMarkdown({ id: 3, title: "支付服务部署手册" })
 
     expect(stub.clicked[0].download).toBe("支付服务部署手册.md")
     stub.clickSpy.mockRestore()
@@ -197,7 +197,7 @@ describe("downloadPageMarkdown 走服务端产物", () => {
     downloadMock.mockRejectedValue(failure)
 
     await expect(
-      downloadPageMarkdown({ id: "p4", title: "支付服务部署手册" })
+      downloadPageMarkdown({ id: 4, title: "支付服务部署手册" })
     ).rejects.toBe(failure)
     expect(stub.clicked).toHaveLength(0)
     expect(stub.blobs).toHaveLength(0)

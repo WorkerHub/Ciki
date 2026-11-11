@@ -193,7 +193,7 @@ describe("阅读态颜色（入库形态 → 渲染）", () => {
 })
 
 /**
- * 索引轨的锚点：id 由 contentJson 提取、位置式生成，渲染就绪后按文档顺序
+ * 索引轨的锚点：id 由 contentHtml 提取、位置式生成，渲染就绪后按文档顺序
  * 补到顶层标题上——这里验「提取计数 = 实赋 id 的标题数」在代表性文档上一致。
  */
 describe("标题锚点（索引轨用）", () => {
@@ -201,35 +201,7 @@ describe("标题锚点（索引轨用）", () => {
     installTiptapJsdomShims()
   })
 
-  const contentJson = JSON.stringify({
-    type: "doc",
-    content: [
-      {
-        type: "heading",
-        attrs: { level: 2 },
-        content: [{ type: "text", text: "部署" }]
-      },
-      {
-        type: "codeBlock",
-        content: [{ type: "text", text: "# 不是标题" }]
-      },
-      // 空标题：提取时跳过，DOM 里仍会渲染出一个空 h2
-      { type: "heading", attrs: { level: 2 }, content: [] },
-      {
-        type: "heading",
-        attrs: { level: 2 },
-        content: [{ type: "text", text: "部署" }]
-      },
-      {
-        type: "heading",
-        attrs: { level: 3 },
-        content: [
-          { type: "text", text: "配置" },
-          { type: "text", text: "表", marks: [{ type: "bold" }] }
-        ]
-      }
-    ]
-  })
+  // 空标题（<h2></h2>）在提取与补 id 时都要跳过，但 DOM 里仍会渲染它
   const contentHtml = [
     "<h2>部署</h2>",
     '<pre><code class="language-markdown"># 不是标题</code></pre>',
@@ -239,7 +211,7 @@ describe("标题锚点（索引轨用）", () => {
   ].join("")
 
   it("按提取结果给顶层标题补 id，并把正文根元素交回调用方", async () => {
-    const items = extractToc(contentJson)
+    const items = extractToc(contentHtml)
     const onReady = vi.fn()
     render(
       <ReadView
@@ -274,23 +246,7 @@ describe("标题锚点（索引轨用）", () => {
   })
 
   it("空标题在文档开头时不占用 heading-1，后面的标题不错位", async () => {
-    const json = JSON.stringify({
-      type: "doc",
-      content: [
-        { type: "heading", attrs: { level: 2 }, content: [] },
-        {
-          type: "heading",
-          attrs: { level: 2 },
-          content: [{ type: "text", text: "甲" }]
-        },
-        {
-          type: "heading",
-          attrs: { level: 2 },
-          content: [{ type: "text", text: "乙" }]
-        }
-      ]
-    })
-    const items = extractToc(json)
+    const items = extractToc("<h2></h2><h2>甲</h2><h2>乙</h2>")
     const onReady = vi.fn()
     render(
       <ReadView

@@ -17,12 +17,12 @@ interface SpacesState {
   spaces: Space[]
   status: "loading" | "ready" | "error"
   error: string | null
-  currentId: string | null
+  currentId: number | null
   load: () => Promise<void>
-  select: (id: string) => void
+  select: (id: number) => void
   create: (name: string, description: string) => Promise<Space>
   upsert: (space: Space) => void
-  remove: (id: string) => Promise<void>
+  remove: (id: number) => Promise<void>
 }
 
 export const useSpacesStore = create<SpacesState>()(
