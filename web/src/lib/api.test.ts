@@ -327,6 +327,51 @@ describe("describeApiError：找回密码的三个入口", () => {
   })
 })
 
+/**
+ * 注册邮箱验证（单 A #85 冻结契约）：登录门禁的 403 与验证端点的 400 各一句
+ * 用户看得懂的话；验证端点的错码同时可能是「未知邮箱」，只说到验证码这一层。
+ */
+describe("describeApiError：注册邮箱验证", () => {
+  it("登录被门禁拦下 → 说清要先验证邮箱，不是密码错", () => {
+    const error = apiError(
+      403,
+      "Email not verified",
+      "/auth/login",
+      "EMAIL_NOT_VERIFIED"
+    )
+    expect(describeApiError(error)).toBe("邮箱还没有验证，请先完成邮箱验证。")
+    expect(describeApiError(error)).not.toBe("验证未通过，请重试。")
+  })
+
+  it("验证端点的错码 / 过期 / 未知邮箱同形 → 只说验证码不对或已过期", () => {
+    const error = apiError(
+      400,
+      "Invalid or expired code",
+      "/auth/email/verify",
+      "INVALID_CODE"
+    )
+    expect(describeApiError(error)).toBe("验证码不正确或已过期。")
+  })
+
+  it("验证端点上的 401（代理 / 中间件）不说会话过期", () => {
+    expect(
+      describeApiError(apiError(401, "Unauthorized", "/auth/email/verify"))
+    ).toBe("验证未通过，请重试。")
+  })
+
+  it("站点没配发信时重发验证码 → 指向系统管理 → 邮件配置", () => {
+    const error = apiError(
+      503,
+      "Email delivery is not configured",
+      "/auth/email/resend",
+      "EMAIL_NOT_CONFIGURED"
+    )
+    expect(describeApiError(error)).toBe(
+      "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    )
+  })
+})
+
 /** 阅读页「下载 .md」的传输层：一条 GET 拿二进制，错误仍是 JSON 口径。 */
 function stubFetch(response: Response) {
   const fetchMock = vi.fn<

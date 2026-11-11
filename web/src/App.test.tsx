@@ -136,6 +136,16 @@ describe("路由守卫与初始化门", () => {
     expect(screen.getByLabelText("邮箱")).toBeInTheDocument()
   })
 
+  it("未登录可以从路由进邮箱验证页（注册后跳过来的落地页）", async () => {
+    vi.mocked(meApi.get).mockRejectedValue(new ApiError(401, "Unauthorized"))
+    renderApp("/verify-email")
+
+    expect(
+      await screen.findByRole("heading", { name: "验证邮箱" })
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("邮箱验证码")).toBeInTheDocument()
+  })
+
   it("数据库未初始化时一律进初始化页", async () => {
     vi.mocked(setupApi.state).mockResolvedValue({
       initialized: false,
