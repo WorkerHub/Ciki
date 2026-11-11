@@ -29,11 +29,17 @@ vi.mock("@/lib/api", async (importOriginal) => {
       get: vi.fn(),
       tree: vi.fn(),
       download: vi.fn()
-    }
+    },
+    commentsApi: { ...actual.commentsApi, list: vi.fn() }
   }
 })
 
-const { pagesApi } = await import("@/lib/api")
+const { pagesApi, commentsApi } = await import("@/lib/api")
+
+// 评论区的列表请求在阅读页里真实存在：默认给空列表，免得每个用例都去打网络
+beforeEach(() => {
+  vi.mocked(commentsApi.list).mockResolvedValue({ total: 0, threads: [] })
+})
 
 const memberUser: Me = {
   id: "u1",
@@ -215,6 +221,28 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(screen.getByRole("button", { name: "历史" })).toBeInTheDocument()
   })
 
+  it("正文下方是评论区：标题与顶层发表框，0 条时不显数字", async () => {
+    const user = userEvent.setup()
+    renderView()
+
+    const heading = await screen.findByRole("heading", { name: "评论" })
+    const composer = await screen.findByRole("textbox", { name: "发表评论" })
+    // 评论区在正文之后，而不是插在页头或侧栏
+    const body = document.querySelector(".wiki-content")
+    expect(body).not.toBeNull()
+    expect(
+      body &&
+        body.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    // 0 条只显标题：不出现「0」这类赘文案
+    expect(heading).toHaveTextContent(/^评论$/)
+
+    expect(composer).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "发表" })).toBeDisabled()
+    await user.type(composer, "问一下")
+    expect(screen.getByRole("button", { name: "发表" })).toBeEnabled()
+  })
+
   it("viewer 也能下载 .md：走服务端端点，文件名取 Content-Disposition", async () => {
     useSpacesStore.setState({ spaces: [space({ myRole: "viewer" })] })
     const user = userEvent.setup()
@@ -390,7 +418,7 @@ describe("阅读页按空间角色收口写入口", () => {
     })
     renderView()
 
-    await screen.findByRole("heading", { level: 2 })
+    await screen.findByRole("heading", { level: 2, name: "唯一标题" })
     expect(screen.queryByRole("navigation", { name: "本页索引" })).toBeNull()
   })
 
@@ -721,6 +749,37 @@ describe("文章页原地刷新", () => {
     window.dispatchEvent(new Event("focus"))
     await new Promise((resolve) => setTimeout(resolve, 100))
     expect(vi.mocked(pagesApi.get).mock.calls.length).toBe(calls)
+  })
+
+  it("切页后评论区按新页面重拉，草稿不跟过去", async () => {
+    const user = userEvent.setup()
+    const pageB: PageDetail = { ...page, id: "b", title: "B 页" }
+    vi.mocked(pagesApi.get).mockImplementation((id) =>
+      Promise.resolve(id === "b" ? pageB : page)
+    )
+    const router = createMemoryRouter(
+      [
+        { path: "/p/:pageId", element: <PageView /> },
+        { path: "/", element: <div>首页占位</div> }
+      ],
+      { initialEntries: ["/p/a"] }
+    )
+    render(<RouterProvider router={router} />)
+    await screen.findByText("支付服务部署手册")
+    expect(vi.mocked(commentsApi.list)).toHaveBeenLastCalledWith("a")
+
+    // A 页留半截草稿：评论是跟着页面走的，换页不能把它带过去
+    await user.type(
+      await screen.findByRole("textbox", { name: "发表评论" }),
+      "半截草稿"
+    )
+
+    await router.navigate("/p/b")
+    await screen.findByText("B 页")
+    await waitFor(() =>
+      expect(vi.mocked(commentsApi.list)).toHaveBeenLastCalledWith("b")
+    )
+    expect(screen.getByRole("textbox", { name: "发表评论" })).toHaveValue("")
   })
 
   it("首屏加载失败后，切回标签页刷新成功即可恢复正文", async () => {

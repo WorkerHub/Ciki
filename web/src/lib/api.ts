@@ -447,6 +447,40 @@ export interface RevisionPruneResult {
   deleted: number
 }
 
+/**
+ * 页尾评论（契约：/api/pages/:pageId/comments）。
+ * `html` 是服务端 Markdown 渲染 + 净化后的成品，前端直接呈现、不再加工；
+ * `canEdit` / `canDelete` 由服务端按当前用户算好，前端只照它显隐按钮。
+ * 已软删但仍有存活回复的顶层评论照常下发：`deletedAt` 非空、`html` 为空串。
+ */
+export interface CommentDto {
+  id: string
+  /** NULL=顶层评论；回复一律归一指向其顶层评论 id（只有一级）。 */
+  parentId: string | null
+  authorId: string
+  authorName: string
+  /** 头像地址；没有头像时为 null。 */
+  authorAvatarUrl: string | null
+  /** 原始 Markdown，仅编辑回填用。 */
+  bodyMd: string
+  html: string
+  createdAt: string
+  editedAt: string | null
+  deletedAt: string | null
+  canEdit: boolean
+  canDelete: boolean
+}
+
+export interface CommentThread extends CommentDto {
+  replies: CommentDto[]
+}
+
+export interface CommentList {
+  /** 未删除的顶层 + 未删除的回复条数（规格的计数口径）。 */
+  total: number
+  threads: CommentThread[]
+}
+
 export interface SearchResult {
   pageId: string
   title: string
@@ -794,6 +828,25 @@ export const pagesApi = {
   /** 按页只保留最新一条，其余全删；返回真实删除条数。 */
   pruneRevisions: (id: string) =>
     api.post<{ deleted: number }>(`/pages/${id}/revisions/prune`)
+}
+
+export const commentsApi = {
+  /** 一次取整页（不分页）：顶层按时间正序，各自回复按时间正序平铺。 */
+  list: (pageId: string) => api.get<CommentList>(`/pages/${pageId}/comments`),
+  /** 顶层评论不带 parentId；回复的 parentId 恒为顶层评论 id。 */
+  create: (
+    pageId: string,
+    input: { bodyMd: string; parentId?: string | null }
+  ) => api.post<CommentDto>(`/pages/${pageId}/comments`, input),
+  update: (pageId: string, commentId: string, bodyMd: string) =>
+    api.put<CommentDto>(`/pages/${pageId}/comments/${commentId}`, { bodyMd }),
+  remove: (pageId: string, commentId: string) =>
+    api.del<{ success: true }>(`/pages/${pageId}/comments/${commentId}`),
+  /** 预览走与列表同一条服务端渲染净化链，前端不自引 MD 库。 */
+  preview: (pageId: string, bodyMd: string) =>
+    api.post<{ html: string }>(`/pages/${pageId}/comments/preview`, {
+      bodyMd
+    })
 }
 
 export const searchApi = {
