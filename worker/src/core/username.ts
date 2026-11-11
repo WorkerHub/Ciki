@@ -35,7 +35,7 @@ function usernameKey(name: string): string {
  * 只做一件事：给真正的重名（大小写不敏感）补 `-2`、`-3` 后缀（后缀算在 40 码点内，
  * 基础名太长时截短腾位），同一名字里 id 最小者保留原名。**其余用户名一字不改**：
  * 不 trim、不截断、空串也不改写（索引的 `WHERE username <> ''` 已把空串排除在唯一
- * 约束之外，它不会造成撞键）。
+ * 约束之外，它不会造成撞键）。补出来的后缀也不会去抢未处理行的原名字。
  *
  * 只对真的变了的行发 UPDATE，全部改动在一次 `db.batch()`（D1 的事务单位）里提交：
  * 要么全改、要么一条都不改（升级失败时旧库的用户名原样保留）；`updated_at` 不动。
@@ -49,6 +49,16 @@ export async function resolveDuplicateUsernames(
     .prepare(`SELECT id, username FROM ${table} ORDER BY id`)
     .all<{ id: number; username: string }>()
 
+  // 还没轮到的行的原名。补后缀时不能占它们的位置：`carol` / `carol` / `carol-2`
+  // 里第二行若直接拿 `carol-2`，第三行（本来不重名）就会被追着改成 `carol-2-2`。
+  // 先登记全表原名，轮到某行时先把它自己那一份退掉（同名还有别的行时仍占着）。
+  const pending = new Map<string, number>()
+  for (const row of rows.results) {
+    if (row.username === "") continue
+    const key = usernameKey(row.username)
+    pending.set(key, (pending.get(key) ?? 0) + 1)
+  }
+
   const taken = new Set<string>()
   const updates: Array<{ id: number; username: string }> = []
 
@@ -56,11 +66,21 @@ export async function resolveDuplicateUsernames(
     // 空串不参与唯一约束，也不占用任何名字：原样留着，多个空串可以共存。
     if (row.username === "") continue
 
+    const ownKey = usernameKey(row.username)
+    const remaining = (pending.get(ownKey) ?? 1) - 1
+    if (remaining > 0) pending.set(ownKey, remaining)
+    else pending.delete(ownKey)
+
     let candidate = row.username
-    let n = 2
-    while (taken.has(usernameKey(candidate))) {
-      candidate = usernameWithSuffix(row.username, n)
-      n += 1
+    if (taken.has(ownKey)) {
+      let n = 2
+      do {
+        candidate = usernameWithSuffix(row.username, n)
+        n += 1
+      } while (
+        taken.has(usernameKey(candidate)) ||
+        pending.has(usernameKey(candidate))
+      )
     }
     taken.add(usernameKey(candidate))
     if (candidate !== row.username) {

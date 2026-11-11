@@ -665,6 +665,46 @@ describe("schema_v8：username 唯一索引与存量重名消解", () => {
     ])
   })
 
+  it("补后缀不抢未处理行的原名：carol/carol/carol-2 → carol/carol-3/carol-2", async () => {
+    const { env, db } = await initializedContext()
+    await rewindToV7(db)
+    insertUser(db, 1, "carol")
+    insertUser(db, 2, "carol")
+    insertUser(db, 3, "carol-2")
+    insertUser(db, 4, "dave")
+    insertUser(db, 5, "dave")
+    insertUser(db, 6, "dave-2")
+    insertUser(db, 7, "dave-3")
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    // 只有真正的重名（id 2、id 5）补后缀，且跳过稍后几行本来就有的 -2/-3：
+    // 不重名的行（id 3/6/7）一字不改。
+    expect(usernames(db)).toEqual([
+      { id: 1, username: "carol" },
+      { id: 2, username: "carol-3" },
+      { id: 3, username: "carol-2" },
+      { id: 4, username: "dave" },
+      { id: 5, username: "dave-4" },
+      { id: 6, username: "dave-2" },
+      { id: 7, username: "dave-3" }
+    ])
+
+    // 幂等：再跑一次不再改名。
+    const again = await runSetup(env)
+    if (!again.success) throw new Error(again.error)
+    expect(again.migrations).toEqual(ledgerResult("skipped"))
+    expect(usernames(db).map((row) => row.username)).toEqual([
+      "carol",
+      "carol-3",
+      "carol-2",
+      "dave",
+      "dave-4",
+      "dave-2",
+      "dave-3"
+    ])
+  })
+
   it("40 码点基础名：后缀算在 40 码点内，结果不超限", async () => {
     const { env, db } = await initializedContext()
     await rewindToV7(db)

@@ -52,7 +52,16 @@ const vmShim = path.resolve(import.meta.dirname, "test/workers/node-vm-shim.ts")
 
 export default defineConfig({
   plugins: [
-    cloudflareTest({ miniflare: wranglerRuntime(), remoteBindings: false })
+    cloudflareTest({
+      miniflare: {
+        ...wranglerRuntime(),
+        // 唯一一处本地绑定：username 唯一索引的报错分类必须在真实 D1 上验
+        // （#92 A：Node 侧喂手写错误串，盖住了 workerd 追加的 `(extended: …)`）。
+        // 仍只走本地 Miniflare，不连远端（remoteBindings: false）。
+        d1Databases: ["DB"]
+      },
+      remoteBindings: false
+    })
   ],
   resolve: {
     // 见文件头：插件注入的 node:vm 替身让 happy-dom 连加载都过不去。

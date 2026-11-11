@@ -60,7 +60,7 @@
 - 存量库（**唯一支持的升级源 = 当前生产形态**：整数 id、正文在 R2、`users` 仍带 `base_currency`/`timezone`/`theme`）：同一条迁移先做一次全表重建——①按定版 DDL 建 `v7_*` 临时表；②按「定版列 ∩ 旧表列」整表拷贝，`users` 丢掉三列、`email_verified` 一律置 1（存量用户不锁任何人），正文不重传、`content_hash` 原样搬；③三道校验：逐表行数相等、`pages` 与 `page_revisions` 按 id 逐行 `content_hash` 相等、两表里每个内容对象全量回读并复核哈希；④单个 `db.batch()` 逐表 DROP + RENAME 完成切换，再补索引。任一校验不过就抛错：**不切表、不记账、旧数据一字未动**，修好重跑即可（重跑开头先清 `v7_*`）。已是定版结构的库命中幂等空转，只补索引。
 - 更早的开发期形态（uuid id、正文在 `content_json`）**不提供升级路径**：命中即报 `Unsupported legacy database shape` 并中止，一个表都不动；请先用上一版升级到 v6 形态，或重置开发库。`users` 还带三列但 `pages` 缺失的残缺现场同样明确报错，不做猜测性修复。
 - `schema_v1`–`schema_v6`（含 `schema_v6` 的 UUID→整数、正文上 R2 重建）的增量定义已清除；旧账本里的这些已应用行保留不动，执行器只认当前列表。
-- `schema_v8`（`users.username` 唯一索引）：`prepare` 先在存量库里消解重名——**仅对大小写不敏感的撞名加后缀**：同一名字里 `id` 最小者保留原名，其余按 `-2`、`-3`…递增（后缀算在 40 码点内）；**其它用户名一字不改**（不 trim、不截断，空串也不改写——唯一索引本身带 `WHERE username <> ''`，空串不参与约束、不会撞键）。随后 `sql` 建 `{prefix}users_username`（`username COLLATE NOCASE` 唯一，`WHERE username <> ''`）。重建路径（`schema_v7` 的 prepare）同样在**建索引之前、临时表上**先消解，校验不过时旧库连用户名都一字未动。重复执行无副作用：干净的库一条 UPDATE 都不发，索引已存在时建索引语句是空操作。存量升级到本版会因此改写重名账号的 `username`（其余列不动、`updated_at` 不动）。
+- `schema_v8`（`users.username` 唯一索引）：`prepare` 先在存量库里消解重名——**仅对大小写不敏感的撞名加后缀**：同一名字里 `id` 最小者保留原名，其余按 `-2`、`-3`…递增（后缀算在 40 码点内，并跳过其他用户正在用的名字——不抢别人原本就叫 `xxx-2` 的名字）；**其它用户名一字不改**（不 trim、不截断，空串也不改写——唯一索引本身带 `WHERE username <> ''`，空串不参与约束、不会撞键）。随后 `sql` 建 `{prefix}users_username`（`username COLLATE NOCASE` 唯一，`WHERE username <> ''`）。重建路径（`schema_v7` 的 prepare）同样在**建索引之前、临时表上**先消解，校验不过时旧库连用户名都一字未动。重复执行无副作用：干净的库一条 UPDATE 都不发，索引已存在时建索引语句是空操作。存量升级到本版会因此改写重名账号的 `username`（其余列不动、`updated_at` 不动）。
 
 今后结构变化只在末尾追加 `schema_v9`、`schema_v10`…，`schema_v7` / `schema_v8` 不得改名、改内容或调序。
 

@@ -533,11 +533,22 @@ describe("username 唯一性：自动后缀、改名撞名 409", () => {
         new Error("UNIQUE constraint failed: index 'ciki_users_email'")
       )
     ).toBe(false)
-    // D1 会在末尾追加 `: SQLITE_CONSTRAINT`（真实线上报法），不能因此漏判。
+    // 报错尾部由运行时追加，两种形态都要认：
+    // 生产 D1 是 `: SQLITE_CONSTRAINT`；workerd/Miniflare（wrangler dev）还会再加
+    // 一段 `(extended: SQLITE_CONSTRAINT_UNIQUE)`。下面带 extended 的那条是
+    // 2026-11-12 从本地 workerd 实测抄回来的原文（#92 A 就是漏认它导致并发 500），
+    // 真实运行时里的同一条断言在 test/workers/username-unique.test.ts。
     expect(
       isUsernameConflict(
         new Error(
           "D1_ERROR: UNIQUE constraint failed: ciki_users.username: SQLITE_CONSTRAINT"
+        )
+      )
+    ).toBe(true)
+    expect(
+      isUsernameConflict(
+        new Error(
+          "D1_ERROR: UNIQUE constraint failed: ciki_users.username: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_UNIQUE)"
         )
       )
     ).toBe(true)
@@ -551,7 +562,14 @@ describe("username 唯一性：自动后缀、改名撞名 409", () => {
     expect(
       isUsernameConflict(
         new Error(
-          "D1_ERROR: UNIQUE constraint failed: index 'ciki_users_username': SQLITE_CONSTRAINT"
+          "D1_ERROR: UNIQUE constraint failed: ciki_users.email: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_UNIQUE)"
+        )
+      )
+    ).toBe(false)
+    expect(
+      isUsernameConflict(
+        new Error(
+          "D1_ERROR: UNIQUE constraint failed: index 'ciki_users_username': SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_UNIQUE)"
         )
       )
     ).toBe(true)
