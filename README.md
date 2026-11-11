@@ -2,7 +2,7 @@
 
 [English](./README.en.md) | 中文
 
-Ciki 是团队内部使用的 wiki：页面按空间与树形层级组织，支持多成员协作、版本历史与全文检索。一个 Cloudflare Workers 部署单元同时托管 API 与前端静态资源，数据放在 D1，图片放在 R2。
+Ciki 是团队内部使用的 wiki：页面按空间与树形层级组织，支持多成员协作、版本历史与全文检索。一个 Cloudflare Workers 部署单元同时托管 API 与前端静态资源：结构化数据在 D1，页面正文（`content/<sha256>`）与图片分别在两个 R2 桶里。
 
 ## 界面预览
 
@@ -87,10 +87,14 @@ cd Ciki
 - 创建后进入数据库详情页，记下 **Database name** 与 **Database ID**，下一步要填。
 - Ciki 的表名默认带 `ciki_` 前缀，因此也可以复用已有的 D1 库，不会和同库里其它项目串表。
 
-**R2 bucket**（存图片）
+**R2 bucket**（存图片与正文）
 
-- bucket 名固定为 `ciki-assets`（写在 `worker/wrangler.toml` 与部署工作流里）。
-- 部署工作流会幂等补建：不存在就创建，已存在就跳过。也可以先在控制台 → R2 Object Storage → Create bucket 手动建好，名字必须是 `ciki-assets`。
+需要**两个**桶，名字与绑定固定（写在 `worker/wrangler.toml` 与部署工作流里）：
+
+- `ciki-assets`（绑定 `R2`）：页面上传的图片与头像。
+- `ciki-content`（绑定 `CONTENT`）：页面正文与历史版本正文，key 为 `content/<sha256>`。
+
+- 部署工作流会幂等补建这两个桶：不存在就创建，已存在就跳过。也可以先在控制台 → R2 Object Storage → Create bucket 手动建好，名字必须逐字一致。
 - 部署用的 `CLOUDFLARE_API_TOKEN` 需要有 **R2 编辑**权限，否则补建 bucket 这一步会让部署失败（此时还没有部署任何东西）。
 
 ### 3. 配置 GitHub Secrets 与 Variables
@@ -138,7 +142,15 @@ curl -X POST https://<你的站点域名>/api/setup -H "X-Setup-Secret: $SETUP_S
 unset SETUP_SECRET
 ```
 
-每次升级部署后，管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」即可补跑迁移（`POST /api/admin/setup`，登录管理员会话即可，不需要 `SETUP_SECRET`）。迁移都是追加式的，已执行的显示为 `skipped`；界面不提供删表 / 清库入口。
+每次升级部署后，管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」即可补跑迁移（`POST /api/admin/setup`，登录管理员会话即可，不需要 `SETUP_SECRET`）。已执行的迁移显示为 `skipped`；界面不提供删表 / 清库入口。
+
+**含一次性重建的升级（ID 整数化 + 正文上 R2，迁移 `schema_v6`）必须先备份，且不可回退**：这一步会把所有表按新结构重建、把正文搬进 `ciki-content`，旧 uuid 与新整数之间不留对照表，出问题只能靠备份还原。点按钮之前先导出一次完整库：
+
+```sh
+npx wrangler d1 export <库名> --remote --output ciki-$(date +%F).sql
+```
+
+导出的 `.sql` 落到本机（或 CI 产物）留档，确认文件非空再点升级。迁移失败时旧数据一字未动、账本不记账，修好原因重跑即可；升级成功后这次备份就是唯一的回滚手段，请保留到确认站点一切正常之后。
 
 ### 6. 注册管理员
 
@@ -158,7 +170,14 @@ unset SETUP_SECRET
 
 ### 月度 R2 清理（可选）
 
-R2 里的图片每月自动清理一轮孤儿对象：只删「不在引用集内、且对象 uploaded 距今超过 30 天」的对象。引用集 = 全部用户头像 ∪ 全部页面当前版本与所有历史版本正文里出现的 `/api/files/<key>`；回收站里的页面在彻底删除前同样计入，它的图一律保留。
+R2 里的孤儿对象每月自动清理一轮，**图片桶与内容桶各跑一遍、各记各的账**（`r2_cleanup_runs.kind` = `images` / `content`），只删「不在引用集内、且对象 uploaded 距今超过 30 天」的对象：
+
+- 图片桶（`ciki-assets`）：引用集 = 全部用户头像 ∪ 全部页面当前版本与所有历史版本正文里出现的 `/api/files/<key>`；回收站里的页面在彻底删除前同样计入，它的图一律保留。
+- 内容桶（`ciki-content`）：引用集 = 全部 `pages.content_hash` ∪ 全部 `page_revisions.content_hash`（含回收站页面与其版本）；没有指针指向的正文对象才会被删（写路径失败留下的孤儿就是这样收走的）。
+
+两个桶各自只被自己那一类清理扫描/删除，互不越界；锁与 20 天幂等闸也按 kind 各管各的。
+
+第一次启用内容 GC 前，管理员可以在「系统管理 → 数据库维护」先跑一次 dry run（`POST /api/admin/r2-cleanup`，`{"kind":"content","dryRun":true}`）：响应里的 `prunable` / `prunableBytes` 是「会被删的对象数与字节数」，`deleted` 只是本轮受 200 上限约束的将删数；确认数量符合预期（例如迁移中途失败留下的孤儿）再实跑。
 
 触发方式只有一个开关——GitHub Secret 里**有没有** `WAKER_SIGNING_KEY`：
 

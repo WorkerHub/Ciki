@@ -18,7 +18,7 @@ export function clientIp(c: Context<HonoEnv>): string {
 /** 新建会话并把不透明令牌写进 HttpOnly Cookie。 */
 export async function issueSession(
   c: Context<HonoEnv>,
-  userId: string,
+  userId: number,
   restricted = false
 ): Promise<void> {
   const prefix = getTablePrefix(c.env)
@@ -68,30 +68,57 @@ export async function runInBackground(
 }
 
 /**
- * parentId 入参的统一归一：根页的数据库语义是 `parent_id IS NULL`。
+ * 路径/查询参数里的整数 id：只认规范形态的十进制正整数（安全整数）。
  *
- * 只接受「非空字符串 id」或「null / 缺省」；空串与纯空白按根页（null）处理，
- * 免得把 `""` 写进 parent_id——那样写出来的页面在 `parent_id IS NULL` 的树/子列表
- * 查询里会漏掉，成了游离页。其它类型（数字、对象等）按非法处理，由调用方回 400。
+ * 「一个实体只露一种 ID」：前导零与前后空白都不算（`/p/01`、`/p/%201` 一律 404，
+ * 不跟 `/p/1` 指向同一页）。旧 UUID 地址同样不再识别。
  */
-export type ParentIdInput = { ok: true; value: string | null } | { ok: false }
-
-export function readParentId(value: unknown): ParentIdInput {
-  if (value === undefined || value === null) return { ok: true, value: null }
-  if (typeof value !== "string") return { ok: false }
-  const trimmed = value.trim()
-  return { ok: true, value: trimmed === "" ? null : trimmed }
+export function parseId(raw: string | undefined | null): number | null {
+  if (typeof raw !== "string") return null
+  if (!/^[1-9]\d*$/.test(raw)) return null
+  const parsed = Number(raw)
+  return Number.isSafeInteger(parsed) ? parsed : null
 }
 
 /**
- * spaceId / space_id 的统一归一：缺省、null、空串与纯空白都表示「用默认空间」，
- * 与 parentId 的口径一致；其它类型按非法处理。
+ * 入参里的整数 id：接受 JSON 数字，也接受纯数字字符串（插件把 id 当不透明值透传，
+ * 某些客户端会先 stringify）。空串 / 空白 / null 视为「没给」。
  */
-export type SpaceIdInput = { ok: true; value: string | null } | { ok: false }
+export function readIdInput(value: unknown): number | null | undefined {
+  if (value === undefined || value === null) return null
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value > 0 ? value : undefined
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim()
+    if (trimmed === "") return null
+    return parseId(trimmed) ?? undefined
+  }
+  return undefined
+}
+
+/**
+ * parentId 入参的统一归一：根页的数据库语义是 `parent_id IS NULL`。
+ *
+ * 只接受整数 id 或「null / 缺省 / 空串」；其它类型（对象、非数字串、0、负数）按非法
+ * 处理，由调用方回 400。
+ */
+export type ParentIdInput = { ok: true; value: number | null } | { ok: false }
+
+export function readParentId(value: unknown): ParentIdInput {
+  const parsed = readIdInput(value)
+  if (parsed === undefined) return { ok: false }
+  return { ok: true, value: parsed }
+}
+
+/**
+ * spaceId / space_id 的统一归一：缺省、null、空串与原口径一致表示「用默认空间」，
+ * 与 parentId 同一套整数解析；其它类型按非法处理。
+ */
+export type SpaceIdInput = { ok: true; value: number | null } | { ok: false }
 
 export function readSpaceId(value: unknown): SpaceIdInput {
-  if (value === undefined || value === null) return { ok: true, value: null }
-  if (typeof value !== "string") return { ok: false }
-  const trimmed = value.trim()
-  return { ok: true, value: trimmed === "" ? null : trimmed }
+  const parsed = readIdInput(value)
+  if (parsed === undefined) return { ok: false }
+  return { ok: true, value: parsed }
 }

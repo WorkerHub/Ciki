@@ -74,7 +74,7 @@ async function revisionList(
   env: Parameters<typeof adminSession>[0],
   cookie: string,
   pageId: string
-): Promise<Array<{ id: string; title: string }>> {
+): Promise<Array<{ versionNo: number; title: string }>> {
   const res = await jsonRequest(
     env,
     "GET",
@@ -83,7 +83,7 @@ async function revisionList(
     cookie
   )
   expect(res.status).toBe(200)
-  return (await res.json()) as Array<{ id: string; title: string }>
+  return (await res.json()) as Array<{ versionNo: number; title: string }>
 }
 
 describe("页面：新建、详情、树与消毒", () => {
@@ -145,7 +145,7 @@ describe("页面：新建、详情、树与消毒", () => {
         undefined,
         admin
       )
-    ).json()) as Array<{ id: string; title: string }>
+    ).json()) as Array<{ versionNo: number; title: string }>
     expect(revisions.map((revision) => revision.title)).toEqual([
       "第二版",
       "第一版"
@@ -155,7 +155,7 @@ describe("页面：新建、详情、树与消毒", () => {
     const restore = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${oldest.id}/restore`,
+      `/api/pages/${page.id}/revisions/${oldest.versionNo}/restore`,
       undefined,
       admin
     )
@@ -239,10 +239,17 @@ describe("页面：无改动保存不新增 revision", () => {
     expect(revisions[0].title).toBe("改字页")
   })
 
-  it("仅改标题 → 正常保存，revision +1", async () => {
-    const { env } = await initializedContext()
+  it("仅改标题 → 不长版本：原地改 title、同步搜索索引、内容对象不增", async () => {
+    const { env, content } = await initializedContext()
     const admin = await adminSession(env)
-    const page = await createPage(env, admin, { title: "原标题" })
+    // 正文固定不包含标题，避免旧标题从正文里被搜到，影响索引断言。
+    const page = await createPage(env, admin, {
+      title: "原标题",
+      contentHtml: "<p>正文固定</p>",
+      contentText: "正文固定"
+    })
+    const objectsBefore = content.store.size
+    const before = await getDetail(env, admin, page.id)
 
     const res = await jsonRequest(
       env,
@@ -251,20 +258,62 @@ describe("页面：无改动保存不新增 revision", () => {
       {
         title: "新标题",
         contentJson: JSON.stringify({ type: "doc" }),
-        contentHtml: "<p>原标题</p>",
-        contentText: "原标题"
+        contentHtml: "<p>正文固定</p>",
+        contentText: "正文固定"
       },
       admin
     )
     expect(res.status).toBe(200)
     const saved = (await res.json()) as PageDetail
     expect(saved.title).toBe("新标题")
-    // 正文没动，只有标题变了。
-    expect(saved.contentHtml).toBe("<p>原标题</p>")
+    // 正文没动，就只有标题与更新时间变。
+    expect(saved.contentHtml).toBe("<p>正文固定</p>")
+    expect(saved.updatedAt).not.toBe(before.updatedAt)
 
+    // 改名是页级元数据：不产新版本，也不新增内容对象。
+    expect(await revisionList(env, admin, page.id)).toHaveLength(1)
+    expect(content.store.size).toBe(objectsBefore)
+
+    // 标题在搜索索引里：旧标题搜不到，新标题能搜到。
+    const found = await jsonRequest(
+      env,
+      "GET",
+      `/api/search?q=${encodeURIComponent("新标题")}`,
+      undefined,
+      admin
+    )
+    expect(found.status).toBe(200)
+    expect(
+      ((await found.json()) as { results: Array<{ pageId: number }> }).results
+    ).toEqual([expect.objectContaining({ pageId: page.id })])
+    const stale = await jsonRequest(
+      env,
+      "GET",
+      `/api/search?q=${encodeURIComponent("原标题")}`,
+      undefined,
+      admin
+    )
+    expect(
+      ((await stale.json()) as { results: unknown[] }).results
+    ).toHaveLength(0)
+
+    // 下一次真改正文：照常 +1 条版本，标题跟着落新版本。
+    const edited = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}`,
+      {
+        title: "新标题",
+        contentJson: paragraphDoc("改过的正文"),
+        contentHtml: "<p>改过的正文</p>",
+        contentText: "改过的正文"
+      },
+      admin
+    )
+    expect(edited.status).toBe(200)
     const revisions = await revisionList(env, admin, page.id)
     expect(revisions).toHaveLength(2)
-    expect(revisions[0].title).toBe("新标题")
+    expect(revisions[0]).toMatchObject({ versionNo: 2, title: "新标题" })
   })
 
   it("回滚到与当前全等的版本：不新增 revision、updatedAt 不变", async () => {
@@ -294,7 +343,7 @@ describe("页面：无改动保存不新增 revision", () => {
     const restore = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${revisions[0].id}/restore`,
+      `/api/pages/${page.id}/revisions/${revisions[0].versionNo}/restore`,
       undefined,
       admin
     )
@@ -599,7 +648,7 @@ describe("页面：空间角色权限", () => {
     const viewerRestore = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${viewerRevisions[0].id}/restore`,
+      `/api/pages/${page.id}/revisions/${viewerRevisions[0].versionNo}/restore`,
       undefined,
       viewer
     )
@@ -649,7 +698,7 @@ describe("页面：空间角色权限", () => {
     const rolledBack = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${revisions[revisions.length - 1].id}/restore`,
+      `/api/pages/${page.id}/revisions/${revisions[revisions.length - 1].versionNo}/restore`,
       undefined,
       user
     )

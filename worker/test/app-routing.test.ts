@@ -73,4 +73,36 @@ describe("Worker 路由骨架", () => {
     expect(res.headers.get("cache-control")).toContain("no-store")
     expect(await res.json()).toEqual({ initialized: false, enabled: true })
   })
+
+  it("页面路径 id 只认规范十进制：前导零/空白/UUID 一律 404", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const created = await request(env, "/api/pages", {
+      method: "POST",
+      headers: { cookie: admin, "content-type": "application/json" },
+      body: JSON.stringify({
+        title: "id 形态页",
+        contentJson: JSON.stringify({ type: "doc", content: [] }),
+        contentHtml: "",
+        contentText: ""
+      })
+    })
+    expect(created.status).toBe(201)
+    const page = (await created.json()) as { id: number }
+
+    for (const path of [
+      `/api/pages/0${page.id}`,
+      `/api/pages/%20${page.id}`,
+      "/api/pages/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    ]) {
+      const res = await request(env, path, { headers: { cookie: admin } })
+      expect(res.status, path).toBe(404)
+    }
+
+    // 规范形态照常可读（防止上面的断言因别的原因假通过）。
+    const ok = await request(env, `/api/pages/${page.id}`, {
+      headers: { cookie: admin }
+    })
+    expect(ok.status).toBe(200)
+  })
 })

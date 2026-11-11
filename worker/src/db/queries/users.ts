@@ -1,11 +1,11 @@
 import { usersTable } from "../../lib/tables"
 
 export interface UserRow {
-  id: string
+  /** 整数自增主键；对外身份是 `username`，内部引用一律用这个数字。 */
+  id: number
   email: string
   password_hash: string
   username: string
-  public_id: string
   avatar_key: string
   role: "admin" | "user"
   is_active: number
@@ -22,37 +22,35 @@ export interface UserRow {
 /**
  * 注册：用户表为空时首个用户是 admin、直接批准并激活；否则按审批开关落
  * pending 或直接批准。单条语句判定“是否首个用户”，避免并发下出现两个管理员。
+ *
+ * 返回新用户的整数 id（`meta.last_row_id`），调用方不必再查一次。
  */
 export async function createUserFirstIsAdmin(
   db: D1Database,
   prefix: string,
   data: {
-    id: string
     email: string
     username: string
-    public_id: string
     password_hash: string
     approvalStatus: "pending" | "approved"
   }
-): Promise<void> {
+): Promise<number> {
   const table = usersTable(prefix)
   const now = new Date().toISOString()
   const active = data.approvalStatus === "approved" ? 1 : 0
-  await db
+  const result = await db
     .prepare(
       `INSERT INTO ${table}
-        (id, email, username, public_id, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
-       SELECT ?, ?, ?, ?, ?,
+        (email, username, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
+       SELECT ?, ?, ?,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'admin' ELSE 'user' END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'approved' ELSE ? END,
          0, 'CNY', 'UTC', 'zh', 'system', ?, ?`
     )
     .bind(
-      data.id,
       data.email,
       data.username,
-      data.public_id,
       data.password_hash,
       active,
       data.approvalStatus,
@@ -60,40 +58,30 @@ export async function createUserFirstIsAdmin(
       now
     )
     .run()
+  return result.meta.last_row_id
 }
 
-/** 管理员直接建号：强制已批准、已激活。 */
+/** 管理员直接建号：强制已批准、已激活。返回新用户的整数 id。 */
 export async function createApprovedUser(
   db: D1Database,
   prefix: string,
   data: {
-    id: string
     email: string
     username: string
-    public_id: string
     password_hash: string
     role: "admin" | "user"
   }
-): Promise<void> {
-  const table = usersTable(prefix)
+): Promise<number> {
   const now = new Date().toISOString()
-  await db
+  const result = await db
     .prepare(
-      `INSERT INTO ${table}
-        (id, email, username, public_id, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 1, 'approved', 0, 'CNY', 'UTC', 'zh', 'system', ?, ?)`
+      `INSERT INTO ${usersTable(prefix)}
+        (email, username, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, 'approved', 0, 'CNY', 'UTC', 'zh', 'system', ?, ?)`
     )
-    .bind(
-      data.id,
-      data.email,
-      data.username,
-      data.public_id,
-      data.password_hash,
-      data.role,
-      now,
-      now
-    )
+    .bind(data.email, data.username, data.password_hash, data.role, now, now)
     .run()
+  return result.meta.last_row_id
 }
 
 export async function findUserByEmail(
@@ -112,7 +100,7 @@ export async function findUserByEmail(
 export async function findUserById(
   db: D1Database,
   prefix: string,
-  id: string
+  id: number
 ): Promise<UserRow | null> {
   return db
     .prepare(`SELECT * FROM ${usersTable(prefix)} WHERE id = ?`)
@@ -133,7 +121,7 @@ const UPDATABLE = new Set([
 export async function updateUser(
   db: D1Database,
   prefix: string,
-  id: string,
+  id: number,
   data: Record<string, unknown>
 ): Promise<void> {
   const entries = Object.entries(data).filter(([col]) => UPDATABLE.has(col))
@@ -171,7 +159,7 @@ export async function countUsers(
 export async function deleteUser(
   db: D1Database,
   prefix: string,
-  id: string
+  id: number
 ): Promise<void> {
   await db
     .prepare(`DELETE FROM ${usersTable(prefix)} WHERE id = ?`)

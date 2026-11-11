@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { getTablePrefix, isValidTablePrefix } from "./lib/table-prefix"
 import { isEncryptionKeyUsable } from "./core/secret-box"
 import { isWakerConfigured } from "./core/waker-gate"
-import { R2CleanupBusyError, runR2Cleanup } from "./core/r2-cleanup"
+import { runAllBucketCleanups } from "./core/r2-cleanup"
 import { authMiddleware } from "./middleware/auth"
 import { authRoutes } from "./routes/auth"
 import { auth2faRoutes } from "./routes/auth-2fa"
@@ -140,8 +140,8 @@ export default {
   fetch: app.fetch,
   /**
    * 内置 Cron Trigger（规格 §3）：`wrangler.toml` 里的 `[triggers] crons` 只认 UTC，
-   * 每月跑一次。配了 `WAKER_SIGNING_KEY` 就说明 waker 接管，这里直接让路——
-   * 既不跑也不写日志行（下一轮仍由日志表兜底，不会被当成一次真实运行）。
+   * 每月跑一次，一次跑「图片 + 内容」两套清理。配了 `WAKER_SIGNING_KEY` 就说明
+   * waker 接管，这里直接让路——既不跑也不写日志行（下一轮仍由日志表兜底）。
    */
   async scheduled(
     _event: ScheduledController,
@@ -155,20 +155,14 @@ export default {
       return
     }
     try {
-      const summary = await runR2Cleanup(env, {
+      // 图片与内容两套清理在同一次触发里依次跑；某一类被别的入口占着锁只跳过那一类。
+      const outcomes = await runAllBucketCleanups(env, {
         trigger: "cron",
         dryRun: false,
         rerunGuard: "enforce"
       })
-      console.info("scheduled r2 cleanup run:", summary)
+      console.info("scheduled r2 cleanup runs:", outcomes)
     } catch (err) {
-      if (err instanceof R2CleanupBusyError) {
-        // 另一轮（手动或 waker）正在跑：本轮不跑也不写日志行，下一轮 cron 照旧。
-        console.info(
-          `scheduled r2 cleanup skipped: another run holds the lock (retry after ${err.retryAfterSeconds}s)`
-        )
-        return
-      }
       console.error(
         "scheduled r2 cleanup failed:",
         err instanceof Error ? err.message : String(err)

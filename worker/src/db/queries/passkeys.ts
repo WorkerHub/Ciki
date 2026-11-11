@@ -1,8 +1,8 @@
 import { passkeysTable } from "../../lib/tables"
 
 export interface PasskeyRow {
-  id: string
-  user_id: string
+  id: number
+  user_id: number
   credential_id: string
   public_key: string
   counter: number
@@ -14,7 +14,7 @@ export interface PasskeyRow {
 export async function listPasskeys(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<PasskeyRow[]> {
   const rows = await db
     .prepare(
@@ -28,7 +28,7 @@ export async function listPasskeys(
 export async function countPasskeys(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<number> {
   const row = await db
     .prepare(
@@ -54,8 +54,7 @@ export async function insertPasskey(
   db: D1Database,
   prefix: string,
   data: {
-    id: string
-    userId: string
+    userId: number
     credentialId: string
     publicKey: string
     counter: number
@@ -66,11 +65,10 @@ export async function insertPasskey(
   await db
     .prepare(
       `INSERT INTO ${passkeysTable(prefix)}
-        (id, user_id, credential_id, public_key, counter, transports, created_at, last_used_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`
+        (user_id, credential_id, public_key, counter, transports, created_at, last_used_at)
+       VALUES (?, ?, ?, ?, ?, ?, NULL)`
     )
     .bind(
-      data.id,
       data.userId,
       data.credentialId,
       data.publicKey,
@@ -84,7 +82,7 @@ export async function insertPasskey(
 export async function updatePasskeyCounter(
   db: D1Database,
   prefix: string,
-  id: string,
+  id: number,
   counter: number
 ): Promise<void> {
   await db
@@ -98,7 +96,7 @@ export async function updatePasskeyCounter(
 export async function deletePasskey(
   db: D1Database,
   prefix: string,
-  userId: string,
+  userId: number,
   credentialId: string
 ): Promise<boolean> {
   const result = await db
@@ -113,7 +111,7 @@ export async function deletePasskey(
 export async function deleteUserPasskeys(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<void> {
   await db
     .prepare(`DELETE FROM ${passkeysTable(prefix)} WHERE user_id = ?`)

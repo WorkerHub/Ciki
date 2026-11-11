@@ -85,7 +85,7 @@ export async function readTokenMiddleware(c: Context<HonoEnv>, next: Next) {
 
   const usage = await consumeCounter(db, prefix, {
     action: "read",
-    account: identity.userId,
+    account: String(identity.userId),
     windowSeconds: WINDOW_SECONDS
   })
   if (usage.count > MAX_READ_CALLS) {

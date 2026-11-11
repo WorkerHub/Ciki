@@ -1,15 +1,9 @@
 /**
- * 身份模型（规格「Ciki UI/身份优化批」）：public_id、显示名与站点名的生成/校验。
+ * 身份模型（新基线）：显示名与站点名的生成/校验。
  *
- * public_id 是用户对外可展示的 ID：8 位、唯一、生成后不可改。字符表去掉易混的
- * 0/O/1/I/L，只留 31 个；生成时逐字节拒绝采样，避免取模偏差。
+ * 用户的对外身份就是 `username`（整数主键只在内部引用），原来的 8 位 `public_id`
+ * 已随 ID 重构删除——一个实体只露一种 ID，不再有第二个随机标识。
  */
-
-export const PUBLIC_ID_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
-
-/** 31 × 8 = 248：字节 ≥ 248 时重采样，保证每个字符等概率。 */
-const PUBLIC_ID_ACCEPT_BYTES = 248
-const PUBLIC_ID_LENGTH = 8
 
 export const DEFAULT_SITE_NAME = "Ciki"
 export const MAX_USERNAME_LENGTH = 40
@@ -33,21 +27,6 @@ function stripControlChars(value: string): string {
     if (!isControlChar(char.codePointAt(0) ?? 0)) cleaned += char
   }
   return cleaned
-}
-
-/** 8 位、无易混字符的公开用户 ID（由系统生成，客户端不可写入）。 */
-export function generatePublicId(): string {
-  let id = ""
-  const buffer = new Uint8Array(PUBLIC_ID_LENGTH * 2)
-  while (id.length < PUBLIC_ID_LENGTH) {
-    crypto.getRandomValues(buffer)
-    for (const byte of buffer) {
-      if (byte >= PUBLIC_ID_ACCEPT_BYTES) continue
-      id += PUBLIC_ID_ALPHABET[byte % PUBLIC_ID_ALPHABET.length]
-      if (id.length === PUBLIC_ID_LENGTH) break
-    }
-  }
-  return id
 }
 
 /**
@@ -88,27 +67,4 @@ function uniqueViolationMessage(err: unknown): string | null {
 /** 邮箱唯一键冲突（注册 / 建号 / 管理员改邮箱的并发兜底）。 */
 export function isEmailConflict(err: unknown): boolean {
   return /\.email\b/i.test(uniqueViolationMessage(err) ?? "")
-}
-
-/** public_id 唯一键冲突：换一枚重试即可。 */
-export function isPublicIdConflict(err: unknown): boolean {
-  return /\.public_id\b/i.test(uniqueViolationMessage(err) ?? "")
-}
-
-/**
- * 生成 public_id 并调用一次插入：撞 public_id 唯一键就换一枚重试，
- * 其它错误原样抛出（邮箱冲突由调用方映射成 409）。
- */
-export async function insertWithFreshPublicId(
-  insert: (publicId: string) => Promise<void>
-): Promise<void> {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      await insert(generatePublicId())
-      return
-    } catch (err) {
-      if (!isPublicIdConflict(err)) throw err
-    }
-  }
-  throw new Error("Failed to allocate a unique public_id")
 }

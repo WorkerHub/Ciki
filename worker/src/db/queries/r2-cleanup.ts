@@ -1,11 +1,12 @@
 /**
- * 月度 R2 孤儿清理（规格 §3）用到的查询：
- *   - 引用集扫描：头像 key、页面正文（当前版本 + 历史版本）；
- *   - 运行日志：`{prefix}r2_cleanup_runs` 的写入与「最近一轮」读取；
- *   - 并发互斥：`{prefix}system_settings` 里的清理锁行（见下方清理锁说明）。
+ * 月度 R2 桶治理用到的查询：图片桶与内容桶共用同一套表（`r2_cleanup_runs` 用
+ * `kind` 区分），锁行同表、按 kind 分键。
  *
- * 正文一律 keyset 分页（`id > ?`）并先用 `instr` 预筛：单页正文上限 2MB，
- * 一次把整张表读进 Worker 内存会顶到 isolate 的内存上限。
+ *   - 引用集扫描：头像 key、页面与版本正文（图片用）、内容哈希（内容 GC 用）；
+ *   - 运行日志：`{prefix}r2_cleanup_runs` 的写入与「最近一轮」读取；
+ *   - 并发互斥：`{prefix}system_settings` 里的清理锁行。
+ *
+ * 正文一律分页读（单页正文上限 2MB，一次把整张表读进 Worker 内存会顶到内存上限）。
  */
 import {
   pagesTable,
@@ -15,13 +16,16 @@ import {
   usersTable
 } from "../../lib/tables"
 
+/** 一类清理：图片桶（头像/页面图）与内容桶（正文对象）。 */
+export type CleanupKind = "images" | "content"
 /** 一轮运行的触发来源：两个自动入口 + 管理员手工验收。 */
 export type CleanupTrigger = "cron" | "waker" | "manual"
 /** `ok` = 跑完；`skipped` = 20 天幂等兜底命中；`failed` = 扫描期异常。 */
 export type CleanupStatus = "ok" | "skipped" | "failed"
 
 export interface CleanupRunRow {
-  id: string
+  id: number
+  kind: CleanupKind
   started_at: string
   finished_at: string
   trigger: CleanupTrigger
@@ -35,26 +39,22 @@ export interface CleanupRunRow {
   truncated: number
 }
 
-/** 正文里出现图片引用的页面/版本行；`LIMIT` 由调用方给定。 */
-export interface BodyRow {
-  id: string
-  content_json: string
+/** 页面正文行（图片引用扫描用）。 */
+export interface PageBodyRow {
+  id: number
   content_html: string
-  /** 历史版本的新形态：gzip 的 `content_json`（页面行没有这一列）。 */
-  content_gzip?: ArrayBuffer | ArrayBufferView | null
+  content_md: string
 }
 
 /** 每批正文行数：单行正文上限 2MB，5 行一批远低于 isolate 的内存上限。 */
 export const BODY_BATCH_SIZE = 5
-/**
- * 历史版本每批行数：gzip 化以后单行只有正文的 0.2–0.3 倍，可以多读几行；
- * 10 行即使碰上尚未转换的 2MB 旧行（20MB）也仍在 isolate 内存范围内。
- */
-export const REVISION_BATCH_SIZE = 10
+
+/** 内容对象总数上限：超过它就先中止图片扫描（fail closed，不删任何对象）。 */
+export const MAX_IMAGE_SCAN_OBJECTS = 800
 
 /** 正文里含 `/api/files/` 的过滤条件（`instr` 不做 LIKE 通配符转义）。 */
-const HAS_FILE_REF = `(instr(content_json, '/api/files/') > 0
-   OR instr(content_html, '/api/files/') > 0)`
+const HAS_FILE_REF = `(instr(content_html, '/api/files/') > 0
+   OR instr(content_md, '/api/files/') > 0)`
 
 /** 全部用户的头像 key（空串 = 无头像，不入集）。 */
 export async function listAvatarKeys(
@@ -70,77 +70,79 @@ export async function listAvatarKeys(
 }
 
 /**
- * 所有页面正文（含回收站页面：`deleted_at` 非空的行仍在表里，图一律保留）。
- * 按 `id` keyset 分页，`afterId` 传空串取第一页。
+ * 页面正文里含图片引用的行（含回收站页面：`deleted_at` 非空的行仍在表里，图一律保留）。
+ *
+ * 正文 JSON 已不在 D1，但 HTML 与 MD 都是它的派生件——图片引用一定出现在这两列里，
+ * 所以图片 GC 不必去读内容桶。按整数 id keyset 分页。
  */
-export async function listPageBodiesBatch(
+export async function listPageImageBodiesBatch(
   db: D1Database,
   prefix: string,
-  afterId: string
-): Promise<BodyRow[]> {
+  afterId: number
+): Promise<PageBodyRow[]> {
   const rows = await db
     .prepare(
-      `SELECT id, content_json, content_html
+      `SELECT id, content_html, content_md
          FROM ${pagesTable(prefix)}
         WHERE id > ? AND ${HAS_FILE_REF}
         ORDER BY id
         LIMIT ?`
     )
     .bind(afterId, BODY_BATCH_SIZE)
-    .all<BodyRow>()
+    .all<PageBodyRow>()
   return rows.results
 }
 
 /**
- * 所有历史版本正文（`page_revisions`），分页口径同上。
+ * 全部历史版本引用到的不重复内容哈希。
  *
- * 版本行有两种形态，过滤条件跟着走：
- * - 已 gzip 化（`content_gzip` 列存在）：压缩字节没法用 SQL 字符串函数预筛，只能把
- *   版本行全取出来、解压后再扫（见 core/r2-cleanup.ts）；同时保留旧形态的 `instr`
- *   预筛，升级前写入、尚未转换的行照样扫得到。
- * - 升级前的库（列不存在）：语意与改前完全一致，先用 `instr` 预筛。
- *
- * 列不一定存在，所以 SQL 只能按情况拼：引用不存在的列会让整轮扫描报错。
+ * 版本正文只在内容桶里，图片引用只能解压后扫；先按哈希去重，避免同一份内容被反复
+ * 读取。数量超过 {@link MAX_IMAGE_SCAN_OBJECTS} 时由调用方中止本轮（fail closed）。
  */
-export async function listRevisionBodiesBatch(
+export async function listDistinctRevisionHashes(
   db: D1Database,
-  prefix: string,
-  afterId: string,
-  gzipReady: boolean
-): Promise<BodyRow[]> {
-  const select = gzipReady
-    ? "id, content_json, content_html, content_gzip"
-    : "id, content_json, content_html"
-  const filter = gzipReady
-    ? `content_gzip IS NOT NULL OR ${HAS_FILE_REF}`
-    : `${HAS_FILE_REF}`
+  prefix: string
+): Promise<string[]> {
   const rows = await db
     .prepare(
-      `SELECT ${select}
-         FROM ${revisionsTable(prefix)}
-        WHERE id > ? AND (${filter})
-        ORDER BY id
-        LIMIT ?`
+      `SELECT DISTINCT content_hash FROM ${revisionsTable(prefix)} ORDER BY content_hash`
     )
-    .bind(afterId, REVISION_BATCH_SIZE)
-    .all<BodyRow>()
-  return rows.results
+    .all<{ content_hash: string }>()
+  return rows.results.map((row) => row.content_hash)
+}
+
+/**
+ * 内容 GC 的引用集：页面当前正文 ∪ 全部历史版本（含回收站页面与其版本）。
+ * 返回去重后的哈希列表。
+ */
+export async function listReferencedContentHashes(
+  db: D1Database,
+  prefix: string
+): Promise<string[]> {
+  const rows = await db
+    .prepare(
+      `SELECT content_hash FROM ${pagesTable(prefix)}
+        UNION
+       SELECT content_hash FROM ${revisionsTable(prefix)}`
+    )
+    .all<{ content_hash: string }>()
+  return rows.results.map((row) => row.content_hash)
 }
 
 export async function insertCleanupRun(
   db: D1Database,
   prefix: string,
-  run: CleanupRunRow
-): Promise<void> {
-  await db
+  run: Omit<CleanupRunRow, "id">
+): Promise<number> {
+  const result = await db
     .prepare(
       `INSERT INTO ${r2CleanupRunsTable(prefix)}
-        (id, started_at, finished_at, trigger, status, dry_run,
+        (kind, started_at, finished_at, trigger, status, dry_run,
          scanned, referenced, deleted, young_skipped, failed, truncated)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      run.id,
+      run.kind,
       run.started_at,
       run.finished_at,
       run.trigger,
@@ -154,20 +156,21 @@ export async function insertCleanupRun(
       run.truncated
     )
     .run()
+  return result.meta.last_row_id
 }
 
 /**
- * 清理互斥锁的键名与读写（全程只有三句 SQL，语义在 core/r2-cleanup.ts）。
+ * 清理互斥锁的键名与读写（全程只有三句 SQL，语义在 core/bucket-cleanup.ts）。
  *
  * 为什么落在 `system_settings` 而不是 `r2_cleanup_runs`：日志表是「每轮一行」的
- * 语义，塞一行锁记录会逼着 `lastSuccessfulCleanupRun` 与 `lastCleanupRun` 这两条
- * 口径查询都加过滤；KV 表则让「最近一轮」摘要与 20 天幂等闸一行不改。
- *
- * 抢占全凭 `meta.changes`：插入语句成功（= 原本没有锁行）即抢到；读到过期锁时
- * 用 CAS 改写（`WHERE value = <读到的原值>`，并发接管只有一个赢）；释放按原值比对，
- * 只删自己那行——被别人接管后就不会误删别人的锁。
+ * 语义，塞一行锁记录会逼着「最近一轮」与 20 天幂等闸这两条口径查询都加过滤。
+ * 图片与内容各占一行（键名带 kind），两类清理互不阻塞。
  */
 export const CLEANUP_LOCK_KEY = "r2_cleanup_lock"
+
+function lockKey(kind: CleanupKind): string {
+  return `${CLEANUP_LOCK_KEY}:${kind}`
+}
 
 /** 锁行 `value` 的形状（JSON 序列化后落库）。 */
 export interface CleanupLockRecord {
@@ -189,11 +192,12 @@ export interface CleanupLockRow {
 /** 读锁行；没有锁行返回 `null`。 */
 export async function readCleanupLock(
   db: D1Database,
-  prefix: string
+  prefix: string,
+  kind: CleanupKind
 ): Promise<CleanupLockRow | null> {
   const row = await db
     .prepare(`SELECT value FROM ${settingsTable(prefix)} WHERE key = ?`)
-    .bind(CLEANUP_LOCK_KEY)
+    .bind(lockKey(kind))
     .first<{ value: string }>()
   if (row === null) return null
   let record: CleanupLockRecord | null = null
@@ -209,6 +213,7 @@ export async function readCleanupLock(
 export async function insertCleanupLock(
   db: D1Database,
   prefix: string,
+  kind: CleanupKind,
   value: string
 ): Promise<boolean> {
   const result = await db
@@ -216,7 +221,7 @@ export async function insertCleanupLock(
       `INSERT OR IGNORE INTO ${settingsTable(prefix)} (key, value, updated_at)
        VALUES (?, ?, ?)`
     )
-    .bind(CLEANUP_LOCK_KEY, value, new Date().toISOString())
+    .bind(lockKey(kind), value, new Date().toISOString())
     .run()
   return result.meta.changes === 1
 }
@@ -228,6 +233,7 @@ export async function insertCleanupLock(
 export async function takeoverCleanupLock(
   db: D1Database,
   prefix: string,
+  kind: CleanupKind,
   previousValue: string,
   nextValue: string
 ): Promise<boolean> {
@@ -236,7 +242,7 @@ export async function takeoverCleanupLock(
       `UPDATE ${settingsTable(prefix)} SET value = ?, updated_at = ?
         WHERE key = ? AND value = ?`
     )
-    .bind(nextValue, new Date().toISOString(), CLEANUP_LOCK_KEY, previousValue)
+    .bind(nextValue, new Date().toISOString(), lockKey(kind), previousValue)
     .run()
   return result.meta.changes === 1
 }
@@ -245,11 +251,12 @@ export async function takeoverCleanupLock(
 export async function releaseCleanupLock(
   db: D1Database,
   prefix: string,
+  kind: CleanupKind,
   value: string
 ): Promise<void> {
   await db
     .prepare(`DELETE FROM ${settingsTable(prefix)} WHERE key = ? AND value = ?`)
-    .bind(CLEANUP_LOCK_KEY, value)
+    .bind(lockKey(kind), value)
     .run()
 }
 
@@ -259,15 +266,17 @@ export async function releaseCleanupLock(
  */
 export async function lastSuccessfulCleanupRun(
   db: D1Database,
-  prefix: string
+  prefix: string,
+  kind: CleanupKind
 ): Promise<CleanupRunRow | null> {
   return db
     .prepare(
       `SELECT * FROM ${r2CleanupRunsTable(prefix)}
-        WHERE status = 'ok' AND dry_run = 0
-        ORDER BY started_at DESC, rowid DESC
+        WHERE kind = ? AND status = 'ok' AND dry_run = 0
+        ORDER BY started_at DESC, id DESC
         LIMIT 1`
     )
+    .bind(kind)
     .first<CleanupRunRow>()
 }
 
@@ -277,14 +286,16 @@ export async function lastSuccessfulCleanupRun(
  */
 export async function lastCleanupRun(
   db: D1Database,
-  prefix: string
+  prefix: string,
+  kind: CleanupKind
 ): Promise<CleanupRunRow | null> {
   return db
     .prepare(
       `SELECT * FROM ${r2CleanupRunsTable(prefix)}
-        WHERE dry_run = 0 AND status <> 'skipped'
-        ORDER BY started_at DESC, rowid DESC
+        WHERE kind = ? AND dry_run = 0 AND status <> 'skipped'
+        ORDER BY started_at DESC, id DESC
         LIMIT 1`
     )
+    .bind(kind)
     .first<CleanupRunRow>()
 }

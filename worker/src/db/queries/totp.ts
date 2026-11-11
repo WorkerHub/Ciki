@@ -1,10 +1,9 @@
 import { user2faTable } from "../../lib/tables"
 
 export interface TotpRow {
-  user_id: string
+  user_id: number
   totp_secret: string | null
   totp_enabled: number
-  /** schema_v3 补列；旧库（列还没补）读出来是 undefined，按未开启处理。 */
   email_otp_enabled: number
   updated_at: string
 }
@@ -12,7 +11,7 @@ export interface TotpRow {
 export async function getTotp(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<TotpRow | null> {
   return db
     .prepare(`SELECT * FROM ${user2faTable(prefix)} WHERE user_id = ?`)
@@ -23,7 +22,7 @@ export async function getTotp(
 export async function upsertTotp(
   db: D1Database,
   prefix: string,
-  userId: string,
+  userId: number,
   data: { totp_secret: string | null; totp_enabled: number }
 ): Promise<void> {
   const now = new Date().toISOString()
@@ -47,7 +46,7 @@ export async function upsertTotp(
 export async function setEmailOtpEnabled(
   db: D1Database,
   prefix: string,
-  userId: string,
+  userId: number,
   enabled: boolean
 ): Promise<void> {
   const now = new Date().toISOString()
@@ -66,7 +65,7 @@ export async function setEmailOtpEnabled(
 export async function deleteTotp(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<void> {
   await db
     .prepare(`DELETE FROM ${user2faTable(prefix)} WHERE user_id = ?`)

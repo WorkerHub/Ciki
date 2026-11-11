@@ -5,70 +5,31 @@ import {
   revisionsTable
 } from "../../lib/tables"
 
+/**
+ * 页面行（新基线：id 全站整数自增，正文只留 `content_hash` 指针）。
+ *
+ * 正文 JSON 不在 D1：`content_hash` 指向 `ciki-content` 里的 `content/<sha256>` 对象，
+ * 需要原文的入口（编辑器 `?format=json`、版本查看/回滚、只读接口 `?format=json`）
+ * 经 `core/content-store.ts` 按哈希取回。热路径（读页 HTML、搜索、MD 下载）只读本表。
+ */
 export interface PageRow {
-  id: string
-  space_id: string
-  parent_id: string | null
+  id: number
+  space_id: number
+  parent_id: number | null
   title: string
   sort_order: number
-  content_json: string
+  content_hash: string
   content_html: string
   content_text: string
-  /**
-   * 派生出来的 Markdown（规格一期）：列由迁移 `schema_v4` 补上，所以**升级前的库
-   * 没有这一列**——`SELECT *` 读出来是 `undefined`，写它的语句先经
-   * {@link hasContentMdColumn} 探一次。空串与 NULL 同义：尚未回填/尚未生成。
-   */
-  content_md?: string | null
-  created_by: string
-  updated_by: string
+  content_md: string
+  created_by: number
+  updated_by: number
   created_at: string
   updated_at: string
   deleted_at: string | null
 }
 
-/**
- * `pages.content_md` 探列结果的 isolate 级缓存：**只缓存「为真」**，口径同
- * `db/queries/revisions.ts` 的 `hasGzipColumn`。
- *
- * 迁移只会加这一列、绝不删，所以一旦探到就永远为真；缓存「假」会在管理员点完升级
- * 之后继续按旧形态写，那样新存的页面就没有 MD。
- */
-let contentMdColumnReady = false
-
-/** 仅供测试模拟「升级前的库」：清掉缓存，让下一次探列真的去问数据库。 */
-export function resetContentMdColumnCache(): void {
-  contentMdColumnReady = false
-}
-
-/** 直接问数据库（不读缓存）。迁移 `schema_v4` 用它，它本身就要负责「列到底在不在」。 */
-export async function probeContentMdColumn(
-  db: D1Database,
-  prefix: string
-): Promise<boolean> {
-  const columns = await db
-    .prepare(`PRAGMA table_info(${pagesTable(prefix)})`)
-    .all<{ name: string }>()
-  const ready = columns.results.some((column) => column.name === "content_md")
-  if (ready) contentMdColumnReady = true
-  return ready
-}
-
-/**
- * `pages.content_md` 列是否就绪（迁移 `schema_v4` 已跑）。
- *
- * 部署后、管理员点「检查并升级数据库」之前这列还不存在：写路径据此继续按旧形态写，
- * 保存不会因为缺列而失败；读路径遇到无 MD 的行走按需现生成。
- */
-export async function hasContentMdColumn(
-  db: D1Database,
-  prefix: string
-): Promise<boolean> {
-  if (contentMdColumnReady) return true
-  return probeContentMdColumn(db, prefix)
-}
-
-/** 列表/树只用元数据，避免把每页最多 2MB 的正文读进 D1 结果集。 */
+/** 列表/树只用元数据，避免把每页的派生正文读进 D1 结果集。 */
 export type PageSummaryRow = Pick<
   PageRow,
   "id" | "parent_id" | "title" | "sort_order" | "updated_at"
@@ -96,7 +57,7 @@ function subtreeCte(prefix: string): string {
 export async function listPageRows(
   db: D1Database,
   prefix: string,
-  spaceId: string
+  spaceId: number
 ): Promise<PageSummaryRow[]> {
   const rows = await db
     .prepare(
@@ -113,7 +74,7 @@ export async function listPageRows(
 export async function getPageRow(
   db: D1Database,
   prefix: string,
-  id: string
+  id: number
 ): Promise<PageRow | null> {
   return db
     .prepare(`SELECT * FROM ${pagesTable(prefix)} WHERE id = ?`)
@@ -124,8 +85,8 @@ export async function getPageRow(
 export async function listChildren(
   db: D1Database,
   prefix: string,
-  spaceId: string,
-  parentId: string | null
+  spaceId: number,
+  parentId: number | null
 ): Promise<PageChildRow[]> {
   const table = pagesTable(prefix)
   const columns = "id, parent_id, sort_order, created_at"
@@ -144,8 +105,8 @@ export async function listChildren(
 export async function maxSortOrder(
   db: D1Database,
   prefix: string,
-  spaceId: string,
-  parentId: string | null
+  spaceId: number,
+  parentId: number | null
 ): Promise<number> {
   const table = pagesTable(prefix)
   const sql =
@@ -167,8 +128,8 @@ export async function maxSortOrder(
 export async function findSiblingByTitle(
   db: D1Database,
   prefix: string,
-  spaceId: string,
-  parentId: string | null,
+  spaceId: number,
+  parentId: number | null,
   title: string
 ): Promise<PageRow | null> {
   const table = pagesTable(prefix)
@@ -184,90 +145,59 @@ export async function findSiblingByTitle(
   return row ?? null
 }
 
-/**
- * 新建页面行。
- *
- * `includeMd` 由调用方经 {@link hasContentMdColumn} 算好（升级前没有该列）：<br>
- * true 时 SQL 带上 `content_md`，false 时按旧形态写——旧形态不写空串，让回填仍能
- * 认出「这行还没有 MD」（`content_md IS NULL`）。
- */
+/** 新建页面行（id 由 SQLite 自增发号，调用方回读拿到它）。 */
 export function insertPage(
   db: D1Database,
   prefix: string,
-  page: PageRow,
-  includeMd: boolean
+  page: Omit<PageRow, "id">
 ): D1PreparedStatement {
-  const columns = includeMd
-    ? "id, space_id, parent_id, title, sort_order, content_json, content_html, content_text, content_md, created_by, updated_by, created_at, updated_at, deleted_at"
-    : "id, space_id, parent_id, title, sort_order, content_json, content_html, content_text, created_by, updated_by, created_at, updated_at, deleted_at"
-  const values = includeMd
-    ? "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL"
-    : "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL"
-  const bound = [
-    page.id,
-    page.space_id,
-    page.parent_id,
-    page.title,
-    page.sort_order,
-    page.content_json,
-    page.content_html,
-    page.content_text,
-    ...(includeMd ? [page.content_md ?? ""] : []),
-    page.created_by,
-    page.updated_by,
-    page.created_at,
-    page.updated_at
-  ]
   return db
     .prepare(
-      `INSERT INTO ${pagesTable(prefix)} (${columns}) VALUES (${values})`
+      `INSERT INTO ${pagesTable(prefix)}
+        (space_id, parent_id, title, sort_order, content_hash, content_html,
+         content_text, content_md, created_by, updated_by, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
     )
-    .bind(...bound)
+    .bind(
+      page.space_id,
+      page.parent_id,
+      page.title,
+      page.sort_order,
+      page.content_hash,
+      page.content_html,
+      page.content_text,
+      page.content_md,
+      page.created_by,
+      page.updated_by,
+      page.created_at,
+      page.updated_at
+    )
 }
 
 export function updatePageContent(
   db: D1Database,
   prefix: string,
   page: {
-    id: string
+    id: number
     title: string
-    content_json: string
+    content_hash: string
     content_html: string
     content_text: string
     content_md: string
-    updated_by: string
+    updated_by: number
     updated_at: string
-  },
-  includeMd: boolean
-): D1PreparedStatement {
-  if (!includeMd) {
-    return db
-      .prepare(
-        `UPDATE ${pagesTable(prefix)}
-            SET title = ?, content_json = ?, content_html = ?, content_text = ?,
-                updated_by = ?, updated_at = ?
-          WHERE id = ? AND deleted_at IS NULL`
-      )
-      .bind(
-        page.title,
-        page.content_json,
-        page.content_html,
-        page.content_text,
-        page.updated_by,
-        page.updated_at,
-        page.id
-      )
   }
+): D1PreparedStatement {
   return db
     .prepare(
       `UPDATE ${pagesTable(prefix)}
-          SET title = ?, content_json = ?, content_html = ?, content_text = ?,
+          SET title = ?, content_hash = ?, content_html = ?, content_text = ?,
               content_md = ?, updated_by = ?, updated_at = ?
         WHERE id = ? AND deleted_at IS NULL`
     )
     .bind(
       page.title,
-      page.content_json,
+      page.content_hash,
       page.content_html,
       page.content_text,
       page.content_md,
@@ -277,12 +207,29 @@ export function updatePageContent(
     )
 }
 
+/**
+ * 只改标题（页级元数据，不参与版本增长）：正文列与 `content_hash` 一律不动。
+ */
+export function updatePageTitle(
+  db: D1Database,
+  prefix: string,
+  page: { id: number; title: string; updated_by: number; updated_at: string }
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `UPDATE ${pagesTable(prefix)}
+          SET title = ?, updated_by = ?, updated_at = ?
+        WHERE id = ? AND deleted_at IS NULL`
+    )
+    .bind(page.title, page.updated_by, page.updated_at, page.id)
+}
+
 export function updatePagePlacement(
   db: D1Database,
   prefix: string,
-  id: string,
-  spaceId: string,
-  parentId: string | null,
+  id: number,
+  spaceId: number,
+  parentId: number | null,
   sortOrder: number,
   updatedAt: string
 ): D1PreparedStatement {
@@ -300,8 +247,8 @@ export function updatePagePlacement(
 export function updateSubtreeSpace(
   db: D1Database,
   prefix: string,
-  rootId: string,
-  spaceId: string
+  rootId: number,
+  spaceId: number
 ): D1PreparedStatement {
   return db
     .prepare(
@@ -313,7 +260,7 @@ export function updateSubtreeSpace(
 export function updatePageSortOrder(
   db: D1Database,
   prefix: string,
-  id: string,
+  id: number,
   sortOrder: number
 ): D1PreparedStatement {
   return db
@@ -325,12 +272,12 @@ export function updatePageSortOrder(
 export async function listSubtreeIds(
   db: D1Database,
   prefix: string,
-  rootId: string
-): Promise<string[]> {
+  rootId: number
+): Promise<number[]> {
   const rows = await db
     .prepare(`${subtreeCte(prefix)} SELECT id FROM sub`)
     .bind(rootId)
-    .all<{ id: string }>()
+    .all<{ id: number }>()
   return rows.results.map((row) => row.id)
 }
 
@@ -338,7 +285,7 @@ export async function listSubtreeIds(
 export async function listSubtreeDeletedRows(
   db: D1Database,
   prefix: string,
-  rootId: string,
+  rootId: number,
   deletedAt: string
 ): Promise<RestoreRow[]> {
   const rows = await db
@@ -354,7 +301,7 @@ export async function listSubtreeDeletedRows(
 export function softDeleteSubtree(
   db: D1Database,
   prefix: string,
-  rootId: string,
+  rootId: number,
   deletedAt: string
 ): D1PreparedStatement[] {
   return [
@@ -375,7 +322,7 @@ export function softDeleteSubtree(
 export function restoreSubtree(
   db: D1Database,
   prefix: string,
-  rootId: string,
+  rootId: number,
   deletedAt: string,
   now: string
 ): D1PreparedStatement[] {
@@ -397,7 +344,7 @@ export function restoreSubtree(
 export function permanentDeleteSubtree(
   db: D1Database,
   prefix: string,
-  rootId: string
+  rootId: number
 ): D1PreparedStatement[] {
   return [
     db
@@ -427,7 +374,7 @@ export function permanentDeleteSubtree(
 export async function listTrashRoots(
   db: D1Database,
   prefix: string,
-  spaceId: string
+  spaceId: number
 ): Promise<TrashRow[]> {
   const table = pagesTable(prefix)
   const rows = await db
@@ -448,52 +395,4 @@ export async function listTrashRoots(
     .bind(spaceId)
     .all<TrashRow>()
   return rows.results
-}
-
-/**
- * 迁移用：还有哪些页面缺 `content_md`（`schema_v4` 回填待办）。
- *
- * 与 `listLegacyRevisionsBatch` 同一个取法：不用 id 游标往前扫，每轮只问「当前仍缺
- * MD 的最前面 N 行」。回填写过的行由 `content_md IS NULL` 自然排除，所以并发写入的
- * 新页（id 可能很小）也不会被跳过；`content_json` 为空串的行同样要处理——它们的 MD
- * 就是空串，写进去才能离开待办集，否则每轮都会重扫同一批。
- *
- * 软删页面一并回填：回收站里的页面随时可能被恢复，先把 MD 备好，恢复后立刻可读。
- */
-export async function listPagesMissingMarkdownBatch(
-  db: D1Database,
-  prefix: string,
-  limit: number
-): Promise<Array<Pick<PageRow, "id" | "content_json" | "content_text">>> {
-  const rows = await db
-    .prepare(
-      `SELECT id, content_json, content_text
-         FROM ${pagesTable(prefix)}
-        WHERE content_md IS NULL
-        ORDER BY id
-        LIMIT ?`
-    )
-    .bind(limit)
-    .all<Pick<PageRow, "id" | "content_json" | "content_text">>()
-  return rows.results
-}
-
-/**
- * 迁移用：给一行补 `content_md`。
- *
- * `AND content_md IS NULL` 保证重复执行不覆盖已回填的值（可中断续跑的前提）；不碰
- * `updated_at` / `updated_by` / 正文列——回填是纯派生，不是一次编辑。
- */
-export function backfillContentMdStatement(
-  db: D1Database,
-  prefix: string,
-  pageId: string,
-  markdown: string
-): D1PreparedStatement {
-  return db
-    .prepare(
-      `UPDATE ${pagesTable(prefix)} SET content_md = ?
-        WHERE id = ? AND content_md IS NULL`
-    )
-    .bind(markdown, pageId)
 }

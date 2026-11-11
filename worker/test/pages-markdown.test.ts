@@ -187,7 +187,13 @@ describe("保存路径：content_md 与正文同批落库", () => {
     expect(pageRow(db, page.id).content_md).toBe(RICH_MD)
 
     const detail = (await (
-      await jsonRequest(env, "GET", `/api/pages/${page.id}`, undefined, admin)
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${page.id}?format=json`,
+        undefined,
+        admin
+      )
     ).json()) as PageDetail
     expect(detail.contentMd).toBe(RICH_MD)
     // 真源不动：JSON/HTML/纯文本仍是各存各的。
@@ -232,17 +238,18 @@ describe("保存路径：content_md 与正文同批落库", () => {
     expect(pageRow(db, page.id).content_md).toBe("# 改过的标题\n\n改过的正文")
     expect(revisionCount(db, page.id)).toBe(2)
 
-    // 历史版本仍只存 JSON（+ gzip），没有 markdown 列。
+    // 历史版本只存内容哈希指针（正文本体在内容桶里），没有 markdown 列。
     const columns = (
       db.db.prepare("PRAGMA table_info(ciki_page_revisions)").all() as Array<{
         name: string
       }>
     ).map((column) => column.name)
-    expect(columns).toContain("content_gzip")
+    expect(columns).toContain("content_hash")
     expect(columns).not.toContain("content_md")
+    expect(columns).not.toContain("content_json")
   })
 
-  it("无改动保存：判等口径仍是四项，MD 与版本条数都不动", async () => {
+  it("无改动保存：判等只看正文三项，MD 与版本条数都不动", async () => {
     const { env, db } = await initializedContext()
     const admin = await adminSession(env)
     const page = await createRichPage(env, admin)
@@ -307,7 +314,7 @@ describe("保存路径：content_md 与正文同批落库", () => {
     const restored = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${oldest.id}/restore`,
+      `/api/pages/${page.id}/revisions/${oldest.versionNo}/restore`,
       undefined,
       admin
     )

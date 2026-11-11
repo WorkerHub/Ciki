@@ -615,7 +615,7 @@ describe("评论：与页面的联动", () => {
     const restored = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${oldest.id}/restore`,
+      `/api/pages/${page.id}/revisions/${oldest.versionNo}/restore`,
       undefined,
       admin
     )

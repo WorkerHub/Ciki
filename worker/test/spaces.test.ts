@@ -8,6 +8,7 @@ import {
 
 interface SpaceDto {
   id: string
+  slug: string
   name: string
   description: string
   myRole: "admin" | "editor" | "viewer"
@@ -411,6 +412,7 @@ describe("空间：删除守卫与管理面总览", () => {
     expect(res.status).toBe(200)
     const overview = (await res.json()) as Array<{
       id: string
+      slug: string
       isDefault: boolean
       pageCount: number
       trashedPageCount: number
@@ -418,6 +420,8 @@ describe("空间：删除守卫与管理面总览", () => {
     }>
     const target = overview.find((row) => row.id === space.id)
     expect(target).toMatchObject({
+      // 与 GET /api/spaces 同口径：系统管理要能拼出 /s/<slug>/settings 入口。
+      slug: space.slug,
       isDefault: false,
       pageCount: 1,
       trashedPageCount: 1,

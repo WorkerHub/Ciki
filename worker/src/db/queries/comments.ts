@@ -8,10 +8,10 @@
 import { commentsTable, usersTable } from "../../lib/tables"
 
 export interface CommentRow {
-  id: string
-  page_id: string
-  parent_id: string | null
-  author_id: string
+  id: number
+  page_id: number
+  parent_id: number | null
+  author_id: number
   body_md: string
   created_at: string
   edited_at: string | null
@@ -36,12 +36,13 @@ const SELECT_WITH_AUTHOR = (prefix: string): string =>
  * 整页评论（含已软删行），时间正序。
  *
  * 次键用 `rowid` 而不是主键：`created_at` 是毫秒 ISO 串，同一毫秒内的连续发表只有
- * 写入次序能定序，这正是「回复按时间平铺」要的稳定顺序（主键是随机 UUID，不可用）。
+ * 写入次序能定序，这正是「回复按时间平铺」要的稳定顺序（自增主键虽然也单调，但
+ * rowid 与插入次序严格一致，口径最稳）。
  */
 export async function listPageComments(
   db: D1Database,
   prefix: string,
-  pageId: string
+  pageId: number
 ): Promise<CommentListRow[]> {
   const rows = await db
     .prepare(
@@ -56,8 +57,8 @@ export async function listPageComments(
 export async function getCommentWithAuthor(
   db: D1Database,
   prefix: string,
-  pageId: string,
-  commentId: string
+  pageId: number,
+  commentId: number
 ): Promise<CommentListRow | null> {
   const row = await db
     .prepare(`${SELECT_WITH_AUTHOR(prefix)} WHERE c.id = ? AND c.page_id = ?`)
@@ -67,11 +68,10 @@ export async function getCommentWithAuthor(
 }
 
 export interface NewComment {
-  id: string
-  pageId: string
+  pageId: number
   /** 顶层评论为 null；回复恒为所在顶层评论的 id（已在路由层归一）。 */
-  parentId: string | null
-  authorId: string
+  parentId: number | null
+  authorId: number
   bodyMd: string
   createdAt: string
 }
@@ -80,15 +80,14 @@ export async function insertComment(
   db: D1Database,
   prefix: string,
   comment: NewComment
-): Promise<void> {
-  await db
+): Promise<number> {
+  const result = await db
     .prepare(
       `INSERT INTO ${commentsTable(prefix)}
-        (id, page_id, parent_id, author_id, body_md, created_at, edited_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)`
+        (page_id, parent_id, author_id, body_md, created_at, edited_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, NULL, NULL)`
     )
     .bind(
-      comment.id,
       comment.pageId,
       comment.parentId,
       comment.authorId,
@@ -96,6 +95,7 @@ export async function insertComment(
       comment.createdAt
     )
     .run()
+  return result.meta.last_row_id
 }
 
 /**
@@ -107,7 +107,7 @@ export async function insertComment(
 export async function updateCommentBody(
   db: D1Database,
   prefix: string,
-  commentId: string,
+  commentId: number,
   bodyMd: string,
   editedAt: string
 ): Promise<number> {
@@ -125,7 +125,7 @@ export async function updateCommentBody(
 export async function softDeleteComment(
   db: D1Database,
   prefix: string,
-  commentId: string,
+  commentId: number,
   deletedAt: string
 ): Promise<void> {
   await db

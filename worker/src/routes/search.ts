@@ -20,11 +20,11 @@ import type { HonoEnv } from "../types"
 export const searchRoutes = new Hono<HonoEnv>()
 
 interface SearchHitRow {
-  pageId: string
+  pageId: number
   title: string
   contentText: string
   updatedAt: string
-  spaceId: string
+  spaceId: number
   spaceName: string
 }
 
@@ -52,14 +52,15 @@ searchRoutes.get("/", async (c) => {
          SELECT space_id FROM ${members} WHERE user_id = ?
        )`
   const stmt = c.env.DB.prepare(
-    `SELECT f.page_id AS pageId,
+    `SELECT CAST(f.page_id AS INTEGER) AS pageId,
             p.title AS title,
             p.content_text AS contentText,
             p.updated_at AS updatedAt,
             p.space_id AS spaceId,
             s.name AS spaceName
        FROM ${fts} f
-       JOIN ${pages} p ON p.id = f.page_id AND p.deleted_at IS NULL
+       JOIN ${pages} p ON p.id = CAST(f.page_id AS INTEGER)
+        AND p.deleted_at IS NULL
        JOIN ${spaces} s ON s.id = p.space_id
       WHERE ${fts} MATCH ?
         ${membershipFilter}

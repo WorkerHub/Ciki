@@ -43,27 +43,29 @@ describe("手动删除版本：单条", () => {
     const middle = revisions[1]
     const snapshot = pageSnapshot(context.db, page.id)
 
-    const res = await deleteRevision(env, admin, page.id, middle.id)
+    const res = await deleteRevision(env, admin, page.id, middle.versionNo)
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({ success: true })
 
     const after = await listRevisions(env, admin, page.id)
     expect(after).toHaveLength(3)
-    expect(after.map((revision) => revision.id)).not.toContain(middle.id)
+    expect(after.map((revision) => revision.versionNo)).not.toContain(
+      middle.versionNo
+    )
 
     // 删除只动版本行：页面当前内容与 FTS 一字未变（回滚会写页面，所以先比）。
     expect(pageSnapshot(context.db, page.id)).toEqual(snapshot)
 
     // 其余版本照常查看与回滚（删中间版本不影响别的版本）。
     for (const revision of after) {
-      const detail = await getRevision(env, admin, page.id, revision.id)
+      const detail = await getRevision(env, admin, page.id, revision.versionNo)
       expect(detail.status).toBe(200)
     }
     const restore = await restoreRevision(
       env,
       admin,
       page.id,
-      after.at(-1)?.id ?? ""
+      after.at(-1)?.versionNo ?? 0
     )
     expect(restore.status).toBe(200)
   })
@@ -72,7 +74,12 @@ describe("手动删除版本：单条", () => {
     const context = await initializedContext()
     const { env, admin, page, revisions } = await pageWithHistory(context)
 
-    const res = await deleteRevision(env, admin, page.id, revisions[0].id)
+    const res = await deleteRevision(
+      env,
+      admin,
+      page.id,
+      revisions[0].versionNo
+    )
     expect(res.status).toBe(409)
     expect(await res.json()).toMatchObject({ code: "REVISION_IS_LATEST" })
     expect(countRevisionsInDb(context.db, page.id)).toBe(4)
@@ -83,21 +90,18 @@ describe("手动删除版本：单条", () => {
     const { env, admin, page } = await pageWithHistory(context)
     const other = await createPage(env, admin, { title: "别的页" })
 
-    const missing = await deleteRevision(
-      env,
-      admin,
-      page.id,
-      "00000000-0000-4000-8000-000000000000"
-    )
+    const missing = await deleteRevision(env, admin, page.id, 999_999)
     expect(missing.status).toBe(404)
 
-    // 拿别的页的版本 id 来删：按「不存在」处理，不跨页删。
+    // 版本号是页内序号：另一页的 versionNo 在这页上没有对应行，按「不存在」处理，
+    // 天然不会跨页删（每页都从 1 开始编号，跨页撞号也不再是问题）。
     const foreignRevision = (await listRevisions(env, admin, other.id))[0]
+    expect(foreignRevision.versionNo).toBe(1)
     const foreign = await deleteRevision(
       env,
       admin,
       page.id,
-      foreignRevision.id
+      (await listRevisions(env, admin, page.id)).length + 100
     )
     expect(foreign.status).toBe(404)
     expect(countRevisionsInDb(context.db, other.id)).toBe(1)
@@ -109,7 +113,12 @@ describe("手动删除版本：单条", () => {
     const viewer = await viewerSession(env, admin)
     const outsider = await outsiderSession(env, admin)
 
-    const asEditor = await deleteRevision(env, admin, page.id, revisions[1].id)
+    const asEditor = await deleteRevision(
+      env,
+      admin,
+      page.id,
+      revisions[1].versionNo
+    )
     expect(asEditor.status).toBe(200)
 
     // 只读成员：能看历史，但删除接口 403（不能只靠前端隐藏）。
@@ -117,7 +126,7 @@ describe("手动删除版本：单条", () => {
       env,
       viewer,
       page.id,
-      revisions[2].id
+      revisions[2].versionNo
     )
     expect(viewerDelete.status).toBe(403)
 
@@ -126,7 +135,7 @@ describe("手动删除版本：单条", () => {
       env,
       outsider,
       page.id,
-      revisions[2].id
+      revisions[2].versionNo
     )
     expect(outsiderDelete.status).toBe(404)
     expect(countRevisionsInDb(context.db, page.id)).toBe(3)
@@ -149,7 +158,7 @@ describe("手动删除版本：单条", () => {
       env,
       admin,
       trashed.id,
-      trashedRevisions.at(-1)?.id ?? ""
+      trashedRevisions.at(-1)?.versionNo ?? 0
     )
     expect(onTrashed.status).toBe(404)
   })
@@ -165,7 +174,7 @@ describe("手动删除版本：护栏在 SQL 里（不靠先读后写）", () =>
       env.DB,
       "ciki_",
       page.id,
-      revisions[0].id
+      revisions[0].versionNo
     )
     expect(onLatest).toBe(0)
     expect(countRevisionsInDb(context.db, page.id)).toBe(4)
@@ -174,12 +183,12 @@ describe("手动删除版本：护栏在 SQL 里（不靠先读后写）", () =>
       env.DB,
       "ciki_",
       page.id,
-      revisions[2].id
+      revisions[2].versionNo
     )
     expect(onMiddle).toBe(1)
     expect(
-      (await listRevisions(env, admin, page.id)).map((r) => r.id)
-    ).toContain(revisions[0].id)
+      (await listRevisions(env, admin, page.id)).map((r) => r.versionNo)
+    ).toContain(revisions[0].versionNo)
   })
 })
 
@@ -195,9 +204,14 @@ describe("手动删除版本：按页批量只留最新一条", () => {
 
     const after = await listRevisions(env, admin, page.id)
     expect(after).toHaveLength(1)
-    expect(after[0].id).toBe(revisions[0].id)
+    expect(after[0].versionNo).toBe(revisions[0].versionNo)
     // 留下的那条就是当前内容：用它回滚是无改动。
-    const restore = await restoreRevision(env, admin, page.id, after[0].id)
+    const restore = await restoreRevision(
+      env,
+      admin,
+      page.id,
+      after[0].versionNo
+    )
     expect(restore.status).toBe(200)
     expect(countRevisionsInDb(context.db, page.id)).toBe(1)
 

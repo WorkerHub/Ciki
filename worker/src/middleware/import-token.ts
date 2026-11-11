@@ -86,7 +86,7 @@ export async function importTokenMiddleware(c: Context<HonoEnv>, next: Next) {
 
   const usage = await consumeCounter(db, prefix, {
     action: "import",
-    account: identity.userId,
+    account: String(identity.userId),
     windowSeconds: WINDOW_SECONDS
   })
   if (usage.count > MAX_IMPORT_CALLS) {

@@ -73,23 +73,26 @@ jobs:
           TABLE_PREFIX: ${{ vars.TABLE_PREFIX }}
         run: node scripts/materialize-secrets.mjs
 
-      # R2 绑定要求 bucket 先存在。这里幂等补建：只有"已存在"算通过，
-      # 其他错误（例如组织级 token 未授予 R2 编辑权限）必须让本次 run 变红。
-      - name: Ensure R2 bucket
+      # R2 绑定要求 bucket 先存在。这里幂等补建**两个**桶（图片 ciki-assets +
+      # 正文 ciki-content）：只有"已存在"算通过，其他错误（例如组织级 token 未授予
+      # R2 编辑权限）必须让本次 run 变红。
+      - name: Ensure R2 buckets
         working-directory: worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          if out=$(pnpm exec wrangler r2 bucket create ciki-assets 2>&1); then
-            echo "$out"
-          elif printf '%s' "$out" | grep -qiE "already exists|\(10004\)"; then
-            echo "R2 bucket ciki-assets 已存在，跳过创建"
-          else
-            printf '%s\n' "$out"
-            echo "::error::创建 R2 bucket ciki-assets 失败：请确认组织级 CLOUDFLARE_API_TOKEN 具备 R2 编辑权限，或先在 Cloudflare 控制台建好该 bucket 后重跑。"
-            exit 1
-          fi
+          for bucket in ciki-assets ciki-content; do
+            if out=$(pnpm exec wrangler r2 bucket create "$bucket" 2>&1); then
+              echo "$out"
+            elif printf '%s' "$out" | grep -qiE "already exists|\(10004\)"; then
+              echo "R2 bucket $bucket 已存在，跳过创建"
+            else
+              printf '%s\n' "$out"
+              echo "::error::创建 R2 bucket $bucket 失败：请确认组织级 CLOUDFLARE_API_TOKEN 具备 R2 编辑权限，或先在 Cloudflare 控制台建好该 bucket 后重跑。"
+              exit 1
+            fi
+          done
 
       # 表结构与数据迁移不在这里跑：部署完成后由管理员触发一次 setup /
       # 数据库维护迁移（见 README「部署」章），那时才会真正建表。

@@ -10,14 +10,14 @@
  */
 import type { SpaceRole } from "./space-access"
 
-export function canEditComment(authorId: string, userId: string): boolean {
+export function canEditComment(authorId: number, userId: number): boolean {
   return authorId === userId
 }
 
 export function canDeleteComment(
   role: SpaceRole | null,
-  authorId: string,
-  userId: string
+  authorId: number,
+  userId: number
 ): boolean {
   if (!role) return false
   return authorId === userId || role === "admin"

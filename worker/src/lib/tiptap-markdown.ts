@@ -13,7 +13,7 @@
  * - {@link serializeTiptapMarkdown}：严格版，JSON 不合法就抛 `TiptapRenderError`；
  * - {@link derivePageMarkdown}：**永不抛错**，派生不出来就退回纯文本——读路径与迁移
  *   回填用它，保证「content_md 为空时按需现生成」既不会 500 也不会回空文档；
- * - {@link resolvePageMarkdown}：读路径的取值口径（库里有就用，没有就现生成）。
+ * - 读路径直接用落库的 `content_md`（写路径保证与正文同批写入），不再现生成。
  */
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { parseTiptapDoc } from "./tiptap-html"
@@ -348,17 +348,4 @@ export function derivePageMarkdown(
   } catch {
     return contentText
   }
-}
-
-export interface MarkdownSource {
-  /** `pages.content_md`；列还不存在或尚未回填时为 null / undefined / 空串。 */
-  content_md?: string | null
-  content_json: string
-  content_text: string
-}
-
-/** 读路径取值口径：库里有 `content_md` 就用它，没有就按需现生成。 */
-export function resolvePageMarkdown(row: MarkdownSource): string {
-  if (row.content_md) return row.content_md
-  return derivePageMarkdown(row.content_json, row.content_text)
 }

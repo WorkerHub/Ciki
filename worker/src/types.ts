@@ -8,6 +8,12 @@ export interface Env {
   DB: D1Database
   /** 图片存储桶 ciki-assets（规格 §2.4：只收图片，读经会话校验）。 */
   R2: R2Bucket
+  /**
+   * 正文存储桶 ciki-content（规格「内容上 R2」）：只放 `content/<sha256>` 对象，
+   * 与图片桶完全隔离。页面当前正文与全部历史版本正文都按内容哈希存在这里，
+   * D1 只留 `content_hash` 指针与派生件（html/纯文本/MD）。
+   */
+  CONTENT: R2Bucket
   /** Workers Static Assets：前端构建产物 web/dist。 */
   ASSETS: Fetcher
   /** setup / 数据库维护的 X-Setup-Secret 令牌（仓库级 secret）。 */
@@ -22,13 +28,13 @@ export interface Env {
   /**
    * 表前缀三态，解析见 src/lib/table-prefix.ts 的 getTablePrefix()：
    * 未设置 → "ciki_"；自定义值 → 补尾 "_"；"" → 无前缀。
-   * 部署期由 scripts/materialize-config.mjs 注入，不在仓库里写死。
+   * 部署期由 scripts/materialize-secrets.mjs 注入，不在仓库里写死。
    */
   TABLE_PREFIX?: string
   /**
    * waker 项目的回调签名钥（可选，只来自 secrets）。
    *
-   * 月度 R2 孤儿清理的触发开关就是它配没配（规格 §3：不设 WAKER_MODE）：
+   * 月度 R2 清理（图片 + 内容两套）的触发开关就是它配没配（规格 §3：不设 WAKER_MODE）：
    * 配了 → waker 回调接管、`scheduled()` 自行跳过；没配 → 走 Worker 内置
    * Cron Trigger，waker 回调口由 SDK fail closed（500 signing_key_missing）。
    * 解析口径见 src/core/waker-gate.ts（空值 / `*_PLACEHOLDER` 一律算未配置）。
@@ -39,7 +45,11 @@ export interface Env {
 export type HonoEnv = {
   Bindings: Env
   Variables: {
-    userId: string
+    /**
+     * 当前会话的用户主键（整数自增）。对外身份是 `username`，但内部引用
+     * （页面作者、评论作者、会话归属）一律用这个整数，不再有 UUID。
+     */
+    userId: number
     role: string
     sessionId: string
     restricted: boolean

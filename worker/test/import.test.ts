@@ -150,8 +150,8 @@ function sampleDoc(text = "导入正文") {
 }
 
 interface PageDetail {
-  id: string
-  parentId: string | null
+  id: number
+  parentId: number | null
   title: string
   contentJson: string
   contentHtml: string
@@ -201,20 +201,21 @@ describe("导入接口：令牌鉴权与四个端点", () => {
       conflict: "create_copy"
     })
     expect(res.status).toBe(201)
-    const body = (await res.json()) as { pageId: string; url: string }
-    expect(body.pageId).toMatch(/^[0-9a-f-]{36}$/)
+    const body = (await res.json()) as { pageId: number; url: string }
+    expect(Number.isInteger(body.pageId)).toBe(true)
+    expect(body.pageId).toBeGreaterThan(0)
     expect(body.url).toBe(`/p/${body.pageId}`)
 
     const page = (await (
       await jsonRequest(
         env,
         "GET",
-        `/api/pages/${body.pageId}`,
+        `/api/pages/${body.pageId}?format=json`,
         undefined,
         admin
       )
     ).json()) as PageDetail
-    // 原样落库的 TipTap JSON（编辑态用它），HTML 是服务端渲染 + 消毒的结果。
+    // 原样落库的 TipTap JSON（编辑态用它，读自内容桶），HTML 是服务端渲染 + 消毒的结果。
     expect(page.contentJson).toBe(JSON.stringify(doc))
     expect(page.title).toBe("导入页")
 
@@ -548,11 +549,11 @@ describe("导入接口：令牌鉴权与四个端点", () => {
       conflict: "update"
     })
     expect(child.status).toBe(201)
-    const childPage = (await child.json()) as { pageId: string }
+    const childPage = (await child.json()) as { pageId: number }
 
     const parents = (await (
       await importRequest(env, token, "GET", "/api/import/parents")
-    ).json()) as Array<{ id: string; title: string; parentId: string | null }>
+    ).json()) as Array<{ id: number; title: string; parentId: number | null }>
     expect(parents).toContainEqual({
       id: childPage.pageId,
       title: "子页",
@@ -594,16 +595,16 @@ describe("导入接口：令牌鉴权与四个端点", () => {
       conflict: "update"
     })
     expect(res.status).toBe(201)
-    const { pageId } = (await res.json()) as { pageId: string }
+    const { pageId } = (await res.json()) as { pageId: number }
 
     const row = db.db
       .prepare("SELECT parent_id FROM ciki_pages WHERE id = ?")
-      .get(pageId) as { parent_id: string | null }
+      .get(pageId) as { parent_id: number | null }
     expect(row.parent_id).toBeNull()
 
     const parents = (await (
       await importRequest(env, token, "GET", "/api/import/parents")
-    ).json()) as Array<{ id: string; title: string; parentId: string | null }>
+    ).json()) as Array<{ id: number; title: string; parentId: number | null }>
     expect(parents).toContainEqual({
       id: pageId,
       title: "空串父页",
@@ -707,14 +708,24 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     )
     expect(noTitle.status).toBe(400)
 
+    // 形状不合法（非整数）→ 400；形状合法但不存在的父页 → 404。
     const badParent = await importRequest(
       env,
       token,
       "POST",
       "/api/import/pages",
-      { ...base, parentId: 42 }
+      { ...base, parentId: "abc" }
     )
     expect(badParent.status).toBe(400)
+
+    const missingParent = await importRequest(
+      env,
+      token,
+      "POST",
+      "/api/import/pages",
+      { ...base, parentId: 424_242 }
+    )
+    expect(missingParent.status).toBe(404)
 
     // check 与保存同一口径：标题按纯文本规范化后必须 1–255 字符。
     const tooLongCheck = await importRequest(

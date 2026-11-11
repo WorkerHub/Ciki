@@ -134,7 +134,7 @@ export type UploadStored = { ok: true; image: StoredImage } | UploadRejected
  */
 export async function storeImageUpload(
   c: Context<HonoEnv>,
-  uploaderId: string,
+  uploaderId: number,
   category: UploadCategory
 ): Promise<UploadStored> {
   const read = await readImageUpload(c)
@@ -144,7 +144,8 @@ export async function storeImageUpload(
   const key = `${category}/${crypto.randomUUID()}.${type.ext}`
   await c.env.R2.put(key, bytes, {
     httpMetadata: { contentType: type.mime },
-    customMetadata: { uploaderId, category }
+    // R2 的 customMetadata 只收字符串：整数用户 id 在这里转成十进制文本。
+    customMetadata: { uploaderId: String(uploaderId), category }
   })
 
   return {
@@ -164,7 +165,7 @@ export async function storeImageUpload(
  */
 export async function handleImageUpload(
   c: Context<HonoEnv>,
-  uploaderId: string,
+  uploaderId: number,
   category: UploadCategory
 ): Promise<Response> {
   const stored = await storeImageUpload(c, uploaderId, category)

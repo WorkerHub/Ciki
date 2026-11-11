@@ -77,8 +77,8 @@ export interface SpaceAccess {
 export async function resolveSpaceAccess(
   db: D1Database,
   prefix: string,
-  spaceId: string,
-  userId: string,
+  spaceId: number,
+  userId: number,
   siteAdmin: boolean
 ): Promise<SpaceAccess | null> {
   const space = await findSpaceById(db, prefix, spaceId)
@@ -93,8 +93,8 @@ export async function resolveSpaceAccess(
 export async function resolveSpaceRole(
   db: D1Database,
   prefix: string,
-  spaceId: string,
-  userId: string,
+  spaceId: number,
+  userId: number,
   siteAdmin: boolean
 ): Promise<SpaceRole | null> {
   if (siteAdmin) {

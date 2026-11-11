@@ -76,14 +76,22 @@ export class MemoryR2 {
   async get(key: string) {
     const object = this.store.get(key)
     if (!object) return null
+    const bytes = object.bytes
     return {
       key,
-      size: object.bytes.length,
+      size: bytes.length,
       uploaded: object.uploaded,
       httpEtag: object.httpEtag,
       httpMetadata: object.httpMetadata,
       customMetadata: object.customMetadata,
-      body: new Blob([object.bytes]).stream()
+      body: new Blob([bytes]).stream(),
+      // 与 R2 的 R2ObjectBody 对齐：正文既可流式读，也可整体取 ArrayBuffer。
+      arrayBuffer: async () =>
+        bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength
+        ) as ArrayBuffer,
+      text: async () => new TextDecoder().decode(bytes)
     }
   }
 

@@ -20,7 +20,7 @@ export const TOTP_REPLAY_TTL_SECONDS = 90
 
 export interface Challenge {
   key: string
-  userId: string
+  userId: number
   purpose: string
   payload: string
 }
@@ -31,7 +31,7 @@ export async function challengeKeyForToken(token: string): Promise<string> {
 
 export async function challengeKeyForUser(
   purpose: string,
-  userId: string
+  userId: number | string
 ): Promise<string> {
   return sha256Hex(`${purpose}:${userId}`)
 }
@@ -159,7 +159,7 @@ export async function deleteChallenge(
 export async function deleteUserChallenges(
   db: D1Database,
   prefix: string,
-  userId: string,
+  userId: number,
   purpose?: ChallengePurpose
 ): Promise<void> {
   const table = challengesTable(prefix)

@@ -17,7 +17,7 @@ export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
 
 export interface SessionLookup {
   sessionId: string
-  userId: string
+  userId: number
   role: string
   restricted: boolean
   email: string
@@ -30,7 +30,7 @@ export async function createSession(
   db: D1Database,
   prefix: string,
   options: {
-    userId: string
+    userId: number
     ip?: string
     userAgent?: string
     needs2faSetup?: boolean
@@ -81,7 +81,7 @@ export async function findSession(
     .bind(tokenHash, Math.floor(Date.now() / 1000))
     .first<{
       sessionId: string
-      userId: string
+      userId: number
       restricted: number
       role: string
       email: string
@@ -127,7 +127,7 @@ export async function deleteSessionById(
   db: D1Database,
   prefix: string,
   sessionId: string,
-  userId?: string
+  userId?: number
 ): Promise<boolean> {
   const sql = userId
     ? `DELETE FROM ${sessionsTable(prefix)} WHERE id = ? AND user_id = ?`
@@ -155,7 +155,7 @@ export async function deleteSessionByToken(
 export async function deleteUserSessions(
   db: D1Database,
   prefix: string,
-  userId: string,
+  userId: number,
   exceptSessionId?: string
 ): Promise<void> {
   if (exceptSessionId) {
@@ -190,7 +190,7 @@ export async function clearSessionRestriction(
 export async function listUserSessions(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<
   Array<{
     id: string

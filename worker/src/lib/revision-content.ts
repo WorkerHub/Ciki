@@ -1,57 +1,56 @@
 /**
  * 读一条历史版本的正文（查看单个版本、回滚共用）。
  *
- * 新形态的行只有一份 gzip 的 `content_json`，HTML 与纯文本按需生成：走的是导入
- * 接口那条已验证的链（`renderTiptapHtml` → `sanitizePageHtml` → `toPlainText`），
- * 也就是 `normalizeImportedContent` 本身——不另写一套渲染/消毒顺序。
+ * 版本行只有 `content_hash`：JSON 在 `ciki-content` 里，HTML 与纯文本按需生成——走的是
+ * 导入接口那条已验证的链（`renderTiptapHtml` → `sanitizePageHtml` → `toPlainText`），
+ * 也就是 `normalizeImportedContent` 本身，不另写一套渲染/消毒顺序。
  *
- * 旧形态的行（部署后到点升级之间写入、以及迁移尚未转换完的行）没有 gzip：原样返回
- * 库里那三列，与改前的行为逐字一致，保证升级过程中怎么看都还是那一份内容。
+ * 失败分两种，路由按 `kind` 分开回：
+ * - `missing`：内容对象整个不见了（指针脏了/迁移未完成）→ 5xx `CONTENT_MISSING`，
+ *   与阅读接口取不到 JSON 时同一口径；
+ * - `unrenderable`：JSON 无法按当前编辑器 schema 渲染（历史上 `PUT /api/pages` 只校验
+ *   JSON 可解析），或对象在、但 gzip 字节本身已损坏 → 422：宁可不给预览/不写回页面，
+ *   也不静默把页面内容写成残缺版本。
+ *
+ * 两种情况都不变成未捕获异常，同时写一行日志便于定位。
  */
 import type { RevisionRow } from "../db/queries/revisions"
-import { GzipError, gunzipText } from "./gzip"
-import {
-  normalizeImportedContent,
-  withDerivedMarkdown,
-  type PageContentResult
-} from "./page-input"
-import { sanitizePageHtml, toPlainText } from "./sanitize"
+import { ContentObjectMissingError, readContent } from "../core/content-store"
+import { normalizeImportedContent, type PageContent } from "../lib/page-input"
+import type { Env } from "../types"
 
-/**
- * 版本行 → 页面正文四件套。
- *
- * JSON 无法按当前编辑器 schema 渲染（历史上 `PUT /api/pages` 只校验 JSON 可解析）
- * 时返回 `{ ok: false }`，由路由转成 422：宁可不给预览/不写回页面，也不静默把页面
- * 内容写成残缺版本。
- *
- * 压缩字节本身坏掉（脏数据、底层损坏）同样不能变成未捕获异常（那会让接口回 500）：
- * 解压失败也归为 `{ ok: false }`，让路由统一回 422，同时把原始错误记进日志便于定位。
- */
+/** 版本正文的加载结果：对象缺失与内容渲染失败必须可区分（前者 500，后者 422）。 */
+export type RevisionContentResult =
+  | { ok: true; value: PageContent }
+  | { ok: false; kind: "missing" }
+  | { ok: false; kind: "unrenderable"; error: string }
+
+/** 版本行 → 页面正文四件套（按 `content_hash` 从 R2 取）。 */
 export async function revisionContent(
+  env: Env,
   row: RevisionRow
-): Promise<PageContentResult> {
-  if (row.content_gzip) {
-    let contentJson: string
-    try {
-      contentJson = await gunzipText(row.content_gzip)
-    } catch (err) {
-      console.error(
-        `Revision ${row.id} content cannot be decompressed:`,
-        err instanceof GzipError ? err.message : err
-      )
-      return { ok: false, error: "stored revision content is corrupted" }
+): Promise<RevisionContentResult> {
+  let contentJson: string
+  try {
+    contentJson = await readContent(env, row.content_hash)
+  } catch (err) {
+    console.error(
+      `Revision ${row.id} content cannot be loaded:`,
+      err instanceof Error ? err.message : String(err)
+    )
+    // 指针指向的对象不存在 → 指针脏了，区别于「内容本身渲染不了」。
+    if (err instanceof ContentObjectMissingError) {
+      return { ok: false, kind: "missing" }
     }
-    return normalizeImportedContent({ title: row.title, contentJson })
+    return {
+      ok: false,
+      kind: "unrenderable",
+      error: "stored revision content is unavailable"
+    }
   }
-  // 旧形态：三列文本就是答案，重消毒的口径与改前一致。
-  // MD 仍按同一口径从 JSON 派生（`withDerivedMarkdown`），回滚才与保存走同一条路。
-  return {
-    ok: true,
-    value: withDerivedMarkdown({
-      title: toPlainText(row.title),
-      contentJson: row.content_json,
-      contentHtml: sanitizePageHtml(row.content_html),
-      contentText: toPlainText(row.content_text)
-    })
+  const rendered = normalizeImportedContent({ title: row.title, contentJson })
+  if (!rendered.ok) {
+    return { ok: false, kind: "unrenderable", error: rendered.error }
   }
+  return rendered
 }

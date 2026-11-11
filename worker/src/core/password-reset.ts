@@ -17,6 +17,7 @@ import {
   sessionsTable,
   usersTable
 } from "../lib/tables"
+import { parseId } from "../lib/http"
 import { randomToken } from "./auth"
 import {
   challengeKeyForToken,
@@ -36,14 +37,14 @@ export const PASSWORD_RESET_TOKEN_TTL_SECONDS = 600
 export async function issuePasswordResetToken(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<string> {
   const token = randomToken()
   await putChallenge(db, prefix, {
     key: await challengeKeyForToken(token),
     userId,
     purpose: "password_reset",
-    payload: userId,
+    payload: String(userId),
     ttlSeconds: PASSWORD_RESET_TOKEN_TTL_SECONDS
   })
   return token
@@ -56,7 +57,7 @@ export async function readPasswordResetToken(
   db: D1Database,
   prefix: string,
   token: string
-): Promise<string | null> {
+): Promise<number | null> {
   if (!token) return null
   const challenge = await readChallenge(
     db,
@@ -64,7 +65,8 @@ export async function readPasswordResetToken(
     await challengeKeyForToken(token)
   )
   if (challenge?.purpose !== "password_reset") return null
-  return challenge.payload || challenge.userId || null
+  const raw = challenge.payload || String(challenge.userId)
+  return parseId(raw)
 }
 
 /**
@@ -83,7 +85,7 @@ export async function readPasswordResetToken(
 export async function applyPasswordReset(
   db: D1Database,
   prefix: string,
-  options: { token: string; userId: string; passwordHash: string }
+  options: { token: string; userId: number; passwordHash: string }
 ): Promise<boolean> {
   const now = Math.floor(Date.now() / 1000)
   const key = await challengeKeyForToken(options.token)
@@ -131,7 +133,7 @@ export async function applyPasswordReset(
 export async function clearPasswordResetCredentials(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<void> {
   await deleteUserEmailCodes(db, prefix, userId, "password_reset")
   await deleteUserChallenges(db, prefix, userId, "password_reset")

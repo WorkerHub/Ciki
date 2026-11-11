@@ -25,6 +25,13 @@ database_id = "D1_DATABASE_ID_PLACEHOLDER"
 binding = "R2"
 bucket_name = "ciki-assets"
 
+# 正文内容存储（本单：内容上 R2）：与图片桶**完全不同**的 bucket，绑定名 CONTENT。
+# 页面正文 JSON 以 `content/<sha256>` 为 key、gzip 字节为值存在这里；D1 只留
+# `content_hash` 指针。两个桶各自独立清理（kind = images / content），互不影响。
+[[r2_buckets]]
+binding = "CONTENT"
+bucket_name = "ciki-content"
+
 # 月度 R2 孤儿清理（规格 §3）的内置触发器。
 #
 # Cloudflare Cron Trigger **只按 UTC 解释**（没有时区字段，也不支持 `L`），

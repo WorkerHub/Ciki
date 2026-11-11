@@ -1,32 +1,36 @@
 /**
- * 版本治理三件套（保留数 / 手动删除 / gzip 存储）的测试夹具。
+ * 版本治理三件套（保留数 / 手动删除 / 内容上 R2）的测试夹具。
  *
  * 统一用「一段正文 = 一份 JSON + 它的渲染结果」的自洽夹具：版本的唯一真源是 JSON，
  * HTML/纯文本由服务端按需生成，夹具不自洽会让「内容是否一致」的断言失去意义。
+ *
+ * 详情响应不再带正文 JSON（热路径不碰 R2），所以 `createPage` / `savePage` 在返回
+ * 详情后再补一次 `?format=json`，让用例继续拿得到 `contentJson`——与前端编辑器的
+ * 取法一致。
  */
 import { expect } from "vitest"
-import { resetGzipColumnCache } from "../../src/db/queries/revisions"
 import { adminSession, jsonRequest, userSession, type TestContext } from "./app"
 
 export interface PageDetail {
-  id: string
-  spaceId: string
+  id: number
+  spaceId: number
   title: string
   contentJson: string
   contentHtml: string
   contentText: string
+  contentMd: string
   updatedAt: string
 }
 
 export interface RevisionSummary {
-  id: string
+  versionNo: number
   title: string
-  editorId: string
+  editorId: number
   createdAt: string
 }
 
 export interface RevisionDetail extends RevisionSummary {
-  pageId: string
+  pageId: number
   contentJson: string
   contentHtml: string
   contentText: string
@@ -55,8 +59,8 @@ export interface PageInput {
   extra?: unknown[]
   /** 直接指定 JSON（用于构造渲染不了的内容）。 */
   contentJson?: string
-  spaceId?: string
-  parentId?: string | null
+  spaceId?: number
+  parentId?: number | null
 }
 
 export async function createPage(
@@ -80,14 +84,32 @@ export async function createPage(
     cookie
   )
   expect(res.status).toBe(201)
-  return (await res.json()) as PageDetail
+  return withContentJson(env, cookie, (await res.json()) as PageDetail)
+}
+
+/** 详情 + `?format=json` 的原文（编辑器/夹具取 JSON 的唯一入口）。 */
+async function withContentJson(
+  env: Env,
+  cookie: string,
+  detail: Omit<PageDetail, "contentJson">
+): Promise<PageDetail> {
+  const res = await jsonRequest(
+    env,
+    "GET",
+    `/api/pages/${detail.id}?format=json`,
+    undefined,
+    cookie
+  )
+  expect(res.status).toBe(200)
+  const body = (await res.json()) as { contentJson: string }
+  return { ...detail, contentJson: body.contentJson }
 }
 
 /** 保存（有实际改动才追加版本）。 */
 export async function savePage(
   env: Env,
   cookie: string,
-  pageId: string,
+  pageId: number,
   input: { title: string; text: string }
 ): Promise<PageDetail> {
   const res = await jsonRequest(
@@ -103,13 +125,13 @@ export async function savePage(
     cookie
   )
   expect(res.status).toBe(200)
-  return (await res.json()) as PageDetail
+  return withContentJson(env, cookie, (await res.json()) as PageDetail)
 }
 
 export async function listRevisions(
   env: Env,
   cookie: string,
-  pageId: string
+  pageId: number
 ): Promise<RevisionSummary[]> {
   const res = await jsonRequest(
     env,
@@ -125,13 +147,13 @@ export async function listRevisions(
 export function getRevision(
   env: Env,
   cookie: string,
-  pageId: string,
-  revisionId: string
+  pageId: number,
+  versionNo: number
 ): Promise<Response> {
   return jsonRequest(
     env,
     "GET",
-    `/api/pages/${pageId}/revisions/${revisionId}`,
+    `/api/pages/${pageId}/revisions/${versionNo}`,
     undefined,
     cookie
   )
@@ -140,13 +162,13 @@ export function getRevision(
 export function restoreRevision(
   env: Env,
   cookie: string,
-  pageId: string,
-  revisionId: string
+  pageId: number,
+  versionNo: number
 ): Promise<Response> {
   return jsonRequest(
     env,
     "POST",
-    `/api/pages/${pageId}/revisions/${revisionId}/restore`,
+    `/api/pages/${pageId}/revisions/${versionNo}/restore`,
     undefined,
     cookie
   )
@@ -155,13 +177,13 @@ export function restoreRevision(
 export function deleteRevision(
   env: Env,
   cookie: string,
-  pageId: string,
-  revisionId: string
+  pageId: number,
+  versionNo: number
 ): Promise<Response> {
   return jsonRequest(
     env,
     "DELETE",
-    `/api/pages/${pageId}/revisions/${revisionId}`,
+    `/api/pages/${pageId}/revisions/${versionNo}`,
     undefined,
     cookie
   )
@@ -170,7 +192,7 @@ export function deleteRevision(
 export function prunePageRevisions(
   env: Env,
   cookie: string,
-  pageId: string
+  pageId: number
 ): Promise<Response> {
   return jsonRequest(
     env,
@@ -237,31 +259,24 @@ export function pruneAllRevisions(env: Env, cookie: string): Promise<Response> {
 }
 
 export interface RevisionStorageRow {
-  id: string
-  page_id: string
+  id: number
+  page_id: number
+  version_no: number
   title: string
-  content_json: string
-  content_html: string
-  content_text: string
-  editor_id: string
+  content_hash: string
+  editor_id: number
   created_at: string
-  content_gzip: Uint8Array | null
-  gzip_type: string | null
-  gzip_length: number | null
 }
 
-/** 直接读库的版本行（含 BLOB 的类型与字节长度，用来断言落库形态）。 */
+/** 直接读库的版本行（正文只剩哈希指针，用来断言落库形态）。 */
 export function revisionRows(
   db: TestContext["db"],
-  pageId?: string
+  pageId?: number
 ): RevisionStorageRow[] {
-  const sql = `SELECT id, page_id, title, content_json, content_html, content_text,
-                      editor_id, created_at, content_gzip,
-                      typeof(content_gzip) AS gzip_type,
-                      length(content_gzip) AS gzip_length
+  const sql = `SELECT id, page_id, version_no, title, content_hash, editor_id, created_at
                  FROM ciki_page_revisions
                 ${pageId ? "WHERE page_id = ?" : ""}
-                ORDER BY created_at, rowid`
+                ORDER BY version_no`
   return (
     pageId ? db.db.prepare(sql).all(pageId) : db.db.prepare(sql).all()
   ) as RevisionStorageRow[]
@@ -269,7 +284,7 @@ export function revisionRows(
 
 export function countRevisionsInDb(
   db: TestContext["db"],
-  pageId?: string
+  pageId?: number
 ): number {
   const row = (
     pageId
@@ -286,11 +301,12 @@ export function countRevisionsInDb(
 /** 页面行与 FTS 行的快照：用来断言「删版本/修剪不动当前内容与搜索索引」。 */
 export function pageSnapshot(
   db: TestContext["db"],
-  pageId: string
+  pageId: number
 ): { page: Record<string, unknown>; fts: unknown[] } {
   const page = db.db
     .prepare(
-      `SELECT title, content_json, content_html, content_text, updated_at, updated_by
+      `SELECT title, content_hash, content_html, content_text, content_md,
+              updated_at, updated_by
          FROM ciki_pages WHERE id = ?`
     )
     .get(pageId)
@@ -300,21 +316,6 @@ export function pageSnapshot(
     )
     .all(pageId)
   return { page, fts }
-}
-
-/**
- * 把库退回「升级前」：删掉 `content_gzip` 列、抹掉账本里的 `schema_v2`，并清掉探列缓存。
- *
- * 探列结果只缓存「为真」（线上这一列永远不会被删），所以模拟降级必须显式清一次缓存，
- * 否则写路径会继续按新形态写、撞上不存在的列。
- */
-export function simulatePreUpgrade(
-  db: TestContext["db"],
-  prefix = "ciki_"
-): void {
-  db.exec(`ALTER TABLE ${prefix}page_revisions DROP COLUMN content_gzip`)
-  db.exec(`DELETE FROM _${prefix}schema_migrations WHERE name = 'schema_v2'`)
-  resetGzipColumnCache()
 }
 
 /** 一个「管理员 + 默认空间里的一页」的最小上下文。 */
@@ -336,10 +337,10 @@ export async function outsiderSession(
   const outsider = await userSession(env, admin, email)
   const me = (await (
     await jsonRequest(env, "GET", "/api/me", undefined, outsider)
-  ).json()) as { id: string }
+  ).json()) as { id: number }
   const spaces = (await (
     await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
-  ).json()) as Array<{ id: string; isDefault: boolean }>
+  ).json()) as Array<{ id: number; isDefault: boolean }>
   const defaultSpace = spaces.find((space) => space.isDefault)
   if (!defaultSpace) throw new Error("default space missing")
   const res = await jsonRequest(
@@ -362,10 +363,10 @@ export async function viewerSession(
   const viewer = await userSession(env, admin, email)
   const me = (await (
     await jsonRequest(env, "GET", "/api/me", undefined, viewer)
-  ).json()) as { id: string }
+  ).json()) as { id: number }
   const spaces = (await (
     await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
-  ).json()) as Array<{ id: string; isDefault: boolean }>
+  ).json()) as Array<{ id: number; isDefault: boolean }>
   const defaultSpace = spaces.find((space) => space.isDefault)
   if (!defaultSpace) throw new Error("default space missing")
   // 注册即被并入默认空间（editor），这里把角色降成 viewer。

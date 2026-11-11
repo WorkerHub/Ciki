@@ -2,6 +2,38 @@
 
 本文件由后端实现单在计划确认后冻结，是前端实现单的接口依据。实现期如需变更，先上报 Chief 裁决，**不得单方面改动**；改动必须同步更新本文件。
 
+## 零、本版变更（整数 id + 内容上 R2，破坏性）
+
+一次数据库升级同时完成两件事：**所有实体 id 换成自增整数**、**页面正文与历史版本正文搬到 R2**（`ciki-content`）。旧 uuid 形态不再存在，前端必须按下表改。
+
+| 位置                   | 旧                                    | 新                                                                |
+| ---------------------- | ------------------------------------- | ----------------------------------------------------------------- |
+| 页面/空间/用户/评论 id | 36 位 UUID 字符串                     | 正整数（JSON number）                                             |
+| 版本标识               | `revision.id`（UUID）                 | `versionNo`（页内 1,2,3…，`id` 不再对外）                         |
+| 空间入口               | `/s/:id`                              | `/s/:slug`（`slug` 由名称派生、创建后不可改）                     |
+| 页面入口               | `/p/:id`                              | `/p/:id`（id 现在是整数，路径形状不变）                           |
+| 页面详情正文           | `GET /api/pages/:id` 带 `contentJson` | 详情**不含** `contentJson`；要正文（编辑态）加 `?format=json`     |
+| 用户对外身份           | `id` + `publicId`                     | 只剩 `username`（`publicId` 字段已删除，别读它）                  |
+| 页面正文存储           | D1 的 `content_json` 列               | 内容桶里的 `content/<sha256>` 对象（D1 只留 `content_hash` 指针） |
+
+- **一次升级、不可回退**：升级前必须做一次完整 D1 导出备份；迁移失败不会改动任何旧数据（详见「schema_v6」）。
+- **正文只在三种情况下读 R2**：`GET /api/pages/:id?format=json`（编辑器）、`GET /api/pages/:id/revisions/:versionNo`（版本查看）、回滚/导入覆盖（服务端读旧内容比对）。阅读页只读 D1 的 `contentHtml` / `contentText` / `contentMd`，不碰 R2。
+- **写路径顺序固定「先 R2 再 D1」**：先上传正文对象拿到哈希，再在同一个 `db.batch()` 里写页面行 + 版本行 + FTS。上传成功而 D1 失败只会留一个无引用的孤儿对象，由月度内容 GC 在 30 天后收走（绝不出现「指针指向不存在的对象」）。
+- **内容不重复存**：同一份正文（sha256 相同）全站只存一个对象；无改动保存既不上传也不写库。
+
+### 路由映射表（前端改这里）
+
+| 页面       | 旧路由                 | 新路由                  |
+| ---------- | ---------------------- | ----------------------- |
+| 空间首页   | `/s/:spaceId`          | `/s/:slug`              |
+| 空间回收站 | `/s/:spaceId/trash`    | `/s/:slug/trash`        |
+| 空间搜索   | `/s/:spaceId/search`   | `/s/:slug/search`       |
+| 空间设置   | `/s/:spaceId/settings` | `/s/:slug/settings`     |
+| 页面阅读   | `/p/:id`               | `/p/:id`（`id` 为整数） |
+| 页面编辑   | `/p/:id/edit`          | `/p/:id/edit`           |
+
+后端路径参数一律按整数解析：非**规范形态**的十进制正整数（旧 UUID、负数、小数、前导零如 `/p/01`、前后空白）一律按「不存在」处理（404），不回 400；同一实体只有一种地址写法，`/p/01` 与 `/p/1` 不并存。请求体/查询串里的 id 仍接受 JSON 数字与十进制字符串（前后空白忽略，但同样不许前导零）。
+
 - 服务端入口：`worker/src/index.ts`（Hono），部署单元同时托管前端静态资源。
 - 表名一律经 `worker/src/lib/tables.ts` 拼当前部署的 `TABLE_PREFIX`（默认 `ciki_`，可显式无前缀），本文只用逻辑表名。
 - 响应字段一律 camelCase；数据库列名 snake_case，二者在路由层转换。**唯一例外**：`/api/read/*` 三个只读接口按用户冻结的接入契约逐字使用 snake_case（`parent_id` / `updated_at` / `created_at` / `content_json`），见「只读接口（只读令牌）」。
@@ -16,7 +48,7 @@
 - **错误体**：`{"error": string, "code"?: string, "retryAfter"?: number}`。常用状态码：400 校验失败、401 未登录/凭证错、403 权限或审批、404 不存在、409 冲突、413 体积超限、422 无法处理的存量内容（如版本 JSON 渲染不了）、429 限流/锁定、500 服务端错误（不回显堆栈）。
 - **时间**：所有时间字段均为 ISO 8601 字符串（`2026-11-07T12:00:00.000Z`），会话过期等内部字段用 Unix 秒但不出现在 DTO 中。
 - **分页**：页面树与用户列表不分页；搜索用 `limit`（默认 20，上限 50）。
-- **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；四件套（JSON + HTML + 纯文本 + 派生 MD）合计 ≤ 1,900,000 字节（D1 单行上限 2 MB）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
+- **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节（这一份存 R2，不占 D1）；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；D1 里的三列派生值（HTML + 纯文本 + MD）合计 ≤ 1,900,000 字节（页面行仍在 2 MB 上限内）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
 - **纯文本字段**：`title` 与 `contentText` 保存时剥除 HTML 标签并折叠空白，入库与搜索片段都不含 HTML 语法。
 - **脱敏**：任何 DTO 都不返回 `password_hash`、TOTP 密文、passkey `public_key`、会话令牌或挑战原值。
 
@@ -24,24 +56,16 @@
 
 迁移清单见下，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
-- `schema_v1`：全新库的全部表——鉴权（`users` 含 `username` / `public_id` / `avatar_key` 三列、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id`、`page_revisions`、`pages_fts`）、导入令牌（`import_tokens`）、空间（`spaces` / `space_members`）、清理日志与回调账本（`r2_cleanup_runs` / `waker_executions`），以及全部索引（含 `users_public_id`、`spaces_is_default` 两个部分唯一索引）。同一迁移末尾播种默认空间（id `space-default`、名称「默认空间」、`is_default=1`、`created_by` 取最早一名站点管理员或空串），并把 `space_id` 仍为空/缺失的页面回填到默认空间、把已有用户加入默认空间（站点管理员 `admin`、其余 `editor`）。播种都是 `INSERT OR IGNORE` / 只写空值的语句，重复执行无副作用；没有 `prepare` 步骤。
+- `schema_v1`（新基线）：全新库的全部表——鉴权（`users` 含 `username` / `avatar_key`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`）并把已有用户并入默认空间。全部 `CREATE … IF NOT EXISTS` / `INSERT OR IGNORE`，重复执行无副作用。
+- `schema_v6`（一次性重建：整数 id + 内容上 R2）：**唯一会重建整库结构的迁移**，prepare-only。它在一次升级里完成：①按 `created_at`（同刻按旧 id）给页面/用户/空间/评论发整数号，版本页内发 1..N 的 `version_no`；②把每页每版本的正文（版本先解压）里的站内 `/p/<uuid>` 链接改写成 `/p/<新 id>`，图片 `/api/files/…` 原样；③逐份 gzip 上传到内容桶，key = `content/<sha256>`（哈希对象是**未压缩**的 UTF-8 字节）；④按 `schema_v1` 的 DDL 建 `v6_*` 临时表只写整数 id 与 `content_hash`；⑤全量校验（每页/每版本的解压回读与哈希逐字节一致、派生列一致、父子与空间一致、行数与版本数一致）；⑥单个 `db.batch()` 逐表 DROP + RENAME 完成切换，再补索引。任一校验不过就抛错：**不切表、不记账、旧数据一字未动**，修好重跑即可（重跑开头会清掉上次留下的 `v6_*`）。失败只留下已上传的内容对象，由月度内容 GC 当孤儿收走。
+  - 顺序与幂等：已有新结构（`pages.content_hash` 存在）→ 只补索引直接记账；空库 → 什么都不做。
+  - TOTP 密文的 AAD 内嵌用户 id，迁移会解密后用新 id 重新加密；任一用户的密文解不开就整轮中止（不生成半套数据），要求先重置该用户 2FA。
+  - `auth_counters` / `system_settings` / `waker_executions` 不重建（无 id 变更、不存正文）。
+  - **升级前必须备份**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先做一次完整 D1 导出（`wrangler d1 export --remote <库名> --output ciki-YYYY-MM-DD.sql`）。回滚只能靠这份备份还原（重建迁移不可逆：旧 uuid 与新整数之间不保留对照表）。
 
-- `schema_v2`：`page_revisions` 增加 `content_gzip BLOB`，并把存量版本行逐行压成新格式（详见下文「page_revisions」）。写成 prepare-only 迁移（`sql` 为空，全部动作在幂等 `prepare` 里）：①`PRAGMA table_info` 探不到该列才 `ALTER TABLE … ADD COLUMN`；②按 `id` keyset 分批（25 行/批）转换存量——`gzip(content_json)` → **解压回读逐字节比对** → 一致才 `UPDATE … SET content_gzip=?, content_json='', content_html='', content_text='' WHERE id=? AND content_gzip IS NULL`。因此可重复执行（已转换行被 `content_gzip IS NULL` 排除、写回也再拦一道）、可中断续跑（中途失败该迁移不记账，下次 setup 从剩下的行继续），且只在回读校验通过后才清空被完整替代的冗余列。
+Ciki 不提供逐版本升级路径：全新库直接跑 `schema_v1`；存量库一次 `schema_v6` 重建到位。今后结构变化仍只在末尾追加迁移，不改动已有迁移。
 
-- `schema_v3`（邮箱验证码，2026-11-09）：新建 `email_codes` 专表与 `email_codes_expires_at` 索引；`user_2fa` 的 `email_otp_enabled` 列由 `schema_v3.prepare` 用 `PRAGMA table_info` 判断后 `ALTER TABLE … ADD COLUMN` 补上（SQLite 没有 `ADD COLUMN IF NOT EXISTS`），重复执行不会重复加列。回滚：删 `email_codes` 表与索引，并从账本删掉 `schema_v3` 行；`email_otp_enabled` 列可留（旧代码忽略）或用 `ALTER TABLE … DROP COLUMN` 一并回退。
-
-- `schema_v4`（MD 派生存储 + 只读接口令牌，一期）：①新建 `read_tokens` 表与 `read_tokens_token_hash` 唯一索引（纯 DDL，在 `sql` 里）；②`pages` 增加 `content_md TEXT` 列，并把存量页逐页派生回填（在 `prepare` 里：`PRAGMA table_info` 探不到该列才 `ALTER TABLE … ADD COLUMN`，再按 25 行/批 `SELECT … WHERE content_md IS NULL ORDER BY id LIMIT 25` → `UPDATE … SET content_md=? WHERE id=? AND content_md IS NULL`）。可重复执行（已回填行被 `content_md IS NULL` 排除、写回再拦一道）、可中断续跑（`prepare` 抛错则该迁移不记账，下次 setup 从剩下的行继续），并且一批行仍待办却一行没写进去时抛错中止（不死循环）。回填只写 `content_md`，不碰正文三列与 `updated_at` / `updated_by`；软删页一并回填（回收站页面恢复后立刻可读）。回滚：代码回退即可，`content_md` 列与 `read_tokens` 表可留（旧代码忽略）；确要清干净再 `ALTER TABLE … DROP COLUMN content_md`、`DROP TABLE read_tokens` 并删账本 `schema_v4` 行。
-
-- `schema_v5`（页尾评论）：新建 `comments` 表与 `comments_page_created` / `comments_parent` / `comments_author` 三个索引（纯 DDL、无 `prepare`，全部 `IF NOT EXISTS`，重复执行无副作用）。回滚：`DROP TABLE comments`（索引随之消失）并删账本 `schema_v5` 行。**部署后需管理员在「系统管理 → 数据库维护」点一次升级才生效**，点之前评论接口会因表不存在而失败。
-
-Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那样的逐版本升级路径：今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，不改动已有迁移。只跑过旧版部分迁移、或 `pages` 缺 `space_id` 的库不在支持范围——`CREATE TABLE IF NOT EXISTS` 不会补列，迁移会失败并报 `Migration "schema_v1" failed`，处置方式是重建库。
-
-存量页一律可读：
-
-- 部署后、管理员点「检查并升级数据库」之前，`pages.content_md` 列还不存在，`read_tokens` 表也一样；写路径用 `PRAGMA table_info` 探列，列不在就按旧形态写（只是不存 MD，保存不失败）；
-- 读路径（`GET /api/pages/:id` 的 `contentMd`、`GET /api/read/pages/:id` 的 `markdown`）遇到 `content_md` 为空/缺失时**按需从 `content_json` 现生成**，不报错、不回空文档；升级由 `schema_v4` 一次性回填补齐。
-
-回滚方式：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态（等同整库重建）；生产库执行前必须经用户批准；UI 不提供删表/清库入口。
+回滚方式（全新库/整库重置）：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态；生产库执行前必须经用户批准，UI 不提供删表/清库入口。**已跑过 `schema_v6` 的库不能靠删表回到旧结构**——要回到升级前只能还原备份。
 
 账本表名带前导下划线、排在业务表之前（如默认前缀下为 `_ciki_schema_migrations`，无前缀时为 `_schema_migrations`）。旧版部署用的账本名是 `{prefix}schema_migrations`（无前导下划线）：setup 在跑迁移之前先探旧账本，旧在/新不在则 `ALTER TABLE … RENAME TO …` 改名承接（已应用记录原样保留，迁移全显示 `skipped`，重复执行不会重复改名）；新旧都不在则按现行 DDL 新建。新旧账本同时存在（或旧账本表结构不符、不是 ciki 的账本）属异常，setup 以 409 `LEDGER_CONFLICT` 中止并回报，不自行合并或删除任何一边。
 
@@ -49,10 +73,9 @@ Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那�
 
 | 列                                                       | 类型                             | 说明                                                                                                                    |
 | -------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| id                                                       | TEXT PK                          | UUID（内部主键，不对外展示为「用户 ID」）                                                                               |
+| id                                                       | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                             |
 | email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                      |
-| username                                                 | TEXT NOT NULL DEFAULT ''         | 显示名，用户可改、**不要求唯一**；缺省取邮箱前缀                                                                        |
-| public_id                                                | TEXT NOT NULL DEFAULT ''         | 8 位系统生成的对外用户 ID，唯一、生成后不可改                                                                           |
+| username                                                 | TEXT NOT NULL DEFAULT ''         | 唯一、1–40 码点，注册时取邮箱前缀（重名自动加后缀）、之后可改；这是**唯一对外的用户身份**                               |
 | avatar_key                                               | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像 |
 | password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                        |
 | role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                        |
@@ -61,7 +84,7 @@ Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那�
 | email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露                                                                                    |
 | created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                                                                                                |
 
-索引：`{prefix}users_public_id` 是 `public_id` 上的部分唯一索引（`WHERE public_id <> ''`）：未回填的空串不参与唯一性，回填完成后由数据库兜底并发建号的撞键。`public_id` 的字符表为 `23456789ABCDEFGHJKMNPQRSTUVWXYZ`（去掉易混的 0/O/1/I/L），长度固定 8。
+索引：`username` 上有唯一索引（空串除外），并发改重名由数据库兜底。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
 
 ### user_2fa（TOTP + 邮箱验证码开关）
 
@@ -223,63 +246,69 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 ### spaces
 
-| 列                     | 类型                       | 说明                                              |
-| ---------------------- | -------------------------- | ------------------------------------------------- |
-| id                     | TEXT PK                    | 空间 id；默认空间固定为 `space-default`           |
-| name                   | TEXT NOT NULL              | 名称，1–64 码点、不含控制字符                     |
-| description            | TEXT NOT NULL DEFAULT ''   | 描述，≤500 码点（允许换行）                       |
-| is_default             | INTEGER NOT NULL DEFAULT 0 | 1 = 默认空间；部分唯一索引保证全库只有一条        |
-| created_by             | TEXT NOT NULL DEFAULT ''   | 创建者用户 id；默认空间取最早一名站点管理员或空串 |
-| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                          |
+| 列                     | 类型                       | 说明                                                |
+| ---------------------- | -------------------------- | --------------------------------------------------- |
+| id                     | INTEGER PK AUTOINCREMENT   | 空间 id（整数）                                     |
+| slug                   | TEXT NOT NULL              | 对外路由用的短名（`/s/<slug>`），唯一、创建后不可改 |
+| name                   | TEXT NOT NULL              | 名称，1–64 码点、不含控制字符                       |
+| description            | TEXT NOT NULL DEFAULT ''   | 描述，≤500 码点（允许换行）                         |
+| is_default             | INTEGER NOT NULL DEFAULT 0 | 1 = 默认空间；部分唯一索引保证全库只有一条          |
+| created_by             | INTEGER NOT NULL DEFAULT 0 | 创建者用户 id；0 = 无（播种时还没有用户）           |
+| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                            |
+
+`slug` 的派生规则（创建空间时一次性决定，之后不再变）：名称小写、非字母数字换成 `-`、去首尾 `-`、最多 48 字符；结果为空或已被占用时用 `space-<id>`（数字 id，天然唯一，冲突再追加 `-2`、`-3`…）。前端拿到 `slug` 拼 `/s/<slug>/…` 即可，**不要用 id 拼空间路由**。
 
 默认空间不可删除；其它空间只有在没有任何页面行（含回收站）时才可删除。
 
 ### space_members
 
-| 列         | 类型          | 说明                                   |
-| ---------- | ------------- | -------------------------------------- |
-| space_id   | TEXT NOT NULL | 空间 id                                |
-| user_id    | TEXT NOT NULL | 用户 id                                |
-| role       | TEXT NOT NULL | `admin` / `editor` / `viewer`（CHECK） |
-| created_at | TEXT NOT NULL | ISO 时间                               |
+| 列         | 类型             | 说明                                   |
+| ---------- | ---------------- | -------------------------------------- |
+| space_id   | INTEGER NOT NULL | 空间 id                                |
+| user_id    | INTEGER NOT NULL | 用户 id                                |
+| role       | TEXT NOT NULL    | `admin` / `editor` / `viewer`（CHECK） |
+| created_at | TEXT NOT NULL    | ISO 时间                               |
 
 主键 `(space_id, user_id)`；索引 `(user_id)`。空间至少保留一名 `admin`（改角色/移除最后一名 admin → 409 `LAST_SPACE_ADMIN`）。
 
 ### pages
 
-| 列                     | 类型                       | 说明                                                                                 |
-| ---------------------- | -------------------------- | ------------------------------------------------------------------------------------ |
-| id                     | TEXT PK                    | UUID                                                                                 |
-| space_id               | TEXT NOT NULL DEFAULT ''   | 所属空间；初始化迁移回填默认空间                                                     |
-| parent_id              | TEXT NULL                  | 根页为 NULL；父子关系只在同空间内                                                    |
-| title                  | TEXT NOT NULL              |                                                                                      |
-| sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1                                                                          |
-| content_json           | TEXT NOT NULL DEFAULT ''   | TipTap JSON 文本（真源）                                                             |
-| content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML                                                                  |
-| content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要                                                                          |
-| content_md             | TEXT NULL                  | `schema_v4` 补列；从 `content_json` 派生的 Markdown（导出/机读用，**永不反写正文**） |
-| created_by, updated_by | TEXT NOT NULL              | 用户 id                                                                              |
-| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                                                             |
-| deleted_at             | TEXT NULL                  | 软删时间                                                                             |
+| 列                     | 类型                       | 说明                                                                                    |
+| ---------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
+| id                     | INTEGER PK AUTOINCREMENT   | 页面 id（整数，对外即 `/p/<id>`）                                                       |
+| space_id               | INTEGER NOT NULL DEFAULT 0 | 所属空间（整数）                                                                        |
+| parent_id              | INTEGER NULL               | 根页为 NULL；父子关系只在同空间内                                                       |
+| title                  | TEXT NOT NULL              |                                                                                         |
+| sort_order             | INTEGER NOT NULL DEFAULT 0 | 同级 0..n-1                                                                             |
+| content_hash           | TEXT NOT NULL              | 正文对象的 sha256（64 位 hex）：内容桶里 `content/<hash>` 就是 TipTap JSON 的 gzip 本体 |
+| content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML（阅读页直读，不碰 R2）                                              |
+| content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要                                                                             |
+| content_md             | TEXT NOT NULL DEFAULT ''   | 从正文派生的 Markdown（导出/机读用，**永不反写正文**）                                  |
+| created_by, updated_by | INTEGER NOT NULL           | 用户 id（0 = 用户已彻底删除）                                                           |
+| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                                                                |
+| deleted_at             | TEXT NULL                  | 软删时间                                                                                |
 
-索引：`(space_id, parent_id, sort_order)`、`(space_id, deleted_at)`、`(parent_id, sort_order)`、`(deleted_at)`、`(updated_at)`。
+索引：`(space_id, parent_id, sort_order)`、`(space_id, deleted_at)`、`(parent_id, sort_order)`、`(deleted_at)`、`(updated_at)`、`(content_hash)`。
 
-`content_md` 是 `content_json` 的派生件（派生规则见「Markdown 派生规则」）：写路径与 HTML/纯文本在同一处生成、同一次 `db.batch()` 落库，正常保存/导入覆盖/回滚三条入口共用；它**不参与无改动保存的判等**（判等仍是标题 + JSON + HTML + 纯文本四项），也没有历史版本副本（`page_revisions` 仍只存 JSON）。代价是将来如果调整了派生规则，旧页会继续返回旧 MD——需要重刷时把对应行的 `content_md` 置 NULL 并重跑升级通道（`content_md IS NULL` 的行会被重新回填）。
+正文 JSON 不在 D1：`content_hash` 指向 `ciki-content` 桶里的对象（key `content/<sha256>`，值 = gzip 后的 JSON UTF-8 字节）。同一份正文全站共用一个对象；`content_html` / `content_text` / `content_md` 是它的派生件，写路径同一次 `db.batch()` 落库，正常保存/导入覆盖/回滚三条入口共用。版本增长的判等只看正文：「正文哈希 + HTML + 纯文本」三项全等即无改动，既不上传对象也不写版本行；标题属页级元数据，单独变化只原地改标题与搜索索引（不改版本号）。将来调整派生规则要重刷时，直接按 `content_hash` 重算 HTML/文本/MD 即可（不需要碰正文对象）。
 
 ### page_revisions
 
-`id` TEXT PK、`page_id` TEXT NOT NULL、`title`、`content_json`、`content_html`、`content_text`、`content_gzip` BLOB NULL（`schema_v2` 起）、`editor_id` TEXT NOT NULL、`created_at` TEXT NOT NULL；索引 `(page_id, created_at DESC)`。每次新建/有实际改动的保存/回滚都追加一条；四列（`title` / `content_json` / `content_html` / `content_text`）归一化后与现存行全等的保存是无改动，不追加。
+| 列           | 类型                     | 说明                                                     |
+| ------------ | ------------------------ | -------------------------------------------------------- |
+| id           | INTEGER PK AUTOINCREMENT | 内部行 id，**不对外**（API 用 `versionNo` 寻址）         |
+| page_id      | INTEGER NOT NULL         | 所属页面                                                 |
+| version_no   | INTEGER NOT NULL         | 页内版本号，从 1 连续递增；`UNIQUE(page_id, version_no)` |
+| title        | TEXT NOT NULL            | 保存时的标题快照                                         |
+| content_hash | TEXT NOT NULL            | 正文对象哈希（与 `pages.content_hash` 同一套 key）       |
+| editor_id    | INTEGER NOT NULL         | 编辑者用户 id（0 = 已彻底删除）                          |
+| created_at   | TEXT NOT NULL            | ISO 时间                                                 |
 
-**正文只存一份 gzip 的 `content_json`（`content_gzip`），不存 base64。** 两种行形态共存：
+索引 `(page_id, version_no DESC)`、`(content_hash)`。新建页面追加首条；之后只有**正文有实际改动**的保存/回滚才追加一条（正文哈希 + HTML + 纯文本全等 = 无改动，不追加）；仅改标题不追加（标题当页级元数据原地更新，版本的 `title` 保留保存当时的快照）。版本号只在插入时由 `MAX(version_no)+1` 生成，删中间版本不会重排编号。
 
-| 形态                | `content_gzip`    | `content_json` / `content_html` / `content_text` | 读法                                 |
-| ------------------- | ----------------- | ------------------------------------------------ | ------------------------------------ |
-| 新（迁移后）        | gzip 字节（BLOB） | 空串（列仍 NOT NULL）                            | 解压出 JSON → 服务端生成 HTML/纯文本 |
-| 旧（升级前/未转换） | NULL              | 三列正文                                         | 原样读三列（与改前逐字一致）         |
-
-- HTML 与纯文本由 `worker/src/lib/tiptap-html.ts` 一链按需生成（`renderTiptapHtml` → `sanitizePageHtml` → `toPlainText`），与导入接口同一条路径；`pages` 表当前内容的存储不变（仍存三列）。
-- 版本的 JSON 无法按当前编辑器 schema 渲染、或压缩字节本身损坏（脏数据）时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面、也不会漏成 500。
-- 「新 → 旧」的唯一排序口径是 `created_at DESC, id DESC`（列表、修剪、最新一条判定、删除护栏共用）。次键用主键 `id` 而不是隐式 `rowid`：`rowid` 在 VACUUM / 导出再导入等重建环境不保证稳定。为了让「写入次序 = 排序结果」不依赖毫秒精度，写路径给版本 `created_at` 加了单调时钟（同一 isolate 内严格递增，必要时比请求时间多 1ms），并另有硬保证：写入路径的修剪语句把**刚插入的那条 id** 排除在外。
+- 正文只有一份：内容桶里的 `content/<content_hash>`（gzip 的 TipTap JSON）。版本的 HTML/纯文本**不落库**，查看版本时按需渲染；`pages` 表另存了当前内容的派生列，阅读页不读 R2。
+- 版本的 JSON 无法按当前编辑器 schema 渲染、或对象在但 gzip 字节已损坏时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面；`content_hash` 指向的对象**整个不存在**（指针脏了，不是版本内容问题）回 `500 {"error":"Page content unavailable","code":"CONTENT_MISSING"}`，与阅读接口取不到 JSON 同一口径。
+- 「新 → 旧」的唯一排序口径是 `version_no DESC`（列表、修剪、最新一条判定、删除护栏共用）；`created_at` 只是与保存时刻对齐的展示时间戳，不参与排序，也不维持单调递增。
 - 保留数（每页保留多少条）的读写与两处修剪见「GET /api/admin/settings」「PUT /api/admin/settings」「GET /api/admin/revisions/retention」「POST /api/admin/revisions/prune」，以及下方页面版本接口：写入时按设置在同事务里删除该页超出上限的最旧版本。
 
 ### pages_fts（FTS5 虚拟表）
@@ -292,16 +321,16 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 ### comments（页尾评论，schema_v5）
 
-| 列         | 类型          | 说明                                                           |
-| ---------- | ------------- | -------------------------------------------------------------- |
-| id         | TEXT PK       | UUID                                                           |
-| page_id    | TEXT NOT NULL | 所属页面；评论挂页面不挂版本                                   |
-| parent_id  | TEXT NULL     | NULL = 顶层；回复恒指向其顶层评论 id（只一级，不产生二级嵌套） |
-| author_id  | TEXT NOT NULL | 用户 id（用户被彻底删除后评论保留，展示名回落「已注销用户」）  |
-| body_md    | TEXT NOT NULL | Markdown 原文（唯一真源；HTML 不落库，读时现算）               |
-| created_at | TEXT NOT NULL | ISO 时间                                                       |
-| edited_at  | TEXT NULL     | 首次编辑的时刻；未编辑为 NULL                                  |
-| deleted_at | TEXT NULL     | 软删时刻；非空即「已删除」                                     |
+| 列         | 类型                     | 说明                                                           |
+| ---------- | ------------------------ | -------------------------------------------------------------- |
+| id         | INTEGER PK AUTOINCREMENT | 评论 id（整数）                                                |
+| page_id    | INTEGER NOT NULL         | 所属页面；评论挂页面不挂版本                                   |
+| parent_id  | INTEGER NULL             | NULL = 顶层；回复恒指向其顶层评论 id（只一级，不产生二级嵌套） |
+| author_id  | INTEGER NOT NULL         | 用户 id（用户被彻底删除后评论保留，展示名回落「已注销用户」）  |
+| body_md    | TEXT NOT NULL            | Markdown 原文（唯一真源；HTML 不落库，读时现算）               |
+| created_at | TEXT NOT NULL            | ISO 时间                                                       |
+| edited_at  | TEXT NULL                | 首次编辑的时刻；未编辑为 NULL                                  |
+| deleted_at | TEXT NULL                | 软删时刻；非空即「已删除」                                     |
 
 索引：`(page_id, created_at)`、`(parent_id)`、`(author_id)`。
 
@@ -311,16 +340,17 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 ### r2_cleanup_runs
 
-| 列                                                                  | 类型          | 说明                                                                                   |
-| ------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------------------- |
-| id                                                                  | TEXT PK       | UUID                                                                                   |
-| started_at / finished_at                                            | TEXT NOT NULL | ISO 时间                                                                               |
-| trigger                                                             | TEXT NOT NULL | `cron` / `waker` / `manual`                                                            |
-| status                                                              | TEXT NOT NULL | `ok`（跑完）/ `skipped`（20 天幂等兜底命中，只有自动入口会有）/ `failed`（扫描期异常） |
-| dry_run                                                             | INTEGER       | 1 = 只算不删；dry_run 行不计入 20 天兜底、也不进「最近一轮」                           |
-| scanned / referenced / deleted / young_skipped / failed / truncated | INTEGER       | 扫描数 / 引用数 / 删除数 / 未满 30 天跳过数 / 失败数 / 是否因上限截断                  |
+| 列                                                                  | 类型                           | 说明                                                                                   |
+| ------------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------- |
+| id                                                                  | INTEGER PK AUTOINCREMENT       | 行 id                                                                                  |
+| kind                                                                | TEXT NOT NULL DEFAULT 'images' | `images`（图片桶）/ `content`（内容桶）：两类清理各记各的账                            |
+| started_at / finished_at                                            | TEXT NOT NULL                  | ISO 时间                                                                               |
+| trigger                                                             | TEXT NOT NULL                  | `cron` / `waker` / `manual`                                                            |
+| status                                                              | TEXT NOT NULL                  | `ok`（跑完）/ `skipped`（20 天幂等兜底命中，只有自动入口会有）/ `failed`（扫描期异常） |
+| dry_run                                                             | INTEGER                        | 1 = 只算不删；dry_run 行不计入 20 天兜底、也不进「最近一轮」                           |
+| scanned / referenced / deleted / young_skipped / failed / truncated | INTEGER                        | 扫描数 / 引用数 / 删除数 / 未满 30 天跳过数 / 失败数 / 是否因上限截断                  |
 
-索引 `(started_at)`。每轮一行，不含任何对象内容；清理自身除本表外只写 `system_settings` 的清理锁行（见「system_settings」与「POST /api/admin/r2-cleanup」），不动任何业务表。
+索引 `(started_at)`、`(kind, started_at)`。每轮每类各一行，不含任何对象内容；清理自身除本表外只写 `system_settings` 的清理锁行（每类一把锁，见「system_settings」与「POST /api/admin/r2-cleanup」），不动任何业务表。
 
 ### waker_executions
 
@@ -392,10 +422,10 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 手动触发一轮 R2 孤儿清理：跳板是「系统管理 → 数据库维护」页的两步 UI（第一步 dry run 预览、第二步实跑再确认；按钮与文案见前端单）。
 
-请求体可选：`{"dryRun": true}` 只算不删；缺省或 `false` 为真实删除。
+请求体可选：`{"dryRun": true}` 只算不删；缺省或 `false` 为真实删除；`{"kind": "images"|"content"}` 选桶——`images`（缺省，扫 `ciki-assets`）或 `content`（扫 `ciki-content`，即正文对象 GC）。不传 `kind` 的老调用行为不变。
 
 - **手动实跑不受 20 天幂等闸约束**（定版第 4 条：该闸只约束 Cron / waker 两个自动入口），30 天龄规则照旧——因此手动接口不会再回 `status:"skipped"`。
-- **并发互斥**：同一时刻只许一轮清理在跑（自动或手动、真实或 dry run 都算）。已有在跑的一轮时回 `409 {"error":"Cleanup already running","code":"CLEANUP_IN_PROGRESS","retryAfter":<秒>}`，不扫、不删、不写日志行；`retryAfter` 是当前清理锁的剩余秒数（整数 ≥1），到点后以同样请求重试即可。
+- **并发互斥按 `kind` 分区**：图片与内容各自一把锁，两类可以同时跑（互不依赖）；同一类同一时刻只许一轮在跑（自动或手动、真实或 dry run 都算）。已有在跑的一轮时回 `409 {"error":"Cleanup already running","code":"CLEANUP_IN_PROGRESS","retryAfter":<秒>}`，不扫、不删、不写日志行；`retryAfter` 是当前清理锁的剩余秒数（整数 ≥1），到点后以同样请求重试即可。
 - **单轮真删上限沿用 200**：触顶即停止删除、`deleted` 停在 200、`truncated: true`（扫描照常跑完，计数完整）。
 - 200 返回本轮摘要；扫描期异常时失败行已落库，接口回 `500 {"error":"Cleanup failed"}`。
 
@@ -403,6 +433,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ```json
 {
+  "kind": "images",
   "startedAt": "2026-11-08T17:00:00.000Z",
   "finishedAt": "2026-11-08T17:00:01.500Z",
   "trigger": "manual",
@@ -421,14 +452,19 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 `{"dryRun": false}` 的 200 与上面逐字段相同，只是**不含** `prunable` / `prunableBytes`。
 
-字段口径：`scanned` = R2 对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数（`users.avatar_key` ∪ 全部页面与历史版本正文里的 `/api/files/<key>`，回收站页面同样计入；历史版本只有 gzip 的 JSON，扫描前先解压，尚未转换的旧行按原三列扫，口径与结果不因存储形态改变）；`deleted` = 本轮删除数（`dryRun` 时为「按 200 上限的将删数」，触顶同样置 `truncated`）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除；`prunable` = 满足「未被引用且 uploaded 距今 >30 天」的对象总数，**不受 200 上限截断**；`prunableBytes` = 上述对象的 R2 对象大小之和（字节）。
+字段口径：`scanned` = **本 kind 那个桶**的对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数——`images` 为 `users.avatar_key` ∪ 全部页面 `content_html`/`content_md` ∪ 全部历史版本正文（从内容桶取回解压后扫）里的 `/api/files/<key>`，回收站页面与它们的版本同样计入；`content` 为全部 `pages.content_hash` ∪ 全部 `page_revisions.content_hash`（含回收站）；`deleted` = 本轮删除数（`dryRun` 时为「按 200 上限的将删数」，触顶同样置 `truncated`）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除；`prunable` = 满足「未被引用且 uploaded 距今 >30 天」的对象总数，**不受 200 上限截断**；`prunableBytes` = 上述对象的 R2 对象大小之和（字节）。
 
 `prunable` / `prunableBytes` 只出现在 dry run 响应里，不入日志表——实跑命中 200 上限时 `deleted` 会小于第一步看到的 `prunable`，这是「再点一次接着删」的正常状态（不是失败）：前端第二步据 `truncated: true` 提示「本轮已删 200 个，仍有剩余，可再跑一轮」。
 
-#### GET /api/admin/r2-cleanup（管理员会话）
+**两类清理互不越界**：`images` 只 list/delete `ciki-assets`，`content` 只 list/delete `ciki-content`，代码与日志都分开；同一份数据不会因为另一类没引用就被删。
+
+#### GET /api/admin/r2-cleanup?kind=images|content（管理员会话）
+
+`kind` 缺省为 `images`，决定读哪一类的日志与锁（响应里回显 `kind`）：
 
 ```json
 {
+  "kind": "images",
   "lastRun": {
     "startedAt": "…",
     "finishedAt": "…",
@@ -453,7 +489,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 `lastRun` 是最近一轮**真实**运行（`dry_run=0` 且 `status<>"skipped"`），从未跑过为 `null`。这是「系统管理 → 数据库维护」页那一行摘要的唯一数据源。
 
-`running` 是此刻的运行态，读 `system_settings` 的清理锁行、按 30 分钟 TTL 判它是否仍有效：
+`running` 是此刻的运行态，读该类清理在 `system_settings` 的锁行、按 30 分钟 TTL 判它是否仍有效（另一类在跑不影响本类）：
 
 | 字段                 | 类型                              | 口径                                                                 |
 | -------------------- | --------------------------------- | -------------------------------------------------------------------- |
@@ -464,6 +500,32 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 | `running.retryAfter` | number（整数 ≥1，秒）             | 锁剩余有效期；与 POST 的 409 `retryAfter` 同一算法，同一时刻取值相同 |
 
 `running` 与 `lastRun` 互不影响：前者只读锁行、后者只读日志表，有人正在跑也不会改变摘要行。前端在页面加载时按 `running` 禁用触发按钮并显示「清理进行中」，`null` 才可点。
+
+#### POST /api/admin/r2-cleanup/all（管理员会话）
+
+手动把两类清理各跑一轮（「全部清理」按钮）：请求体可选 `{"dryRun": true}`，200 返回 `{"runs": [...]}`，每项是该类的一轮摘要；某一类正被别的入口占着时该项为 `{"kind":…,"status":"busy","retryAfterSeconds":…}`，另一类照跑。
+
+#### GET /api/admin/storage（管理员会话）
+
+「数据库维护」页的体积与数量口径：
+
+```json
+{
+  "pageCount": 128,
+  "trashedPageCount": 6,
+  "revisionCount": 342,
+  "spaceCount": 3,
+  "userCount": 9,
+  "databaseSizeBytes": 10485760,
+  "sizeScope": "own-database",
+  "measure": "sqlite-page-count"
+}
+```
+
+- `databaseSizeBytes` = SQLite 页计数（`PRAGMA page_count × PRAGMA page_size`）。
+- **`sizeScope` 恒为 `"own-database"`**：Ciki 的 D1 是本项目独占库（裸表名、无前缀），这个数字就是**本站整库**体积，前端照此标注即可（不要写成「共享库」）。
+- `PRAGMA` 读不到时 `databaseSizeBytes: null`、`measure: "unavailable"`——**不用行数估算冒充体积**，前端显示「不可得」。
+- 页数等计数都从 D1 现算，不含正文对象（正文在 R2，不占库体积）。
 
 ### waker 回调（`POST /_waker/execute`，不走会话）
 
@@ -515,7 +577,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 201 `{"success":true,"approvalRequired":false}`。
 - 用户表为空时：首个用户为 `admin`、直接批准并激活；否则按 `registration_approval_required` 落 `pending`（`approvalRequired: true`）或直接批准。
-- 服务端自动生成 `public_id`（8 位、唯一）并把 `username` 初始化为邮箱前缀（按码点截断 40），客户端不能指定这两个值。
+- 服务端把 `username` 初始化为邮箱前缀（按码点截断 40，重名自动加 `-2`、`-3` 后缀），客户端不能在注册时指定它；`public_id` 已不存在。
 - 400 校验失败；403 `code:"REGISTRATION_DISABLED"`；409 `code:"EMAIL_TAKEN"`（唯一约束冲突一律映射成这个 409，含并发撞键）。
 
 #### POST /api/auth/login
@@ -527,7 +589,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 响应之一：
 
 ```json
-{ "success": true, "user": { "id": "…", "email": "…", "role": "admin" } }
+{ "success": true, "user": { "id": 1, "email": "…", "role": "admin" } }
 ```
 
 ```json
@@ -542,7 +604,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 {
   "success": true,
   "needs2faSetup": true,
-  "user": { "id": "…", "email": "…", "role": "user" }
+  "user": { "id": 1, "email": "…", "role": "user" }
 }
 ```
 
@@ -646,8 +708,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ```json
 {
-  "id": "…",
-  "publicId": "7FJ2K9QM",
+  "id": 1,
   "username": "alice",
   "email": "…",
   "role": "admin",
@@ -663,7 +724,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 }
 ```
 
-`publicId` 是对外展示的「用户 ID」（8 位、不可改），`id` 仍是内部 UUID。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
+`id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
 
 #### PUT /api/me/profile
 
@@ -672,9 +733,9 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```
 
 - 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。
-- `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；不要求唯一。
+- `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；**必须唯一**，撞名 409 `code:"USERNAME_TAKEN"`。
 - `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key——平铺 `<uuid>.<ext>` 或带已知前缀（`avatars/` / `pages/` / `imports/`）都收；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
-- `id` / `email` / `publicId` 只读：传了也不生效（只认上面两个字段）。
+- `id` / `email` 只读：传了也不生效（只认上面两个字段）。
 
 #### POST /api/me/avatar（需会话）
 
@@ -684,8 +745,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ```json
 {
-  "id": "…",
-  "publicId": "7FJ2K9QM",
+  "id": 1,
   "username": "alice",
   "email": "…",
   "role": "admin",
@@ -762,8 +822,9 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```json
 [
   {
-    "id": "…",
+    "id": 2,
     "email": "…",
+    "username": "alice",
     "role": "user",
     "isActive": false,
     "approvalStatus": "pending",
@@ -772,13 +833,15 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ]
 ```
 
+`id` 是整数（管理接口的 `:id` 路径参数同样是整数）；响应不含 `publicId`（已删除），`username` 是唯一对外身份。
+
 #### POST /api/admin/users
 
 ```json
 { "email": "…", "password": "…", "role": "user" }
 ```
 
-201，直接批准并激活；`username` 默认取邮箱前缀、`public_id` 由服务端生成。邮箱已存在 → 409 `code:"EMAIL_TAKEN"`。
+201，直接批准并激活；`username` 默认取邮箱前缀（重名自动加后缀）。邮箱已存在 → 409 `code:"EMAIL_TAKEN"`。
 
 #### PUT /api/admin/users/:id
 
@@ -786,7 +849,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "role": "admin", "isActive": true, "email": "…", "password": "…" }
 ```
 
-字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话；改密码时同样清掉该用户未使用的 `password_reset` 凭据（验证码与 resetToken）。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。改邮箱时一并删除该用户全部 `email_codes`（旧邮箱收到的码立即作废）。`username` / `public_id` / 头像不在此接口里改。
+字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话；改密码时同样清掉该用户未使用的 `password_reset` 凭据（验证码与 resetToken）。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。改邮箱时一并删除该用户全部 `email_codes`（旧邮箱收到的码立即作废）。`username` / 头像不在此接口里改（改显示名走 `PUT /api/me/profile`）。
 
 #### DELETE /api/admin/users/:id
 
@@ -807,7 +870,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```json
 [
   {
-    "id": "space-default",
+    "id": 1,
+    "slug": "space-1",
     "name": "默认空间",
     "description": "",
     "isDefault": true,
@@ -915,10 +979,10 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 权限：站点管理员可见/可管理全部空间；普通用户只看得见自己是成员的空间。列表/详情/树/直链/回收站/搜索对非成员一律 404。空间信息与成员管理仅空间 `admin` 或站点管理员可调用（`editor` / `viewer` → 403）。任何登录用户都能建空间，创建者自动成为该空间 `admin`。
 
 ```text
-Space        = { id, name, description, myRole: "admin"|"editor"|"viewer",
+Space        = { id, slug, name, description, myRole: "admin"|"editor"|"viewer",
                  isDefault, createdAt, updatedAt }
-SpaceMember  = { userId, username, publicId, email, role, createdAt }
-SpaceCandidate = { userId, username, publicId, email }
+SpaceMember  = { userId, username, email, role, createdAt }
+SpaceCandidate = { userId, username, email }
 ```
 
 站点管理员对每个空间的有效 `myRole` 都是 `admin`（不要求是成员）。
@@ -930,7 +994,8 @@ SpaceCandidate = { userId, username, publicId, email }
 ```json
 [
   {
-    "id": "space-default",
+    "id": 1,
+    "slug": "space-1",
     "name": "默认空间",
     "description": "",
     "myRole": "editor",
@@ -947,7 +1012,7 @@ SpaceCandidate = { userId, username, publicId, email }
 { "name": "研发空间", "description": "可选，≤500 字符" }
 ```
 
-201 返回 `Space`（`myRole: "admin"`）。名称 trim 后 1–64 码点、不含控制字符（400 `code:"INVALID_SPACE_NAME"`），描述 ≤500 码点、只允许换行（400 `code:"INVALID_SPACE_DESCRIPTION"`）。空间名不要求唯一。
+201 返回 `Space`（`myRole: "admin"`）。名称 trim 后 1–64 码点、不含控制字符（400 `code:"INVALID_SPACE_NAME"`），描述 ≤500 码点、只允许换行（400 `code:"INVALID_SPACE_DESCRIPTION"`）。空间名不要求唯一，`slug` 由服务端按名称派生（规则见「spaces」表），创建后不可改；前端应拿响应里的 `slug` 拼 `/s/<slug>/…`。
 
 #### GET /api/spaces/:id
 
@@ -972,7 +1037,7 @@ SpaceCandidate = { userId, username, publicId, email }
 #### POST /api/spaces/:id/members
 
 ```json
-{ "userId": "…", "role": "viewer" }
+{ "userId": 3, "role": "viewer" }
 ```
 
 201 返回 `SpaceMember`。只能添加已激活且已批准的现有注册用户。错误：400 `code:"INVALID_ROLE"`；404 `code:"USER_NOT_FOUND"`；409 `code:"USER_NOT_ELIGIBLE"` / `code:"ALREADY_MEMBER"`。
@@ -991,10 +1056,10 @@ SpaceCandidate = { userId, username, publicId, email }
 
 #### GET /api/spaces/:id/member-candidates?q=
 
-仅空间 `admin` / 站点管理员。候选用户（已激活、已批准、尚未加入该空间），按显示名/邮箱/publicId 模糊匹配，最多 20 条：
+仅空间 `admin` / 站点管理员。候选用户（已激活、已批准、尚未加入该空间），按显示名/邮箱模糊匹配，最多 20 条：
 
 ```json
-[{ "userId": "…", "username": "张三", "publicId": "7FJ2K9QM", "email": "…" }]
+[{ "userId": 3, "username": "alice", "email": "…" }]
 ```
 
 ### 页面
@@ -1003,12 +1068,12 @@ SpaceCandidate = { userId, username, publicId, email }
 
 #### GET /api/pages
 
-页面树（不含正文，不含回收站）。`spaceId` 可选，空串/缺省表示默认空间；不是成员或空间不存在 404：
+页面树（不含正文，不含回收站）。`spaceId` 可选（整数），空串/缺省表示默认空间；不是成员或空间不存在 404：
 
 ```json
 [
   {
-    "id": "…",
+    "id": 12,
     "parentId": null,
     "title": "首页",
     "sortOrder": 0,
@@ -1025,7 +1090,7 @@ SpaceCandidate = { userId, username, publicId, email }
 ```json
 [
   {
-    "id": "…",
+    "id": 12,
     "parentId": null,
     "title": "…",
     "deletedAt": "…",
@@ -1038,25 +1103,29 @@ SpaceCandidate = { userId, username, publicId, email }
 
 ```json
 {
-  "id": "…",
-  "spaceId": "…",
+  "id": 12,
+  "spaceId": 1,
   "parentId": null,
   "title": "…",
   "sortOrder": 0,
-  "contentJson": "{\"type\":\"doc\",…}",
+  "contentHash": "3f2c…（64 位 hex）",
   "contentHtml": "<p>…</p>",
   "contentText": "…",
   "contentMd": "## 小节\n\n正文",
-  "createdBy": "用户 id",
-  "updatedBy": "用户 id",
+  "createdBy": 1,
+  "updatedBy": 1,
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
 
-`contentMd` 是从 `contentJson` 派生的 Markdown（**只读、不含标题行**）：库里有 `content_md` 就给库里的值，没有（升级回填完成前）就按需现生成；空正文页是空串，绝不会是 `null`。阅读页「下载 .md」由服务端下载端点取同一份 MD（见下条 `GET /api/pages/:id/download`），本接口照旧下发该字段，两者都不经过只读令牌接口。
+**阅读热路径不读 R2**：详情默认**不含** `contentJson`，`contentHtml` / `contentText` / `contentMd` 都是 D1 里的派生列（`contentMd` 是库里的值，空正文页为空串，绝不会是 `null`）。
 
-已软删、非成员或所属空间不可见均返回 404。
+要编辑态正文时加 `?format=json`：响应在上面的字段之外多一个 `"contentJson": "{\"type\":\"doc\",…}"`（从内容桶按 `contentHash` 取回、解压、原样返回）。前端只有编辑器/回滚预览需要它，列表、树、阅读页都不要带这个参数。内容对象缺失（升级未完成或底座被误删）→ 500 `{"error":"Page content unavailable","code":"CONTENT_MISSING"}`，不要当成 404 处理。
+
+`GET /api/pages/:id/download` 取的是同一份 `contentMd`，不经过只读令牌接口。
+
+已软删、非成员或所属空间不可见均返回 404；路径里的 `:id` 必须是十进制正整数（旧 UUID 一律 404）。
 
 #### GET /api/pages/:id/download
 
@@ -1087,7 +1156,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 ```json
 {
   "title": "新页面",
-  "spaceId": "…",
+  "spaceId": 1,
   "parentId": null,
   "contentJson": "…",
   "contentHtml": "<p>…</p>",
@@ -1105,7 +1174,12 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 { "title": "…", "contentJson": "…", "contentHtml": "…", "contentText": "…" }
 ```
 
-200 完整详情。空间 `editor` 及以上可编辑；`viewer` 403、非成员 404。四列（`title` / `contentJson` 归一化后 / `contentHtml` 消毒后 / `contentText` 规范化后）与库里现存值全等 → 判定为无改动：不写页面行（`updatedAt`、`updatedBy` 不动）、不追加 revision、不重建 FTS，响应与正常保存同形（返回现存页面详情）；任一项不同即正常保存，追加一条 revision 并同步 FTS。
+200 完整详情。空间 `editor` 及以上可编辑；`viewer` 403、非成员 404。两档判定：
+
+- **正文没变**（`contentJson` 归一化后的哈希 + `contentHtml` 消毒后 + `contentText` 规范化后与库里全等）：不追加 revision、不上传对象。标题也没变 → 不写任何行（`updatedAt`、`updatedBy` 不动）；只有标题变了 → 只原地更新 `title` / `updatedAt` / `updatedBy` 并同步搜索索引（标题在 FTS 里），**不产新版本、不新增 R2 对象**——这是前端「改名」的唯一入口，改名零版本增长；
+- **正文变了**：先 PUT 内容对象，再在同一个 `db.batch()` 里写页面行 + 追加一条 revision + 重建 FTS + 按保留数修剪。
+
+两种情形都返回与正常保存同形的完整详情。
 
 #### POST /api/pages/:id/move
 
@@ -1117,7 +1191,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 }
 ```
 
-`sortOrder` 可省略（追加到末尾）。只改层级/排序，不生成 revision。跨空间移动时改 `space_id`（整棵后代子树一起改，保持父子同空间）：未给 `parentId` 就重挂到目标空间根；给了父页则父页必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。源空间与目标空间都要 `editor` 及以上（目标不可见 404、`viewer` 403）。移入自身子树 409 `code:"PAGE_MOVE_CYCLE"`；父页已删 409 `code:"PARENT_DELETED"`。
+`sortOrder` 可省略（追加到末尾）。`spaceId` / `parentId` 都是整数或 `null`。只改层级/排序，不生成 revision。跨空间移动时改 `space_id`（整棵后代子树一起改，保持父子同空间）：未给 `parentId` 就重挂到目标空间根；给了父页则父页必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。源空间与目标空间都要 `editor` 及以上（目标不可见 404、`viewer` 403）。移入自身子树 409 `code:"PAGE_MOVE_CYCLE"`；父页已删 409 `code:"PARENT_DELETED"`。
 
 #### DELETE /api/pages/:id
 
@@ -1134,41 +1208,41 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 #### GET /api/pages/:id/revisions
 
 ```json
-[{ "id": "…", "title": "…", "editorId": "用户 id", "createdAt": "…" }]
+[{ "versionNo": 3, "title": "…", "editorId": 1, "createdAt": "…" }]
 ```
 
-新 → 旧。`viewer` 可读；非成员 404。
+新 → 旧（`versionNo` 降序）。**版本用 `versionNo` 寻址，不是内部行 id**；`viewer` 可读；非成员 404。
 
-#### GET /api/pages/:id/revisions/:revisionId
+#### GET /api/pages/:id/revisions/:versionNo
 
 ```json
 {
-  "id": "…",
-  "pageId": "…",
+  "versionNo": 3,
+  "pageId": 12,
   "title": "…",
   "contentJson": "…",
   "contentHtml": "…",
   "contentText": "…",
-  "editorId": "…",
+  "editorId": 1,
   "createdAt": "…"
 }
 ```
 
-形状与改前一致：`contentJson` 是解压出来的原文，`contentHtml` / `contentText` 由服务端按需生成（详见「page_revisions」）。`viewer` 可读；非成员 404。该版本的 JSON 无法按当前编辑器 schema 渲染时 422 `code:"REVISION_UNRENDERABLE"`。
+`contentJson` 是从内容桶取回并解压的原文，`contentHtml` / `contentText` 由服务端按需渲染（详见「page_revisions」）。`viewer` 可读；非成员 404；该页没有这个版本号 → 404 `{"error":"Revision not found"}`。该版本的 JSON 无法按当前编辑器 schema 渲染时 422 `code:"REVISION_UNRENDERABLE"`；指针指向的正文对象整个不存在时 500 `code:"CONTENT_MISSING"`（两种失败都不返回正文）。
 
-#### DELETE /api/pages/:id/revisions/:revisionId
+#### DELETE /api/pages/:id/revisions/:versionNo
 
-删一条历史版本，200 `{"success":true}`。权限与回滚同档（所属空间 `editor` 及以上）：非成员 404、`viewer` 403、页面在回收站 404、版本不存在/不属于该页 404 `{"error":"Revision not found"}`。
+删一条历史版本，200 `{"success":true}`。权限与回滚同档（所属空间 `editor` 及以上）：非成员 404、`viewer` 403、页面在回收站 404、版本号不存在于该页 404 `{"error":"Revision not found"}`。
 
-每页最新一条是当前内容的快照，**不许删**：409 `{"error":"Cannot delete the latest revision","code":"REVISION_IS_LATEST"}`。删中间版本不影响其余版本的查看与回滚；只删版本行本身——页面当前内容、FTS、R2 文件都不动（孤儿图归月度清理判定）。
+每页最新一条是当前内容的快照，**不许删**：409 `{"error":"Cannot delete the latest revision","code":"REVISION_IS_LATEST"}`。删中间版本不影响其余版本的查看与回滚；只删版本行本身——页面当前内容、FTS、图片对象都不动（孤儿图归月度清理判定；被删版本独占的正文对象由月度内容 GC 判定）。
 
 #### POST /api/pages/:id/revisions/prune
 
 按页批量删版本：只留最新一条，其余全删，200 `{"deleted":3}`。权限与 404 口径同上。重复调用幂等（已是 1 条时 `deleted: 0`）。
 
-#### POST /api/pages/:id/revisions/:revisionId/restore
+#### POST /api/pages/:id/revisions/:versionNo/restore
 
-以该快照写回页面并生成新 revision，返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`，页面内容保持原样。
+以该快照写回页面并生成新 revision（`versionNo` = 当前最大 +1），返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；正文与当前全等（即回滚到当前版本）→ 不新增 revision（标题不同则按改名口径原地更新），响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`、对象缺失 500 `code:"CONTENT_MISSING"`，两种情况下页面内容保持原样。
 
 ### 评论
 
@@ -1185,9 +1259,9 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
   "total": 3,
   "threads": [
     {
-      "id": "…",
+      "id": 1,
       "parentId": null,
-      "authorId": "…",
+      "authorId": 1,
       "authorName": "张三",
       "authorAvatarUrl": "/api/files/avatars/….png",
       "bodyMd": "## Markdown 原文",
@@ -1197,9 +1271,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
       "deletedAt": null,
       "canEdit": true,
       "canDelete": true,
-      "replies": [
-        { "id": "…", "parentId": "顶层评论 id", "bodyMd": "…", "html": "…" }
-      ]
+      "replies": [{ "id": 2, "parentId": 1, "bodyMd": "…", "html": "…" }]
     }
   ]
 }
@@ -1214,7 +1286,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 #### POST /api/pages/:id/comments
 
 ```json
-{ "bodyMd": "## 正文", "parentId": "顶层评论 id 或 null" }
+{ "bodyMd": "## 正文", "parentId": 1 }
 ```
 
 201 返回新评论 DTO（同列表里的单条形状，不含 `replies`）。`parentId` 缺省 / `null` / 空串 = 顶层评论。
@@ -1244,7 +1316,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
   "query": "团队",
   "results": [
     {
-      "pageId": "…",
+      "pageId": 12,
       "title": "团队知识库",
       "snippet": "…命中附近的纯文本片段…",
       "updatedAt": "…",
@@ -1328,15 +1400,17 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 令牌所属用户具备 `editor` 及以上角色的空间（站点管理员为全部空间），默认空间在前：
 
 ```json
-[{ "id": "…", "name": "默认空间" }]
+[{ "id": 1, "slug": "space-1", "name": "默认空间" }]
 ```
+
+`id` 是整数；`space_id` 入参也接整数（字符串形态的十进制数字同样接受，旧插件不用改）。
 
 #### GET /api/import/parents?space_id=
 
 该空间（`space_id` 缺省 = 默认空间）未删页面的扁平摘要（不含正文），供插件选父页：
 
 ```json
-[{ "id": "…", "title": "首页", "parentId": null }]
+[{ "id": 1, "title": "首页", "parentId": null }]
 ```
 
 #### POST /api/import/check
@@ -1348,7 +1422,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 同空间同父级下是否已有同名未删页面：
 
 ```json
-{ "exists": true, "pageId": "…" }
+{ "exists": true, "pageId": 12 }
 ```
 
 不存在时 `{"exists":false}`。标题按纯文本规范化后比较，且必须 1–255 字符（否则 400，与保存口径一致）；同名多页时取排序最前的一条。父页不存在或已删也返回 `exists:false`（不报错）。
@@ -1383,14 +1457,16 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 ```
 
 - `space_id`：目标空间。缺省/空串落默认空间；用户对该空间无 `editor` 及以上角色 → 403 `code:"SPACE_FORBIDDEN"`。
-- `parentId`：目标父页 id，必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。缺省、`null` 与空串（含纯空白）都表示根页——根页在库里是 `parent_id IS NULL`，服务端不会写入空串，避免造出游离页；其它类型 400。
+- `parentId`：目标父页 id（整数），必须属于目标空间（否则 409 `code:"SPACE_MISMATCH"`）。缺省、`null` 与空串（含纯空白）都表示根页——根页在库里是 `parent_id IS NULL`，服务端不会写入空串，避免造出游离页；非整数（含旧 UUID、`1.5`、负数）400。父页不存在 404，父页已软删 409 `code:"PARENT_DELETED"`。
 - `contentJson`：TipTap JSON，**字符串或对象均可**（对象由服务端序列化后入库）；只存 JSON，`contentHtml` / `contentText` 一律服务端生成。
 - `conflict` 必填：`"update"` = 同空间同父级同名未删页则覆盖内容并追加一条 revision（与编辑器保存同一条写路径：页面 + revision + FTS 同一 `db.batch()` 事务）；内容与现存行四列全等时是同一路径上的空操作——不写行、不新增 revision，响应仍为 200 `{pageId,url}`。不存在则新建；`"create_copy"` = 总是新建，不改写标题。
 - 新建 201、更新 200，响应一致：
 
 ```json
-{ "pageId": "…", "url": "/p/<pageId>" }
+{ "pageId": 12, "url": "/p/12" }
 ```
+
+`pageId` 是整数，`url` 就是整数形态的 `/p/<id>`（插件把它拼进锚点即可，旧 uuid 地址已不存在）。
 
 - 渲染与消毒：`contentHtml = sanitizePageHtml(renderTiptapHtml(contentJson))`——服务端按编辑器扩展集建 schema，用 ProseMirror 的 `DOMSerializer` 在 happy-dom（Worker 内的 `GlobalWindow`，不依赖 Worker 外的 DOM）上原生渲染，再过 §4 同一支白名单消毒；`contentText` 由消毒后的 HTML 生成。插件侧的 HTML/纯文本不被信任，**消毒结果为准**。服务端渲染把表格列宽写成 `col[width]`，读态列宽比例保留——列数=1 的表格是例外：唯一列占满正文宽，列宽一律不落（单元格 `colwidth` 与 `col[width]` 都不写，服务端渲染不再生成带宽度提示的 `colgroup`），读态按全宽渲染、不会把源端那个窄宽度拣回来；任务项勾选态为 `data-checked="true"|"false"`；颜色写成 data 载具（见下一条）；代码块折叠态写成 `pre[data-collapsed]`（见下下条）。
 - 颜色（插件侧需要产出的 JSON 形态）：文字颜色 `marks: [{ "type": "textStyle", "attrs": { "color": "#rrggbb" } }]`，高亮 `marks: [{ "type": "highlight", "attrs": { "color": "#rrggbb" } }]`，单元格底色 `tableCell` / `tableHeader` 的 `attrs.backgroundColor: "#rrggbb"`（与 `colspan` / `rowspan` / `colwidth` 并列，表头同样适用）。值只认 `#rrggbb`；其它写法（命名色、`rgb()`、`var()`、带透明度）不会报错，但颜色会被丢弃。
@@ -1451,7 +1527,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 全部未删页面的扁平表（不分页、不建树；`parent_id` 给调用方自己拼层级），按「空间 → 同级顺序 → 创建时间」排序：
 
 ```json
-[{ "id": "…", "title": "首页", "parent_id": null, "updated_at": "…" }]
+[{ "id": 1, "title": "首页", "parent_id": null, "updated_at": "…" }]
 ```
 
 #### GET /api/read/search?q=<词>
@@ -1461,7 +1537,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 ```json
 [
   {
-    "id": "…",
+    "id": 1,
     "title": "团队知识库",
     "snippet": "…命中附近的纯文本片段…",
     "updated_at": "…"
@@ -1475,7 +1551,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ```json
 {
-  "id": "…",
+  "id": 1,
   "title": "…",
   "parent_id": null,
   "created_at": "…",
@@ -1484,8 +1560,9 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 }
 ```
 
-- `markdown` 即 `pages.content_md`（不含标题行）；列为空或尚未回填时按需现生成，不报错也不回空文档。
-- 带 `?format=json` 时改回真源：`{…, "content_json": "{\"type\":\"doc\",…}"}`（不再返回 `markdown`）。
+- `id` / `parent_id` 是整数（JSON number）。接入方若把 id 当字符串存，需要自己转。
+- `markdown` 即 `pages.content_md`（不含标题行），D1 里现成就有（写路径保证非空）。
+- 带 `?format=json` 时改回真源：`{…, "content_json": "{\"type\":\"doc\",…}"}`（不再返回 `markdown`），正文从内容桶按 `pages.content_hash` 取回；`content_json` 的 snake_case 字段名与内容都是冻结契约的一部分，**不随内容上 R2 改变**。
 - 页面不存在或已软删 → 404 `{"error":"Page not found"}`；所属空间非令牌用户可见也同样 404（不泄露存在性）。
 
 #### Markdown 派生规则（`content_md` / `markdown` / `contentMd` 三者同一口径）
@@ -1498,7 +1575,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 图片→`![alt](绝对地址)`：本站路径（`/api/files/...`）补全为 `https://ciki.oneboy.app` + 路径；已是绝对地址或 `data:` 原样保留；只有 `data-original-src` 的未转存占位图用它。
 - 颜色/高亮→丢弃只留文字；下划线→降为纯文字；未知节点降级为它的文字内容。
 - 派生**永不报错**：JSON 无法解析或不合当前 schema 时退回已消毒的纯文本（`content_text`）。
-- `content_md` 不参与无改动保存的判等（判等仍是标题 + `content_json` + `content_html` + `content_text` 四项）；历史版本不存 MD。
+- `content_md` 不参与无改动保存的判等（判等只看正文：正文哈希 + `content_html` + `content_text` 三项；标题变化只原地改标题与索引，不计入版本增长）；历史版本不存 MD。
 
 ### 服务端消毒规则（content_html）
 

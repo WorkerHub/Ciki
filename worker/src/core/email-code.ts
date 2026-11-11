@@ -68,7 +68,7 @@ export function generateEmailCode(): string {
 /** `code_hash = SHA-256("<purpose>:<userId>:<code>")`（64 位 hex）。 */
 export function hashEmailCode(
   purpose: EmailCodePurpose,
-  userId: string,
+  userId: number,
   code: string
 ): Promise<string> {
   return sha256Hex(`${purpose}:${userId}:${code}`)
@@ -92,7 +92,7 @@ export async function issueEmailCode(
   db: D1Database,
   prefix: string,
   options: {
-    userId: string
+    userId: number
     purpose: EmailCodePurpose
     binding?: string
   }
@@ -125,7 +125,7 @@ export async function verifyEmailCode(
   db: D1Database,
   prefix: string,
   options: {
-    userId: string
+    userId: number
     purpose: EmailCodePurpose
     binding?: string
     code: string
@@ -329,12 +329,12 @@ export async function resetEmailCodeVerifyCounter(
 export async function consumePasswordResetSubmitLimit(
   db: D1Database,
   prefix: string,
-  options: { userId: string | null; ip: string }
+  options: { userId: number | null; ip: string }
 ): Promise<{ allowed: true } | { allowed: false; retryAfter: number }> {
   const now = nowSeconds()
   const state = await consumeCounter(db, prefix, {
     action: "password_reset_submit",
-    account: options.userId ?? "",
+    account: options.userId === null ? "" : String(options.userId),
     ip: options.ip,
     windowSeconds: PASSWORD_RESET_SUBMIT_WINDOW_SECONDS
   })

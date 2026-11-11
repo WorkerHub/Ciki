@@ -1,657 +1,137 @@
 /**
- * 数据库结构的唯一真源：一个初始化版本，今后的改动只在末尾追加。
+ * 数据库结构的唯一真源：一个初始化版本 + 一次破坏性重建，今后的改动只在末尾追加。
  *
- * 规则：
- * - `schema_v1` 是全新库的唯一初始化迁移：一次建出全部表/索引，并播种默认空间。
- *   Ciki 没有要保留的存量库，因此不提供 v1→v5 那样的逐版本升级路径。
- * - 今后的结构变化只在末尾追加 `schema_v2`、`schema_v3`…，已合并的迁移不得改名、
+ * 规则（本次重构后）：
+ * - `schema_v1` 是全新库的唯一初始化迁移：按 `schema.ts` 的这份定版 DDL 一次建出全部
+ *   表/索引（ID 整数化 + 正文 `content_hash` 指针 + 内容清理日志 `kind` 列），并播种
+ *   默认空间。基线随这次破坏性重构整体更新，`schema_v2`–`v5` 的净效果已并入基线，
+ *   因此它们不再出现在迁移列表里（老库的账本行留着，执行器只认当前列表）。
+ * - `schema_v6` 是存量库的一次性重建：把 v1–v5 时代的表整体换成同一份新基线结构，
+ *   正文搬上 R2。细节见 `rebuild.ts`。已是新结构的库命中幂等空转，只补索引。
+ * - 今后的结构变化只在末尾追加 `schema_v7`、`schema_v8`…，已合并的迁移不得改名、
  *   改内容或调序。
- * - 迁移必须可重复执行：`CREATE … IF NOT EXISTS`、`ADD COLUMN`、`INSERT OR IGNORE`；
- *   不做 DROP / RENAME / 数据重写。
- * - 语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）：执行器按 `;`
- *   切分后逐条执行。
- * - 表名/索引名一律经 src/lib/tables.ts 拼装，本文件只写 `{prefix}` 占位。
- * - SQLite 缺 `ADD COLUMN IF NOT EXISTS` 之类的能力时，可在 `prepare` 里做结构补齐
- *   与数据回填：它先于 sql 执行、只允许补新列里仍为空的值，不得覆盖既有数据，
- *   同样必须可重复执行（`schema_v3` 的 `user_2fa.email_otp_enabled` 就是这么补的）。
- * - **prepare-only 形态**（`schema_v2` 起）：当一步改动无法用本文件支持的语句表达
- *   （`ADD COLUMN` 没有 IF NOT EXISTS，数据回填要调 Worker 的压缩 API），整个迁移写成
- *   `sql: ""` + 幂等 `prepare`：先探列、缺了才加，再按 keyset 分批处理剩下的行。
- *   `prepare` 抛错则该迁移不记账，下次 setup 从头重跑（已处理过的行被 `IS NULL` 守卫
- *   跳过），所以天然可中断续跑；全部做完才记一行账。
- * - 数据重写的唯一例外是**格式转换**（`schema_v2` 的版本正文 gzip 化）：只有在「新列
- *   写入成功且回读逐字节一致」之后，才清空被它完整替代的冗余列（`content_json` /
- *   `content_html` / `content_text`），且逐行带 `content_gzip IS NULL` 守卫，重复执行
- *   不会二次覆盖。除这条转换外，不得用迁移改写既有数据。
+ * - 迁移必须可重复执行；`prepare` 抛错则该迁移不记账，下次 setup 从头重跑。
+ * - 语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）。
+ * - 表名/索引名一律经 src/lib/tables.ts / schema.ts 拼装，本文件只写 `{prefix}` 占位。
  */
+import type { Env } from "../types"
+import { rebuildSchema } from "./rebuild"
 import {
-  backfillRevisionStatement,
-  listLegacyRevisionsBatch,
-  probeGzipColumn
-} from "../db/queries/revisions"
-import {
-  backfillContentMdStatement,
-  listPagesMissingMarkdownBatch
-} from "../db/queries/pages"
-import { gzipText, gunzipText } from "./gzip"
-import { derivePageMarkdown } from "./tiptap-markdown"
-import {
-  challengesTable,
-  commentsTable,
-  countersTable,
-  emailCodesTable,
-  importTokensTable,
-  pagesFtsTable,
-  pagesTable,
-  passkeysTable,
-  r2CleanupRunsTable,
-  readTokensTable,
-  revisionsTable,
-  sessionsTable,
-  settingsTable,
-  spaceMembersTable,
-  spacesTable,
-  user2faTable,
-  usersTable,
-  wakerExecutionsTable
-} from "./tables"
+  SCHEMA_INDEXES,
+  SCHEMA_TABLES,
+  baselineStatements,
+  tableDdl,
+  withTable
+} from "./schema"
+import { tableName } from "./tables"
+
+/** 迁移执行时能拿到的东西：库、生效前缀、以及 R2/密钥绑定（重建迁移要写内容桶）。 */
+export interface MigrationContext {
+  db: D1Database
+  prefix: string
+  env: Env
+}
 
 export interface Migration {
   name: string
   sql: string
-  /** 在 sql 之前执行的幂等补齐（加列、回填），见文件头注释。 */
-  prepare?: (db: D1Database, prefix: string) => Promise<void>
+  /** 在 sql 之前执行的幂等补齐（数据搬运/重建），见文件头注释。 */
+  prepare?: (ctx: MigrationContext) => Promise<void>
 }
-
-/** 默认空间的固定 id：初始化迁移建它、导入缺省落它、删除守卫保护它。 */
-export const DEFAULT_SPACE_ID = "space-default"
 
 export const DEFAULT_SPACE_NAME = "默认空间"
 
 /**
- * auth_counters 的建表语句（D1 计数表是限流的唯一权威）。setup 限流器会在迁移
- * 之前用同一份 DDL 先建表，所以这里导出模板、两处共用，避免结构漂移。
+ * 默认空间的固定 id 与 slug（全新库播种用）。
+ * 存量库升级时 id 按 `created_at` 顺序分配，默认空间通常仍是 1；代码只按 `is_default`
+ * 判定默认空间，不假设它一定是 1。
  */
-export const AUTH_COUNTERS_TABLE_DDL = `CREATE TABLE IF NOT EXISTS {prefix}auth_counters (
-  key          TEXT PRIMARY KEY,
-  action       TEXT NOT NULL,
-  account      TEXT NOT NULL DEFAULT '',
-  ip           TEXT NOT NULL DEFAULT '',
-  count        INTEGER NOT NULL DEFAULT 0,
-  window_start INTEGER NOT NULL,
-  locked_until INTEGER,
-  updated_at   INTEGER NOT NULL
-)`
+export const DEFAULT_SPACE_ID = 1
+export const DEFAULT_SPACE_SLUG = "space-1"
+
+/**
+ * `auth_counters` 的建表语句（D1 计数表是限流的唯一权威）。setup 限流器会在迁移
+ * 之前用同一份 DDL 先建表，所以这里导出模板、两处共用，避免结构漂移。
+ *
+ * 占位符沿用 `{prefix}`（`core/counters.ts` 直接 replaceAll），DDL 本体仍来自
+ * `schema.ts`，不另抄一份。
+ */
+export const AUTH_COUNTERS_TABLE_DDL = withTable(
+  tableDdl("auth_counters"),
+  "{prefix}auth_counters"
+)
 
 export const AUTH_COUNTERS_INDEX_DDL = `CREATE INDEX IF NOT EXISTS {prefix}auth_counters_action_account
   ON {prefix}auth_counters(action, account)`
 
 /**
- * schema_v1 — 全新库的全部结构 + 默认空间播种。
- *
- * 鉴权部分按 eNotify 移植（users / user_2fa 的密码哈希与 TOTP 存储口径），
- * 但会话改为不透明令牌 + SHA-256 落库、passkey 凭证独立成表、一次性挑战与
- * 限流计数落 D1（仓库没有 KV 绑定，规格补遗定版）。
- *
- * 身份三列（username / public_id / avatar_key）与页面所属空间（pages.space_id）
- * 直接声明在 CREATE 里——全新库没有需要 ALTER 补列的旧表。默认空间的 id/名称由
- * DEFAULT_SPACE_ID / DEFAULT_SPACE_NAME 插值，避免与导入、删除守卫里的常量漂移。
+ * 默认空间的初始化：用固定 id 1 播种（全新库没有任何历史 id，固定值让书签与
+ * 迁移后的形态一致）。`slug` 由名称生成——「默认空间」没有可用 ASCII 字符，按兜底
+ * 规则就是 `space-1`。
  */
-const SCHEMA_V1 = `CREATE TABLE IF NOT EXISTS {prefix}users (
-  id             TEXT PRIMARY KEY,
-  email          TEXT UNIQUE NOT NULL,
-  password_hash  TEXT NOT NULL,
-  role           TEXT NOT NULL DEFAULT 'user',
-  is_active      INTEGER NOT NULL DEFAULT 1,
-  approval_status TEXT NOT NULL DEFAULT 'approved',
-  email_verified INTEGER NOT NULL DEFAULT 0,
-  base_currency  TEXT NOT NULL DEFAULT 'CNY',
-  timezone       TEXT NOT NULL DEFAULT 'UTC',
-  language       TEXT NOT NULL DEFAULT 'zh',
-  theme          TEXT NOT NULL DEFAULT 'system',
-  username       TEXT NOT NULL DEFAULT '',
-  public_id      TEXT NOT NULL DEFAULT '',
-  avatar_key     TEXT NOT NULL DEFAULT '',
-  created_at     TEXT NOT NULL,
-  updated_at     TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS {prefix}user_2fa (
-  user_id      TEXT PRIMARY KEY,
-  totp_secret  TEXT,
-  totp_enabled INTEGER NOT NULL DEFAULT 0,
-  updated_at   TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS {prefix}passkey_credentials (
-  id            TEXT PRIMARY KEY,
-  user_id       TEXT NOT NULL,
-  credential_id TEXT NOT NULL,
-  public_key    TEXT NOT NULL,
-  counter       INTEGER NOT NULL DEFAULT 0,
-  transports    TEXT NOT NULL DEFAULT '',
-  created_at    TEXT NOT NULL,
-  last_used_at  TEXT
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}passkey_credentials_user_id
-  ON {prefix}passkey_credentials(user_id);
-CREATE UNIQUE INDEX IF NOT EXISTS {prefix}passkey_credentials_credential_id
-  ON {prefix}passkey_credentials(credential_id);
-
-CREATE TABLE IF NOT EXISTS {prefix}sessions (
-  id              TEXT PRIMARY KEY,
-  token_hash      TEXT NOT NULL,
-  user_id         TEXT NOT NULL,
-  needs_2fa_setup INTEGER NOT NULL DEFAULT 0,
-  created_at      INTEGER NOT NULL,
-  last_seen_at    INTEGER NOT NULL,
-  expires_at      INTEGER NOT NULL,
-  ip              TEXT NOT NULL DEFAULT '',
-  user_agent      TEXT NOT NULL DEFAULT ''
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS {prefix}sessions_token_hash
-  ON {prefix}sessions(token_hash);
-CREATE INDEX IF NOT EXISTS {prefix}sessions_user_id
-  ON {prefix}sessions(user_id);
-
-CREATE TABLE IF NOT EXISTS {prefix}auth_challenges (
-  key        TEXT PRIMARY KEY,
-  user_id    TEXT NOT NULL,
-  purpose    TEXT NOT NULL,
-  payload    TEXT NOT NULL DEFAULT '',
-  expires_at INTEGER NOT NULL,
-  created_at INTEGER NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}auth_challenges_expires_at
-  ON {prefix}auth_challenges(expires_at);
-
-${AUTH_COUNTERS_TABLE_DDL};
-
-${AUTH_COUNTERS_INDEX_DDL};
-
-CREATE TABLE IF NOT EXISTS {prefix}system_settings (
-  key        TEXT PRIMARY KEY,
-  value      TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS {prefix}pages (
-  id           TEXT PRIMARY KEY,
-  space_id     TEXT NOT NULL DEFAULT '',
-  parent_id    TEXT,
-  title        TEXT NOT NULL,
-  sort_order   INTEGER NOT NULL DEFAULT 0,
-  content_json TEXT NOT NULL DEFAULT '',
-  content_html TEXT NOT NULL DEFAULT '',
-  content_text TEXT NOT NULL DEFAULT '',
-  created_by   TEXT NOT NULL,
-  updated_by   TEXT NOT NULL,
-  created_at   TEXT NOT NULL,
-  updated_at   TEXT NOT NULL,
-  deleted_at   TEXT
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}pages_parent_sort
-  ON {prefix}pages(parent_id, sort_order);
-CREATE INDEX IF NOT EXISTS {prefix}pages_deleted_at
-  ON {prefix}pages(deleted_at);
-CREATE INDEX IF NOT EXISTS {prefix}pages_updated_at
-  ON {prefix}pages(updated_at);
-CREATE INDEX IF NOT EXISTS {prefix}pages_space_parent_sort
-  ON {prefix}pages(space_id, parent_id, sort_order);
-CREATE INDEX IF NOT EXISTS {prefix}pages_space_deleted
-  ON {prefix}pages(space_id, deleted_at);
-
-CREATE TABLE IF NOT EXISTS {prefix}page_revisions (
-  id           TEXT PRIMARY KEY,
-  page_id      TEXT NOT NULL,
-  title        TEXT NOT NULL,
-  content_json TEXT NOT NULL,
-  content_html TEXT NOT NULL,
-  content_text TEXT NOT NULL,
-  editor_id    TEXT NOT NULL,
-  created_at   TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}page_revisions_page_created
-  ON {prefix}page_revisions(page_id, created_at);
-
-CREATE VIRTUAL TABLE IF NOT EXISTS {prefix}pages_fts
-  USING fts5(page_id UNINDEXED, title, content_text);
-
-CREATE TABLE IF NOT EXISTS {prefix}import_tokens (
-  user_id      TEXT PRIMARY KEY,
-  token_hash   TEXT NOT NULL,
-  created_at   TEXT NOT NULL,
-  last_used_at TEXT,
-  revoked_at   TEXT
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS {prefix}import_tokens_token_hash
-  ON {prefix}import_tokens(token_hash);
-
-CREATE UNIQUE INDEX IF NOT EXISTS {prefix}users_public_id
-  ON {prefix}users(public_id) WHERE public_id <> '';
-
-CREATE TABLE IF NOT EXISTS {prefix}spaces (
-  id          TEXT PRIMARY KEY,
-  name        TEXT NOT NULL,
-  description TEXT NOT NULL DEFAULT '',
-  is_default  INTEGER NOT NULL DEFAULT 0,
-  created_by  TEXT NOT NULL DEFAULT '',
-  created_at  TEXT NOT NULL,
-  updated_at  TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS {prefix}spaces_is_default
-  ON {prefix}spaces(is_default) WHERE is_default = 1;
-
-CREATE TABLE IF NOT EXISTS {prefix}space_members (
-  space_id   TEXT NOT NULL,
-  user_id    TEXT NOT NULL,
-  role       TEXT NOT NULL CHECK (role IN ('admin', 'editor', 'viewer')),
-  created_at TEXT NOT NULL,
-  PRIMARY KEY (space_id, user_id)
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}space_members_user_id
-  ON {prefix}space_members(user_id);
-
-INSERT OR IGNORE INTO {prefix}spaces
-  (id, name, description, is_default, created_by, created_at, updated_at)
-VALUES ('${DEFAULT_SPACE_ID}', '${DEFAULT_SPACE_NAME}', '', 1,
-  COALESCE((SELECT id FROM {prefix}users
-             WHERE role = 'admin' ORDER BY rowid LIMIT 1), ''),
+const SEED_DEFAULT_SPACE = `INSERT OR IGNORE INTO {prefix}spaces
+  (id, slug, name, description, is_default, created_by, created_at, updated_at)
+VALUES (${DEFAULT_SPACE_ID}, '${DEFAULT_SPACE_SLUG}', '${DEFAULT_SPACE_NAME}', '', 1,
+  COALESCE((SELECT id FROM {prefix}users WHERE role = 'admin' ORDER BY id LIMIT 1), 0),
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
 
-UPDATE {prefix}pages SET space_id = COALESCE(
-  (SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1),
-  '${DEFAULT_SPACE_ID}')
-  WHERE space_id IS NULL OR space_id = '';
+/** 页面归属回填：空/缺失的 `space_id` 落到默认空间（新结构下是 0 表示缺失）。 */
+const BACKFILL_PAGE_SPACE = `UPDATE {prefix}pages SET space_id = COALESCE(
+  (SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1), 1)
+  WHERE space_id IS NULL OR space_id = 0`
 
-INSERT OR IGNORE INTO {prefix}space_members
+/** 已有用户加入默认空间：站点管理员 `admin`、其余 `editor`。 */
+const SEED_SPACE_MEMBERS = `INSERT OR IGNORE INTO {prefix}space_members
   (space_id, user_id, role, created_at)
-SELECT COALESCE((SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1),
-                '${DEFAULT_SPACE_ID}'),
+SELECT COALESCE((SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1), 1),
        id,
        CASE WHEN role = 'admin' THEN 'admin' ELSE 'editor' END,
        strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-  FROM {prefix}users;
+  FROM {prefix}users`
 
-CREATE TABLE IF NOT EXISTS {prefix}r2_cleanup_runs (
-  id            TEXT PRIMARY KEY,
-  started_at    TEXT NOT NULL,
-  finished_at   TEXT NOT NULL,
-  trigger       TEXT NOT NULL,
-  status        TEXT NOT NULL,
-  dry_run       INTEGER NOT NULL DEFAULT 0,
-  scanned       INTEGER NOT NULL DEFAULT 0,
-  referenced    INTEGER NOT NULL DEFAULT 0,
-  deleted       INTEGER NOT NULL DEFAULT 0,
-  young_skipped INTEGER NOT NULL DEFAULT 0,
-  failed        INTEGER NOT NULL DEFAULT 0,
-  truncated     INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}r2_cleanup_runs_started_at
-  ON {prefix}r2_cleanup_runs(started_at);
-
-CREATE TABLE IF NOT EXISTS {prefix}waker_executions (
-  execution_id   TEXT PRIMARY KEY,
-  job_id         TEXT NOT NULL,
-  job_name       TEXT NOT NULL,
-  scheduled_for  INTEGER NOT NULL,
-  status         TEXT NOT NULL,
-  response_json  TEXT,
-  claimed_at     INTEGER NOT NULL,
-  completed_at   INTEGER
-)`
-
-/** 把迁移里的 `{prefix}` 替换成生效前缀。 */
-function render(sql: string, prefix: string): string {
-  return sql.replaceAll("{prefix}", prefix)
-}
-
-/**
- * 存量转换的分批大小：每批先算 gzip、再一次性写回。
- *
- * 单批太小会把一次升级拆成很多次 D1 往返（受单请求子请求数限制），太大则一批的
- * 内存/CPU 峰值变高；25 行在两边都留了余量。中断后重跑只会处理剩下的行。
- */
-export const GZIP_BACKFILL_BATCH = 25
-
-/**
- * `schema_v2` 第一步：补 `page_revisions.content_gzip` 列。
- *
- * SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以先 `PRAGMA table_info` 探一下：列已在就
- * 是幂等空操作（中断重跑、全新库的重复 setup 都命中这条）。这里用不走缓存的探列：
- * 迁移必须自己核实结构，不能因为请求路径缓存了「已就绪」就跳过建列。
- */
-async function ensureRevisionGzipColumn(
-  db: D1Database,
-  prefix: string
-): Promise<void> {
-  if (await probeGzipColumn(db, prefix)) return
-  await db
-    .prepare(
-      `ALTER TABLE ${revisionsTable(prefix)} ADD COLUMN content_gzip BLOB`
-    )
-    .run()
-}
-
-/**
- * `schema_v2` 第二步：把存量版本行逐行压成新格式。
- *
- * 每行：`gzip(content_json)` → **解压回读并与原文逐字节比对** → 一致才写回，并且写回
- * 的语句自己带 `content_gzip IS NULL` 守卫。所以：
- * - 幂等：已转换的行不再出现在待办里（`content_gzip IS NULL`），写回也再拦一道；
- * - 可中断续跑：每轮只取「还没转换的」前 N 行，`prepare` 抛错则整个迁移不记账，下次
- *   从剩下的行继续；
- * - 不丢内容：压缩失败或回读不一致就中止本轮（不写、不清空），旧文本原样留着；
- * - 元数据不动：只改三个正文列，`title` / `editor_id` / `created_at` / `page_id` 一字不改，
- *   所以迁移前后每页版本条数与元数据必然逐项一致。
- *
- * 刻意**不用 id 游标往前扫**：`page_revisions.id` 是随机 UUID，id 的大小与写入先后无关；
- * 并发保存可能在批量处理期间插进一条旧形态行（它的 id 可能很小），游标会把它跳过，
- * 直接丢了。这里每轮固定拉「当前仍未转换的最前面 N 行」——转换过的行由 `IS NULL`
- * 自然排除，不管 id 落在哪里都不会漏。
- *
- * 清空三列文本是有意为之：HTML 与纯文本随时能从 JSON 重新生成（lib/revision-content.ts），
- * 留着它们等于保留 4–5 倍体积，存量就白搬了。回滚代码不再能读回这些版本的正文，
- * 它们的唯一副本是 `content_gzip`——这正是本迁移先校验后覆盖的理由。
- */
-async function backfillRevisionGzip(
-  db: D1Database,
-  prefix: string
-): Promise<void> {
-  for (;;) {
-    const rows = await listLegacyRevisionsBatch(db, prefix, GZIP_BACKFILL_BATCH)
-    if (rows.length === 0) return
-
-    const statements: D1PreparedStatement[] = []
-    for (const row of rows) {
-      const gzip = await gzipText(row.content_json)
-      const roundTrip = await gunzipText(gzip)
-      if (roundTrip !== row.content_json) {
-        throw new Error(
-          `revision ${row.id} failed gzip round-trip verification; nothing was overwritten`
-        )
-      }
-      statements.push(backfillRevisionStatement(db, prefix, row.id, gzip))
-    }
-    const results = await db.batch(statements)
-    // 一批一行都没写进去 = 这些行仍满足 `content_gzip IS NULL` 却能没被转换
-    // （只可能是并发把状态改了）。此时重拉会拿到同一批行，不能死循环，也不能静默
-    // 记账，所以中止：迁移不记账，下次 setup 重跑。
-    const changed = results.reduce(
-      (sum, result) => sum + result.meta.changes,
-      0
-    )
-    if (changed === 0) {
-      throw new Error(
-        `gzip backfill made no progress on ${rows.length} revision(s) still pending; nothing was overwritten`
-      )
-    }
+/** `schema_v1` 的完整语句序列（表 + 索引 + 播种），`;` 分隔、原子地交给执行器。 */
+function schemaV1(prefix: string): string {
+  const statements = baselineStatements(prefix)
+  for (const statement of [
+    SEED_DEFAULT_SPACE,
+    BACKFILL_PAGE_SPACE,
+    SEED_SPACE_MEMBERS
+  ]) {
+    statements.push(statement.replaceAll("{prefix}", prefix))
   }
+  return statements.join(";\n\n")
 }
 
 /**
- * schema_v2 — 历史版本改存 gzip 的 `content_json`（规格「历史版本 gzip 存储」）。
+ * schema_v6 —— ID 全量整数化 + 正文上 R2 的一次性重建（规格两份定版同一次升级执行）。
  *
- * 全部动作都是幂等的条件结构变更与逐行数据转换，无法用本文件支持的 `;` 分隔语句表达
- * （要探列、要调 Worker 的压缩 API），所以写成 prepare-only 迁移：`sql` 留空，两阶段全在
- * `prepare` 里（见文件头的 prepare-only 形态说明与数据重写例外）。
+ * 全部动作都要读旧正文、调 Worker 的压缩/哈希/加密能力并写 R2，无法用本文件支持的
+ * `;` 分隔语句表达，所以写成 prepare-only 迁移：`sql` 留空，整段在 `prepare` 里
+ * （见 `rebuild.ts` 的流程与校验闸）。已是新结构的库只补索引，幂等空转。
  */
-const SCHEMA_V2: Migration = {
-  name: "schema_v2",
+const SCHEMA_V6: Migration = {
+  name: "schema_v6",
   sql: "",
-  prepare: async (db, prefix) => {
-    await ensureRevisionGzipColumn(db, prefix)
-    await backfillRevisionGzip(db, prefix)
-  }
+  prepare: (ctx) => rebuildSchema(ctx)
 }
-
-/**
- * schema_v3 — 邮箱验证码（#48 契约第 5 条）。
- *
- * 新建 `email_codes` 专表：一个 `(user_id, purpose, binding)` 只保留最新一枚码
- * （重发 UPSERT 覆盖），`attempts` 由 SQL 原子自增，成功校验用 DELETE 原子消费。
- * `user_2fa.email_otp_enabled` 不在 SQL 里补——SQLite 没有
- * `ADD COLUMN IF NOT EXISTS`，放在 `prepare` 里按 PRAGMA 判断后补。
- *
- * 编号说明：契约原本写作 `schema_v2`，但主干上 `schema_v2` 已被历史版本 gzip 化
- * 占用并已应用，不得改名或改内容，因此邮箱验证码顺延为 `schema_v3`。
- */
-const SCHEMA_V3 = `CREATE TABLE IF NOT EXISTS {prefix}email_codes (
-  user_id    TEXT NOT NULL,
-  purpose    TEXT NOT NULL CHECK (purpose IN ('password_reset', '2fa_login', '2fa_enable')),
-  binding    TEXT NOT NULL DEFAULT '',
-  code_hash  TEXT NOT NULL,
-  attempts   INTEGER NOT NULL DEFAULT 0,
-  created_at INTEGER NOT NULL,
-  expires_at INTEGER NOT NULL,
-  PRIMARY KEY (user_id, purpose, binding)
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}email_codes_expires_at
-  ON {prefix}email_codes(expires_at)`
-
-/**
- * schema_v3 的结构补齐：`user_2fa` 加邮箱验证码开关列。
- *
- * 幂等：列已存在（或在同一轮里已被补过）直接返回；表不存在时跳过——正常情况下
- * `schema_v1` 已在同一轮里先建出 `user_2fa`，这里只防御“只跑过部分迁移”的库。
- */
-async function prepareSchemaV3(db: D1Database, prefix: string): Promise<void> {
-  const table = user2faTable(prefix)
-  const columns = await db
-    .prepare(`PRAGMA table_info(${table})`)
-    .all<{ name: string }>()
-  if (columns.results.length === 0) return
-  if (columns.results.some((column) => column.name === "email_otp_enabled")) {
-    return
-  }
-  await db
-    .prepare(
-      `ALTER TABLE ${table} ADD COLUMN email_otp_enabled INTEGER NOT NULL DEFAULT 0`
-    )
-    .run()
-}
-
-/**
- * `schema_v4` 第一步：`pages` 补 `content_md` 列（规格一期：MD 派生存储）。
- *
- * SQLite 没有 `ADD COLUMN IF NOT EXISTS`，所以先用 PRAGMA 探一下：列已在就是幂等空
- * 操作（中断重跑、重复 setup 都命中这条）。表本身不在时（只跑过部分迁移的库）本轮
- * 不动——正常情况 `schema_v1` 已在同一轮里先建出 `pages`。
- *
- * 返回值是「本轮结束时列是否就绪」；列补不上（表不在）时回填也无从下手，与之一并跳过。
- */
-async function ensureContentMdColumn(
-  db: D1Database,
-  prefix: string
-): Promise<boolean> {
-  const table = pagesTable(prefix)
-  const columns = await db
-    .prepare(`PRAGMA table_info(${table})`)
-    .all<{ name: string }>()
-  if (columns.results.length === 0) return false
-  if (columns.results.some((column) => column.name === "content_md")) {
-    return true
-  }
-  await db.prepare(`ALTER TABLE ${table} ADD COLUMN content_md TEXT`).run()
-  return true
-}
-
-/**
- * 存量页每批回填的页面数（口径同 `GZIP_BACKFILL_BATCH`）。
- *
- * 太小会把一次升级拆成很多次 D1 往返（受单请求子请求数限制），太大则一批的 CPU 峰值
- * 变高（每行都要解析 JSON 并序列化 MD）。中断后重跑只会处理剩下的行。
- */
-export const CONTENT_MD_BACKFILL_BATCH = 25
-
-/**
- * `schema_v4` 第二步：把存量页面的 `content_md` 逐行派生出来。
- *
- * 每轮只拉「当前仍缺 MD 的前 N 行」，`derivePageMarkdown` **永不抛错**（JSON 坏掉的
- * 历史脏数据退回纯文本），写回语句自己带 `content_md IS NULL` 守卫。所以：
- * - 幂等：已回填的行不再出现在待办里，写回也再拦一道；
- * - 可中断续跑：`prepare` 抛错则该迁移不记账，下次 setup 从剩下的行继续；
- * - 不会死循环：一批行仍待办却一行都没写进去（只可能是并发改了状态）就中止，既不
- *   静默记账也不空转；
- * - 只动 `content_md`：标题、正文三列、`updated_at` / `updated_by` 一字不改——回填是
- *   纯派生，不是一次编辑。
- *
- * 刻意不用 id 游标：`pages.id` 是随机 UUID，与写入先后无关；迁移期间并发新建的页
- * （id 可能很小）会被游标跳过。每轮重新问「现在谁还缺 MD」就不会漏。
- */
-async function backfillPageMarkdown(
-  db: D1Database,
-  prefix: string
-): Promise<void> {
-  for (;;) {
-    const rows = await listPagesMissingMarkdownBatch(
-      db,
-      prefix,
-      CONTENT_MD_BACKFILL_BATCH
-    )
-    if (rows.length === 0) return
-
-    const statements = rows.map((row) =>
-      backfillContentMdStatement(
-        db,
-        prefix,
-        row.id,
-        derivePageMarkdown(row.content_json, row.content_text)
-      )
-    )
-    const results = await db.batch(statements)
-    const changed = results.reduce(
-      (sum, result) => sum + result.meta.changes,
-      0
-    )
-    if (changed === 0) {
-      throw new Error(
-        `content_md backfill made no progress on ${rows.length} page(s) still pending; nothing was overwritten`
-      )
-    }
-  }
-}
-
-/**
- * schema_v4 — MD 派生存储（规格一期 §一）。
- *
- * 两件事：①`pages` 加 `content_md`（派生列，真源仍是 `content_json`）；②新建只读接口
- * 令牌表 `read_tokens`（与 `import_tokens` 并列、互不通用）。
- *
- * 形式：`read_tokens` 是纯 DDL，放进 `sql`；加列与存量回填放 `prepare`（先探列、
- * 缺了才 ALTER，再按批回填）——与 `schema_v2` 同一个 prepare-only 思路，区别只是这次
- * 不需要调 Worker 的压缩 API，所以 sql 部分照常可写。
- */
-const SCHEMA_V4 = `CREATE TABLE IF NOT EXISTS {prefix}read_tokens (
-  user_id      TEXT PRIMARY KEY,
-  token_hash   TEXT NOT NULL,
-  created_at   TEXT NOT NULL,
-  last_used_at TEXT,
-  revoked_at   TEXT
-);
-
-CREATE UNIQUE INDEX IF NOT EXISTS {prefix}read_tokens_token_hash
-  ON {prefix}read_tokens(token_hash)`
-
-/** schema_v4 的结构补齐与存量回填（幂等、可中断续跑，见各函数注释）。 */
-async function prepareSchemaV4(db: D1Database, prefix: string): Promise<void> {
-  if (!(await ensureContentMdColumn(db, prefix))) return
-  await backfillPageMarkdown(db, prefix)
-}
-
-/**
- * schema_v5 — 页尾评论（规格「Ciki 页尾评论」）。
- *
- * 一张表承载顶层评论与一级回复：`parent_id` 为 NULL 是顶层，回复恒指向其顶层评论
- * id（回复的目标若本身是回复，写库前已归一到顶层，见 routes/comments.ts 的发表分支）。
- * 正文只存 Markdown 原文 `body_md`，渲染 HTML 在读取时按同一管线现生成，不存副本。
- *
- * 纯 DDL、无 `prepare`：全部 `IF NOT EXISTS`，重复执行无副作用。页面彻底删除时
- * 评论随父页硬删（db/queries/pages.ts 的 permanentDeleteSubtree）；软删页面不动评论，
- * 页面本身 404 就让评论接口一起不可达，恢复后原样回来。
- */
-const SCHEMA_V5 = `CREATE TABLE IF NOT EXISTS {prefix}comments (
-  id         TEXT PRIMARY KEY,
-  page_id    TEXT NOT NULL,
-  parent_id  TEXT,
-  author_id  TEXT NOT NULL,
-  body_md    TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  edited_at  TEXT,
-  deleted_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS {prefix}comments_page_created
-  ON {prefix}comments(page_id, created_at);
-CREATE INDEX IF NOT EXISTS {prefix}comments_parent
-  ON {prefix}comments(parent_id);
-CREATE INDEX IF NOT EXISTS {prefix}comments_author
-  ON {prefix}comments(author_id)`
 
 export function getMigrations(prefix: string): Migration[] {
-  // 说明：表名统一由 tables.ts 的 helper 提供；这里只做前缀替换，
-  // 并断言 helper 与迁移 SQL 用的是同一套名字（改一处就会在这里暴露）。
-  const sql = render(SCHEMA_V1, prefix)
-  const expected = [
-    usersTable(prefix),
-    user2faTable(prefix),
-    passkeysTable(prefix),
-    sessionsTable(prefix),
-    challengesTable(prefix),
-    countersTable(prefix),
-    settingsTable(prefix),
-    pagesTable(prefix),
-    revisionsTable(prefix),
-    pagesFtsTable(prefix),
-    importTokensTable(prefix),
-    spacesTable(prefix),
-    spaceMembersTable(prefix),
-    r2CleanupRunsTable(prefix),
-    wakerExecutionsTable(prefix)
-  ]
-  for (const name of expected) {
-    if (!sql.includes(name)) {
-      throw new Error(`migration schema_v1 is missing table ${name}`)
+  const sqlV1 = schemaV1(prefix)
+
+  // 表名统一由 tables.ts 的 helper 提供；这里断言 schema.ts 与它用的是同一套名字
+  // （改一处就会在这里暴露）。
+  for (const table of SCHEMA_TABLES) {
+    const expected = tableName(prefix, table.name)
+    if (!sqlV1.includes(expected)) {
+      throw new Error(`migration schema_v1 is missing table ${expected}`)
+    }
+  }
+  for (const ddl of SCHEMA_INDEXES) {
+    if (!ddl.includes("{prefix}")) {
+      throw new Error("schema index DDL must use the {prefix} placeholder")
     }
   }
 
-  const sqlV3 = render(SCHEMA_V3, prefix)
-  if (!sqlV3.includes(emailCodesTable(prefix))) {
-    throw new Error(
-      `migration schema_v3 is missing table ${emailCodesTable(prefix)}`
-    )
-  }
-
-  const sqlV4 = render(SCHEMA_V4, prefix)
-  if (!sqlV4.includes(readTokensTable(prefix))) {
-    throw new Error(
-      `migration schema_v4 is missing table ${readTokensTable(prefix)}`
-    )
-  }
-
-  const sqlV5 = render(SCHEMA_V5, prefix)
-  if (!sqlV5.includes(commentsTable(prefix))) {
-    throw new Error(
-      `migration schema_v5 is missing table ${commentsTable(prefix)}`
-    )
-  }
-
-  return [
-    { name: "schema_v1", sql },
-    SCHEMA_V2,
-    { name: "schema_v3", sql: sqlV3, prepare: prepareSchemaV3 },
-    { name: "schema_v4", sql: sqlV4, prepare: prepareSchemaV4 },
-    { name: "schema_v5", sql: sqlV5 }
-  ]
+  return [{ name: "schema_v1", sql: sqlV1 }, SCHEMA_V6]
 }

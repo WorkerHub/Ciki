@@ -20,14 +20,14 @@ export const EMAIL_CODE_PURPOSES: readonly EmailCodePurpose[] = [
 ]
 
 export interface EmailCodeKey {
-  userId: string
+  userId: number
   purpose: EmailCodePurpose
   /** `2fa_login` 为 `SHA-256(tempToken)`；`password_reset` / `2fa_enable` 为空串。 */
   binding?: string
 }
 
 export interface EmailCodeRow {
-  user_id: string
+  user_id: number
   purpose: EmailCodePurpose
   binding: string
   code_hash: string
@@ -60,7 +60,7 @@ export async function putEmailCode(
   db: D1Database,
   prefix: string,
   row: {
-    userId: string
+    userId: number
     purpose: EmailCodePurpose
     binding?: string
     codeHash: string
@@ -154,7 +154,7 @@ export async function incrementEmailCodeAttempts(
 export async function deleteUserEmailCodes(
   db: D1Database,
   prefix: string,
-  userId: string,
+  userId: number,
   purpose?: EmailCodePurpose
 ): Promise<void> {
   const table = emailCodesTable(prefix)

@@ -5,10 +5,15 @@
  * 删除/恢复/回滚，`viewer` 只读；非成员访问页面一律按不存在处理（404），
  * 不泄露该空间的存在性。站点管理员不受成员表限制。
  *
+ * id 一律是整数（`/p/<id>` 的同一套数字）；旧的 UUID 地址不再识别，按不存在回 404。
+ *
+ * 正文分工（规格「读写路径」）：读页 HTML / MD 下载只读 D1 的派生件，热路径不碰 R2；
+ * 编辑器要的 JSON 走 `GET /api/pages/:id?format=json`，按 `content_hash` 从内容桶取。
+ *
  * - 页面父子关系只能在同一空间内；跨空间移动通过 move 的可选 `spaceId` 完成，
  *   未指定父页时挂到目标空间根。
- * - 新建/保存/有实际改动时追加一条 revision，并在同一个 db.batch() 里同步 FTS；
- *   内容与现存行全等的保存是空操作（不写行、不追加 revision、不重建 FTS）。
+ * - 新建/保存/有实际改动时追加一条版本，并在同一个 db.batch() 里同步 FTS；
+ *   内容与现存行全等的保存是空操作（不写行、不上传对象、不追加版本）。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
@@ -33,7 +38,7 @@ import { findDefaultSpace } from "../db/queries/spaces"
 import {
   deleteRevision,
   getRevision,
-  latestRevisionId,
+  latestVersionNo,
   listRevisions,
   trimPageRevisionStatement
 } from "../db/queries/revisions"
@@ -43,7 +48,9 @@ import {
   resolveSpaceRole,
   type SpaceRole
 } from "../core/space-access"
+import { readContent } from "../core/content-store"
 import { indexPageStatements } from "../lib/fts"
+import { parseId, readJsonBody, readParentId, readSpaceId } from "../lib/http"
 import {
   cleanPageFilename,
   contentDisposition,
@@ -56,9 +63,10 @@ import {
 import { normalizePageInput, type PageContentResult } from "../lib/page-input"
 import { zipStream } from "../lib/zip-stream"
 import { createPage, savePageContent } from "../core/page-write"
-import { revisionContent } from "../lib/revision-content"
-import { resolvePageMarkdown } from "../lib/tiptap-markdown"
-import { readJsonBody, readParentId, readSpaceId } from "../lib/http"
+import {
+  revisionContent,
+  type RevisionContentResult
+} from "../lib/revision-content"
 import type { HonoEnv } from "../types"
 
 export const pageRoutes = new Hono<HonoEnv>()
@@ -73,17 +81,19 @@ function toSummary(row: PageSummaryRow) {
   }
 }
 
+/**
+ * 页面详情。
+ *
+ * **不含正文 JSON**：阅读页只吃 HTML / 纯文本 / MD（派生物，D1 里就有），
+ * 打开编辑器或要原文时加 `?format=json` 走 R2。
+ */
 function toDetail(row: PageRow) {
   return {
     ...toSummary(row),
     spaceId: row.space_id,
-    contentJson: row.content_json,
     contentHtml: row.content_html,
     contentText: row.content_text,
-    // 派生件（只读）：下载端点（GET /api/pages/:id/download）取的是同一份 MD，
-    // 这里照旧下发；列尚未回填时按需现生成，与 GET /api/read/pages/:id 的 markdown
-    // 同一口径，也不经过只读令牌接口。
-    contentMd: resolvePageMarkdown(row),
+    contentMd: row.content_md,
     createdBy: row.created_by,
     updatedBy: row.updated_by,
     createdAt: row.created_at
@@ -96,6 +106,14 @@ function isSiteAdmin(c: Context<HonoEnv>): boolean {
 
 function pageNotFound(c: Context<HonoEnv>) {
   return c.json({ error: "Page not found" }, 404)
+}
+
+/** 内容对象缺失（被误删/迁移未完成）：明确 5xx，不把空正文当成正常结果。 */
+function contentUnavailable(c: Context<HonoEnv>) {
+  return c.json(
+    { error: "Page content unavailable", code: "CONTENT_MISSING" },
+    500
+  )
 }
 
 function spaceNotFound(c: Context<HonoEnv>) {
@@ -125,6 +143,18 @@ function badInput(parsed: Extract<PageContentResult, { ok: false }>) {
   } as const
 }
 
+/**
+ * 版本正文取不出来的两种口径（查看与回滚共用）：
+ * 对象整个不见了 → 500 `CONTENT_MISSING`；对象在但渲染不了/字节坏掉 → 422。
+ */
+function revisionContentFailed(
+  c: Context<HonoEnv>,
+  result: Extract<RevisionContentResult, { ok: false }>
+) {
+  if (result.kind === "missing") return contentUnavailable(c)
+  return unrenderableRevision(c, result.error)
+}
+
 /** 版本的 JSON 无法按当前编辑器 schema 渲染 → 422（查看与回滚同一口径）。 */
 function unrenderableRevision(c: Context<HonoEnv>, reason: string) {
   return c.json(
@@ -137,7 +167,7 @@ function unrenderableRevision(c: Context<HonoEnv>, reason: string) {
 }
 
 type SpaceTarget =
-  | { ok: true; spaceId: string; role: SpaceRole }
+  | { ok: true; spaceId: number; role: SpaceRole }
   | { ok: false; response: Response }
 
 /** 解析请求里的空间（缺省 = 默认空间），并给出当前用户在该空间的有效角色。 */
@@ -149,7 +179,7 @@ async function spaceTarget(
   if (!parsed.ok) {
     return {
       ok: false,
-      response: c.json({ error: "spaceId must be a string or null" }, 400)
+      response: c.json({ error: "spaceId must be an integer or null" }, 400)
     }
   }
 
@@ -194,7 +224,7 @@ pageRoutes.get("/", async (c) => {
   const prefix = getTablePrefix(c.env)
   const rows = await listPageRows(c.env.DB, prefix, target.spaceId)
   const nodes = new Map<
-    string,
+    number,
     ReturnType<typeof toSummary> & { children: unknown[] }
   >()
   for (const row of rows) {
@@ -240,20 +270,20 @@ pageRoutes.get("/trash", async (c) => {
  * R2 里已不存在的图不入包、其链接保留原绝对地址，不因个别缺图让整包失败。
  *
  * 权限与 `GET /:id` 同一口径：非成员、页面不存在、已软删一律 404（不泄露空间存在性）。
- * 走 /api/pages 的会话中间件，只读令牌与导入令牌都进不来。
  */
 pageRoutes.get("/:id/download", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const row = await getPageRow(c.env.DB, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const row = await getPageRow(c.env.DB, prefix, id)
   if (!row || row.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, row)
   if (!role) return pageNotFound(c)
 
-  // 与只读接口 / 页面详情同一口径：库里有 content_md 就用，没有就按需现生成。
   const document = markdownDocument({
     title: row.title,
-    contentMd: resolvePageMarkdown(row)
+    contentMd: row.content_md
   })
   const name = cleanPageFilename(row.title)
   const keys = siteImageKeys(document)
@@ -297,11 +327,24 @@ pageRoutes.get("/:id/download", async (c) => {
 pageRoutes.get("/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const row = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const row = await getPageRow(db, prefix, id)
   if (!row || row.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, row)
   if (!role) return pageNotFound(c)
+
+  // `?format=json`：编辑器/外部调用要原文，按 content_hash 从内容桶取（热路径不走这里）。
+  if (c.req.query("format") === "json") {
+    let contentJson: string
+    try {
+      contentJson = await readContent(c.env, row.content_hash)
+    } catch {
+      return contentUnavailable(c)
+    }
+    return c.json({ ...toDetail(row), contentJson })
+  }
   return c.json(toDetail(row))
 })
 
@@ -320,16 +363,16 @@ pageRoutes.post("/", async (c) => {
   // 根页 = null；空串/纯空白同样按根页处理，绝不把 "" 写进 parent_id。
   const parent = readParentId(body?.parentId)
   if (!parent.ok) {
-    return c.json({ error: "parentId must be a string or null" }, 400)
+    return c.json({ error: "parentId must be an integer or null" }, 400)
   }
   const requestedSpace = readSpaceId(body?.spaceId)
   if (!requestedSpace.ok) {
-    return c.json({ error: "spaceId must be a string or null" }, 400)
+    return c.json({ error: "spaceId must be an integer or null" }, 400)
   }
 
-  let spaceId: string
+  let spaceId: number
   const parentId = parent.value
-  if (parentId) {
+  if (parentId !== null) {
     const parentRow = await getPageRow(db, prefix, parentId)
     if (!parentRow) {
       return c.json(
@@ -367,7 +410,7 @@ pageRoutes.post("/", async (c) => {
     spaceId = target.spaceId
   }
 
-  const row = await createPage(db, prefix, {
+  const row = await createPage(c.env, prefix, {
     spaceId,
     parentId,
     content: parsed.value,
@@ -388,14 +431,16 @@ pageRoutes.put("/:id", async (c) => {
 
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const existing = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const existing = await getPageRow(db, prefix, id)
   if (!existing || existing.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, existing)
   if (!role) return pageNotFound(c)
   if (!canEditPages(role)) return forbidden(c)
 
-  const saved = await savePageContent(db, prefix, existing, {
+  const saved = await savePageContent(c.env, prefix, existing, {
     content: parsed.value,
     userId: c.get("userId"),
     now: new Date().toISOString()
@@ -405,13 +450,15 @@ pageRoutes.put("/:id", async (c) => {
 
 pageRoutes.post("/:id/move", async (c) => {
   const body = await readJsonBody<{
-    parentId?: string | null
+    parentId?: unknown
     sortOrder?: number
-    spaceId?: string | null
+    spaceId?: unknown
   }>(c)
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page || page.deleted_at) return pageNotFound(c)
 
   const sourceRole = await pageSpaceRole(c, page)
@@ -421,7 +468,7 @@ pageRoutes.post("/:id/move", async (c) => {
   // move 的 spaceId 缺省是「当前页面所在空间」，不是默认空间。
   const requestedSpace = readSpaceId(body?.spaceId)
   if (!requestedSpace.ok) {
-    return c.json({ error: "spaceId must be a string or null" }, 400)
+    return c.json({ error: "spaceId must be an integer or null" }, 400)
   }
   const targetSpaceId = requestedSpace.value ?? page.space_id
   const targetAccess = await resolveSpaceAccess(
@@ -443,7 +490,7 @@ pageRoutes.post("/:id/move", async (c) => {
       : body.parentId
   const parent = readParentId(rawParent)
   if (!parent.ok) {
-    return c.json({ error: "parentId must be a string or null" }, 400)
+    return c.json({ error: "parentId must be an integer or null" }, 400)
   }
   const parentId = parent.value
   if (parentId !== null) {
@@ -539,7 +586,9 @@ pageRoutes.post("/:id/move", async (c) => {
 pageRoutes.delete("/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page || page.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
@@ -554,14 +603,16 @@ pageRoutes.delete("/:id", async (c) => {
 pageRoutes.post("/:id/restore", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page?.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
   if (!role) return pageNotFound(c)
   if (!canEditPages(role)) return forbidden(c)
 
-  if (page.parent_id) {
+  if (page.parent_id !== null) {
     const parent = await getPageRow(db, prefix, page.parent_id)
     if (parent?.deleted_at) {
       return c.json(
@@ -594,7 +645,9 @@ pageRoutes.post("/:id/restore", async (c) => {
 pageRoutes.delete("/:id/permanent", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
@@ -616,7 +669,9 @@ pageRoutes.delete("/:id/permanent", async (c) => {
 pageRoutes.get("/:id/revisions", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
@@ -625,7 +680,7 @@ pageRoutes.get("/:id/revisions", async (c) => {
   const rows = await listRevisions(db, prefix, page.id)
   return c.json(
     rows.map((row) => ({
-      id: row.id,
+      versionNo: row.version_no,
       title: row.title,
       editorId: row.editor_id,
       createdAt: row.created_at
@@ -633,28 +688,26 @@ pageRoutes.get("/:id/revisions", async (c) => {
   )
 })
 
-pageRoutes.get("/:id/revisions/:revisionId", async (c) => {
+pageRoutes.get("/:id/revisions/:versionNo", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  const versionNo = parseId(c.req.param("versionNo"))
+  if (id === null || versionNo === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
   if (!role) return pageNotFound(c)
 
-  const revision = await getRevision(
-    db,
-    prefix,
-    page.id,
-    c.req.param("revisionId")
-  )
+  const revision = await getRevision(db, prefix, page.id, versionNo)
   if (!revision) return c.json({ error: "Revision not found" }, 404)
 
-  // 新形态的行只存 gzip JSON，HTML/纯文本在这里按需生成（旧形态行原样返回）。
-  const content = await revisionContent(revision)
-  if (!content.ok) return unrenderableRevision(c, content.error)
+  // 版本行只有 JSON 指针，HTML/纯文本在这里按需生成。
+  const content = await revisionContent(c.env, revision)
+  if (!content.ok) return revisionContentFailed(c, content)
   return c.json({
-    id: revision.id,
+    versionNo: revision.version_no,
     pageId: revision.page_id,
     title: revision.title,
     contentJson: content.value.contentJson,
@@ -665,28 +718,27 @@ pageRoutes.get("/:id/revisions/:revisionId", async (c) => {
   })
 })
 
-pageRoutes.post("/:id/revisions/:revisionId/restore", async (c) => {
+pageRoutes.post("/:id/revisions/:versionNo/restore", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  const versionNo = parseId(c.req.param("versionNo"))
+  if (id === null || versionNo === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page || page.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
   if (!role) return pageNotFound(c)
   if (!canEditPages(role)) return forbidden(c)
 
-  const revision = await getRevision(
-    db,
-    prefix,
-    page.id,
-    c.req.param("revisionId")
-  )
+  const revision = await getRevision(db, prefix, page.id, versionNo)
   if (!revision) return c.json({ error: "Revision not found" }, 404)
 
-  const content = await revisionContent(revision)
-  if (!content.ok) return unrenderableRevision(c, content.error)
+  const content = await revisionContent(c.env, revision)
+  if (!content.ok) return revisionContentFailed(c, content)
 
-  const saved = await savePageContent(db, prefix, page, {
+  // 回滚写回同一份内容：哈希不变（同对象复用，不复制字节），只追加一条新版本。
+  const saved = await savePageContent(c.env, prefix, page, {
     content: content.value,
     userId: c.get("userId"),
     now: new Date().toISOString()
@@ -695,31 +747,33 @@ pageRoutes.post("/:id/revisions/:revisionId/restore", async (c) => {
 })
 
 /**
- * 删一条历史版本。
+ * 删一条历史版本（按「第 N 版」寻址）。
  *
  * 权限与回滚同档（`canEditPages`）——只读成员连入口带接口一起掉；非成员按不存在处
  * 理（404，不泄露该页属于哪个空间）。每页最新一条是当前内容的快照，一律拒删。
- * 删的只是版本行：`pages` 当前内容、FTS、R2 对象都不动（孤儿图归月度清理判定）。
+ * 删的只是版本行：`pages` 当前内容、FTS、内容对象都不动（孤儿对象归月度 GC 判定）。
  */
-pageRoutes.delete("/:id/revisions/:revisionId", async (c) => {
+pageRoutes.delete("/:id/revisions/:versionNo", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  const versionNo = parseId(c.req.param("versionNo"))
+  if (id === null || versionNo === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page || page.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
   if (!role) return pageNotFound(c)
   if (!canEditPages(role)) return forbidden(c)
 
-  const revisionId = c.req.param("revisionId")
   // 「最新一条不许删」写在 DELETE 自己的 WHERE 里（见 deleteRevision）：不存在先读后写的
   // 时间窗，并发保存/回滚也删不到刚写进去的那条。删 0 行才回头查一次，只为在 409
   // 与 404 之间选一个准确答复。
-  const deleted = await deleteRevision(db, prefix, page.id, revisionId)
+  const deleted = await deleteRevision(db, prefix, page.id, versionNo)
   if (deleted > 0) return c.json({ success: true })
 
-  const latest = await latestRevisionId(db, prefix, page.id)
-  if (latest === revisionId) {
+  const latest = await latestVersionNo(db, prefix, page.id)
+  if (latest === versionNo) {
     return c.json(
       {
         error: "Cannot delete the latest revision",
@@ -732,24 +786,20 @@ pageRoutes.delete("/:id/revisions/:revisionId", async (c) => {
 })
 
 /**
- * 按页批量删版本：只留最新一条，其余全删（保留数与删除逻辑都是同一套排序口径）。
+ * 按页批量删版本：只留最新一条，其余全删（与保留数同一套排序口径）。
  */
 pageRoutes.post("/:id/revisions/prune", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const page = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+  const page = await getPageRow(db, prefix, id)
   if (!page || page.deleted_at) return pageNotFound(c)
 
   const role = await pageSpaceRole(c, page)
   if (!role) return pageNotFound(c)
   if (!canEditPages(role)) return forbidden(c)
 
-  const result = await trimPageRevisionStatement(
-    db,
-    prefix,
-    page.id,
-    1,
-    null
-  ).run()
+  const result = await trimPageRevisionStatement(db, prefix, page.id, 1).run()
   return c.json({ deleted: result.meta.changes })
 })
