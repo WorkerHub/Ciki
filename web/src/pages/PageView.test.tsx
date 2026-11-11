@@ -30,7 +30,15 @@ vi.mock("@/lib/api", async (importOriginal) => {
       tree: vi.fn(),
       download: vi.fn()
     },
-    commentsApi: { ...actual.commentsApi, list: vi.fn() }
+    // 评论区在阅读页里会真的调接口：五个方法一并替掉，免得用例误触真实请求
+    commentsApi: {
+      ...actual.commentsApi,
+      list: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+      preview: vi.fn()
+    }
   }
 })
 

@@ -17,18 +17,16 @@ export function useComments(pageId: string) {
   const [error, setError] = useState("")
   const [pending, setPending] = useState(false)
   // 每次请求领一个号：切页、并发刷新与卸载都靠它丢弃过期响应
+  // （卸载时把号推进一步，在途请求回来就不再落地，不需要第二个旗标）
   const seq = useRef(0)
-  const alive = useRef(true)
   const pendingRef = useRef(false)
 
-  useEffect(() => {
-    alive.current = true
-    return () => {
-      alive.current = false
-      // 卸载后到达的响应一律作废
+  useEffect(
+    () => () => {
       seq.current += 1
-    }
-  }, [])
+    },
+    []
+  )
 
   const reload = useCallback(async () => {
     const mine = ++seq.current
@@ -38,11 +36,11 @@ export function useComments(pageId: string) {
     setError("")
     try {
       const list = await commentsApi.list(pageId)
-      if (!alive.current || mine !== seq.current) return
+      if (mine !== seq.current) return
       setData(list)
       setStatus("ready")
     } catch (loadError: unknown) {
-      if (!alive.current || mine !== seq.current) return
+      if (mine !== seq.current) return
       setStatus("error")
       setError(describeApiError(loadError))
     }
@@ -66,7 +64,7 @@ export function useComments(pageId: string) {
         return false
       } finally {
         pendingRef.current = false
-        if (alive.current) setPending(false)
+        setPending(false)
       }
     },
     [reload]

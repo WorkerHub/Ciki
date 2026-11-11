@@ -79,6 +79,16 @@ export function CommentSection({ pageId }: { pageId: string }) {
     cancelEdit()
   }
 
+  /**
+   * 删除确认：成功才关框，失败留在原处可重试（错误由 useComments 用 toast 给出）。
+   * Radix 的 AlertDialogAction 本质是 Close 按钮，点了就关；这里在 onClick 里
+   * preventDefault 把关闭时机接管过来（成功才 setDeleteTarget(null)）。
+   */
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    if (await remove(deleteTarget.id)) setDeleteTarget(null)
+  }
+
   function renderItem(comment: CommentDto, onReply: () => void) {
     return (
       <CommentItem
@@ -196,12 +206,14 @@ export function CommentSection({ pageId }: { pageId: string }) {
             <AlertDialogDescription>删除后无法恢复。</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={pending}
-              onClick={() => {
-                if (deleteTarget) void remove(deleteTarget.id)
+              onClick={(event) => {
+                // 拦住 Radix Close 的自动关闭：请求在途/失败时对话框留着
+                event.preventDefault()
+                void confirmDelete()
               }}
             >
               删除

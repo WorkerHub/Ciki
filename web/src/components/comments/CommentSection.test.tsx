@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CommentSection } from "@/components/comments/CommentSection"
@@ -353,6 +353,37 @@ describe("页尾评论区", () => {
     dialog = await screen.findByRole("alertdialog")
     await user.click(within(dialog).getByRole("button", { name: "删除" }))
     expect(vi.mocked(commentsApi.remove)).toHaveBeenCalledWith("p1", "c1")
+    // 删除成功才关框
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
+  })
+
+  it("删除失败时对话框留着，可以直接重试", async () => {
+    const user = userEvent.setup()
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [thread()]
+    })
+    renderSection()
+    await screen.findByText("第一行")
+
+    await user.click(
+      within(item("c1") as HTMLElement).getByRole("button", { name: "删除" })
+    )
+    const dialog = await screen.findByRole("alertdialog")
+    vi.mocked(commentsApi.remove).mockRejectedValueOnce(
+      new ApiError(403, "只有作者或管理员能删除")
+    )
+    await user.click(within(dialog).getByRole("button", { name: "删除" }))
+
+    // 失败：框不关、确认按钮重新可用，用户可以再点一次
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "删除" })).toBeEnabled()
+    )
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole("button", { name: "删除" }))
+    expect(vi.mocked(commentsApi.remove)).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
 
   it("预览调服务端同一条渲染链，返回的 HTML 直接呈现，再点收起回文本域", async () => {
