@@ -465,6 +465,25 @@ describe("describeApiError：注册邮箱验证", () => {
   })
 })
 
+/**
+ * 用户名唯一（契约「PUT /api/me/profile」）：撞名 409 `USERNAME_TAKEN`。界面只说结果，
+ * 不解释唯一索引之类的机制；也不能因为 409 兜底是 `error.message` 就把后端英文原文
+ * 摆给用户（改用户名的唯一入口是个人资料页，失败文案统一走 describeApiError）。
+ */
+describe("describeApiError：用户名撞名", () => {
+  it("改用户名撞名（409 USERNAME_TAKEN）→ 中文提示，不漏英文原文", () => {
+    const error = apiError(
+      409,
+      "Username taken",
+      "/me/profile",
+      "USERNAME_TAKEN"
+    )
+    expect(describeApiError(error)).toBe("这个用户名已经有人用了，请换一个。")
+    expect(describeApiError(error)).not.toContain("Username")
+    expect(describeApiError(error)).not.toBe("当前状态冲突，请刷新后重试。")
+  })
+})
+
 /** 阅读页「下载 .md」的传输层：一条 GET 拿二进制，错误仍是 JSON 口径。 */
 function stubFetch(response: Response) {
   const fetchMock = vi.fn<
