@@ -103,3 +103,29 @@ export const SAMPLE_COLOR_HTML = `
 <tr><td class="confluenceTd" style="background-color: #fffae6!important;">生产</td><td class="confluenceTd" style="color: #de350b; background-color: #ffebe6;">3000ms</td></tr>
 </tbody></table>
 </div>`
+
+// 单列表格样本（1 行 1 列表格套代码）：Confluence 里用「1×1 表格 + 代码宏」排版参数
+// 清单是常见写法，源端 colgroup 只带一个很小的像素宽度（这里 76px，与用户实拍同量级）。
+// 回读时这段宽度曾被写进单元格 colwidth，整格被压成窄条、代码逐字折行——本单的复现夹具。
+export const SAMPLE_SINGLE_COLUMN_TABLE_HTML = `
+<div class="table-wrap">
+<table class="confluenceTable" data-layout-width="default">
+<colgroup><col style="width: 76.0px;"></colgroup>
+<tbody>
+<tr><td class="confluenceTd">
+<p>聚合查询进程的内存区域划分，参数含义以官方文档为准：</p>
+<div class="code panel pdl conf-macro output-block" data-hasbody="false">
+<div class="codeContent panelContent pdl"><pre class="syntaxhighlighter-pre" data-syntaxhighlighter-params="brush: java; gutter: false; theme: Confluence">-Xms512m
+-Xmx2g
+-XX:MaxMetaspaceSize=256m
+-XX:+UseG1GC
+-XX:G1HeapRegionSize=4m
+-XX:InitiatingHeapOccupancyPercent=45
+-XX:ParallelGCThreads=4
+-XX:ConcGCThreads=1
+-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/data/dump/heap-%p.hprof -XX:OnOutOfMemoryError="/usr/local/bin/notify.sh %p"</pre></div>
+</div>
+</td></tr>
+</tbody>
+</table>
+</div>`

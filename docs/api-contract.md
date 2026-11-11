@@ -1306,7 +1306,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 { "pageId": "…", "url": "/p/<pageId>" }
 ```
 
-- 渲染与消毒：`contentHtml = sanitizePageHtml(renderTiptapHtml(contentJson))`——服务端按编辑器扩展集建 schema，用 ProseMirror 的 `DOMSerializer` 在 happy-dom（Worker 内的 `GlobalWindow`，不依赖 Worker 外的 DOM）上原生渲染，再过 §4 同一支白名单消毒；`contentText` 由消毒后的 HTML 生成。插件侧的 HTML/纯文本不被信任，**消毒结果为准**。服务端渲染把表格列宽写成 `col[width]`，读态列宽比例保留；任务项勾选态为 `data-checked="true"|"false"`；颜色写成 data 载具（见下一条）；代码块折叠态写成 `pre[data-collapsed]`（见下下条）。
+- 渲染与消毒：`contentHtml = sanitizePageHtml(renderTiptapHtml(contentJson))`——服务端按编辑器扩展集建 schema，用 ProseMirror 的 `DOMSerializer` 在 happy-dom（Worker 内的 `GlobalWindow`，不依赖 Worker 外的 DOM）上原生渲染，再过 §4 同一支白名单消毒；`contentText` 由消毒后的 HTML 生成。插件侧的 HTML/纯文本不被信任，**消毒结果为准**。服务端渲染把表格列宽写成 `col[width]`，读态列宽比例保留——列数=1 的表格是例外：唯一列占满正文宽，列宽一律不落（单元格 `colwidth` 与 `col[width]` 都不写，服务端渲染不再生成带宽度提示的 `colgroup`），读态按全宽渲染、不会把源端那个窄宽度拣回来；任务项勾选态为 `data-checked="true"|"false"`；颜色写成 data 载具（见下一条）；代码块折叠态写成 `pre[data-collapsed]`（见下下条）。
 - 颜色（插件侧需要产出的 JSON 形态）：文字颜色 `marks: [{ "type": "textStyle", "attrs": { "color": "#rrggbb" } }]`，高亮 `marks: [{ "type": "highlight", "attrs": { "color": "#rrggbb" } }]`，单元格底色 `tableCell` / `tableHeader` 的 `attrs.backgroundColor: "#rrggbb"`（与 `colspan` / `rowspan` / `colwidth` 并列，表头同样适用）。值只认 `#rrggbb`；其它写法（命名色、`rgb()`、`var()`、带透明度）不会报错，但颜色会被丢弃。
 - 代码块折叠（插件侧需要产出的 JSON 形态）：`codeBlock` 的 `attrs.collapsed`，三态——`true` = 作者/来源明确设为折叠；`false` = 明确设为展开（永不自动折）；不写该属性（或写 `null`）= 未表态，阅读页按代码行数自动决定（>20 行初始折叠，≤20 行展开）。服务端把它渲染成挂在 `pre` 上的 `data-collapsed`，`code` 仍只带 `language-*`；未表态**不输出**该属性，三态因此都能区分。值只认布尔（`null` 等同未表态）；`"true"` 这类字符串、数字、对象一律 400 `code:"INVALID_CONTENT_JSON"`，不静默丢属性。折叠是显示状态：不改正文、不进 `contentText`、不影响搜索与版本内容比对；但属性本身属于节点属性，变化照常算一次编辑存版（无改动的判等口径不变）。三态样例（`attrs` → `content_html`）：
 

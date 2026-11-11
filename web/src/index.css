@@ -359,6 +359,19 @@
   white-space: pre;
 }
 
+/* 代码块永不折行（含表格单元格里的代码块）：正文的 word-break: break-word 是给中文
+   段落用的，漏进代码块会把超长行从词中间断开，这里复位成 normal；white-space: pre
+   与 CodeBlockView 给 NodeViewContent 的同一个值一致（那个行内值来自依赖的默认，
+   在组件里就地覆盖），超宽交给 pre 的 overflow-x 横滚。
+   格内代码与独立代码块的渲染口径就此一致；行内代码（:not(pre) > code）不在本条范围内，
+   仍按普通文本折行。 */
+.wiki-content .code-block > pre,
+.wiki-content .code-block > pre > code {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
 /* highlight.js —— GitHub 浅色配色（小样 index.html 定版） */
 .wiki-content .hljs-comment,
 .wiki-content .hljs-punctuation {
@@ -445,6 +458,17 @@
   max-width: 100%;
   border-collapse: collapse;
   table-layout: auto;
+}
+
+/* 单列表格（列数=1）：唯一列一律占满正文宽，存储的 colwidth 对它不生效
+   （粘贴转换、读态、编辑态都已把单列表格的列宽归一掉，这里只负责撑满）。
+   判据用 TableView 实际渲染的列定义：col 由 colspan 展开，所以「只有一条合并
+   表头行」的多列表格、colspan=2 的单单元格表格都不会被误判成单列。 */
+.wiki-content .tableWrapper > table:has(> colgroup > col:only-child) {
+  width: 100%;
+  /* 固定布局：单列只有一列，宽度就是表格宽（= 正文宽）；格内超长的代码不许把整张表
+     顶宽，横滚留给代码块自己的 pre。多列表格不适用本条，列宽保真逻辑不受影响。 */
+  table-layout: fixed;
 }
 
 .wiki-content .tableWrapper > table {

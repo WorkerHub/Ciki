@@ -79,6 +79,62 @@ describe("阅读态渲染（与编辑态共用同一套扩展）", () => {
     // TipTap 渲染自己的 colgroup（px 宽度来自 colwidth），表格不再撑满行宽
     expect(table.querySelectorAll("col").length).toBe(2)
     expect(table.querySelector("col")?.getAttribute("style")).toContain("120px")
+    // 多列表格的列宽保真口径不变：120 + 240 落成表格的固定宽度
+    expect(table.style.width).toBe("360px")
+  })
+
+  /**
+   * 单列表格套代码（用户实拍：整格被压成约 76px 窄条）。服务端 contentHtml 里留着
+   * `<colgroup><col width="76">`，渲染前必须忽略它的列宽——存量页面不迁移、不重粘。
+   */
+  it("存量单列表格忽略存储的列宽，按全宽渲染", async () => {
+    const legacy = [
+      '<div class="tableWrapper"><table>',
+      '<colgroup><col width="76"></colgroup>',
+      "<tbody><tr><td><p>参数：</p><pre><code>-Xmx2g -XX:+UseG1GC</code></pre></td></tr></tbody>",
+      "</table></div>"
+    ].join("")
+    const { container } = render(<ReadView html={legacy} />)
+    const table = await waitFor(() => {
+      const found = container.querySelector(".tableWrapper > table")
+      expect(found).not.toBeNull()
+      return found as HTMLElement
+    })
+    // 修复前这里是 "76px"：colwidth 被 TableView 落成了表格的固定宽度
+    expect(table.style.width).toBe("")
+    expect(
+      table.querySelector("col")?.getAttribute("style") ?? ""
+    ).not.toContain("76px")
+  })
+
+  /**
+   * 单列表格嵌在多列表格里：读态给**每一张**表格都套自己的 .tableWrapper（Table 的
+   * NodeView 建），所以 index.css 里 `.tableWrapper > table:has(> colgroup >
+   * col:only-child)` 那条同样命中内层单列表格——内层没有宽度，外层列宽照旧。
+   */
+  it("嵌在多列表格里的单列表格同样按全宽渲染，外层列宽不受影响", async () => {
+    const nested = [
+      '<table><colgroup><col width="120px"><col width="300px"></colgroup><tbody>',
+      "<tr><td>外左</td><td>",
+      '<table><colgroup><col width="76"></colgroup><tbody><tr><td><pre><code>-Xmx2g</code></pre></td></tr></tbody></table>',
+      "</td></tr></tbody></table>"
+    ].join("")
+    const { container } = render(<ReadView html={nested} />)
+    const inner = await waitFor(() => {
+      const found = container.querySelector(
+        ".tableWrapper td .tableWrapper > table"
+      )
+      expect(found).not.toBeNull()
+      return found as HTMLElement
+    })
+    // 外层仍是 120 + 300 的固定宽度；内层没有宽度、只有一个 col（全宽规则的判据）
+    const outer = container.querySelector(
+      ".tableWrapper > table"
+    ) as HTMLElement
+    expect(outer.style.width).toBe("420px")
+    expect(inner.style.width).toBe("")
+    expect(inner.querySelectorAll("colgroup > col").length).toBe(1)
+    expect(inner.querySelector("td")?.getAttribute("colwidth")).toBeNull()
   })
 })
 

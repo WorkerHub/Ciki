@@ -6,11 +6,12 @@ import { cleanConfluenceHtml } from "@/editor/paste/cleaner"
 import {
   SAMPLE_COLOR_HTML,
   SAMPLE_CONFLUENCE_HTML,
-  SAMPLE_SH_TABLE_HTML
+  SAMPLE_SH_TABLE_HTML,
+  SAMPLE_SINGLE_COLUMN_TABLE_HTML
 } from "@/editor/paste/samples"
 import { applyColWidthsFromColgroup } from "@/lib/table-columns"
-import { docJson } from "@/test/tiptap-json"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
+import { docJson } from "@/test/tiptap-json"
 
 /**
  * 清洗后 → TipTap 回读的结构守恒 —— 从小样 v0.4 的 test/roundtrip.test.mjs
@@ -108,6 +109,47 @@ describe("清洗后 TipTap 回读（小样 v0.4 断言）", () => {
   it("行号列样本回读：行内代码 = 0", () => {
     const after = load(SAMPLE_SH_TABLE_HTML)
     expect(after.inlineCode).toBe(0)
+  })
+
+  /**
+   * 单列表格套代码（用户实拍窄条）：源端 colgroup 带着 76px，粘贴管线一个宽度都不许带进来。
+   * 只跳过 colwidth 不够——TipTap 的 parseColwidth 会回落到 `colgroup > col[width]`。
+   */
+  it("单列表格样本：转换后不留 colgroup、不留 colwidth", () => {
+    const converted = applyColWidthsFromColgroup(
+      cleanConfluenceHtml(SAMPLE_SINGLE_COLUMN_TABLE_HTML)
+    )
+    expect(converted).not.toContain("<colgroup")
+    expect(converted).not.toContain("colwidth")
+  })
+
+  it("单列表格样本：回读成 1×1 表格，单元格没有列宽", () => {
+    load(SAMPLE_SINGLE_COLUMN_TABLE_HTML)
+    const table = docJson(editor).content?.find((node) => node.type === "table")
+    expect(table).toBeTruthy()
+    const row = table?.content?.[0]
+    expect(row?.content).toHaveLength(1)
+    expect(row?.content?.[0]?.type).toBe("tableCell")
+    expect(row?.content?.[0]?.attrs?.colwidth).toBeNull()
+  })
+
+  it("单列表格样本：代码逐行完整（长行也没被拆）", () => {
+    load(SAMPLE_SINGLE_COLUMN_TABLE_HTML)
+    const table = docJson(editor).content?.find((node) => node.type === "table")
+    const cellContent = table?.content?.[0]?.content?.[0]?.content ?? []
+    const code = cellContent.find((node) => node.type === "codeBlock")
+    const lines = [
+      "-Xms512m",
+      "-Xmx2g",
+      "-XX:MaxMetaspaceSize=256m",
+      "-XX:+UseG1GC",
+      "-XX:G1HeapRegionSize=4m",
+      "-XX:InitiatingHeapOccupancyPercent=45",
+      "-XX:ParallelGCThreads=4",
+      "-XX:ConcGCThreads=1",
+      '-XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/data/dump/heap-%p.hprof -XX:OnOutOfMemoryError="/usr/local/bin/notify.sh %p"'
+    ]
+    expect(code?.content?.[0]?.text).toBe(lines.join("\n"))
   })
 
   it("外链图片回读后保留未转存标记，且不把外链写回 src", () => {

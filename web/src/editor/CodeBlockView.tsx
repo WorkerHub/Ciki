@@ -169,6 +169,12 @@ export function CodeBlockView({
         <NodeViewContent<"code">
           as="code"
           className={language ? `language-${language}` : undefined}
+          /*
+            NodeViewContent 默认给内容元素挂行内 `white-space: pre-wrap`，代码会按空格折行。
+            它把 props.style 合并在自己的默认值之后，所以这里传 pre 就能就地覆盖——
+            不用 !important 去压行内样式（index.css 的 word-break 复位仍保留）。
+          */
+          style={{ whiteSpace: "pre" }}
         />
       </pre>
     </NodeViewWrapper>

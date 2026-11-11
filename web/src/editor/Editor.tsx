@@ -5,6 +5,7 @@ import { UntransferredImageBridge } from "@/editor/bridge/extension"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
 import { ConfluencePaste } from "@/editor/paste/paste-plugin"
+import { stripSingleColumnColwidths } from "@/lib/table-columns"
 
 export interface EditorPayload {
   contentJson: string
@@ -12,10 +13,15 @@ export interface EditorPayload {
   contentText: string
 }
 
-/** 编辑器内容 → 保存接口要的三件套（契约 pages.contentJson/contentHtml/contentText）。 */
+/**
+ * 编辑器内容 → 保存接口要的三件套（契约 pages.contentJson/contentHtml/contentText）。
+ *
+ * 单列表格的 colwidth 在落库前再归一一次：载入时已经剥过，但会话里拖过列宽手柄的
+ * 单列表格会重新长出 colwidth，保存口径不能因此回退（列宽对单列表格一律不生效）。
+ */
 export function editorPayload(editor: Editor): EditorPayload {
   return {
-    contentJson: JSON.stringify(editor.getJSON()),
+    contentJson: JSON.stringify(stripSingleColumnColwidths(editor.getJSON())),
     contentHtml: editor.getHTML(),
     contentText: editor.getText({ blockSeparator: "\n" })
   }
@@ -42,7 +48,11 @@ export function useWikiEditor({
   onUpdate,
   onError
 }: UseWikiEditorOptions) {
-  const content = useMemo(() => parseContentJson(contentJson), [contentJson])
+  // 存量页的 contentJson 里带着单列表格的 colwidth（窄条元凶），载入时归一成全宽口径
+  const content = useMemo(() => {
+    const parsed = parseContentJson(contentJson)
+    return parsed ? stripSingleColumnColwidths(parsed) : null
+  }, [contentJson])
   // 把 onError 放进 ref：扩展只建一次，但回调始终是最新的那个
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError

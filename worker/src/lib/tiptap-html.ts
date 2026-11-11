@@ -32,16 +32,10 @@
  */
 import {
   Extension,
-  getSchema,
   type Extensions,
+  getSchema,
   type JSONContent
 } from "@tiptap/core"
-import {
-  DOMSerializer,
-  Node as ProseMirrorNode,
-  type DOMOutputSpec,
-  type Schema
-} from "@tiptap/pm/model"
 import Highlight from "@tiptap/extension-highlight"
 import Image from "@tiptap/extension-image"
 import Link from "@tiptap/extension-link"
@@ -53,6 +47,12 @@ import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
 import { TextStyle } from "@tiptap/extension-text-style"
 import Underline from "@tiptap/extension-underline"
+import {
+  type DOMOutputSpec,
+  DOMSerializer,
+  Node as ProseMirrorNode,
+  type Schema
+} from "@tiptap/pm/model"
 import StarterKit from "@tiptap/starter-kit"
 import { GlobalWindow } from "happy-dom"
 
@@ -243,7 +243,21 @@ const ImportTableHeader = TableHeader.extend({
  * （等价的像素宽度，§4 白名单同样允许），列宽比例不受 DOM shim 影响。
  * 表格自身的 style 只是 `width`/`min-width` 的宽度提示（白名单对 `table` 只收
  * `min-width`），列宽已在 `col[width]` 上，删掉不影响内容。
+ *
+ * 单列表格（列数=1）是例外：唯一列占满正文宽，一个宽度都不写——整块丢掉 colgroup。
+ * 不丢的话，读态 TipTap 的 `parseColwidth` 会把 `col[width]` 当回落值拣回去，
+ * 表格又被钉成源端那个窄宽度（用户实拍的单列表格窄条就是这么来的）。
  */
+function isSingleColumnColgroup(spec: unknown): boolean {
+  if (!Array.isArray(spec) || spec[0] !== "colgroup") return false
+  const children = spec.slice(2)
+  return (
+    children.length === 1 &&
+    Array.isArray(children[0]) &&
+    children[0][0] === "col"
+  )
+}
+
 function tableColWidthsAsAttributes(spec: unknown): unknown {
   if (!Array.isArray(spec)) return spec
   const [tag, attrs, ...children] = spec
@@ -259,7 +273,13 @@ function tableColWidthsAsAttributes(spec: unknown): unknown {
     }
     nextAttrs = record
   }
-  return [tag, nextAttrs, ...children.map(tableColWidthsAsAttributes)]
+  const nextChildren = children.map(tableColWidthsAsAttributes)
+  if (tag !== "table") return [tag, nextAttrs, ...nextChildren]
+  return [
+    tag,
+    nextAttrs,
+    ...nextChildren.filter((child) => !isSingleColumnColgroup(child))
+  ]
 }
 
 const ImportTable = Table.extend({
