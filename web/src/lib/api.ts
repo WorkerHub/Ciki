@@ -222,7 +222,7 @@ export interface User {
 }
 
 export interface Me extends User {
-  /** 显示名，可改、不要求唯一；对外身份就是它（不再有第二个用户 id）。 */
+  /** 唯一对外身份：1–40 码点、**必须唯一**（撞名 409 `USERNAME_TAKEN`），可改。 */
   username: string
   /** 头像地址；没有头像时为 null。 */
   avatarUrl: string | null
@@ -1103,6 +1103,10 @@ export function describeApiError(error: unknown): string {
       return "图片超过 10MB，请压缩后再上传。"
     case "INVALID_USERNAME":
       return "用户名不合法，请检查后重试。"
+    case "USERNAME_TAKEN":
+      // 契约「PUT /api/me/profile」：username 必须唯一，撞名 409。只说结果，
+      // 不解释唯一索引之类的实现机制。
+      return "这个用户名已经有人用了，请换一个。"
     case "INVALID_AVATAR":
       return "头像无效，请重新上传。"
     case "INVALID_SPACE_NAME":
