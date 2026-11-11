@@ -76,6 +76,11 @@ const RegisterPage = lazy(() =>
     default: module.RegisterPage
   }))
 )
+const VerifyEmailPage = lazy(() =>
+  import("@/pages/auth/VerifyEmailPage").then((module) => ({
+    default: module.VerifyEmailPage
+  }))
+)
 const SetupPage = lazy(() =>
   import("@/pages/auth/SetupPage").then((module) => ({
     default: module.SetupPage
@@ -112,6 +117,15 @@ export const routes: RouteObject[] = [
         element: (
           <GuestOnly>
             <ForgotPasswordPage />
+          </GuestOnly>
+        )
+      },
+      {
+        // 注册邮箱验证：未登录可访问（只认邮箱 + 验证码），成功后回登录页
+        path: "/verify-email",
+        element: (
+          <GuestOnly>
+            <VerifyEmailPage />
           </GuestOnly>
         )
       },

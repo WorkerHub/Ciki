@@ -1,4 +1,4 @@
-import { ArrowLeft, KeyRound, Mail } from "lucide-react"
+import { ArrowLeft, KeyRound, Mail, ShieldAlert } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Link, useNavigate } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
@@ -12,6 +12,12 @@ import {
   describeApiError,
   type SecondFactorMethod
 } from "@/lib/api"
+import { waitText } from "@/lib/auth-wait"
+import {
+  VERIFY_CODE_TTL_MINUTES,
+  VERIFY_EMAIL_PATH,
+  type VerifyEmailNavState
+} from "@/lib/email-verification"
 import {
   authenticationCredential,
   describeWebAuthnError,
@@ -50,17 +56,28 @@ export function LoginPage() {
   const siteName = useSiteStore((state) => state.name)
   const emailConfigured = useSiteStore((state) => state.emailConfigured)
   const siteLoaded = useSiteStore((state) => state.loaded)
-  /** 站点没配发信时「忘记密码」入口直接不可用（不在登录页摆一个点了必错的链接）。
-   *  站点信息还没读到之前按可用渲染，真正的判定在找回页与服务端 503 里再兜一层。 */
-  const forgotUnavailable = siteLoaded && !emailConfigured
+  /** 站点没配发信时两个邮件入口都走不通（忘记密码要收码、自助注册要先验证邮箱），
+   *  一并收起，不在登录页摆点了必错的链接。站点信息还没读到之前按可用渲染，
+   *  真正的判定在各自页面与服务端 503 里再兜一层。 */
+  const mailEntryUnavailable = siteLoaded && !emailConfigured
   const refreshMe = useAuthStore((state) => state.refreshMe)
   const setRestricted = useAuthStore((state) => state.setRestricted)
+  const setEmailConfigured = useSiteStore((state) => state.setEmailConfigured)
   const [step, setStep] = useState<Step>({ kind: "password" })
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [code, setCode] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  /** 密码正确但邮箱未验证（403 EMAIL_NOT_VERIFIED）：给验证页与重发两个入口。 */
+  const [unverified, setUnverified] = useState<string | null>(null)
+  /** 登录页直接重发验证码的状态（与两步验证的邮箱码各自独立）。 */
+  const [resendBusy, setResendBusy] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [resendNote, setResendNote] = useState<{
+    tone: "info" | "error"
+    text: string
+  } | null>(null)
   const [emailSent, setEmailSent] = useState(false)
   const [emailCooldown, setEmailCooldown] = useState(0)
   /** 已经为哪个登录挑战自动发过码：严格模式下 effect 会跑两遍，别发两封。 */
@@ -79,6 +96,8 @@ export function LoginPage() {
     event.preventDefault()
     setBusy(true)
     setError("")
+    setUnverified(null)
+    setResendNote(null)
     try {
       const response = await authApi.login(email.trim(), password)
       if ("requires2fa" in response && response.requires2fa) {
@@ -106,11 +125,50 @@ export function LoginPage() {
       }
       await finishLogin()
     } catch (loginError) {
+      // 密码已对、只是邮箱还没验证：换成带两个入口的提示块，不只是报一句话
+      if (
+        loginError instanceof ApiError &&
+        loginError.code === "EMAIL_NOT_VERIFIED"
+      ) {
+        setUnverified(email.trim())
+        setResendCooldown(0)
+        return
+      }
       setError(describeApiError(loginError))
     } finally {
       setBusy(false)
     }
   }
+
+  /** 登录页的「重新发送验证码」（契约 200 同形，只看冷却秒数）。 */
+  const resendVerification = useCallback(
+    async (target: string) => {
+      setResendBusy(true)
+      setResendNote(null)
+      try {
+        const sent = await authApi.resendVerificationEmail(target)
+        setResendCooldown(sent.cooldownSeconds)
+        setResendNote({
+          tone: "info",
+          text: `验证码已发送到 ${target}，${VERIFY_CODE_TTL_MINUTES} 分钟内有效。`
+        })
+      } catch (sendError) {
+        if (sendError instanceof ApiError && sendError.retryAfter) {
+          setResendCooldown(sendError.retryAfter)
+        }
+        if (
+          sendError instanceof ApiError &&
+          sendError.code === "EMAIL_NOT_CONFIGURED"
+        ) {
+          setEmailConfigured(false)
+        }
+        setResendNote({ tone: "error", text: waitText(sendError) })
+      } finally {
+        setResendBusy(false)
+      }
+    },
+    [setEmailConfigured]
+  )
 
   const sendEmailCode = useCallback(async (tempToken: string) => {
     setBusy(true)
@@ -147,6 +205,15 @@ export function LoginPage() {
     )
     return () => clearTimeout(timer)
   }, [emailCooldown])
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const timer = setTimeout(
+      () => setResendCooldown((left) => Math.max(0, left - 1)),
+      1000
+    )
+    return () => clearTimeout(timer)
+  }, [resendCooldown])
 
   const submitCode = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -217,7 +284,7 @@ export function LoginPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
               <Label htmlFor="login-password">密码</Label>
-              {forgotUnavailable ? (
+              {mailEntryUnavailable ? (
                 <span
                   aria-disabled="true"
                   title="站点未配置发信，暂时无法通过邮件找回密码"
@@ -245,7 +312,59 @@ export function LoginPage() {
               onChange={(event) => setPassword(event.target.value)}
             />
           </div>
-          {error ? (
+          {unverified ? (
+            <div
+              role="alert"
+              className="space-y-2 rounded-lg border border-border bg-muted/40 p-3 text-xs"
+            >
+              <p className="flex items-start gap-1.5">
+                <ShieldAlert
+                  className="mt-px size-3.5 shrink-0 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                <span>{unverified} 还没有验证邮箱，验证后才能登录。</span>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button asChild size="xs" variant="outline">
+                  <Link
+                    to={VERIFY_EMAIL_PATH}
+                    state={
+                      {
+                        email: unverified,
+                        // 刚在这页重发过：验证页进去也按冷却计，避免立刻再撞 429
+                        codeSent: resendNote?.tone === "info"
+                      } satisfies VerifyEmailNavState
+                    }
+                  >
+                    去验证
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  disabled={resendBusy || resendCooldown > 0}
+                  onClick={() => void resendVerification(unverified)}
+                >
+                  {resendCooldown > 0
+                    ? `${resendCooldown}s 后可重发`
+                    : "重新发送验证码"}
+                </Button>
+              </div>
+              {resendNote ? (
+                <p
+                  role="status"
+                  className={
+                    resendNote.tone === "error"
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                  }
+                >
+                  {resendNote.text}
+                </p>
+              ) : null}
+            </div>
+          ) : error ? (
             <p role="alert" className="text-xs text-destructive">
               {error}
             </p>
@@ -253,18 +372,25 @@ export function LoginPage() {
           <Button type="submit" size="sm" className="w-full" disabled={busy}>
             {busy ? "登录中…" : "登录"}
           </Button>
-          {forgotUnavailable ? (
+          {mailEntryUnavailable ? (
             <p className="text-xs text-muted-foreground">
-              站点未配置发信，邮件找回密码暂不可用；请联系管理员在「系统管理 →
-              邮件配置」中填写 SMTP。
+              站点未配置发信，邮件找回密码与自助注册暂不可用；请联系管理员在「系统管理
+              → 邮件配置」中填写 SMTP。
             </p>
           ) : null}
-          <p className="text-center text-xs text-muted-foreground">
-            还没有账号？
-            <Link to="/register" className="underline underline-offset-4">
-              注册
-            </Link>
-          </p>
+          {mailEntryUnavailable ? (
+            // 发信不可用时上面那行已说明原因：这行只说账号怎么来，不重复 SMTP
+            <p className="text-center text-xs text-muted-foreground">
+              账号请联系管理员开通。
+            </p>
+          ) : (
+            <p className="text-center text-xs text-muted-foreground">
+              还没有账号？
+              <Link to="/register" className="underline underline-offset-4">
+                注册
+              </Link>
+            </p>
+          )}
         </form>
       </AuthShell>
     )

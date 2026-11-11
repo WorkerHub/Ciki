@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter } from "react-router"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError } from "@/lib/api"
+import type { VerifyEmailNavState } from "@/lib/email-verification"
 import { LoginPage } from "@/pages/auth/LoginPage"
 import { useSiteStore } from "@/stores/site"
 
@@ -15,6 +16,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       login: vi.fn(),
       verifySecondFactor: vi.fn(),
       sendLoginEmailCode: vi.fn(),
+      resendVerificationEmail: vi.fn(),
       config: vi.fn()
     },
     meApi: { ...actual.meApi, get: vi.fn() }
@@ -22,6 +24,16 @@ vi.mock("@/lib/api", async (importOriginal) => {
 })
 
 const { authApi, meApi } = await import("@/lib/api")
+
+/** 验证页占位：把 login 带过去的路由状态原样打出来，供断言。 */
+function VerifyProbe() {
+  const state = useLocation().state as VerifyEmailNavState | null
+  return (
+    <p>
+      验证页占位 {state?.email} {state?.codeSent ? "已发码" : "未发码"}
+    </p>
+  )
+}
 
 const renderLogin = () =>
   render(
@@ -406,5 +418,163 @@ describe("忘记密码入口", () => {
 
     expect(screen.getByRole("link", { name: "忘记密码？" })).toBeInTheDocument()
     expect(screen.queryByText(/系统管理 → 邮件配置/)).toBeNull()
+  })
+})
+
+/**
+ * 登录门禁里的「邮箱未验证」（#85 契约）：密码对了但 email_verified=0 时是
+ * 403 `EMAIL_NOT_VERIFIED`。登录页不能只说一句错，要给验证页与重发两个入口。
+ */
+describe("登录遇未验证邮箱", () => {
+  const notVerified = () =>
+    new ApiError(
+      403,
+      "Email not verified",
+      "EMAIL_NOT_VERIFIED",
+      undefined,
+      { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
+      "/auth/login"
+    )
+
+  const attemptLogin = async () => {
+    const events = userEvent.setup()
+    renderLogin()
+    await events.type(screen.getByLabelText("邮箱"), "a@b.c")
+    await events.type(screen.getByLabelText("密码"), "secret-password")
+    await events.click(screen.getByRole("button", { name: "登录" }))
+    return events
+  }
+
+  beforeEach(() => {
+    vi.mocked(authApi.login).mockRejectedValue(notVerified())
+    vi.mocked(authApi.resendVerificationEmail).mockResolvedValue({
+      success: true,
+      cooldownSeconds: 60
+    })
+  })
+
+  it("提示邮箱未验证，并给「去验证」与「重新发送验证码」两个入口", async () => {
+    await attemptLogin()
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("a@b.c 还没有验证邮箱，验证后才能登录。")
+    // 与「会话失效」区分开：这是账号状态，不是登录态过期
+    expect(alert).not.toHaveTextContent("登录状态已失效")
+    expect(screen.getByRole("link", { name: "去验证" })).toHaveAttribute(
+      "href",
+      "/verify-email"
+    )
+    expect(screen.getByRole("button", { name: "重新发送验证码" })).toBeEnabled()
+    // 密码框还在，换账号重试也方便
+    expect(screen.getByLabelText("密码")).toBeInTheDocument()
+  })
+
+  it("点「重新发送验证码」发到同一个邮箱，成功后进入 60 秒冷却", async () => {
+    const events = await attemptLogin()
+    await screen.findByRole("alert")
+
+    await events.click(screen.getByRole("button", { name: "重新发送验证码" }))
+
+    expect(authApi.resendVerificationEmail).toHaveBeenCalledWith("a@b.c")
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "验证码已发送到 a@b.c，10 分钟内有效。"
+    )
+    expect(screen.getByRole("button", { name: "60s 后可重发" })).toBeDisabled()
+  })
+
+  it("重发被限流时按 retryAfter 起冷却并带出剩余时间", async () => {
+    vi.mocked(authApi.resendVerificationEmail).mockRejectedValue(
+      new ApiError(429, "Too many requests", "RATE_LIMITED", 120)
+    )
+    const events = await attemptLogin()
+    await screen.findByRole("alert")
+
+    await events.click(screen.getByRole("button", { name: "重新发送验证码" }))
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "操作过于频繁，请在 2 分钟后重试。"
+    )
+    expect(screen.getByRole("button", { name: "120s 后可重发" })).toBeDisabled()
+  })
+
+  it("刚在这页重发过再点「去验证」：验证页接着按冷却计，邮箱一并带过去", async () => {
+    const events = userEvent.setup()
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify-email" element={<VerifyProbe />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await events.type(screen.getByLabelText("邮箱"), "a@b.c")
+    await events.type(screen.getByLabelText("密码"), "secret-password")
+    await events.click(screen.getByRole("button", { name: "登录" }))
+    await screen.findByRole("alert")
+    await events.click(screen.getByRole("button", { name: "重新发送验证码" }))
+    await screen.findByRole("status")
+    await events.click(screen.getByRole("link", { name: "去验证" }))
+
+    expect(
+      await screen.findByText("验证页占位 a@b.c 已发码")
+    ).toBeInTheDocument()
+  })
+
+  it("换一次登录会清掉未验证提示，不把上一次的结论留在屏上", async () => {
+    const events = await attemptLogin()
+    await screen.findByRole("alert")
+
+    vi.mocked(authApi.login).mockRejectedValue(
+      new ApiError(
+        403,
+        "Account was rejected",
+        "ACCOUNT_REJECTED",
+        undefined,
+        { error: "Account was rejected", code: "ACCOUNT_REJECTED" },
+        "/auth/login"
+      )
+    )
+    await events.click(screen.getByRole("button", { name: "登录" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "该账号的注册申请已被拒绝，请联系管理员。"
+    )
+    expect(screen.queryByRole("link", { name: "去验证" })).toBeNull()
+  })
+})
+
+/**
+ * 注册入口（#85 契约）：自助注册后必须验证邮箱，站点没配发信时注册走不通，
+ * 入口整条收起并说明原因，不摆一个点了必然 503 的链接。
+ */
+describe("注册入口与发信状态", () => {
+  it("站点配好发信时给出可点的「注册」链接", () => {
+    useSiteStore.setState({ loaded: true, emailConfigured: true })
+    renderLogin()
+
+    expect(screen.getByRole("link", { name: "注册" })).toHaveAttribute(
+      "href",
+      "/register"
+    )
+  })
+
+  it("站点没配发信时收起注册入口，并说明账号找管理员开通", () => {
+    useSiteStore.setState({ loaded: true, emailConfigured: false })
+    renderLogin()
+
+    expect(screen.queryByRole("link", { name: "注册" })).toBeNull()
+    expect(screen.getByText("账号请联系管理员开通。")).toBeInTheDocument()
+    // 上面那行原因说明同时覆盖找回密码与自助注册，不重复解释 SMTP
+    expect(
+      screen.getByText(/邮件找回密码与自助注册暂不可用/)
+    ).toBeInTheDocument()
+  })
+
+  it("站点信息还没读到时先按可注册渲染", () => {
+    useSiteStore.setState({ loaded: false, emailConfigured: false })
+    renderLogin()
+
+    expect(screen.getByRole("link", { name: "注册" })).toBeInTheDocument()
   })
 })
