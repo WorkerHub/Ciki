@@ -123,6 +123,19 @@ describe("waker 回调：缺 key fail closed", () => {
     expect(errorCode(res.body)).toBe("signing_key_missing")
     expect(countRuns(db)).toBe(0)
   })
+
+  it("WAKER_SIGNING_KEY=false（显式关闭）→ 同样 fail closed：receiver 拿到 null 钥", async () => {
+    const { env, db, r2 } = await initializedContext({
+      WAKER_SIGNING_KEY: "false"
+    })
+    // 即便 waker 侧真的拿 "false" 当钥签名也永远验不过：receiver 拿到的钥在验签前就已是 null。
+    const res = await send(env)
+
+    expect(res.status).toBe(500)
+    expect(errorCode(res.body)).toBe("signing_key_missing")
+    expect(countRuns(db)).toBe(0)
+    expect(r2.store.size).toBe(0)
+  })
 })
 
 describe("waker 回调：验签与防重放", () => {

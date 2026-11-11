@@ -299,4 +299,20 @@ describe("materialize-secrets：可选的 WAKER_SIGNING_KEY", () => {
     expect(secretKeys(res.secretsPath)).not.toContain("WAKER_SIGNING_KEY")
     expect(res.stdout).toContain("WAKER_SIGNING_KEY: 未配置")
   })
+
+  it("false（显式关闭）→ 是合法值：照常写进 secrets.json 且部署不中止", () => {
+    // 运行时要看到这个字面值才知道该停；不写就等于回到未配置、Cron 照跑。
+    const res = runScript(makeSandbox(), {
+      ...VALID_ENV,
+      WAKER_SIGNING_KEY: "false"
+    })
+
+    expect(res.status).toBe(0)
+    const secrets = JSON.parse(readFileSync(res.secretsPath, "utf8")) as Record<
+      string,
+      string
+    >
+    expect(secrets.WAKER_SIGNING_KEY).toBe("false")
+    expect(res.stdout).toContain("WAKER_SIGNING_KEY: 已关闭")
+  })
 })

@@ -103,14 +103,14 @@ Open the repository's Settings → Secrets and variables → Actions. Keep resou
 
 **Secrets** (Secrets tab → New repository secret, one at a time)
 
-| Secret                  | Purpose                                                                                                                                                                                                                                                                |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token. The "Edit Cloudflare Workers" template works; make sure the permissions include Workers Scripts edit, D1 edit and R2 edit (add whichever is missing)                                                                                             |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID (copy it from the right side of the dashboard home page)                                                                                                                                                                                         |
-| `D1_DATABASE_ID`        | The D1 Database ID noted in the previous step                                                                                                                                                                                                                          |
-| `ENCRYPTION_KEY`        | AES-GCM key for TOTP secrets, 32 bytes, generated with `openssl rand -base64 32` (64-char hex also works). Store a copy in your password manager first; do not change it after deploying, or every enrolled two-factor setup stops working and users must enroll again |
-| `SETUP_SECRET`          | Token for database initialization, any random string, e.g. `openssl rand -hex 16`                                                                                                                                                                                      |
-| `WAKER_SIGNING_KEY`     | **Optional.** When set, the monthly R2 cleanup is driven by waker platform callbacks; when absent, the Worker's built-in Cron Trigger runs it. The value is shown once by waker when the project is created — keep it in GitHub Secrets, never in the repository       |
+| Secret                  | Purpose                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token. The "Edit Cloudflare Workers" template works; make sure the permissions include Workers Scripts edit, D1 edit and R2 edit (add whichever is missing)                                                                                                                                                                                          |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID (copy it from the right side of the dashboard home page)                                                                                                                                                                                                                                                                                      |
+| `D1_DATABASE_ID`        | The D1 Database ID noted in the previous step                                                                                                                                                                                                                                                                                                                       |
+| `ENCRYPTION_KEY`        | AES-GCM key for TOTP secrets, 32 bytes, generated with `openssl rand -base64 32` (64-char hex also works). Store a copy in your password manager first; do not change it after deploying, or every enrolled two-factor setup stops working and users must enroll again                                                                                              |
+| `SETUP_SECRET`          | Token for database initialization, any random string, e.g. `openssl rand -hex 16`                                                                                                                                                                                                                                                                                   |
+| `WAKER_SIGNING_KEY`     | **Optional.** When set to a real key, the monthly R2 cleanup is driven by waker platform callbacks; when absent, the Worker's built-in Cron Trigger runs it; the reserved value `false` turns automatic cleanup off (manual cleanup still works). The value is shown once by waker when the project is created — keep it in GitHub Secrets, never in the repository |
 
 **Variables** (Variables tab → New repository variable)
 
@@ -119,7 +119,7 @@ Open the repository's Settings → Secrets and variables → Actions. Keep resou
 | `D1_DATABASE_NAME` | D1 database name (plain text, not a secret)                                                                                             |
 | `TABLE_PREFIX`     | Table prefix, optional. Unset or empty → `ciki_`; `none` → no prefix; any other value (e.g. `wiki`) → `wiki_`. See "Table prefix" below |
 
-These five required Secrets (plus the optional `WAKER_SIGNING_KEY`) and two Variables are everything the deployment needs: `deploy.yml` references only these names. A missing required item, a value still in template form (`*_PLACEHOLDER` / `replace-with-*`), or an `ENCRYPTION_KEY` that is not 32 bytes makes the deploy abort before uploading and name the offending item — no empty or placeholder value is ever substituted. A missing `WAKER_SIGNING_KEY` merely means "use the built-in Cron" and never fails the deploy.
+These five required Secrets (plus the optional `WAKER_SIGNING_KEY`) and two Variables are everything the deployment needs: `deploy.yml` references only these names. A missing required item, a value still in template form (`*_PLACEHOLDER` / `replace-with-*`), or an `ENCRYPTION_KEY` that is not 32 bytes makes the deploy abort before uploading and name the offending item — no empty or placeholder value is ever substituted. A missing `WAKER_SIGNING_KEY` merely means "use the built-in Cron" and never fails the deploy; the reserved value `false` is a valid "off" setting too and is never rejected as missing or as a placeholder.
 
 ### 4. Deploy
 
@@ -179,10 +179,10 @@ Each bucket is listed and pruned only by its own cleanup kind, and the lock plus
 
 Before enabling content GC for the first time, run a dry run from Admin → Database Maintenance (`POST /api/admin/r2-cleanup` with `{"kind":"content","dryRun":true}`): `prunable` / `prunableBytes` in the response are the number and size of objects that would be deleted (not capped by the per-run limit); check them against expectations (for example orphans left by a failed migration) before running for real.
 
-There is exactly one switch — whether the GitHub Secret `WAKER_SIGNING_KEY` exists:
+There is exactly one switch — the value of the GitHub Secret `WAKER_SIGNING_KEY` (three states):
 
 - **Absent (default)**: the Worker's built-in Cron Trigger runs it, configured in `worker/wrangler.toml` as `0 17 1 * *` (UTC). Cloudflare cron is always interpreted in UTC and "01:00 in Asia/Shanghai on the 1st" falls on the previous UTC month's last day, which a 5-field cron cannot express, so this is 17:00 UTC on the 1st = **01:00 in Asia/Shanghai on the 2nd** (low-traffic, once a month). The waker callback then fails closed with `500 signing_key_missing`.
-- **Present**: waker platform callbacks drive it and `scheduled()` notices the key and steps aside (the `[triggers]` block stays, the key decides). Register one job once in the waker console:
+- **Present**: waker platform callbacks drive it and `scheduled()` notices a real key and steps aside (the `[triggers]` block stays, the value decides). Register one job once in the waker console:
 
 | Field        | Value                                             |
 | ------------ | ------------------------------------------------- |
@@ -191,7 +191,9 @@ There is exactly one switch — whether the GitHub Secret `WAKER_SIGNING_KEY` ex
 | cron         | `0 1 1 * *`                                       |
 | Timezone     | `Asia/Shanghai` (= 01:00 on the 1st, low traffic) |
 
-Delete `WAKER_SIGNING_KEY` and redeploy to fall back to the built-in Cron. Every run appends one row to `{prefix}r2_cleanup_runs` in D1, and a real run that comes less than 20 days after the last successful one is skipped (with a skip row logged) so the two entries can never double-run.
+- **Set to `false` (explicitly off)**: change the GitHub Secret `WAKER_SIGNING_KEY` to `false` and redeploy and all automatic cleanup stops — neither the built-in Cron nor the waker callback runs (`scheduled()` logs a single "explicitly off" line and skips, the callback endpoint returns `500 signing_key_missing`). It is a reserved value and case-sensitive: only lowercase `false` counts. Only the automatic trigger is switched off; manual cleanup from Admin → Database Maintenance and `POST /api/admin/r2-cleanup` keeps working. **Remember to also disable the `monthly-r2-orphan-cleanup` job in the waker console**, otherwise it keeps calling back once a month and is bound to fail.
+
+Delete `WAKER_SIGNING_KEY` and redeploy to fall back to the built-in Cron; set it to `false` to turn automatic cleanup off. Every run appends one row to `{prefix}r2_cleanup_runs` in D1, and a real run that comes less than 20 days after the last successful one is skipped (with a skip row logged) so the two entries can never double-run.
 
 To dry-run it first (admin session; there is no button in the UI):
 

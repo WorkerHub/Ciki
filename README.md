@@ -103,14 +103,14 @@ cd Ciki
 
 **Secrets**（切到 Secrets 标签页 → New repository secret，逐个添加）
 
-| Secret                  | 用途                                                                                                                                                                               |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | Cloudflare API Token。可用「Edit Cloudflare Workers」模板，并确认权限里有 Workers Scripts 编辑、D1 编辑与 R2 编辑（缺哪个补哪个）                                                  |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID（控制台首页右侧可复制）                                                                                                                                         |
-| `D1_DATABASE_ID`        | 上一步记下的 D1 Database ID                                                                                                                                                        |
-| `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定 |
-| `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串，例如 `openssl rand -hex 16`                                                                                                                  |
-| `WAKER_SIGNING_KEY`     | **可选**。配了就把月度 R2 清理交给 waker 平台回调，不配则走 Worker 内置 Cron Trigger。值由 waker 建项目时一次性给出，只写进 GitHub Secrets、不要进仓库                             |
+| Secret                  | 用途                                                                                                                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API Token。可用「Edit Cloudflare Workers」模板，并确认权限里有 Workers Scripts 编辑、D1 编辑与 R2 编辑（缺哪个补哪个）                                                                                 |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID（控制台首页右侧可复制）                                                                                                                                                                        |
+| `D1_DATABASE_ID`        | 上一步记下的 D1 Database ID                                                                                                                                                                                       |
+| `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定                                |
+| `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串，例如 `openssl rand -hex 16`                                                                                                                                                 |
+| `WAKER_SIGNING_KEY`     | **可选**。配了就把月度 R2 清理交给 waker 平台回调，不配则走 Worker 内置 Cron Trigger；配成保留值 `false` 则是显式关闭自动清理（手动清理仍可用）。值由 waker 建项目时一次性给出，只写进 GitHub Secrets、不要进仓库 |
 
 **Variables**（切到 Variables 标签页 → New repository variable）
 
@@ -119,7 +119,7 @@ cd Ciki
 | `D1_DATABASE_NAME` | D1 数据库名（明文，非机密）                                                                                  |
 | `TABLE_PREFIX`     | 表前缀，可选。不设置或留空 → `ciki_`；填 `none` → 无前缀；填其他值（如 `wiki`）→ `wiki_`。详见下文「表前缀」 |
 
-以上 5 个必需 Secret（外加可选的 `WAKER_SIGNING_KEY`）与 2 个 Variable 就是部署需要的全部配置：`deploy.yml` 只引用这些名字。缺任何必需项，或值仍是模板里的 `*_PLACEHOLDER` / `replace-with-*`，或 `ENCRYPTION_KEY` 不是 32 字节，部署都会在上传前中止并点名，不会用空值或占位值顶替；`WAKER_SIGNING_KEY` 留空只表示「走内置 Cron」，不会让部署失败。
+以上 5 个必需 Secret（外加可选的 `WAKER_SIGNING_KEY`）与 2 个 Variable 就是部署需要的全部配置：`deploy.yml` 只引用这些名字。缺任何必需项，或值仍是模板里的 `*_PLACEHOLDER` / `replace-with-*`，或 `ENCRYPTION_KEY` 不是 32 字节，部署都会在上传前中止并点名，不会用空值或占位值顶替；`WAKER_SIGNING_KEY` 留空只表示「走内置 Cron」，不会让部署失败；写成 `false` 是合法的关闭态保留值，同样不会被当缺失或占位拦截。
 
 ### 4. 部署
 
@@ -179,10 +179,10 @@ R2 里的孤儿对象每月自动清理一轮，**图片桶与内容桶各跑一
 
 第一次启用内容 GC 前，管理员可以在「系统管理 → 数据库维护」先跑一次 dry run（`POST /api/admin/r2-cleanup`，`{"kind":"content","dryRun":true}`）：响应里的 `prunable` / `prunableBytes` 是「会被删的对象数与字节数」，`deleted` 只是本轮受 200 上限约束的将删数；确认数量符合预期（例如迁移中途失败留下的孤儿）再实跑。
 
-触发方式只有一个开关——GitHub Secret 里**有没有** `WAKER_SIGNING_KEY`：
+触发方式只有一个开关——GitHub Secret `WAKER_SIGNING_KEY` 的取值（三态）：
 
 - **没配（默认）**：走 Worker 内置 Cron Trigger，`worker/wrangler.toml` 里是 `0 17 1 * *`（UTC）。Cloudflare Cron 只按 UTC 解释，而「`Asia/Shanghai` 时区每月 1 日凌晨」落在 UTC 上个月最后一天、5 字段 cron 表达不了，所以取 UTC 每月 1 日 17:00 = **`Asia/Shanghai` 每月 2 日 01:00**（凌晨低峰、每月一次）。waker 触发口此时 fail closed（回 `500 signing_key_missing`）。
-- **配了**：由 waker 平台回调驱动，内置 Cron 的 `scheduled()` 检测到 key 存在会自行让路（`[triggers]` 配置保留，靠 key 有无让路）。在 waker 管理面一次性静态注册一项：
+- **配了**：由 waker 平台回调驱动，内置 Cron 的 `scheduled()` 检测到已配真 key 会自行让路（`[triggers]` 配置保留，靠取值让路）。在 waker 管理面一次性静态注册一项：
 
 | 项       | 值                                         |
 | -------- | ------------------------------------------ |
@@ -191,7 +191,9 @@ R2 里的孤儿对象每月自动清理一轮，**图片桶与内容桶各跑一
 | cron     | `0 1 1 * *`                                |
 | 时区     | `Asia/Shanghai`（= 每月 1 日 01:00，低峰） |
 
-删掉 `WAKER_SIGNING_KEY` 重新部署即回到内置 Cron。每轮结束都会往 D1 的 `{prefix}r2_cleanup_runs` 写一行日志；距上次真实成功运行不足 20 天的触发会被跳过（并记一行跳过日志），避免两个入口双跑。
+- **设为 `false`（显式关闭）**：把 GitHub Secret `WAKER_SIGNING_KEY` 的值改成 `false` 并重新部署，自动清理整体停掉——内置 Cron 与 waker 回调都不再跑（`scheduled()` 只记一条「显式关闭」日志就跳过，回调口回 `500 signing_key_missing`）。这是保留值、大小写敏感，只认小写 `false`；关的只是自动触发，「系统管理 → 数据库维护」的手动清理与 `POST /api/admin/r2-cleanup` 照旧可用。**记得同时去 waker 管理面停掉 `monthly-r2-orphan-cleanup` 任务**，否则每月会收到一次注定失败的回调。
+
+删掉 `WAKER_SIGNING_KEY` 重新部署即回到内置 Cron，改成 `false` 则是关闭自动清理。每轮结束都会往 D1 的 `{prefix}r2_cleanup_runs` 写一行日志；距上次真实成功运行不足 20 天的触发会被跳过（并记一行跳过日志），避免两个入口双跑。
 
 验收可以只算不删（管理员会话，没有页面按钮）：
 

@@ -20,4 +20,5 @@
 3. ciki 只用它的 receiver（`createWakerReceiver`）与 D1 幂等账本（`createD1ExecutionLedger`）；
    业务接线在 `src/routes/waker.ts` + `src/core/r2-cleanup.ts`。
    `mountWakerReceiver` / `createWakerClient*` / `syncManifest` / `resolveWakerMode` **不调用**——
-   规格只认 `WAKER_SIGNING_KEY` 配没配，不设 `WAKER_MODE`。
+   规格只认 `WAKER_SIGNING_KEY` 的取值（未配置 / `false` 显式关闭 / 已配置三态，见
+   `src/core/waker-gate.ts`），不设 `WAKER_MODE`。
