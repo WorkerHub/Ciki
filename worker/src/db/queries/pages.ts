@@ -1,4 +1,9 @@
-import { pagesFtsTable, pagesTable, revisionsTable } from "../../lib/tables"
+import {
+  commentsTable,
+  pagesFtsTable,
+  pagesTable,
+  revisionsTable
+} from "../../lib/tables"
 
 export interface PageRow {
   id: string
@@ -383,7 +388,12 @@ export function restoreSubtree(
   ]
 }
 
-/** 彻底删除：页面 + 全部 revision + FTS 行。 */
+/**
+ * 彻底删除：页面 + 全部 revision + FTS 行 + 该页全部评论。
+ *
+ * 评论随父页硬删（规格「页尾评论」§二）：软删只是页面 404 让评论不可达，
+ * 评论行必须活到页面被真正删掉那一刻，回收站里恢复后才会原样回来。
+ */
 export function permanentDeleteSubtree(
   db: D1Database,
   prefix: string,
@@ -393,6 +403,11 @@ export function permanentDeleteSubtree(
     db
       .prepare(
         `${subtreeCte(prefix)} DELETE FROM ${revisionsTable(prefix)} WHERE page_id IN (SELECT id FROM sub)`
+      )
+      .bind(rootId),
+    db
+      .prepare(
+        `${subtreeCte(prefix)} DELETE FROM ${commentsTable(prefix)} WHERE page_id IN (SELECT id FROM sub)`
       )
       .bind(rootId),
     db

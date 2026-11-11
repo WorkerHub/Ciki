@@ -10,6 +10,7 @@ import { meRoutes } from "./routes/me"
 import { adminRoutes } from "./routes/admin"
 import { setupRoutes } from "./routes/setup"
 import { pageRoutes } from "./routes/pages"
+import { commentRoutes } from "./routes/comments"
 import { spaceRoutes } from "./routes/spaces"
 import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
@@ -97,6 +98,9 @@ app.route("/api/me", meRoutes)
 app.route("/api/admin", adminRoutes)
 app.route("/api/setup", setupRoutes)
 app.route("/api/pages", pageRoutes)
+// 评论挂在页面维度下（`/api/pages/:id/comments…`），与页面共用同一条会话中间件，
+// 不需要进 PUBLIC_ROUTES：未登录由会话中间件回 401。
+app.route("/api/pages", commentRoutes)
 app.route("/api/spaces", spaceRoutes)
 app.route("/api/search", searchRoutes)
 app.route("/api/files", fileRoutes)

@@ -155,7 +155,8 @@ describe("存量迁移：仓库里的旧版本行逐行压成 gzip", () => {
       { name: "schema_v2", status: "applied" },
       // 这个库在退回「v2 之前」时仍保留已应用的 schema_v3（邮箱验证码表还在）。
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
 
     const after = revisionRows(context.db)
@@ -245,7 +246,8 @@ describe("存量迁移：仓库里的旧版本行逐行压成 gzip", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
 
     const rows = revisionRows(context.db)
@@ -308,7 +310,8 @@ describe("存量迁移：仓库里的旧版本行逐行压成 gzip", () => {
       { name: "schema_v2", status: "applied" },
       // 这个库在退回「v2 之前」时仍保留已应用的 schema_v3（邮箱验证码表还在）。
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
 
     const rows = revisionRows(context.db)

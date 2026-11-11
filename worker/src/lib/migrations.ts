@@ -37,6 +37,7 @@ import { gzipText, gunzipText } from "./gzip"
 import { derivePageMarkdown } from "./tiptap-markdown"
 import {
   challengesTable,
+  commentsTable,
   countersTable,
   emailCodesTable,
   importTokensTable,
@@ -569,6 +570,35 @@ async function prepareSchemaV4(db: D1Database, prefix: string): Promise<void> {
   await backfillPageMarkdown(db, prefix)
 }
 
+/**
+ * schema_v5 — 页尾评论（规格「Ciki 页尾评论」）。
+ *
+ * 一张表承载顶层评论与一级回复：`parent_id` 为 NULL 是顶层，回复恒指向其顶层评论
+ * id（回复的目标若本身是回复，写库前已归一到顶层，见 routes/comments.ts 的发表分支）。
+ * 正文只存 Markdown 原文 `body_md`，渲染 HTML 在读取时按同一管线现生成，不存副本。
+ *
+ * 纯 DDL、无 `prepare`：全部 `IF NOT EXISTS`，重复执行无副作用。页面彻底删除时
+ * 评论随父页硬删（db/queries/pages.ts 的 permanentDeleteSubtree）；软删页面不动评论，
+ * 页面本身 404 就让评论接口一起不可达，恢复后原样回来。
+ */
+const SCHEMA_V5 = `CREATE TABLE IF NOT EXISTS {prefix}comments (
+  id         TEXT PRIMARY KEY,
+  page_id    TEXT NOT NULL,
+  parent_id  TEXT,
+  author_id  TEXT NOT NULL,
+  body_md    TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  edited_at  TEXT,
+  deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS {prefix}comments_page_created
+  ON {prefix}comments(page_id, created_at);
+CREATE INDEX IF NOT EXISTS {prefix}comments_parent
+  ON {prefix}comments(parent_id);
+CREATE INDEX IF NOT EXISTS {prefix}comments_author
+  ON {prefix}comments(author_id)`
+
 export function getMigrations(prefix: string): Migration[] {
   // 说明：表名统一由 tables.ts 的 helper 提供；这里只做前缀替换，
   // 并断言 helper 与迁移 SQL 用的是同一套名字（改一处就会在这里暴露）。
@@ -610,10 +640,18 @@ export function getMigrations(prefix: string): Migration[] {
     )
   }
 
+  const sqlV5 = render(SCHEMA_V5, prefix)
+  if (!sqlV5.includes(commentsTable(prefix))) {
+    throw new Error(
+      `migration schema_v5 is missing table ${commentsTable(prefix)}`
+    )
+  }
+
   return [
     { name: "schema_v1", sql },
     SCHEMA_V2,
     { name: "schema_v3", sql: sqlV3, prepare: prepareSchemaV3 },
-    { name: "schema_v4", sql: sqlV4, prepare: prepareSchemaV4 }
+    { name: "schema_v4", sql: sqlV4, prepare: prepareSchemaV4 },
+    { name: "schema_v5", sql: sqlV5 }
   ]
 }

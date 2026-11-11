@@ -32,6 +32,8 @@
 
 - `schema_v4`（MD 派生存储 + 只读接口令牌，一期）：①新建 `read_tokens` 表与 `read_tokens_token_hash` 唯一索引（纯 DDL，在 `sql` 里）；②`pages` 增加 `content_md TEXT` 列，并把存量页逐页派生回填（在 `prepare` 里：`PRAGMA table_info` 探不到该列才 `ALTER TABLE … ADD COLUMN`，再按 25 行/批 `SELECT … WHERE content_md IS NULL ORDER BY id LIMIT 25` → `UPDATE … SET content_md=? WHERE id=? AND content_md IS NULL`）。可重复执行（已回填行被 `content_md IS NULL` 排除、写回再拦一道）、可中断续跑（`prepare` 抛错则该迁移不记账，下次 setup 从剩下的行继续），并且一批行仍待办却一行没写进去时抛错中止（不死循环）。回填只写 `content_md`，不碰正文三列与 `updated_at` / `updated_by`；软删页一并回填（回收站页面恢复后立刻可读）。回滚：代码回退即可，`content_md` 列与 `read_tokens` 表可留（旧代码忽略）；确要清干净再 `ALTER TABLE … DROP COLUMN content_md`、`DROP TABLE read_tokens` 并删账本 `schema_v4` 行。
 
+- `schema_v5`（页尾评论）：新建 `comments` 表与 `comments_page_created` / `comments_parent` / `comments_author` 三个索引（纯 DDL、无 `prepare`，全部 `IF NOT EXISTS`，重复执行无副作用）。回滚：`DROP TABLE comments`（索引随之消失）并删账本 `schema_v5` 行。**部署后需管理员在「系统管理 → 数据库维护」点一次升级才生效**，点之前评论接口会因表不存在而失败。
+
 Ciki 没有要保留的存量库，因此不提供 `schema_v1`~`schema_v5` 那样的逐版本升级路径：今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，不改动已有迁移。只跑过旧版部分迁移、或 `pages` 缺 `space_id` 的库不在支持范围——`CREATE TABLE IF NOT EXISTS` 不会补列，迁移会失败并报 `Migration "schema_v1" failed`，处置方式是重建库。
 
 存量页一律可读：
@@ -287,6 +289,25 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 ```
 
 **同步方式**（不做触发器）：新建/有实际改动的保存/回滚时在同一个 `db.batch()` 事务里写 pages → 插 revision → `DELETE FROM pages_fts WHERE page_id=?` → 插入新索引行；无改动的保存不写 pages、不插 revision，也不重建索引；软删/彻底删同批删除索引行；恢复同批重建。索引与查询都做 CJK 逐字空格化（`团队` → `团 队`）：CJK 词按短语 `"团 队"`、拉丁词按前缀 `"ciki"*`，多词 AND；排序 `bm25(fts, 0, 10, 1)`。
+
+### comments（页尾评论，schema_v5）
+
+| 列         | 类型          | 说明                                                           |
+| ---------- | ------------- | -------------------------------------------------------------- |
+| id         | TEXT PK       | UUID                                                           |
+| page_id    | TEXT NOT NULL | 所属页面；评论挂页面不挂版本                                   |
+| parent_id  | TEXT NULL     | NULL = 顶层；回复恒指向其顶层评论 id（只一级，不产生二级嵌套） |
+| author_id  | TEXT NOT NULL | 用户 id（用户被彻底删除后评论保留，展示名回落「已注销用户」）  |
+| body_md    | TEXT NOT NULL | Markdown 原文（唯一真源；HTML 不落库，读时现算）               |
+| created_at | TEXT NOT NULL | ISO 时间                                                       |
+| edited_at  | TEXT NULL     | 首次编辑的时刻；未编辑为 NULL                                  |
+| deleted_at | TEXT NULL     | 软删时刻；非空即「已删除」                                     |
+
+索引：`(page_id, created_at)`、`(parent_id)`、`(author_id)`。
+
+- 回复的目标若本身是回复，写库前归一到它所属的顶层评论：`parent_id` 永远是顶层 id。
+- **硬删随父页**：页面彻底删除（回收站清空）时其评论一并删除；页面软删（回收站）不动评论——评论接口随页面 404，恢复后原样回来。
+- 评论不进 FTS、不进只读接口（一期范围外，不留口子）。
 
 ### r2_cleanup_runs
 
@@ -1149,6 +1170,71 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 以该快照写回页面并生成新 revision，返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`，页面内容保持原样。
 
+### 评论
+
+评论挂在页面维度下（`/api/pages/:id/comments…`），与页面同一条会话中间件：未登录 401；读与发表用与 `GET /api/pages/:id` **同一把权限尺子**（登录 + 对该页有读权限，空间成员任一角色，`viewer` 也能评）；非成员与页面不存在/已软删一律 404（不泄露存在性）。编辑仅作者本人；删除为作者本人、该页所属空间 `admin`、站点管理员。
+
+正文只存 Markdown 原文，HTML 由服务端现算：`marked`（GFM，`breaks: true`）→ 站内消毒器（与正文同一份白名单，只放开 `img[src]` 的判定，见「服务端消毒规则」）。列表、预览、发表/编辑的响应共用同一条链，**前端不做二次渲染、不引前端 MD 库**。
+
+#### GET /api/pages/:id/comments
+
+整页一次返回（不分页）：
+
+```json
+{
+  "total": 3,
+  "threads": [
+    {
+      "id": "…",
+      "parentId": null,
+      "authorId": "…",
+      "authorName": "张三",
+      "authorAvatarUrl": "/api/files/avatars/….png",
+      "bodyMd": "## Markdown 原文",
+      "html": "<h2>Markdown 原文</h2>",
+      "createdAt": "…",
+      "editedAt": null,
+      "deletedAt": null,
+      "canEdit": true,
+      "canDelete": true,
+      "replies": [
+        { "id": "…", "parentId": "顶层评论 id", "bodyMd": "…", "html": "…" }
+      ]
+    }
+  ]
+}
+```
+
+- `replies` 里每条字段与顶层同形（不含 `replies`），`parentId` 恒为所属顶层评论 id（回复只一级，按 `createdAt` 正序平铺）。顶层按 `createdAt` 正序。
+- `total` = 未删除的顶层 + 未删除的回复条数（评论区标题的条数就用它；为 0 时前端只显示标题）。
+- 软删呈现：无存活回复的评论（顶层或回复）整条不返回；**有存活回复的顶层评论保留占位**——`deletedAt` 非空、`bodyMd` / `html` 为空串、`canEdit` / `canDelete` 为 `false`，其回复照常返回，串结构不断。
+- `authorName` / `authorAvatarUrl` 与 `GET /api/me` 同口径（`username`、`avatar_key` → `/api/files/<key>`，无头像为 `null`）；作者已被彻底删除时 `authorName` 回落「已注销用户」。
+- `canEdit` = 当前用户是作者且未删除；`canDelete` = 未删除且（作者本人、该页所属空间 `admin`、站点管理员）。前端直接用这两位移操作入口，不自行重算。
+
+#### POST /api/pages/:id/comments
+
+```json
+{ "bodyMd": "## 正文", "parentId": "顶层评论 id 或 null" }
+```
+
+201 返回新评论 DTO（同列表里的单条形状，不含 `replies`）。`parentId` 缺省 / `null` / 空串 = 顶层评论。
+
+- 回复的目标若本身是回复，先归一到其顶层评论再落库（响应里的 `parentId` 是顶层 id）。
+- **`parentId` 指向已软删的评论仍接受**，不报错：对着「该评论已删除」占位点回复时，前端提交的正是这个已删的顶层 id；新回复照旧挂在该串下，串结构因此保留（占位因多了一条存活回复而继续保留）。这一点对已软删的回复 id 同样成立（归一到它的顶层）。
+- 只有「不存在 / 不属于本页」是 404 `code:"COMMENT_NOT_FOUND"`；空正文（trim 后为空）400 `code:"COMMENT_EMPTY"`；正文超限 413 `code:"PAYLOAD_TOO_LARGE"`。
+
+#### POST /api/pages/:id/comments/preview
+
+`{ "bodyMd": "…" }` → 200 `{ "html": "…" }`，与列表同一条渲染净化链，不写库。空正文回 `{"html":""}`（不报错）；权限同 GET。预览必须走这个端点——前端不得自己渲染出第二套结果。
+
+#### PUT /api/pages/:id/comments/:commentId
+
+`{ "bodyMd": "…" }` → 200 更新后的 DTO。**仅作者本人**（空间 `admin` / 站点管理员也不行）：非作者 403，评论不存在 404，已删除 409 `code:"COMMENT_DELETED"`。只改正文与 `editedAt`（首次编辑起非空，前端据此显示「已编辑」）、`createdAt` 不动。
+
+#### DELETE /api/pages/:id/comments/:commentId
+
+软删，200 `{"success":true}`；重复删除幂等（仍 200，不覆盖首次的 `deletedAt`）。权限：作者本人、该页所属空间 `admin`、站点管理员；其余成员 403、非成员 404。
+
 ### 搜索
 
 #### GET /api/search?q=团队&limit=20
@@ -1425,6 +1511,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 链接：`a[href]` 仅 http/https/mailto/相对路径。
 - 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>`（存量平铺）或 `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀；`avatars/` 只服务资料页，不进正文），或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
 - 一律剥除 `script`/`style`/`iframe`/`object`/`embed`/`form` 及所有 `on*` 事件属性、未列出的 class/attr。
+- **评论正文（`comments.body_md`）**：服务端用 `marked` 渲染后再过同一份白名单，与正文只差 `img[src]` 一项——站内 `/api/files/…` 与 `https:` 外链原样保留，`http:` / `data:` / 非法地址删掉 `src`（评论区没有上传入口，不写 `data-original-src` 占位）。`<script>`、事件属性、`javascript:` 链接、白名单外标签一律剥除，与正文同口径。
 
 ## 四、前端对接要点
 
@@ -1438,4 +1525,4 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
-- 本契约不含：公开分享、多人实时协同、评论、宏、Jira、通用附件、Markdown 存储、注册邮箱验证与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱验证码 2FA 与找回密码端点见「鉴权」）。
+- 本契约不含：公开分享、多人实时协同、宏、Jira、通用附件、Markdown 存储、注册邮箱验证与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱验证码 2FA 与找回密码端点见「鉴权」）。
