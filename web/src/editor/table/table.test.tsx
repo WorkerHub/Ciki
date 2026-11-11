@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { editorPayload } from "@/editor/Editor"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
 import {
@@ -175,5 +176,81 @@ describe("工具条表格入口", () => {
     }
     // 选择器与「当前表格」并存
     expect(screen.getByText("3 × 3")).toBeInTheDocument()
+  })
+})
+
+/**
+ * 保存口径：单列表格的 colwidth 不许落库（列数=1 的表格唯一列占满正文宽）。
+ * 载入时已经剥过一次，这里验保存侧——会话里拖过列宽手柄也回不到存储里。
+ */
+describe("保存负载的单列表格口径", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  const tableJson = (colwidth: number[] | null, secondCell = false) => ({
+    type: "doc",
+    content: [
+      {
+        type: "table",
+        attrs: {},
+        content: [
+          {
+            type: "tableRow",
+            content: [
+              {
+                type: "tableCell",
+                attrs: { colspan: 1, rowspan: 1, colwidth },
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "参数" }]
+                  }
+                ]
+              },
+              ...(secondCell
+                ? [
+                    {
+                      type: "tableCell",
+                      attrs: { colspan: 1, rowspan: 1, colwidth: [200] },
+                      content: [
+                        {
+                          type: "paragraph",
+                          content: [{ type: "text", text: "值" }]
+                        }
+                      ]
+                    }
+                  ]
+                : [])
+            ]
+          }
+        ]
+      }
+    ]
+  })
+
+  const makeDocEditor = (content: unknown) => {
+    const host = document.createElement("div")
+    document.body.appendChild(host)
+    const editor = new Editor({
+      element: host,
+      extensions: createExtensions("edit"),
+      content: content as never
+    })
+    editors.push(editor)
+    return editor
+  }
+
+  it("单列表格的 colwidth 在 contentJson 里被剥掉", () => {
+    const editor = makeDocEditor(tableJson([76]))
+    const payload = editorPayload(editor)
+    expect(payload.contentJson).not.toContain("colwidth")
+  })
+
+  it("多列表格的列宽原样保留", () => {
+    const editor = makeDocEditor(tableJson([120], true))
+    const payload = editorPayload(editor)
+    expect(payload.contentJson).toContain('"colwidth":[120]')
+    expect(payload.contentJson).toContain('"colwidth":[200]')
   })
 })

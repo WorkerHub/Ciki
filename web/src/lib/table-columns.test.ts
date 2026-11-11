@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest"
 import {
   applyColWidthsFromColgroup,
   parseColWidth,
-  resolveColumnWidths
+  resolveColumnWidths,
+  stripSingleColumnColwidths
 } from "@/lib/table-columns"
 
 const table = (colgroup: string, rows: string) =>
@@ -80,5 +81,141 @@ describe("colgroup → 单元格 colwidth", () => {
   it("没有 colgroup 的表格原样返回", () => {
     const source = "<table><tbody><tr><th>a</th></tr></tbody></table>"
     expect(applyColWidthsFromColgroup(source)).toBe(source)
+  })
+})
+
+/**
+ * 单列表格（1 行 1 列表格套代码）：列宽一律不生效。
+ *
+ * 只「不写 colwidth」不够——@tiptap/extension-table 的 parseColwidth 在单元格没有
+ * colwidth 时会回落到 `colgroup > col[width]`，所以 colgroup 必须整块去掉。
+ */
+describe("单列表格：不写列宽", () => {
+  it("1×1 表格的 colgroup 被整块去掉、一个 colwidth 都不写", () => {
+    const html = applyColWidthsFromColgroup(
+      '<table><colgroup><col style="width: 76.0px;"></colgroup>' +
+        "<tbody><tr><td><pre><code>-Xmx2g</code></pre></td></tr></tbody></table>"
+    )
+    expect(html).not.toContain("<colgroup")
+    expect(html).not.toContain("colwidth")
+    // 内容原样保留
+    expect(html).toContain("-Xmx2g")
+  })
+
+  it("多行单列表格同样不写列宽", () => {
+    const html = applyColWidthsFromColgroup(
+      '<table><colgroup><col width="76"></colgroup><tbody>' +
+        "<tr><td>a</td></tr><tr><td>b</td></tr></tbody></table>"
+    )
+    expect(html).not.toContain("<colgroup")
+    expect(html).not.toContain("colwidth")
+  })
+
+  it("单元格上残留的 colwidth 会被清掉", () => {
+    const html = applyColWidthsFromColgroup(
+      '<table><tbody><tr><td colwidth="76">a</td></tr></tbody></table>'
+    )
+    expect(html).not.toContain("colwidth")
+  })
+
+  it("colspan=2 的单单元格表格算两列，照旧写列宽", () => {
+    const html = applyColWidthsFromColgroup(
+      '<table><colgroup><col width="120px"><col width="200px"></colgroup>' +
+        '<tbody><tr><td colspan="2">合计</td></tr></tbody></table>'
+    )
+    expect(html).toContain('colwidth="120,200"')
+  })
+
+  it("嵌套表格各算各的：外层照写列宽，内层单列表格不写", () => {
+    const html = applyColWidthsFromColgroup(
+      '<table><colgroup><col width="120px"><col width="300px"></colgroup><tbody><tr>' +
+        "<td>a</td><td>" +
+        '<table><colgroup><col width="76px"></colgroup>' +
+        "<tbody><tr><td><pre><code>-Xmx2g</code></pre></td></tr></tbody></table>" +
+        "</td></tr></tbody></table>"
+    )
+    expect(html).toContain('colwidth="120"')
+    expect(html).toContain('colwidth="300"')
+    // 只剩外层那一个 colgroup，且没有 76px
+    expect(html.match(/<colgroup/g)).toHaveLength(1)
+    expect(html).not.toContain('width="76px"')
+  })
+
+  it("内层表格的 colgroup 不会被算到外层头上（只认直系）", () => {
+    // 外层没有 colgroup；内层有一个与外层列数相同的 colgroup：旧口径会把它捡走
+    const html = applyColWidthsFromColgroup(
+      "<table><tbody><tr><td>a</td><td>b" +
+        '<table><colgroup><col width="120px"><col width="200px"></colgroup>' +
+        "<tbody><tr><td>c</td><td>d</td></tr></tbody></table>" +
+        "</td></tr></tbody></table>"
+    )
+    const outer = html.slice(0, html.indexOf("<table", 1))
+    expect(outer).not.toContain("colwidth")
+  })
+})
+
+describe("stripSingleColumnColwidths（编辑态 JSON 归一）", () => {
+  const cell = (colwidth: number[] | null, text = "a", colspan = 1) => ({
+    type: "tableCell",
+    attrs: { colspan, rowspan: 1, colwidth },
+    content: [{ type: "paragraph", content: [{ type: "text", text }] }]
+  })
+
+  const doc = (table: unknown) => ({
+    type: "doc",
+    content: [table]
+  })
+
+  const table = (rows: unknown[]) => ({
+    type: "table",
+    attrs: {},
+    content: rows.map((cells) => ({ type: "tableRow", content: cells }))
+  })
+
+  it("单列表格剥掉 colwidth，其余属性保留", () => {
+    const next = stripSingleColumnColwidths(doc(table([[cell([76])]])) as never)
+    const attrs = next.content?.[0]?.content?.[0]?.content?.[0]?.attrs
+    expect(attrs).toEqual({ colspan: 1, rowspan: 1 })
+    expect(attrs).not.toHaveProperty("colwidth")
+  })
+
+  it("多列表格原样（列宽逐个保留）", () => {
+    const next = stripSingleColumnColwidths(
+      doc(table([[cell([120]), cell([200])]])) as never
+    )
+    const cells = next.content?.[0]?.content?.[0]?.content ?? []
+    expect(cells[0]?.attrs?.colwidth).toEqual([120])
+    expect(cells[1]?.attrs?.colwidth).toEqual([200])
+  })
+
+  it("colspan=2 的单单元格表格不当单列", () => {
+    const next = stripSingleColumnColwidths(
+      doc(table([[cell([120, 200], "合计", 2)]])) as never
+    )
+    const attrs = next.content?.[0]?.content?.[0]?.content?.[0]?.attrs
+    expect(attrs?.colwidth).toEqual([120, 200])
+  })
+
+  it("嵌套在单列表格里的内层表格各自判定", () => {
+    const inner = table([[cell([76], "inner")]])
+    const outerCell = {
+      type: "tableCell",
+      attrs: { colspan: 1, rowspan: 1, colwidth: [76] },
+      content: [inner]
+    }
+    const next = stripSingleColumnColwidths(doc(table([[outerCell]])) as never)
+    const outerAttrs = next.content?.[0]?.content?.[0]?.content?.[0]?.attrs
+    const innerAttrs =
+      next.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.content?.[0]
+        ?.content?.[0]?.attrs
+    expect(outerAttrs).toEqual({ colspan: 1, rowspan: 1 })
+    expect(innerAttrs).toEqual({ colspan: 1, rowspan: 1 })
+  })
+
+  it("不改动入参（载入时不能污染页面原始 JSON）", () => {
+    const source = doc(table([[cell([76])]])) as never
+    const before = JSON.stringify(source)
+    stripSingleColumnColwidths(source)
+    expect(JSON.stringify(source)).toBe(before)
   })
 })

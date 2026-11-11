@@ -5,7 +5,16 @@
  * 表格 schema 只认单元格上的 `colwidth`（px 数组），`<col>` 在解析时会被丢掉，列宽比例
  * 也就没了。服务端消毒白名单保留 col/colgroup、不保留 td[colwidth]，所以读态（contentHtml）
  * 也要在渲染前用同一个函数还原一次 —— 粘贴时与读态走同一条换算，表现才一致。
+ *
+ * 单列表格是例外（口径：列数=1 的表格唯一列占满正文宽）：列宽对它一律不生效，
+ * 换算时把该表自己的 colgroup 整块去掉、也不写 colwidth。
+ *
+ * 为什么「不写 colwidth」不够：`@tiptap/extension-table` 的 `parseColwidth` 在单元格
+ * 没有 colwidth 属性时会回落到同列 `<col width>`。只要 colgroup 还在，粘贴的
+ * `insertContent` 与读态的 `setContent` 就会把 76px 重新拣回来，表格依旧被钉成窄条。
  */
+
+import type { JSONContent } from "@tiptap/core"
 
 const DEFAULT_BASE_WIDTH = 900
 
@@ -55,9 +64,10 @@ function readColgroupWidths(
   columnCount: number,
   baseWidth: number
 ): number[] | null {
-  const groups = Array.from(table.querySelectorAll("colgroup"))
+  // 只认自己的直系列定义：嵌套表格的 colgroup 不能算到外层头上
+  const groups = Array.from(table.querySelectorAll(":scope > colgroup"))
   for (const group of groups) {
-    const cols = Array.from(group.querySelectorAll("col"))
+    const cols = Array.from(group.querySelectorAll(":scope > col"))
     if (cols.length !== columnCount) continue
     const raws = cols.map((col) => {
       const width = col.getAttribute("width")
@@ -72,9 +82,27 @@ function readColgroupWidths(
   return null
 }
 
+/** 这张表格自己的行（不含嵌套表格的行）。 */
+function ownRows(table: Element): Element[] {
+  return Array.from(
+    table.querySelectorAll(
+      ":scope > tr, :scope > thead > tr, :scope > tbody > tr, :scope > tfoot > tr"
+    )
+  )
+}
+
+function cellsOf(row: Element): Element[] {
+  return Array.from(row.children).filter(
+    (cell) => cell.tagName === "TD" || cell.tagName === "TH"
+  )
+}
+
 /**
  * 给首个表格行的单元格写 `colwidth="w1,w2,…"`（按 colspan 分摊），
  * 其余内容原样返回。没有可用 colgroup 的表格不动。
+ *
+ * 单列表格（列数=1）反过来：删掉自己的 colgroup、清掉自己单元格上的 colwidth，
+ * 一个宽度都不写——唯一列由 CSS 撑满正文宽，渲染完全忽略存储的列宽。
  */
 export function applyColWidthsFromColgroup(
   html: string,
@@ -90,11 +118,9 @@ export function applyColWidthsFromColgroup(
   if (!root) return html
 
   root.querySelectorAll("table").forEach((table) => {
-    const firstRow = table.querySelector("tr")
+    const firstRow = ownRows(table)[0]
     if (!firstRow) return
-    const cells = Array.from(firstRow.children).filter(
-      (cell) => cell.tagName === "TD" || cell.tagName === "TH"
-    )
+    const cells = cellsOf(firstRow)
     if (!cells.length) return
     const columnCount = cells.reduce(
       (sum, cell) =>
@@ -102,6 +128,19 @@ export function applyColWidthsFromColgroup(
       0
     )
     if (columnCount <= 0) return
+    if (columnCount === 1) {
+      // 单列表格：删掉自己的 colgroup（parseColwidth 的回落源），再清掉自己单元格上
+      // 已有的 colwidth。只处理直系，内层表格的列宽由内层自己判定。
+      table.querySelectorAll(":scope > colgroup").forEach((group) => {
+        group.remove()
+      })
+      ownRows(table).forEach((row) => {
+        cellsOf(row).forEach((cell) => {
+          cell.removeAttribute("colwidth")
+        })
+      })
+      return
+    }
     const widths = readColgroupWidths(table, columnCount, baseWidth)
     if (!widths) return
     let cursor = 0
@@ -116,4 +155,46 @@ export function applyColWidthsFromColgroup(
   })
 
   return root.innerHTML.trim()
+}
+
+/** 一行单元格的 colspan 合计 = 这一行的列数（合并单元格按展开后的列算）。 */
+function rowColumnCount(row: JSONContent | undefined): number {
+  const cells = (row?.content ?? []).filter(
+    (node) => node.type === "tableCell" || node.type === "tableHeader"
+  )
+  return cells.reduce(
+    (sum, cell) => sum + (Number(cell.attrs?.colspan ?? 1) || 1),
+    0
+  )
+}
+
+function stripColwidth(node: JSONContent): JSONContent {
+  const next: JSONContent = { ...node }
+  if (next.content) next.content = next.content.map(stripColwidth)
+  if (next.type !== "table") return next
+
+  // 列数按首行算（与 HTML 侧同一判据）；colspan=2 的单单元格表格算两列，不动
+  if (rowColumnCount(next.content?.[0]) === 1 && next.content) {
+    next.content = next.content.map((row) => ({
+      ...row,
+      content: row.content?.map((cell) => {
+        if (!cell.attrs || !("colwidth" in cell.attrs)) return cell
+        const attrs = { ...cell.attrs }
+        delete attrs.colwidth
+        return { ...cell, attrs }
+      })
+    }))
+  }
+  return next
+}
+
+/**
+ * 编辑态用的归一：JSON 里单列表格（列数=1）不保留任何 colwidth。
+ *
+ * 存量的 contentJson 里带着 `colwidth: [76]`，编辑器载入时若原样保留，Table 的 NodeView
+ * 会把表格宽度写死成 76px；保存时再归一一次，保证落库的 JSON 永远不带单列列宽
+ * （列宽手柄拖出来的值也在这里丢掉，渲染口径由 CSS 兜底成全宽）。
+ */
+export function stripSingleColumnColwidths(doc: JSONContent): JSONContent {
+  return stripColwidth(doc)
 }
