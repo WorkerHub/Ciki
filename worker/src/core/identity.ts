@@ -37,7 +37,8 @@ function stripControlChars(value: string): string {
 
 /**
  * 把任意来源的字符串收成合法显示名：去控制字符、trim、按码点截断到上限，
- * 空则用兜底名。新建号、迁移消解存量重名共用这一口径，保证两边长得一样。
+ * 空则用兜底名。只用于**新建号**（注册取邮箱前缀）；存量用户的名字迁移时原样
+ * 保留，不经过这里。
  */
 export function cleanUsername(value: string): string {
   const cleaned = stripControlChars(value).trim()
