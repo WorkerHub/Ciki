@@ -45,7 +45,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "applied" },
       { name: "schema_v2", status: "applied" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
 
     const tables = db.db
@@ -91,7 +92,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
 
     const row = db.db
@@ -201,7 +203,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "applied" },
       { name: "schema_v2", status: "applied" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
     const names = (
       db.db
@@ -222,7 +225,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
     const spaces = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
@@ -274,7 +278,8 @@ describe("setup：初始化、幂等与密钥卫生", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
   })
 })
@@ -315,7 +320,8 @@ describe("初始化迁移：默认空间与播种", () => {
       { name: "schema_v1" },
       { name: "schema_v2" },
       { name: "schema_v3" },
-      { name: "schema_v4" }
+      { name: "schema_v4" },
+      { name: "schema_v5" }
     ])
 
     // 身份三列与页面所属空间都在 CREATE 里建全，不需要 prepare 补列。
@@ -377,7 +383,8 @@ describe("初始化迁移：默认空间与播种", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
 
     const count = db.db
@@ -423,7 +430,8 @@ describe("schema_v3：邮箱验证码表与 user_2fa 邮箱开关列", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "applied" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
 
     const names = (
@@ -471,7 +479,8 @@ describe("schema_v3：邮箱验证码表与 user_2fa 邮箱开关列", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
   })
 
@@ -543,7 +552,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       { name: "schema_v1", status: "applied" },
       { name: "schema_v2", status: "applied" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
 
     const names = tableNames(db)
@@ -569,7 +579,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "applied" },
       { name: "schema_v3", status: "applied" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      { name: "schema_v5", status: "applied" }
     ])
 
     const names = tableNames(db)
@@ -583,7 +594,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       { name: "schema_v1" },
       { name: "schema_v2" },
       { name: "schema_v3" },
-      { name: "schema_v4" }
+      { name: "schema_v4" },
+      { name: "schema_v5" }
     ])
     const spaces = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
@@ -605,7 +617,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
         { name: "schema_v1", status: "skipped" },
         { name: "schema_v2", status: i === 0 ? "applied" : "skipped" },
         { name: "schema_v3", status: i === 0 ? "applied" : "skipped" },
-        { name: "schema_v4", status: i === 0 ? "applied" : "skipped" }
+        { name: "schema_v4", status: i === 0 ? "applied" : "skipped" },
+        { name: "schema_v5", status: i === 0 ? "applied" : "skipped" }
       ])
     }
 
@@ -619,7 +632,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       { name: "schema_v1" },
       { name: "schema_v2" },
       { name: "schema_v3" },
-      { name: "schema_v4" }
+      { name: "schema_v4" },
+      { name: "schema_v5" }
     ])
   })
 

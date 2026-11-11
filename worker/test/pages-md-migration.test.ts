@@ -258,7 +258,9 @@ describe("schema_v4：content_md 列与存量回填", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "applied" }
+      { name: "schema_v4", status: "applied" },
+      // 升级前库里 comments 表已由 initializedContext 建好，这一轮只是重跑 v4。
+      { name: "schema_v5", status: "skipped" }
     ])
 
     expect(pageColumns(context)).toContain("content_md")
@@ -309,7 +311,8 @@ describe("schema_v4：content_md 列与存量回填", () => {
       { name: "schema_v1", status: "skipped" },
       { name: "schema_v2", status: "skipped" },
       { name: "schema_v3", status: "skipped" },
-      { name: "schema_v4", status: "skipped" }
+      { name: "schema_v4", status: "skipped" },
+      { name: "schema_v5", status: "skipped" }
     ])
     expect(markdownRows(context)).toEqual(after)
   })
@@ -329,10 +332,13 @@ describe("schema_v4：content_md 列与存量回填", () => {
 
     const result = await runSetup(context.env)
     expect(result.success).toBe(true)
-    expect(result.migrations[result.migrations.length - 1]).toEqual({
-      name: "schema_v4",
-      status: "applied"
-    })
+    // 按名字取，不按位置：末尾现在是 schema_v5（评论表）。
+    expect(result.migrations.find((item) => item.name === "schema_v4")).toEqual(
+      {
+        name: "schema_v4",
+        status: "applied"
+      }
+    )
 
     const after = markdownRows(context)
     // 全部行都回到基线值（剩下的行不被二次写入，值逐字节相同）。

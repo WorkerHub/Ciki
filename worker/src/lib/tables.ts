@@ -40,6 +40,11 @@ export const spaceMembersTable = (prefix: string) =>
 export const pagesTable = (prefix: string) => tableName(prefix, "pages")
 export const revisionsTable = (prefix: string) =>
   tableName(prefix, "page_revisions")
+/**
+ * 页尾评论（规格「Ciki 页尾评论」）：`parent_id` 为 NULL 是顶层评论，回复恒指向其
+ * 顶层评论 id（只一级，不产生二级嵌套）；软删只置 `deleted_at`，彻底删除随父页硬删。
+ */
+export const commentsTable = (prefix: string) => tableName(prefix, "comments")
 /** 个人导入令牌（规格 §12.1）：每用户一枚，只存 SHA-256。 */
 export const importTokensTable = (prefix: string) =>
   tableName(prefix, "import_tokens")
