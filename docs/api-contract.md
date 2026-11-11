@@ -32,7 +32,7 @@
 | 页面阅读   | `/p/:id`               | `/p/:id`（`id` 为整数） |
 | 页面编辑   | `/p/:id/edit`          | `/p/:id/edit`           |
 
-后端路径参数一律按整数解析：非十进制正整数（含旧 UUID、负数、小数）按「不存在」处理（404），不再回 400。
+后端路径参数一律按整数解析：非**规范形态**的十进制正整数（旧 UUID、负数、小数、前导零如 `/p/01`、前后空白）一律按「不存在」处理（404），不回 400；同一实体只有一种地址写法，`/p/01` 与 `/p/1` 不并存。请求体/查询串里的 id 仍接受 JSON 数字与十进制字符串（前后空白忽略，但同样不许前导零）。
 
 - 服务端入口：`worker/src/index.ts`（Hono），部署单元同时托管前端静态资源。
 - 表名一律经 `worker/src/lib/tables.ts` 拼当前部署的 `TABLE_PREFIX`（默认 `ciki_`，可显式无前缀），本文只用逻辑表名。
@@ -307,8 +307,8 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 索引 `(page_id, version_no DESC)`、`(content_hash)`。每次新建/有实际改动的保存/回滚都追加一条；标题 + 正文哈希 + HTML + 纯文本全等即无改动，不追加。版本号只在插入时由 `MAX(version_no)+1` 生成，删中间版本不会重排编号。
 
 - 正文只有一份：内容桶里的 `content/<content_hash>`（gzip 的 TipTap JSON）。版本的 HTML/纯文本**不落库**，查看版本时按需渲染；`pages` 表另存了当前内容的派生列，阅读页不读 R2。
-- 版本的 JSON 无法按当前编辑器 schema 渲染、或对象缺失/损坏时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面、也不会漏成 500；内容对象整个不见了是 `500 code:"CONTENT_MISSING"`（指针脏了，不是版本内容问题）。
-- 「新 → 旧」的唯一排序口径是 `version_no DESC`（列表、修剪、最新一条判定、删除护栏共用）。写路径给版本 `created_at` 保留单调时钟（同一 isolate 内严格递增），与编号方向一致。
+- 版本的 JSON 无法按当前编辑器 schema 渲染、或对象在但 gzip 字节已损坏时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面；`content_hash` 指向的对象**整个不存在**（指针脏了，不是版本内容问题）回 `500 {"error":"Page content unavailable","code":"CONTENT_MISSING"}`，与阅读接口取不到 JSON 同一口径。
+- 「新 → 旧」的唯一排序口径是 `version_no DESC`（列表、修剪、最新一条判定、删除护栏共用）；`created_at` 只是与保存时刻对齐的展示时间戳，不参与排序，也不维持单调递增。
 - 保留数（每页保留多少条）的读写与两处修剪见「GET /api/admin/settings」「PUT /api/admin/settings」「GET /api/admin/revisions/retention」「POST /api/admin/revisions/prune」，以及下方页面版本接口：写入时按设置在同事务里删除该页超出上限的最旧版本。
 
 ### pages_fts（FTS5 虚拟表）
@@ -1121,7 +1121,7 @@ SpaceCandidate = { userId, username, email }
 
 **阅读热路径不读 R2**：详情默认**不含** `contentJson`，`contentHtml` / `contentText` / `contentMd` 都是 D1 里的派生列（`contentMd` 是库里的值，空正文页为空串，绝不会是 `null`）。
 
-要编辑态正文时加 `?format=json`：响应在上面的字段之外多一个 `"contentJson": "{\"type\":\"doc\",…}"`（从内容桶按 `contentHash` 取回、解压、原样返回）。前端只有编辑器/回滚预览需要它，列表、树、阅读页都不要带这个参数。内容对象缺失（升级未完成或底座被误删）→ 500 `{"error":"Page content is missing","code":"CONTENT_MISSING"}`，不要当成 404 处理。
+要编辑态正文时加 `?format=json`：响应在上面的字段之外多一个 `"contentJson": "{\"type\":\"doc\",…}"`（从内容桶按 `contentHash` 取回、解压、原样返回）。前端只有编辑器/回滚预览需要它，列表、树、阅读页都不要带这个参数。内容对象缺失（升级未完成或底座被误删）→ 500 `{"error":"Page content unavailable","code":"CONTENT_MISSING"}`，不要当成 404 处理。
 
 `GET /api/pages/:id/download` 取的是同一份 `contentMd`，不经过只读令牌接口。
 
@@ -1223,7 +1223,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 }
 ```
 
-`contentJson` 是从内容桶取回并解压的原文，`contentHtml` / `contentText` 由服务端按需渲染（详见「page_revisions」）。`viewer` 可读；非成员 404；该页没有这个版本号 → 404 `{"error":"Revision not found"}`。该版本的 JSON 无法按当前编辑器 schema 渲染时 422 `code:"REVISION_UNRENDERABLE"`。
+`contentJson` 是从内容桶取回并解压的原文，`contentHtml` / `contentText` 由服务端按需渲染（详见「page_revisions」）。`viewer` 可读；非成员 404；该页没有这个版本号 → 404 `{"error":"Revision not found"}`。该版本的 JSON 无法按当前编辑器 schema 渲染时 422 `code:"REVISION_UNRENDERABLE"`；指针指向的正文对象整个不存在时 500 `code:"CONTENT_MISSING"`（两种失败都不返回正文）。
 
 #### DELETE /api/pages/:id/revisions/:versionNo
 
@@ -1237,7 +1237,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 #### POST /api/pages/:id/revisions/:versionNo/restore
 
-以该快照写回页面并生成新 revision（`versionNo` = 当前最大 +1），返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`，页面内容保持原样。
+以该快照写回页面并生成新 revision（`versionNo` = 当前最大 +1），返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`、对象缺失 500 `code:"CONTENT_MISSING"`，两种情况下页面内容保持原样。
 
 ### 评论
 

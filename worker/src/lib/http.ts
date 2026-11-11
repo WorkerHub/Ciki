@@ -68,16 +68,16 @@ export async function runInBackground(
 }
 
 /**
- * 路径/查询参数里的整数 id：只认十进制正整数（安全整数）。
+ * 路径/查询参数里的整数 id：只认规范形态的十进制正整数（安全整数）。
  *
- * 旧 UUID 地址不再识别——返回 null 的调用方一律按「不存在」回 404，不泄露形态差异。
+ * 「一个实体只露一种 ID」：前导零与前后空白都不算（`/p/01`、`/p/%201` 一律 404，
+ * 不跟 `/p/1` 指向同一页）。旧 UUID 地址同样不再识别。
  */
 export function parseId(raw: string | undefined | null): number | null {
   if (typeof raw !== "string") return null
-  const value = raw.trim()
-  if (!/^\d+$/.test(value)) return null
-  const parsed = Number(value)
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null
+  if (!/^[1-9]\d*$/.test(raw)) return null
+  const parsed = Number(raw)
+  return Number.isSafeInteger(parsed) ? parsed : null
 }
 
 /**

@@ -15,9 +15,11 @@ import { describe, expect, it } from "vitest"
 import { decryptSecret, encryptSecret } from "../src/core/secret-box"
 import { contentObjectKey, hashContent } from "../src/core/content-store"
 import { toMatchQuery } from "../src/lib/fts"
-import { gunzipText } from "../src/lib/gzip"
+import { gunzipText, gzipText } from "../src/lib/gzip"
 import { runSetup } from "../src/lib/setup"
 import { TEST_ENCRYPTION_KEY, makeContext } from "./support/app"
+import { MemoryR2 } from "./support/memory-r2"
+import type { Env } from "../src/types"
 import type { SqliteD1 } from "./support/sqlite-d1"
 import {
   LEGACY_GZIP_REVISION_JSON,
@@ -58,12 +60,36 @@ async function encryptedLegacyTotp(): Promise<string> {
   )
 }
 
-/** 建一个旧库并把存量数据灌好。 */
-async function legacyContext() {
-  const context = makeContext()
+/** 建一个旧库并把存量数据灌好（`overrides` 用来塞入坏掉的内容桶）。 */
+async function legacyContext(overrides: Partial<Env> = {}) {
+  const context = makeContext(overrides)
   await createLegacyDatabase(context.db)
   const seed = await seedLegacyDatabase(context.db, await encryptedLegacyTotp())
   return { ...context, seed }
+}
+
+/**
+ * 内容桶的「坏上传」替身：第一次 PUT 之后把对象内容换成别的字节（等价于 R2 写入
+ * 静默损坏），用来验证校验闸——哈希对不上就必须中止，不许带着脏对象切表。
+ */
+class CorruptingContentBucket extends MemoryR2 {
+  corruptions = 0
+
+  override async put(
+    key: string,
+    value: Uint8Array | ArrayBuffer | string,
+    options?: {
+      httpMetadata?: { contentType?: string }
+      customMetadata?: Record<string, string>
+    }
+  ): Promise<void> {
+    await super.put(key, value, options)
+    if (this.corruptions > 0 || typeof value === "string") return
+    this.corruptions += 1
+    const bytes = value instanceof Uint8Array ? value : new Uint8Array(value)
+    const text = await gunzipText(bytes)
+    await super.put(key, await gzipText(`${text} `), options)
+  }
 }
 
 /** 表的列名（PRAGMA table_info）。 */
@@ -422,5 +448,40 @@ describe("重建迁移：失败时不动旧数据", () => {
       .prepare("SELECT content_json FROM ciki_pages WHERE id = ?")
       .get(LEGACY_IDS.pageHome) as { content_json: string }
     expect(home.content_json).toBe(LEGACY_HOME_JSON)
+  })
+
+  it("上传对象被污染（哈希对不上）→ setup 失败、不切表；修好重跑成功", async () => {
+    const bucket = new CorruptingContentBucket()
+    const { env, db } = await legacyContext({
+      CONTENT: bucket as unknown as R2Bucket
+    })
+
+    // 全量哈希回读闸必须拦住：对象字节与指针不符时中止，不切表、不记账。
+    await expect(runSetup(env)).rejects.toThrow(/failed verification/)
+    expect(bucket.corruptions).toBe(1)
+    expect(columns(db, "ciki_pages")).toContain("content_json")
+    expect(columns(db, "ciki_pages")).not.toContain("content_hash")
+    const pages = db.db
+      .prepare("SELECT id FROM ciki_pages ORDER BY created_at")
+      .all() as Array<{ id: string }>
+    expect(pages.map((row) => row.id)).toContain(LEGACY_IDS.pageHome)
+    const ledger = db.db
+      .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
+      .all() as Array<{ name: string }>
+    expect(ledger.map((row) => row.name)).not.toContain("schema_v6")
+
+    // 重跑：坏对象会被同一 key 重新 PUT 覆盖成正确字节，迁移完成。
+    const retry = await runSetup(env)
+    if (!retry.success) throw new Error(retry.error)
+    expect(retry.migrations).toEqual([
+      { name: "schema_v1", status: "skipped" },
+      { name: "schema_v6", status: "applied" }
+    ])
+    expect(columns(db, "ciki_pages")).toContain("content_hash")
+    expect(columns(db, "ciki_pages")).not.toContain("content_json")
+    const migrated = db.db
+      .prepare("SELECT COUNT(*) AS count FROM ciki_pages")
+      .get() as { count: number }
+    expect(migrated.count).toBeGreaterThan(0)
   })
 })

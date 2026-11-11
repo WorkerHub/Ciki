@@ -256,8 +256,6 @@ interface NewPageRow {
 }
 
 interface MigratedPage {
-  /** 迁移前的原始行（内容未改写），校验闸要用它逐字节比对。 */
-  source: LegacyPage
   /** 改写后的正文 JSON（上传到 R2 的那一份）。 */
   json: string
   row: NewPageRow
@@ -317,7 +315,7 @@ export async function rebuildSchema(ctx: MigrationContext): Promise<void> {
   await createTempTables(db, prefix)
   await fillTempTables(db, prefix, pages, revisions, rows)
   await verifyObjects(env, pages, revisions)
-  verifyDerived(pages, maps)
+  verifyRewrittenLinks(pages, revisions, maps)
   await verifySampledPages(env, db, prefix, maps)
   verifyParentLinks(pages)
   await verifyCounts(db, prefix, expected, maps)
@@ -361,7 +359,6 @@ async function buildPages(
       row.content_md ||
       derivePageMarkdown(row.content_json ?? "", row.content_text ?? "")
     out.push({
-      source: { ...row, content_md: markdown },
       json,
       row: {
         id,
@@ -623,19 +620,26 @@ async function buildSimpleTables(
       tableName(prefix, "comments"),
       `SELECT * FROM ${tableName(prefix, "comments")} ORDER BY created_at, id`
     )
-  ).map((row) => ({
-    id: maps.comments.get(String(row.id)) ?? 0,
-    page_id: maps.pages.get(String(row.page_id)) ?? 0,
-    parent_id:
-      row.parent_id === null
-        ? null
-        : (maps.comments.get(String(row.parent_id)) ?? null),
-    author_id: maps.users.get(String(row.author_id)) ?? 0,
-    body_md: row.body_md,
-    created_at: row.created_at,
-    edited_at: row.edited_at,
-    deleted_at: row.deleted_at
-  }))
+  ).map((row) => {
+    const parentId =
+      row.parent_id === null ? null : maps.comments.get(String(row.parent_id))
+    // 父评语没映射上 = 拓扑会变（回复被静默提升成顶层），与页面/空间同口径失败关闭。
+    if (row.parent_id !== null && parentId === undefined) {
+      throw new Error(
+        `Comment ${String(row.id)} replies to an unknown comment ${String(row.parent_id)}; nothing was changed`
+      )
+    }
+    return {
+      id: maps.comments.get(String(row.id)) ?? 0,
+      page_id: maps.pages.get(String(row.page_id)) ?? 0,
+      parent_id: parentId ?? null,
+      author_id: maps.users.get(String(row.author_id)) ?? 0,
+      body_md: row.body_md,
+      created_at: row.created_at,
+      edited_at: row.edited_at,
+      deleted_at: row.deleted_at
+    }
+  })
 
   const importTokens = await ownerRows("import_tokens")
   const readTokens = await ownerRows("read_tokens")
@@ -802,22 +806,36 @@ async function verifyObjects(
   }
 }
 
-/** 闸二：派生件（html / 纯文本 / MD）只允许发生页面链接改写，其余逐字节不动。 */
-function verifyDerived(pages: MigratedPage[], maps: IdMaps): void {
-  for (const page of pages) {
-    const source = page.source
-    if (
-      page.row.content_html !==
-        rewritePageLinks(source.content_html ?? "", maps.pages) ||
-      page.row.content_text !==
-        rewritePageLinks(source.content_text ?? "", maps.pages) ||
-      page.row.content_md !==
-        rewritePageLinks(source.content_md ?? "", maps.pages)
-    ) {
+/** 闸二：站内链接改写确实生效——凡指向本次迁移过的页面的旧 `/p/<uuid>` 都不许残留。
+ *
+ * 这里查的是「输出里还有没有旧地址」，不是把同一个纯函数再跑一遍比结果：目标页在
+ * 映射里就必然被改写，残留一处都说明改写没落上去。覆盖页面当前 JSON、版本 JSON 与
+ * 三个派生列。
+ */
+function verifyRewrittenLinks(
+  pages: MigratedPage[],
+  revisions: MigratedRevision[],
+  maps: IdMaps
+): void {
+  const check = (label: string, text: string): void => {
+    for (const match of text.matchAll(PAGE_LINK_RE)) {
+      const uuid = match[1]
+      if (!maps.pages.has(uuid) && !maps.pages.has(uuid.toLowerCase())) {
+        continue
+      }
       throw new Error(
-        `Page ${source.id} derived content changed unexpectedly; nothing was changed`
+        `${label} still links to the old address ${match[0]}; nothing was changed`
       )
     }
+  }
+  for (const page of pages) {
+    check(`Page ${page.row.id} content`, page.json)
+    check(`Page ${page.row.id} html`, page.row.content_html)
+    check(`Page ${page.row.id} text`, page.row.content_text)
+    check(`Page ${page.row.id} markdown`, page.row.content_md)
+  }
+  for (const revision of revisions) {
+    check(`Revision ${revision.row.id} content`, revision.json)
   }
 }
 

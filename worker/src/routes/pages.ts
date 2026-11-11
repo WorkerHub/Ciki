@@ -63,7 +63,10 @@ import {
 import { normalizePageInput, type PageContentResult } from "../lib/page-input"
 import { zipStream } from "../lib/zip-stream"
 import { createPage, savePageContent } from "../core/page-write"
-import { revisionContent } from "../lib/revision-content"
+import {
+  revisionContent,
+  type RevisionContentResult
+} from "../lib/revision-content"
 import type { HonoEnv } from "../types"
 
 export const pageRoutes = new Hono<HonoEnv>()
@@ -138,6 +141,18 @@ function badInput(parsed: Extract<PageContentResult, { ok: false }>) {
       ...(parsed.code ? { code: parsed.code } : {})
     }
   } as const
+}
+
+/**
+ * 版本正文取不出来的两种口径（查看与回滚共用）：
+ * 对象整个不见了 → 500 `CONTENT_MISSING`；对象在但渲染不了/字节坏掉 → 422。
+ */
+function revisionContentFailed(
+  c: Context<HonoEnv>,
+  result: Extract<RevisionContentResult, { ok: false }>
+) {
+  if (result.kind === "missing") return contentUnavailable(c)
+  return unrenderableRevision(c, result.error)
 }
 
 /** 版本的 JSON 无法按当前编辑器 schema 渲染 → 422（查看与回滚同一口径）。 */
@@ -690,7 +705,7 @@ pageRoutes.get("/:id/revisions/:versionNo", async (c) => {
 
   // 版本行只有 JSON 指针，HTML/纯文本在这里按需生成。
   const content = await revisionContent(c.env, revision)
-  if (!content.ok) return unrenderableRevision(c, content.error)
+  if (!content.ok) return revisionContentFailed(c, content)
   return c.json({
     versionNo: revision.version_no,
     pageId: revision.page_id,
@@ -720,7 +735,7 @@ pageRoutes.post("/:id/revisions/:versionNo/restore", async (c) => {
   if (!revision) return c.json({ error: "Revision not found" }, 404)
 
   const content = await revisionContent(c.env, revision)
-  if (!content.ok) return unrenderableRevision(c, content.error)
+  if (!content.ok) return revisionContentFailed(c, content)
 
   // 回滚写回同一份内容：哈希不变（同对象复用，不复制字节），只追加一条新版本。
   const saved = await savePageContent(c.env, prefix, page, {
