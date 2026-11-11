@@ -432,7 +432,7 @@ describe("整数 id 与新增端点的 URL", () => {
           revisionCount: 40,
           databaseSizeBytes: 1024,
           sizeScope: "own-database",
-          measure: "pragma"
+          measure: "cloudflare-d1-api"
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       )

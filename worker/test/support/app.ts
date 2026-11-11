@@ -47,6 +47,11 @@ export function makeContext(overrides: Partial<Env> = {}): TestContext {
     SETUP_SECRET: TEST_SETUP_SECRET,
     ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
     TABLE_PREFIX: "ciki_",
+    // 库体积走 Cloudflare D1 REST API：测试默认给一套可用配置，用例要验证
+    // 「未配置」时自己用 `{ CLOUDFLARE_API_TOKEN: undefined }` 覆盖。
+    CLOUDFLARE_API_TOKEN: "test-value",
+    CLOUDFLARE_ACCOUNT_ID: "acct-test",
+    D1_DATABASE_ID: "db-test",
     ...overrides
   } as Env
   return { env, db, r2, content }

@@ -23,3 +23,12 @@ SETUP_SECRET=SETUP_SECRET_PLACEHOLDER
 # 不配 → 走 Worker 内置 Cron Trigger（`wrangler dev --test-scheduled` 可手动触发）。
 # 空值或 *_PLACEHOLDER 一律算未配置。线上同名项由 GitHub Secrets 注入。
 # WAKER_SIGNING_KEY=
+#
+# 库体积（「系统管理 → 数据库维护」）走 Cloudflare D1 REST API 取 file_size：
+# 需要令牌 + 账号 ID + 库 ID 三项，线上由 CI 从现有 GitHub Secrets 注入
+# （不新增 secret 名），本地只从这里读。用同一把 CLOUDFLARE_API_TOKEN 即可，
+# 它需含「Account > D1 > Read」。三项任一缺失或仍是 *_PLACEHOLDER 时，
+# 体积行显示「不可得」——不估算、也不影响其它功能。
+# CLOUDFLARE_API_TOKEN=
+# CLOUDFLARE_ACCOUNT_ID=
+# D1_DATABASE_ID=

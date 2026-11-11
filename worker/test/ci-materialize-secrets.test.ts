@@ -99,7 +99,7 @@ const varsBlock = (toml: string) =>
   toml.match(/\[vars\]\nTABLE_PREFIX = (.*)\n/)?.[1]
 
 describe("materialize-secrets：三态注入与落盘", () => {
-  it("未设置 TABLE_PREFIX → 注入 ciki，secrets.json 为 0600 且只含两把密钥", () => {
+  it("未设置 TABLE_PREFIX → 注入 ciki，secrets.json 为 0600 且含运行时五项", () => {
     const dir = makeSandbox()
     const res = runScript(dir, VALID_ENV)
 
@@ -107,9 +107,16 @@ describe("materialize-secrets：三态注入与落盘", () => {
     expect(varsBlock(res.toml)).toBe('"ciki"')
     expect(exists(res.secretsPath)).toBe(true)
     expect(statSync(res.secretsPath).mode & 0o777).toBe(0o600)
+    // 加密钥/setup 令牌 + D1 REST API 取体积要用的令牌与账号/库 ID。
     expect(
       Object.keys(JSON.parse(readFileSync(res.secretsPath, "utf8")))
-    ).toEqual(["ENCRYPTION_KEY", "SETUP_SECRET"])
+    ).toEqual([
+      "ENCRYPTION_KEY",
+      "SETUP_SECRET",
+      "CLOUDFLARE_API_TOKEN",
+      "CLOUDFLARE_ACCOUNT_ID",
+      "D1_DATABASE_ID"
+    ])
     // 占位符全部被替换，且不再有残留
     expect(res.toml).not.toContain("_PLACEHOLDER")
     expect(res.toml).toContain('account_id = "acct-unit-test"')
@@ -158,7 +165,9 @@ describe("materialize-secrets：三态注入与落盘", () => {
     const output = res.stdout + res.stderr
 
     expect(res.status).toBe(0)
-    expect(output).toContain("ENCRYPTION_KEY, SETUP_SECRET")
+    expect(output).toContain(
+      "ENCRYPTION_KEY, SETUP_SECRET, CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, D1_DATABASE_ID"
+    )
     expect(output).toContain('TABLE_PREFIX="wiki"')
     for (const value of [
       VALID_ENV.ENCRYPTION_KEY,
@@ -268,7 +277,10 @@ describe("materialize-secrets：可选的 WAKER_SIGNING_KEY", () => {
     expect(res.status).toBe(0)
     expect(secretKeys(res.secretsPath)).toEqual([
       "ENCRYPTION_KEY",
-      "SETUP_SECRET"
+      "SETUP_SECRET",
+      "CLOUDFLARE_API_TOKEN",
+      "CLOUDFLARE_ACCOUNT_ID",
+      "D1_DATABASE_ID"
     ])
     expect(res.stdout).toContain("WAKER_SIGNING_KEY: 未配置")
   })

@@ -32,7 +32,7 @@ const storage: AdminStorage = {
   revisionCount: 40,
   databaseSizeBytes: 3_565_158,
   sizeScope: "own-database",
-  measure: "pragma"
+  measure: "cloudflare-d1-api"
 }
 
 const lastRun: R2CleanupSummary = {

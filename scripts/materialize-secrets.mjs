@@ -7,6 +7,11 @@
 // 占位值顶替。CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID 走
 // secrets（GitHub 自动掩码，无需 add-mask），D1_DATABASE_NAME 保持 Variable 明文。
 //
+// 这三把同时也是 **Worker 运行时**要用的：`GET /api/admin/storage` 走 Cloudflare
+// D1 REST API 取库体积（D1 拒绝 PRAGMA page_count），需要令牌与账号/库 ID；
+// 所以它们除了解析 wrangler.toml，也会写进 secrets.json 由 `wrangler deploy
+// --secrets-file` 上传为 Worker secret。不新增 secret 名、不新增必填项。
+//
 // 写入顺序：先把两样东西在内存里算好并校验完（含 wrangler.toml 的占位符残留
 // 检查），再落盘——任何一处不合格都不留半成品。
 import { readFileSync, rmSync, writeFileSync } from "node:fs"
@@ -49,8 +54,17 @@ const REQUIRED = [
   ["D1_DATABASE_NAME", "organization variable"]
 ]
 
-/** 只上传 Worker 运行时要用的密钥；资源 ID 只用于部署期的 wrangler 配置。 */
-const SECRET_KEYS = ["ENCRYPTION_KEY", "SETUP_SECRET"]
+/**
+ * 上传给 Worker 运行时的项：加密钥与 setup 令牌，外加 D1 REST API 取体积所需的
+ * 令牌与账号/库 ID（值仍只来自 GitHub Secrets，绝不进仓库与日志）。
+ */
+const SECRET_KEYS = [
+  "ENCRYPTION_KEY",
+  "SETUP_SECRET",
+  "CLOUDFLARE_API_TOKEN",
+  "CLOUDFLARE_ACCOUNT_ID",
+  "D1_DATABASE_ID"
+]
 
 /**
  * 可选项 `WAKER_SIGNING_KEY`：它是月度 R2 孤儿清理的触发开关（规格 §3），

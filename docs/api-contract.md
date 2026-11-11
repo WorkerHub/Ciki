@@ -518,13 +518,14 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "userCount": 9,
   "databaseSizeBytes": 10485760,
   "sizeScope": "own-database",
-  "measure": "sqlite-page-count"
+  "measure": "cloudflare-d1-api"
 }
 ```
 
-- `databaseSizeBytes` = SQLite 页计数（`PRAGMA page_count × PRAGMA page_size`）。
+- `databaseSizeBytes` = Cloudflare D1 REST API 的 `result.file_size`（`GET /accounts/{account_id}/d1/database/{database_id}?fields=file_size`，服务端调用，令牌复用组织级共用的 `CLOUDFLARE_API_TOKEN`）。D1 运行时拒绝 `PRAGMA page_count`（`SQLITE_AUTH`），所以不再用页计数。
 - **`sizeScope` 恒为 `"own-database"`**：Ciki 的 D1 是本项目独占库（裸表名、无前缀），这个数字就是**本站整库**体积，前端照此标注即可（不要写成「共享库」）。
-- `PRAGMA` 读不到时 `databaseSizeBytes: null`、`measure: "unavailable"`——**不用行数估算冒充体积**，前端显示「不可得」。
+- 取不到时 `databaseSizeBytes: null`、`measure: "unavailable"`——**不用行数估算冒充体积**，前端显示「不可得」。取不到包括：令牌/账号/库 ID 未配置或仍是占位值（这时连请求都不发）、HTTP 失败（含令牌缺 D1 读的 401/403）、超时、响应里没有可用的 `file_size`。
+- 服务端缓存：成功 5 分钟、失败 60 秒（isolate 内），避免管理页刷新反复调 API。
 - 页数等计数都从 D1 现算，不含正文对象（正文在 R2，不占库体积）。
 
 ### waker 回调（`POST /_waker/execute`，不走会话）

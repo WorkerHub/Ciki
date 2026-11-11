@@ -40,6 +40,18 @@ export interface Env {
    * 解析口径见 src/core/waker-gate.ts（空值 / `*_PLACEHOLDER` 一律算未配置）。
    */
   WAKER_SIGNING_KEY?: string
+  /**
+   * 组织级共用 Cloudflare API Token（部署与 Worker 运行时是同一把，来自 CI）。
+   *
+   * 运行时只用于「系统管理 → 数据库维护」取库体积：调 D1 REST API 需要
+   * `Account > D1 > Read`。缺失、空值或仍是 `*_PLACEHOLDER` 时视为未配置，
+   * 体积回退为 `null`（前端显示「不可得」），见 src/core/d1-size.ts。
+   */
+  CLOUDFLARE_API_TOKEN?: string
+  /** Cloudflare 账户 ID（同一批 CI 注入值，运行时拼 D1 REST API 地址用）。 */
+  CLOUDFLARE_ACCOUNT_ID?: string
+  /** 本实例所用的 D1 库 ID（运行时拼 D1 REST API 地址用）。 */
+  D1_DATABASE_ID?: string
 }
 
 export type HonoEnv = {

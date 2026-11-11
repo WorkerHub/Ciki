@@ -625,7 +625,9 @@ export interface AdminSpace {
  * 系统管理 → 数据库维护的体积口径（GET /api/admin/storage）。
  * D1 是 Ciki 独占库，`sizeScope` 即本库；前端只展示 `pageCount` 与体积，
  * 不渲染 scope 文案（不出现「共享库」字样）。
- * PRAGMA 读不到时 `databaseSizeBytes` 为 null —— 显示「不可得」，绝不估算。
+ * 体积由 Cloudflare D1 REST API 的 `file_size` 取得（服务端约 5 分钟缓存）；
+ * 取不到时 `databaseSizeBytes` 为 null、`measure` 为 `unavailable` ——
+ * 显示「不可得」，绝不估算。
  */
 export interface AdminStorage {
   /** 未删除页面数（不含回收站）。 */
@@ -634,7 +636,8 @@ export interface AdminStorage {
   revisionCount: number
   databaseSizeBytes: number | null
   sizeScope: string
-  measure: string
+  /** 体积来源：API 取到为 `cloudflare-d1-api`，取不到为 `unavailable`。 */
+  measure: "cloudflare-d1-api" | "unavailable"
 }
 
 /* ------------------------------------------------------------------ *

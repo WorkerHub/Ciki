@@ -103,14 +103,14 @@ cd Ciki
 
 **Secrets**（切到 Secrets 标签页 → New repository secret，逐个添加）
 
-| Secret                  | 用途                                                                                                                                                                               |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | Cloudflare API Token。可用「Edit Cloudflare Workers」模板，并确认权限里有 Workers Scripts 编辑、D1 编辑与 R2 编辑（缺哪个补哪个）                                                  |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID（控制台首页右侧可复制）                                                                                                                                         |
-| `D1_DATABASE_ID`        | 上一步记下的 D1 Database ID                                                                                                                                                        |
-| `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定 |
-| `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串，例如 `openssl rand -hex 16`                                                                                                                  |
-| `WAKER_SIGNING_KEY`     | **可选**。配了就把月度 R2 清理交给 waker 平台回调，不配则走 Worker 内置 Cron Trigger。值由 waker 建项目时一次性给出，只写进 GitHub Secrets、不要进仓库                             |
+| Secret                  | 用途                                                                                                                                                                                                                                           |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API Token。可用「Edit Cloudflare Workers」模板，并确认权限里有 Workers Scripts 编辑、D1 编辑与 R2 编辑（缺哪个补哪个）。部署与 Worker 运行时共用这一把：Worker 调 D1 REST API 读取库体积也用它，因此需含 D1 读（「D1 编辑」已包含） |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID（控制台首页右侧可复制）                                                                                                                                                                                                     |
+| `D1_DATABASE_ID`        | 上一步记下的 D1 Database ID                                                                                                                                                                                                                    |
+| `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定                                                             |
+| `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串，例如 `openssl rand -hex 16`                                                                                                                                                                              |
+| `WAKER_SIGNING_KEY`     | **可选**。配了就把月度 R2 清理交给 waker 平台回调，不配则走 Worker 内置 Cron Trigger。值由 waker 建项目时一次性给出，只写进 GitHub Secrets、不要进仓库                                                                                         |
 
 **Variables**（切到 Variables 标签页 → New repository variable）
 

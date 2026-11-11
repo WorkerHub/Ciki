@@ -4,6 +4,7 @@
  */
 import { Hono } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
+import { readDatabaseSize } from "../core/d1-size"
 import {
   pagesTable,
   revisionsTable,
@@ -631,38 +632,12 @@ adminRoutes.get("/r2-cleanup", async (c) => {
 })
 
 /**
- * 库体积口径：SQLite 页计数（`PRAGMA page_count × PRAGMA page_size`）。
- *
- * Ciki 的 D1 是**本项目的独占库**（2026-11-08 定版：TABLE_PREFIX=none、裸表名），
- * 所以这个数字就是本站整库体积，响应里带 `scope: "own-database"`。
- * PRAGMA 读不到（被运行时禁用/无权限）时返回 `null` 并把 measure 标成
- * `unavailable`——绝不拿行数估算冒充体积。
- */
-async function readDatabaseSize(db: D1Database): Promise<{
-  bytes: number | null
-  measure: "sqlite-page-count" | "unavailable"
-}> {
-  try {
-    const pages = await db
-      .prepare("PRAGMA page_count")
-      .first<{ page_count: number }>()
-    const size = await db
-      .prepare("PRAGMA page_size")
-      .first<{ page_size: number }>()
-    if (!pages || !size) return { bytes: null, measure: "unavailable" }
-    return {
-      bytes: pages.page_count * size.page_size,
-      measure: "sqlite-page-count"
-    }
-  } catch {
-    return { bytes: null, measure: "unavailable" }
-  }
-}
-
-/**
  * 「系统管理 → 数据库维护」的体积与页数数据源（展示归前端单 B）。
  *
- * 页数、回收站页数、版本数、空间数、用户数都从 D1 现算；体积按上面的页计数口径。
+ * 页数、回收站页数、版本数、空间数、用户数都从 D1 现算；体积改走 Cloudflare
+ * D1 REST API 的 `file_size`（见 src/core/d1-size.ts）——D1 运行时拒绝
+ * `PRAGMA page_count`，页计数在线上拿不到。取不到时 `databaseSizeBytes` 为
+ * `null`、`measure` 为 `unavailable`，前端显示「不可得」，绝不估算。
  */
 adminRoutes.get("/storage", async (c) => {
   const prefix = getTablePrefix(c.env)
@@ -685,7 +660,7 @@ adminRoutes.get("/storage", async (c) => {
       space_count: number
       user_count: number
     }>()
-  const size = await readDatabaseSize(db)
+  const size = await readDatabaseSize(c.env)
   return c.json({
     pageCount: row?.page_count ?? 0,
     trashedPageCount: row?.trashed_page_count ?? 0,
