@@ -11,17 +11,16 @@ export interface UserRow {
   is_active: number
   approval_status: "pending" | "approved" | "rejected"
   email_verified: number
-  base_currency: string
-  timezone: string
   language: string
-  theme: string
   created_at: string
   updated_at: string
 }
 
 /**
- * 注册：用户表为空时首个用户是 admin、直接批准并激活；否则按审批开关落
- * pending 或直接批准。单条语句判定“是否首个用户”，避免并发下出现两个管理员。
+ * 注册：用户表为空时首个用户是 admin、直接批准并激活，并且直接视为已验证邮箱
+ * （首个管理员是站点的主人，不能因为没有 SMTP 就把自己锁在门外）；其余用户一律
+ * `email_verified=0`，由注册邮箱验证流程置位。单条语句判定“是否首个用户”，避免
+ * 并发下出现两个管理员。
  *
  * 返回新用户的整数 id（`meta.last_row_id`），调用方不必再查一次。
  */
@@ -41,12 +40,13 @@ export async function createUserFirstIsAdmin(
   const result = await db
     .prepare(
       `INSERT INTO ${table}
-        (email, username, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
+        (email, username, password_hash, role, is_active, approval_status, email_verified, language, created_at, updated_at)
        SELECT ?, ?, ?,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'admin' ELSE 'user' END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'approved' ELSE ? END,
-         0, 'CNY', 'UTC', 'zh', 'system', ?, ?`
+         CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE 0 END,
+         'zh', ?, ?`
     )
     .bind(
       data.email,
@@ -61,7 +61,7 @@ export async function createUserFirstIsAdmin(
   return result.meta.last_row_id
 }
 
-/** 管理员直接建号：强制已批准、已激活。返回新用户的整数 id。 */
+/** 管理员直接建号：强制已批准、已激活、邮箱已验证。返回新用户的整数 id。 */
 export async function createApprovedUser(
   db: D1Database,
   prefix: string,
@@ -76,12 +76,32 @@ export async function createApprovedUser(
   const result = await db
     .prepare(
       `INSERT INTO ${usersTable(prefix)}
-        (email, username, password_hash, role, is_active, approval_status, email_verified, base_currency, timezone, language, theme, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 1, 'approved', 0, 'CNY', 'UTC', 'zh', 'system', ?, ?)`
+        (email, username, password_hash, role, is_active, approval_status, email_verified, language, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 1, 'approved', 1, 'zh', ?, ?)`
     )
     .bind(data.email, data.username, data.password_hash, data.role, now, now)
     .run()
   return result.meta.last_row_id
+}
+
+/**
+ * 注册邮箱验证成功：只置位、只在「还没验证」时生效（重复提交不会改写 updated_at）。
+ * 返回是否真的改到了行。
+ */
+export async function markEmailVerified(
+  db: D1Database,
+  prefix: string,
+  id: number
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE ${usersTable(prefix)}
+          SET email_verified = 1, updated_at = ?
+        WHERE id = ? AND email_verified = 0`
+    )
+    .bind(new Date().toISOString(), id)
+    .run()
+  return result.meta.changes === 1
 }
 
 export async function findUserByEmail(

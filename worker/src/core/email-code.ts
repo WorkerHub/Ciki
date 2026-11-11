@@ -175,6 +175,24 @@ function retryAfterOf(
   return Math.max(1, windowStart + windowSeconds - now)
 }
 
+/**
+ * 只 arm 发码冷却（不占小时配额）。
+ *
+ * 注册接口自己发首封验证码、不走 `consumeEmailCodeSendLimits`，但冷却必须由它 arm：
+ * 否则用户刚收到注册邮件就点「重新发送」，会把刚发出的码作废。
+ */
+export async function armEmailCodeCooldown(
+  db: D1Database,
+  prefix: string,
+  options: { purpose: EmailCodePurpose; accountKey: string }
+): Promise<void> {
+  await consumeCounter(db, prefix, {
+    action: "email_code_cd",
+    account: accountOf(options.purpose, options.accountKey),
+    windowSeconds: EMAIL_CODE_COOLDOWN_SECONDS
+  })
+}
+
 export type EmailCodeSendLimitResult =
   | { allowed: true }
   | {

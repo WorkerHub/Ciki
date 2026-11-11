@@ -425,9 +425,13 @@ export async function sendTransactionalEmail(
   return { success: false, error: `SMTP send failed: ${result.error}` }
 }
 
+/**
+ * 验证码邮件文案。`intro` 为空表示「只给验证码与有效期、不加多余话术」
+ * （注册验证邮件的口径）：开场句与「若非本人操作」句一并省略。
+ */
 const EMAIL_CODE_COPY: Record<
   EmailCodePurpose,
-  { subject: string; intro: string }
+  { subject: string; intro?: string }
 > = {
   password_reset: {
     subject: "Ciki 密码重置验证码",
@@ -440,6 +444,9 @@ const EMAIL_CODE_COPY: Record<
   "2fa_enable": {
     subject: "Ciki 邮箱验证码启用确认",
     intro: "你正在为 Ciki 账号启用邮箱验证码两步验证"
+  },
+  register_verify: {
+    subject: "Ciki 注册验证码"
   }
 }
 
@@ -456,9 +463,13 @@ export async function sendEmailCodeMessage(
   const copy = EMAIL_CODE_COPY[options.purpose]
   const minutes = Math.round((options.expiresInSeconds ?? 600) / 60)
   const html =
-    `<p>${copy.intro}，验证码是：</p>` +
+    (copy.intro ? `<p>${copy.intro}，验证码是：</p>` : "<p>验证码是：</p>") +
     `<p style="font-size:24px;font-weight:bold;letter-spacing:4px">${options.code}</p>` +
-    `<p>验证码 ${minutes} 分钟内有效，且只能使用一次。若非本人操作，请忽略本邮件。</p>`
+    `<p>验证码 ${minutes} 分钟内有效，${
+      copy.intro
+        ? "且只能使用一次。若非本人操作，请忽略本邮件。"
+        : "只能使用一次。"
+    }</p>`
   return sendTransactionalEmail(env, {
     to: options.to,
     subject: copy.subject,

@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest"
 import {
   adminSession,
   cookieOf,
+  enableSmtpConfig,
   initializedContext,
   jsonRequest,
+  markEmailVerified,
   register
 } from "./support/app"
 import { app } from "../src/index"
@@ -167,6 +169,8 @@ describe("TOTP：加密落库、登录第二步、防重放", () => {
       admin
     )
 
+    // 注册要发验证码（站点可发信）；邮箱验证是独立的一道，测试里直接置位。
+    await enableSmtpConfig(env)
     await register(env, "member@example.com")
     const pending = (await (
       await jsonRequest(
@@ -185,6 +189,7 @@ describe("TOTP：加密落库、登录第二步、防重放", () => {
       undefined,
       admin
     )
+    await markEmailVerified(env, "member@example.com")
 
     const login = await jsonRequest(env, "POST", "/api/auth/login", {
       email: "member@example.com",

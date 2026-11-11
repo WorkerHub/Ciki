@@ -17,6 +17,7 @@ import {
   cookieOf,
   initializedContext,
   jsonRequest,
+  markEmailVerified,
   register
 } from "./support/app"
 import { createPasskey } from "./support/webauthn"
@@ -1077,6 +1078,8 @@ describe("受限会话（require_2fa）", () => {
       undefined,
       admin
     )
+    // 注册验证是独立的一道门禁，这里直接置位（流程本身见 auth-email-verify）。
+    await markEmailVerified(env, "member@example.com")
 
     const login = await jsonRequest(env, "POST", "/api/auth/login", {
       email: "member@example.com",

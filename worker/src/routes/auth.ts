@@ -10,9 +10,11 @@ import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { getBooleanSetting, getSetting } from "../db/queries/settings"
 import {
+  countUsers,
   createUserFirstIsAdmin,
   findUserByEmail,
   findUserById,
+  markEmailVerified,
   type UserRow
 } from "../db/queries/users"
 import { joinDefaultSpace } from "../db/queries/spaces"
@@ -47,6 +49,7 @@ import {
 } from "../core/identity"
 import { isEmailConfigured, sendEmailCodeMessage } from "../services/email"
 import {
+  armEmailCodeCooldown,
   consumeEmailCodeSendLimits,
   consumeEmailCodeVerifyLimits,
   consumePasswordResetSubmitLimit,
@@ -76,6 +79,9 @@ const DUMMY_HASH =
  * `SHA-256("password_reset:<id>:<code>")`，用时与真实校验一致。
  */
 const PASSWORD_RESET_DUMMY_USER_ID = 0
+
+/** 注册邮箱验证的等成本假用户：账号不存在/不可验证时也跑一遍同一条 SHA-256。 */
+const EMAIL_VERIFY_DUMMY_USER_ID = 0
 
 const LOGIN_WINDOW = 300
 const LOGIN_LIMIT = 10
@@ -175,6 +181,20 @@ authRoutes.post("/register", async (c) => {
     )
   }
 
+  // 注册必须走邮箱验证：站点发不出信时不让任何人落一个「永远验证不了」的账号。
+  // 首个用户（站点管理员）免验证，所以这一条只拦非首个用户。
+  // 并发下两人同时注册首个账号由建号 SQL 的 COUNT 兜底，这里只做站点配置判定。
+  const firstUser = (await countUsers(c.env.DB, prefix)) === 0
+  if (!firstUser && !(await isEmailConfigured(c.env))) {
+    return c.json(
+      {
+        error: "Email delivery is not configured",
+        code: "EMAIL_NOT_CONFIGURED"
+      },
+      503
+    )
+  }
+
   const approvalRequired = await getBooleanSetting(
     c.env.DB,
     prefix,
@@ -202,10 +222,42 @@ authRoutes.post("/register", async (c) => {
 
   const user = await findUserById(c.env.DB, prefix, id)
   await joinDefaultSpace(c.env.DB, prefix, id, user?.role ?? "user")
+
+  // 未验证的发信放在 `waitUntil` 里：注册响应不等 SMTP。发不发以回读到的真实
+  // `email_verified` 为准（首个管理员是 1），不靠上面那次 COUNT 的结论。
+  if (user && user.email_verified === 0) {
+    await runInBackground(c, async () => {
+      // 与找回密码同口径：注册这一封也算「刚发过码」，arm 60 秒冷却，免得用户
+      // 立刻点重发把刚收到的码作废。限流器异常不拦发信（邮件才是关键路径）。
+      try {
+        await armEmailCodeCooldown(c.env.DB, prefix, {
+          purpose: "register_verify",
+          accountKey: user.email
+        })
+      } catch {
+        console.error("register verification cooldown failed")
+      }
+      const issued = await issueEmailCode(c.env.DB, prefix, {
+        userId: user.id,
+        purpose: "register_verify"
+      })
+      const sent = await sendEmailCodeMessage(c.env, {
+        to: user.email,
+        code: issued.code,
+        purpose: "register_verify"
+      })
+      if (!sent.success) {
+        // 失败只记脱敏原因；不回显、不记收件人。
+        console.error("register verification email failed:", sent.error)
+      }
+    })
+  }
+
   return c.json(
     {
       success: true,
-      approvalRequired: user?.approval_status === "pending"
+      approvalRequired: user?.approval_status === "pending",
+      emailVerificationRequired: user ? user.email_verified === 0 : false
     },
     201
   )
@@ -283,18 +335,30 @@ authRoutes.post("/login", async (c) => {
     return c.json({ error: "Invalid credentials" }, 401)
   }
 
+  // 顺序：已拒绝 → 未验证 → 待审批 → 停用。
+  //
+  // 未验证排在待审批之前：验证是用户自己能完成的动作，登录页据这个错误码给出
+  // 「重新发送验证码」；验证完再提示等待审批。
+  // 「停用」必须排在审批判定之后：待审批/已拒绝的账号本身就是 is_active=0，
+  // 提前判停用会把这两种状态吞成笼统的 401（口径变化）。
+  if (user.approval_status === "rejected") {
+    return c.json(
+      { error: "Account was rejected", code: "ACCOUNT_REJECTED" },
+      403
+    )
+  }
+  if (user.email_verified === 0) {
+    return c.json(
+      { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
+      403
+    )
+  }
   if (user.approval_status === "pending") {
     return c.json(
       {
         error: "Account pending approval",
         code: "ACCOUNT_PENDING_APPROVAL"
       },
-      403
-    )
-  }
-  if (user.approval_status === "rejected") {
-    return c.json(
-      { error: "Account was rejected", code: "ACCOUNT_REJECTED" },
       403
     )
   }
@@ -604,4 +668,160 @@ authRoutes.post("/password/reset", async (c) => {
   if (!applied) return invalidResetToken(c)
 
   return c.json({ success: true })
+})
+
+// ── 注册邮箱验证（本单冻结契约，供前端单 B 引用） ──────────────────────────────
+//
+// 未验证不能登录，所以两个端点都公开、按「邮箱 + 6 位码」工作，不要求会话：
+// - `POST /api/auth/email/verify`：验码通过 → `email_verified=1`、该码作废；
+// - `POST /api/auth/email/resend`：重发一枚 `register_verify` 码，口径同找回密码。
+//
+// 防枚举：未知/停用/已拒绝/已验证账号一律同一个 200（重发）或同一个 400（验码），
+// 验码对不可验证的账号跑一遍同成本的 SHA-256。限频一律复用 core/email-code.ts 的
+// auth_counters 口径，不另设体系。
+
+/**
+ * 能被验证/重发验证码的账号：还没验证、且没有被拒绝或停用。
+ *
+ * 注意待审批账号的 `is_active` 天生是 0（注册时只有批准才激活），所以「停用」这一条
+ * 只对已批准的账号生效——否则刚注册的人永远验证不了自己。
+ */
+function canReceiveVerification(user: UserRow): boolean {
+  if (user.email_verified !== 0) return false
+  if (user.approval_status === "rejected") return false
+  return user.approval_status !== "approved" || user.is_active === 1
+}
+
+/** 重发的唯一「已受理」响应（冷却期内也是它）。 */
+function registerVerifyAccepted(c: Context<HonoEnv>) {
+  return c.json({
+    success: true as const,
+    cooldownSeconds: EMAIL_CODE_COOLDOWN_SECONDS
+  })
+}
+
+/** 验码失败的唯一响应：账号不存在、不可验证、码错、过期、已用一律用它。 */
+function invalidVerifyCode(c: Context<HonoEnv>) {
+  return c.json({ error: "Invalid or expired code", code: "INVALID_CODE" }, 400)
+}
+
+/**
+ * 重发注册验证码（公开）。
+ *
+ * 顺序固定：邮箱格式 → 站点发信 → 限频（cd → send → send_ip）→ 查账号。
+ * 未配置 SMTP 503 `EMAIL_NOT_CONFIGURED`（不写计数）；冷却期内 200 不重发；
+ * 小时配额用尽 429 带 `retryAfter`；其余一律 200，且只有可验证的账号才写码发信。
+ */
+authRoutes.post("/email/resend", async (c) => {
+  const body = await readJsonBody<{ email?: unknown }>(c)
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
+  if (!email || !EMAIL_RE.test(email)) {
+    return c.json({ error: "Invalid email format", code: "INVALID_EMAIL" }, 400)
+  }
+
+  if (!(await isEmailConfigured(c.env))) {
+    return c.json(
+      {
+        error: "Email delivery is not configured",
+        code: "EMAIL_NOT_CONFIGURED"
+      },
+      503
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const limits = await consumeEmailCodeSendLimits(db, prefix, {
+    purpose: "register_verify",
+    accountKey: email,
+    ip: clientIp(c)
+  })
+  if (!limits.allowed) {
+    if (limits.scope === "cooldown") return registerVerifyAccepted(c)
+    return c.json(
+      {
+        error: "Too many requests",
+        code: "RATE_LIMITED",
+        retryAfter: limits.retryAfter
+      },
+      429
+    )
+  }
+
+  const user = await findUserByEmail(db, prefix, email)
+  if (!user || !canReceiveVerification(user)) return registerVerifyAccepted(c)
+
+  await runInBackground(c, async () => {
+    const issued = await issueEmailCode(db, prefix, {
+      userId: user.id,
+      purpose: "register_verify"
+    })
+    const sent = await sendEmailCodeMessage(c.env, {
+      to: user.email,
+      code: issued.code,
+      purpose: "register_verify"
+    })
+    if (!sent.success) {
+      console.error("register verification email failed:", sent.error)
+    }
+  })
+
+  return registerVerifyAccepted(c)
+})
+
+/**
+ * 验码并置 `email_verified=1`（公开，不自动登录）。
+ *
+ * 失败口径：未知账号、已停用、已拒绝、已验证、码错、过期、已用过一律同一个 400；
+ * 未知账号也消耗一次按邮箱计的验码限频、并跑一遍同成本哈希，不暴露账号状态。
+ * 成功：原子消费该码 → 置位 → 清零该邮箱的验码失败计数。
+ */
+authRoutes.post("/email/verify", async (c) => {
+  const body = await readJsonBody<{ email?: unknown; code?: unknown }>(c)
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
+  const code = typeof body?.code === "string" ? body.code.trim() : ""
+  if (!email || !EMAIL_RE.test(email)) {
+    return c.json({ error: "Invalid email format", code: "INVALID_EMAIL" }, 400)
+  }
+  if (!code) return invalidVerifyCode(c)
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const limits = await consumeEmailCodeVerifyLimits(db, prefix, {
+    purpose: "register_verify",
+    accountKey: email,
+    ip: clientIp(c)
+  })
+  if (!limits.allowed) {
+    return c.json(
+      {
+        error: "Too many requests",
+        code: "RATE_LIMITED",
+        retryAfter: limits.retryAfter
+      },
+      429
+    )
+  }
+
+  const user = await findUserByEmail(db, prefix, email)
+  if (!user || !canReceiveVerification(user)) {
+    await hashEmailCode("register_verify", EMAIL_VERIFY_DUMMY_USER_ID, code)
+    return invalidVerifyCode(c)
+  }
+
+  const verified = await verifyEmailCode(db, prefix, {
+    userId: user.id,
+    purpose: "register_verify",
+    code
+  })
+  if (!verified) return invalidVerifyCode(c)
+
+  await markEmailVerified(db, prefix, user.id)
+  await resetEmailCodeVerifyCounter(db, prefix, {
+    purpose: "register_verify",
+    accountKey: email
+  })
+  return c.json({ success: true as const })
 })

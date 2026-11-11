@@ -2,9 +2,9 @@
 
 本文件由后端实现单在计划确认后冻结，是前端实现单的接口依据。实现期如需变更，先上报 Chief 裁决，**不得单方面改动**；改动必须同步更新本文件。
 
-## 零、本版变更（整数 id + 内容上 R2，破坏性）
+## 零、本版变更（迁移坍缩为 schema_v7 + 注册必须验证邮箱）
 
-一次数据库升级同时完成两件事：**所有实体 id 换成自增整数**、**页面正文与历史版本正文搬到 R2**（`ciki-content`）。旧 uuid 形态不再存在，前端必须按下表改。
+本版两件事：**迁移链坍缩为单一 `schema_v7`**（结构不变）、**自助注册后必须验证邮箱才能登录**。下表是上一版完成、本版不变的现行结构（整数 id + 内容上 R2），仍需按它对接：
 
 | 位置                   | 旧                                    | 新                                                                |
 | ---------------------- | ------------------------------------- | ----------------------------------------------------------------- |
@@ -16,7 +16,7 @@
 | 用户对外身份           | `id` + `publicId`                     | 只剩 `username`（`publicId` 字段已删除，别读它）                  |
 | 页面正文存储           | D1 的 `content_json` 列               | 内容桶里的 `content/<sha256>` 对象（D1 只留 `content_hash` 指针） |
 
-- **一次升级、不可回退**：升级前必须用 `wrangler d1 time-travel info <库名>` 记下当前 bookmark 作为回退点（`wrangler d1 export` 因库里的 FTS5 虚拟表不可用）；迁移失败不会改动任何旧数据（详见「schema_v6」）。
+- **一次升级、不可回退**：升级前必须用 `wrangler d1 time-travel info <库名>` 记下当前 bookmark 作为回退点（`wrangler d1 export` 因库里的 FTS5 虚拟表不可用）；迁移失败不会改动任何旧数据（详见「schema_v7」）。
 - **正文只在三种情况下读 R2**：`GET /api/pages/:id?format=json`（编辑器）、`GET /api/pages/:id/revisions/:versionNo`（版本查看）、回滚/导入覆盖（服务端读旧内容比对）。阅读页只读 D1 的 `contentHtml` / `contentText` / `contentMd`，不碰 R2。
 - **写路径顺序固定「先 R2 再 D1」**：先上传正文对象拿到哈希，再在同一个 `db.batch()` 里写页面行 + 版本行 + FTS。上传成功而 D1 失败只会留一个无引用的孤儿对象，由月度内容 GC 在 30 天后收走（绝不出现「指针指向不存在的对象」）。
 - **内容不重复存**：同一份正文（sha256 相同）全站只存一个对象；无改动保存既不上传也不写库。
@@ -41,7 +41,7 @@
 ## 一、通用约定
 
 - **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）；`/api/read/*` 是外部连接器入口，只认 `Authorization: Bearer <只读令牌>`，同样不接受会话 Cookie，且与导入令牌互不通用（见「只读接口（只读令牌）」）。
-  - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
+  - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/email/verify`、`POST /api/auth/email/resend`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
   - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
 - **空间可见性**：站点管理员可见全部空间；普通用户仅可见自己是成员的空间（`admin` / `editor` / `viewer`）。可见性过滤覆盖空间列表、页面树、页面直链、回收站与搜索；非成员访问空间/页面一律 404，不泄露存在性。页面写权限以空间角色为准：`editor` 及以上可写，`viewer` 只读。
@@ -56,33 +56,34 @@
 
 迁移清单见下，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
-- `schema_v1`（新基线）：全新库的全部表——鉴权（`users` 含 `username` / `avatar_key`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`）并把已有用户并入默认空间。全部 `CREATE … IF NOT EXISTS` / `INSERT OR IGNORE`，重复执行无副作用。
-- `schema_v6`（一次性重建：整数 id + 内容上 R2）：**唯一会重建整库结构的迁移**，prepare-only。它在一次升级里完成：①按 `created_at`（同刻按旧 id）给页面/用户/空间/评论发整数号，版本页内发 1..N 的 `version_no`；②把每页每版本的正文（版本先解压）里的站内 `/p/<uuid>` 链接改写成 `/p/<新 id>`，图片 `/api/files/…` 原样；③逐份 gzip 上传到内容桶，key = `content/<sha256>`（哈希对象是**未压缩**的 UTF-8 字节）；④按 `schema_v1` 的 DDL 建 `v6_*` 临时表只写整数 id 与 `content_hash`；⑤全量校验（每页/每版本的解压回读与哈希逐字节一致、派生列一致、父子与空间一致、行数与版本数一致）；⑥单个 `db.batch()` 逐表 DROP + RENAME 完成切换，再补索引。任一校验不过就抛错：**不切表、不记账、旧数据一字未动**，修好重跑即可（重跑开头会清掉上次留下的 `v6_*`）。失败只留下已上传的内容对象，由月度内容 GC 当孤儿收走。
-  - 顺序与幂等：已有新结构（`pages.content_hash` 存在）→ 只补索引直接记账；空库 → 什么都不做。
-  - TOTP 密文的 AAD 内嵌用户 id，迁移会解密后用新 id 重新加密；任一用户的密文解不开就整轮中止（不生成半套数据），要求先重置该用户 2FA。
-  - `auth_counters` / `system_settings` / `waker_executions` 不重建（无 id 变更、不存正文）。
-  - **升级前必须记下回退点**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先跑一次 `wrangler d1 time-travel info <库名>`，把输出的 bookmark 留档（Time Travel 始终开启，回溯窗口为最近 30 天，Workers Free 套餐 7 天；`wrangler d1 info <库名>` 需显示 `version: production`，wrangler v3.4.0+）。不要再试 `wrangler d1 export`：库里有 FTS5 虚拟表，Cloudflare 会拒绝（`cannot export databases with virtual tables (fts5)`）。回退只能按这个 bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`，原地覆盖整库；重建迁移不可逆：旧 uuid 与新整数之间不保留对照表）；Time Travel 只管 D1，R2 里的正文对象不可变、不参与回退。
+- `schema_v7`（唯一迁移，本版起系统里只有这一个版本标记）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`）并把已有用户并入默认空间。全部 `CREATE … IF NOT EXISTS` / `INSERT OR IGNORE`，重复执行无副作用。
+- 存量库（**唯一支持的升级源 = 当前生产形态**：整数 id、正文在 R2、`users` 仍带 `base_currency`/`timezone`/`theme`）：同一条迁移先做一次全表重建——①按定版 DDL 建 `v7_*` 临时表；②按「定版列 ∩ 旧表列」整表拷贝，`users` 丢掉三列、`email_verified` 一律置 1（存量用户不锁任何人），正文不重传、`content_hash` 原样搬；③三道校验：逐表行数相等、`pages` 与 `page_revisions` 按 id 逐行 `content_hash` 相等、两表里每个内容对象全量回读并复核哈希；④单个 `db.batch()` 逐表 DROP + RENAME 完成切换，再补索引。任一校验不过就抛错：**不切表、不记账、旧数据一字未动**，修好重跑即可（重跑开头先清 `v7_*`）。已是定版结构的库命中幂等空转，只补索引。
+- 更早的开发期形态（uuid id、正文在 `content_json`）**不提供升级路径**：命中即报 `Unsupported legacy database shape` 并中止，一个表都不动；请先用上一版升级到 v6 形态，或重置开发库。`users` 还带三列但 `pages` 缺失的残缺现场同样明确报错，不做猜测性修复。
+- `schema_v1`–`schema_v6`（含 `schema_v6` 的 UUID→整数、正文上 R2 重建）的增量定义已清除；旧账本里的这些已应用行保留不动，执行器只认当前列表。
 
-Ciki 不提供逐版本升级路径：全新库直接跑 `schema_v1`；存量库一次 `schema_v6` 重建到位。今后结构变化仍只在末尾追加迁移，不改动已有迁移。
+今后结构变化只在末尾追加 `schema_v8`、`schema_v9`…，`schema_v7` 不得改名、改内容或调序。
 
-回滚方式（全新库/整库重置）：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态；生产库执行前必须经用户批准，UI 不提供删表/清库入口。**已跑过 `schema_v6` 的库不能靠删表回到旧结构**——要回到升级前只能按升级前记下的 Time Travel bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`）。
+**升级前必须记下回退点**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先跑一次 `wrangler d1 time-travel info <库名>`，把输出的 bookmark 留档（Time Travel 始终开启，回溯窗口为最近 30 天，Workers Free 套餐 7 天；`wrangler d1 info <库名>` 需显示 `version: production`，wrangler v3.4.0+）。不要再试 `wrangler d1 export`：库里有 FTS5 虚拟表，Cloudflare 会拒绝（`cannot export databases with virtual tables (fts5)`）。回退只能按这个 bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`，原地覆盖整库）；Time Travel 只管 D1，R2 里的正文对象不可变、不参与回退。
+
+回滚方式（整库重置）：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态；生产库执行前必须经用户批准，UI 不提供删表/清库入口。**跑过 `schema_v7` 的库不能靠删表回到旧结构**——要回到升级前只能按升级前记下的 Time Travel bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`）。
 
 账本表名带前导下划线、排在业务表之前（如默认前缀下为 `_ciki_schema_migrations`，无前缀时为 `_schema_migrations`）。旧版部署用的账本名是 `{prefix}schema_migrations`（无前导下划线）：setup 在跑迁移之前先探旧账本，旧在/新不在则 `ALTER TABLE … RENAME TO …` 改名承接（已应用记录原样保留，迁移全显示 `skipped`，重复执行不会重复改名）；新旧都不在则按现行 DDL 新建。新旧账本同时存在（或旧账本表结构不符、不是 ciki 的账本）属异常，setup 以 409 `LEDGER_CONFLICT` 中止并回报，不自行合并或删除任何一边。
 
 ### users
 
-| 列                                                       | 类型                             | 说明                                                                                                                    |
-| -------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| id                                                       | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                             |
-| email                                                    | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                      |
-| username                                                 | TEXT NOT NULL DEFAULT ''         | 唯一、1–40 码点，注册时取邮箱前缀（重名自动加后缀）、之后可改；这是**唯一对外的用户身份**                               |
-| avatar_key                                               | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像 |
-| password_hash                                            | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                        |
-| role                                                     | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                        |
-| is_active                                                | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                     |
-| approval_status                                          | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                     |
-| email_verified, base_currency, timezone, language, theme | —                                | 照 eNotify 保留，ciki 不使用、不暴露                                                                                    |
-| created_at, updated_at                                   | TEXT NOT NULL                    | ISO 时间                                                                                                                |
+| 列                     | 类型                             | 说明                                                                                                                         |
+| ---------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| id                     | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                                  |
+| email                  | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                           |
+| username               | TEXT NOT NULL DEFAULT ''         | 唯一、1–40 码点，注册时取邮箱前缀（重名自动加后缀）、之后可改；这是**唯一对外的用户身份**                                    |
+| avatar_key             | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像      |
+| password_hash          | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                             |
+| role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                             |
+| is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                          |
+| approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                          |
+| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在 `schema_v7` 重建时一律置 1 |
+| language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言（照 eNotify 保留；主题等纯前端偏好不进数据库）                                                                      |
+| created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                     |
 
 索引：`username` 上有唯一索引（空串除外），并发改重名由数据库兜底。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
 
@@ -100,8 +101,8 @@ Ciki 不提供逐版本升级路径：全新库直接跑 `schema_v1`；存量库
 
 | 列            | 类型                       | 说明           |
 | ------------- | -------------------------- | -------------- |
-| id            | TEXT PK                    | UUID           |
-| user_id       | TEXT NOT NULL              | 索引           |
+| id            | INTEGER PK AUTOINCREMENT   | 内部整数 id    |
+| user_id       | INTEGER NOT NULL           | 索引           |
 | credential_id | TEXT NOT NULL              | 唯一索引       |
 | public_key    | TEXT NOT NULL              | base64         |
 | counter       | INTEGER NOT NULL DEFAULT 0 | 每次认证后更新 |
@@ -117,7 +118,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | ------------------------------------ | -------------------------- | ------------------------------------ |
 | id                                   | TEXT PK                    | 行 UUID（对外只作为会话列表的 `id`） |
 | token_hash                           | TEXT NOT NULL UNIQUE       | Cookie 令牌的 SHA-256                |
-| user_id                              | TEXT NOT NULL              | 索引                                 |
+| user_id                              | INTEGER NOT NULL           | 索引                                 |
 | needs_2fa_setup                      | INTEGER NOT NULL DEFAULT 0 | 1 = 受限会话（强制配置 2FA）         |
 | created_at, last_seen_at, expires_at | INTEGER NOT NULL           | Unix 秒                              |
 | ip, user_agent                       | TEXT NOT NULL DEFAULT ''   |                                      |
@@ -127,7 +128,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | 列                     | 类型                     | 说明                                                                                              |
 | ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------- |
 | key                    | TEXT PK                  | `SHA-256(令牌)` 或 `SHA-256("<purpose>:<uid>")`，不存原值                                         |
-| user_id                | TEXT NOT NULL            |                                                                                                   |
+| user_id                | INTEGER NOT NULL         |                                                                                                   |
 | purpose                | TEXT NOT NULL            | `2fa_login` / `totp_setup` / `passkey_register` / `passkey_auth` / `totp_used` / `password_reset` |
 | payload                | TEXT NOT NULL DEFAULT '' | 挑战原文 / 加密后的 TOTP 待确认密钥 / `password_reset` 的 userId                                  |
 | expires_at, created_at | INTEGER NOT NULL         | 均为 5 分钟过期（`totp_used` 90 秒、`password_reset` 600 秒）                                     |
@@ -167,17 +168,17 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | smtp_config           | 管理员 userId                      | 10 次 / 5 分钟  | `PUT /api/admin/system/smtp`                                            |
 | smtp_test             | 管理员 userId                      | 5 次 / 5 分钟   | `POST /api/admin/system/smtp/test`                                      |
 
-### email_codes（邮箱验证码，schema_v3）
+### email_codes（邮箱验证码）
 
-| 列         | 类型                       | 说明                                                          |
-| ---------- | -------------------------- | ------------------------------------------------------------- |
-| user_id    | TEXT NOT NULL              | 复合主键之一                                                  |
-| purpose    | TEXT NOT NULL              | `password_reset` / `2fa_login` / `2fa_enable`（CHECK 约束）   |
-| binding    | TEXT NOT NULL DEFAULT ''   | `2fa_login` 为 `SHA-256(tempToken)`；其余用途为空串           |
-| code_hash  | TEXT NOT NULL              | `SHA-256("<purpose>:<userId>:<code>")`，64 位 hex；不存明文码 |
-| attempts   | INTEGER NOT NULL DEFAULT 0 | 错误次数；第 5 次错误删除该行                                 |
-| created_at | INTEGER NOT NULL           | Unix 秒                                                       |
-| expires_at | INTEGER NOT NULL           | Unix 秒；TTL 600 秒                                           |
+| 列         | 类型                       | 说明                                                                            |
+| ---------- | -------------------------- | ------------------------------------------------------------------------------- |
+| user_id    | INTEGER NOT NULL           | 复合主键之一                                                                    |
+| purpose    | TEXT NOT NULL              | `password_reset` / `2fa_login` / `2fa_enable` / `register_verify`（CHECK 约束） |
+| binding    | TEXT NOT NULL DEFAULT ''   | `2fa_login` 为 `SHA-256(tempToken)`；其余用途为空串                             |
+| code_hash  | TEXT NOT NULL              | `SHA-256("<purpose>:<userId>:<code>")`，64 位 hex；不存明文码                   |
+| attempts   | INTEGER NOT NULL DEFAULT 0 | 错误次数；第 5 次错误删除该行                                                   |
+| created_at | INTEGER NOT NULL           | Unix 秒                                                                         |
+| expires_at | INTEGER NOT NULL           | Unix 秒；TTL 600 秒                                                             |
 
 主键 `(user_id, purpose, binding)`：同一账号同一用途（同一 tempToken）只保留最新一枚码，重发 UPSERT 覆盖旧码。验证码为 6 位数字（`crypto.getRandomValues`，100000–999999），单次消费；成功校验用 `DELETE … WHERE … AND code_hash=? AND expires_at>? AND attempts<5` 原子消费，`meta.changes=1` 才算成功；每次发码顺带 `DELETE … WHERE expires_at < now`。
 
@@ -378,7 +379,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 {
   "success": true,
   "tablePrefix": "ciki_",
-  "migrations": [{ "name": "schema_v1", "status": "applied" }]
+  "migrations": [{ "name": "schema_v7", "status": "applied" }]
 }
 ```
 
@@ -577,10 +578,39 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "email": "a@b.c", "password": "至少 8 位" }
 ```
 
-- 201 `{"success":true,"approvalRequired":false}`。
-- 用户表为空时：首个用户为 `admin`、直接批准并激活；否则按 `registration_approval_required` 落 `pending`（`approvalRequired: true`）或直接批准。
+- 201 `{"success":true,"approvalRequired":false,"emailVerificationRequired":false}`。
+- 用户表为空时：首个用户为 `admin`、直接批准并激活、邮箱直接视为已验证（`emailVerificationRequired:false`）。其余用户按 `registration_approval_required` 落 `pending`（`approvalRequired:true`）或直接批准，邮箱一律未验证（`emailVerificationRequired:true`）：注册成功后在后台发一封 `register_verify` 验证码邮件（6 位、10 分钟、单次消费），响应不等发信。
+- **站点未配置发信时，普通自助注册（非首个用户）直接 503 `{"error":"Email delivery is not configured","code":"EMAIL_NOT_CONFIGURED"}` 且不建号**——避免留下永远验证不了的账号。首个管理员与管理员后台建号不受此限。
 - 服务端把 `username` 初始化为邮箱前缀（按码点截断 40，重名自动加 `-2`、`-3` 后缀），客户端不能在注册时指定它；`public_id` 已不存在。
-- 400 校验失败；403 `code:"REGISTRATION_DISABLED"`；409 `code:"EMAIL_TAKEN"`（唯一约束冲突一律映射成这个 409，含并发撞键）。
+- 400 校验失败；403 `code:"REGISTRATION_DISABLED"`；409 `code:"EMAIL_TAKEN"`（唯一约束冲突一律映射成这个 409，含并发撞键）；503 `code:"EMAIL_NOT_CONFIGURED"`（见上）。
+
+#### POST /api/auth/email/verify（公开：注册邮箱验证）
+
+```json
+{ "email": "a@b.c", "code": "123456" }
+```
+
+不要求会话（未验证的账号还登录不了）。验证成功只把 `email_verified` 置 1、作废这枚码，**不自动登录、不下发 Cookie**；之后按正常流程登录。
+
+- 成功 200 `{"success":true}`。
+- 400 `{"error":"Invalid email format","code":"INVALID_EMAIL"}`；其余失败一律 400 `{"error":"Invalid or expired code","code":"INVALID_CODE"}`——未知邮箱、已停用/已拒绝账号、已验证账号、码错、过期、已用过全部同形（未知邮箱也跑一遍同成本哈希，不暴露账号状态）。
+- 限频 `email_code_verify` / `email_code_verify_ip`（用途 `register_verify`、账号是小写 trim 后的邮箱）：5 次 / 10 分钟、每 IP 20 次 / 10 分钟，超限 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。错码让 `email_codes.attempts+1`，第 5 次错误删除该码；成功清零该邮箱的失败计数。
+
+#### POST /api/auth/email/resend（公开：重发注册验证码）
+
+```json
+{ "email": "a@b.c" }
+```
+
+- 顺序固定：邮箱格式（400 `INVALID_EMAIL`）→ 站点发信（未配置 503 `EMAIL_NOT_CONFIGURED`，不写计数）→ 限频 → 查账号。
+- **唯一受理响应是 200**，没有任何「账号不存在」之类的差异：
+
+```json
+{ "success": true, "cooldownSeconds": 60 }
+```
+
+- 账号不存在、已停用、已拒绝、已通过验证、发送失败、60 秒冷却期内重复请求：一律 200 但不发信（冷却期内也不重发）。
+- 限频复用 `email_code_cd` / `email_code_send` / `email_code_send_ip`（用途 `register_verify`、账号为邮箱）：60 秒冷却、每小时 5 封、每 IP 每小时 20 封；小时配额用尽 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`（冷却期仍是 200）。
 
 #### POST /api/auth/login
 
@@ -613,7 +643,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 - 第一种与第三种同时下发 `ciki_session` Cookie；第三种是受限会话（`require_2fa` 打开且用户未配置任何方法），只能访问 `/api/me`、`/api/auth/logout`、`/api/auth/2fa/totp/*`、`/api/auth/2fa/passkey/*`、`/api/auth/2fa/email-otp/*`。
 - `availableMethods` 顺序固定 `totp` → `passkey` → `email_otp`，只列真实可用的方式：`email_otp` 仅在用户 `email_otp_enabled=1` **且**站点 `emailConfigured` 时出现。若用户已启用的方式被过滤后一个不剩（只剩邮箱验证码、但站点发信不可用），登录以 403 `{"error":"Two-factor method unavailable","code":"2FA_METHOD_UNAVAILABLE"}` 失败关闭，**不静默降级为只验密码**、也不下发 Cookie。
 - `tempToken` 是 5 分钟有效的一次性登录挑战，交给 2FA 验证步骤。
-- 失败：401 `{"error":"Invalid credentials"}`；403 `{"error":"…","code":"ACCOUNT_PENDING_APPROVAL"|"ACCOUNT_REJECTED"}`；429 `{"error":"Too many requests","code":"RATE_LIMITED"}` 或 `{"error":"Account locked","code":"ACCOUNT_LOCKED","retryAfter":秒}`。
+- 失败：401 `{"error":"Invalid credentials"}`；403 `{"error":"…","code":"ACCOUNT_PENDING_APPROVAL"|"ACCOUNT_REJECTED"|"EMAIL_NOT_VERIFIED"}`；429 `{"error":"Too many requests","code":"RATE_LIMITED"}` 或 `{"error":"Account locked","code":"ACCOUNT_LOCKED","retryAfter":秒}`。
+- 邮箱未验证的账号不能登录：403 `{"error":"Email not verified","code":"EMAIL_NOT_VERIFIED"}`。判定顺序为「已拒绝 → **未验证** → 待审批 → 停用」：未验证排在待审批之前（用户自己能完成验证，登录页据此给出「重新发送验证码」），验证完仍未批准的再报 `ACCOUNT_PENDING_APPROVAL`。
 
 #### POST /api/auth/2fa/verify
 
@@ -1594,7 +1625,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留（迁移全显示 `skipped`）。
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版起迁移只有一个 `schema_v7`，存量库在同一次 setup 里完成重建（见「数据模型」）。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。
@@ -1604,4 +1635,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
-- 本契约不含：公开分享、多人实时协同、宏、Jira、通用附件、Markdown 存储、注册邮箱验证与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱验证码 2FA 与找回密码端点见「鉴权」）。
+- 注册后按 `emailVerificationRequired` 分流：`true` → 跳「验证邮箱」页（输入 6 位码调 `POST /api/auth/email/verify`，页面提供重发按钮调 `POST /api/auth/email/resend`）；`false`（首个管理员、管理员后台建号）→ 直接去登录。该字段缺失视为 `false`。
+- 登录拿到 403 `EMAIL_NOT_VERIFIED` → 登录页给出「重新发送验证码」入口（`resend`，按钮按响应的 `cooldownSeconds` 倒计时），不要提示密码错误。403 `ACCOUNT_PENDING_APPROVAL` 是另一件事：等管理员批准。
+- 站点 `emailConfigured:false` 时收起自助注册入口（普通注册会 503 `EMAIL_NOT_CONFIGURED`）；`emailConfigured:true` 才展示注册表单。
+- 本契约不含：公开分享、多人实时协同、宏、Jira、通用附件、Markdown 存储与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱验证码 2FA、找回密码与注册邮箱验证端点见「鉴权」）。

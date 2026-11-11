@@ -311,7 +311,13 @@ describe("发码（POST /api/auth/password/forgot）", () => {
       cooldownSeconds: 60
     })
     expect(resetMessages("user@example.com")).toHaveLength(0)
-    expect(countRows(db, "ciki_email_codes")).toBe(0)
+    // 注册验证码是另一条流程的行；这里断言「没有写密码重置码」。
+    expect(
+      scalar<{ count: number }>(
+        db,
+        "SELECT COUNT(*) AS count FROM ciki_email_codes WHERE purpose = 'password_reset'"
+      )
+    ).toEqual({ count: 0 })
   })
 
   it("发送失败也只回同一个 200（原因只记服务端日志）", async () => {
