@@ -46,6 +46,7 @@ import {
   defaultUsernameFromEmail,
   isEmailConflict
 } from "../core/identity"
+import { insertWithUniqueUsername } from "../core/username"
 import { isEmailConfigured, sendEmailCodeMessage } from "../services/email"
 import {
   armEmailCodeCooldown,
@@ -198,16 +199,24 @@ authRoutes.post("/register", async (c) => {
   const passwordHash = await hashPassword(password)
   let id: number | null
   try {
-    id = await createUserFirstIsAdmin(
+    // 显示名取邮箱前缀；重名自动加 -2、-3（大小写不敏感）。查重与写入之间的
+    // 竞态由唯一索引兜底，insertWithUniqueUsername 会换下一个后缀重试。
+    id = await insertWithUniqueUsername(
       c.env.DB,
       prefix,
-      {
-        email,
-        username: defaultUsernameFromEmail(email),
-        password_hash: passwordHash,
-        approvalStatus: approvalRequired ? "pending" : "approved"
-      },
-      { requireEmptyTable: !emailConfigured }
+      defaultUsernameFromEmail(email),
+      (username) =>
+        createUserFirstIsAdmin(
+          c.env.DB,
+          prefix,
+          {
+            email,
+            username,
+            password_hash: passwordHash,
+            approvalStatus: approvalRequired ? "pending" : "approved"
+          },
+          { requireEmptyTable: !emailConfigured }
+        )
     )
   } catch (err) {
     if (isEmailConflict(err)) {

@@ -9,16 +9,19 @@
  * - 更早的开发期形态（UUID 时代）不提供升级路径：`rebuild.ts` 明确报错中止，旧数据
  *   一字不动，账本不记账。
  *
- * v1–v6 的增量定义与 v6 的一次性重建已清除；今后结构变化从 `schema_v8` 往后追加，
- * `schema_v7` 不得改名、改内容或调序。迁移必须可重复执行；`prepare` 抛错则该迁移
- * 不记账，下次 setup 从头重跑。语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串
- * 字面量）。表名/索引名一律经 tables.ts / schema.ts 拼装，本文件只写 `{prefix}` 占位。
+ * v1–v6 的增量定义与 v6 的一次性重建已清除；今后结构变化从 `schema_v9` 往后追加，
+ * `schema_v7` / `schema_v8` 不得改名、改内容或调序。迁移必须可重复执行；`prepare`
+ * 抛错则该迁移不记账，下次 setup 从头重跑。语句之间用 `;` 分隔，语句内部不得出现
+ * `;`（含字符串字面量）。表名/索引名一律经 tables.ts / schema.ts 拼装，本文件只写
+ * `{prefix}` 占位。
  */
 import type { Env } from "../types"
+import { resolveDuplicateUsernames } from "../core/username"
 import { rebuildSchema } from "./rebuild"
 import {
   SCHEMA_INDEXES,
   SCHEMA_TABLES,
+  USERS_USERNAME_UNIQUE_INDEX,
   baselineStatements,
   tableDdl,
   withTable
@@ -115,8 +118,30 @@ const SCHEMA_V7: Migration = {
   prepare: (ctx) => rebuildSchema(ctx)
 }
 
+/**
+ * `schema_v8` —— `users.username` 唯一索引（契约「username 有唯一索引、空串除外」）。
+ *
+ * 存量库可能已经有重名（注册/建号过去只取邮箱前缀、不查重），直接建唯一索引会
+ * 失败，所以 `prepare` 先把重名消解掉：同一名字里 id 最小者保留原名，其余按
+ * `-2`、`-3`…递增，空串归一为「用户」（后缀算在 40 码点内）。
+ *
+ * 两步都幂等：干净的库上 `prepare` 一条 UPDATE 都不发，`CREATE … IF NOT EXISTS`
+ * 在已建过索引的库（全新库的 `schema_v7`、已重建的存量库）上是空操作。
+ */
+const SCHEMA_V8: Migration = {
+  name: "schema_v8",
+  sql: "",
+  prepare: async ({ db, prefix }) => {
+    await resolveDuplicateUsernames(db, tableName(prefix, "users"))
+  }
+}
+
 export function getMigrations(prefix: string): Migration[] {
   const sql = schemaV7(prefix)
+  const usernameIndex = USERS_USERNAME_UNIQUE_INDEX.replaceAll(
+    "{prefix}",
+    prefix
+  )
 
   // 表名统一由 tables.ts 的 helper 提供；这里断言 schema.ts 与它用的是同一套名字
   // （改一处就会在这里暴露）。
@@ -132,5 +157,8 @@ export function getMigrations(prefix: string): Migration[] {
     }
   }
 
-  return [{ ...SCHEMA_V7, sql }]
+  return [
+    { ...SCHEMA_V7, sql },
+    { ...SCHEMA_V8, sql: usernameIndex }
+  ]
 }

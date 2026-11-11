@@ -17,9 +17,14 @@
  *   逐表行数相等；`pages` / `page_revisions` 按 id 逐行 `content_hash` 相等；
  *   两表里出现的每个内容对象都能从内容桶取回且哈希吻合（全量，不抽样）。
  * ⑥单次 `db.batch()` 逐表 DROP 旧 + RENAME 临时表，再幂等补索引。
+ *
+ * 重名消解：索引按 `SCHEMA_INDEXES` 建，其中有 `users.username` 的唯一索引；
+ * 带重名的表建不上索引，所以建索引之前必须先消解——重建路径在 **临时表** 上做，
+ * 校验不过时旧库连用户名都一字未动；两条幂等空转路径在正式表上做（见对应分支）。
  */
 import type { MigrationContext } from "./migrations"
 import { hashContent, readContent } from "../core/content-store"
+import { resolveDuplicateUsernames } from "../core/username"
 import { SCHEMA_INDEXES, SCHEMA_TABLES, tableDdl, withTable } from "./schema"
 import { pagesTable, tableName, usersTable } from "./tables"
 
@@ -266,12 +271,15 @@ export async function rebuildSchema(ctx: MigrationContext): Promise<void> {
           "Nothing was changed."
       )
     }
+    // 半成品库：建表交给同一条迁移的 sql，但它会一并补建唯一索引，先消解重名。
+    await resolveDuplicateUsernames(db, users)
     return
   }
 
   const pageColumns = await columnNames(db, pages)
 
   if (isFinalStructure(userColumns, pageColumns)) {
+    await resolveDuplicateUsernames(db, users)
     await ensureIndexes(db, prefix)
     return
   }
@@ -288,6 +296,9 @@ export async function rebuildSchema(ctx: MigrationContext): Promise<void> {
   await dropTempTables(db, prefix)
   await createTempTables(db, prefix)
   const expected = await copyTables(db, prefix)
+  // 唯一索引在切表后按 SCHEMA_INDEXES 补建；先在临时表上消解用户名重名，
+  // 否则带重名的存量库会在建索引那一步整体中止。
+  await resolveDuplicateUsernames(db, tempName(prefix, "users"))
 
   await verifyCounts(db, prefix, expected)
   await verifyContent(ctx)

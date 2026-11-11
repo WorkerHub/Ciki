@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest"
 import type { Env } from "../src/types"
+import { insertWithUniqueUsername } from "../src/core/username"
 import {
   adminSession,
+  enableSmtpConfig,
   initializedContext,
   jsonRequest,
   register,
   request,
-  userSession
+  userSession,
+  type TestContext
 } from "./support/app"
 
 const PNG = new Uint8Array([
@@ -381,5 +384,172 @@ describe("站点名称", () => {
       await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
     ).json()) as { siteName: string }
     expect(current.siteName).toBe("Ciki")
+  })
+})
+
+describe("username 唯一性：自动后缀、改名撞名 409", () => {
+  /** 按邮箱读库里的显示名（比 /api/me 少绕一层，注册后不必登录）。 */
+  function usernameOf(db: TestContext["db"], email: string): string {
+    const row = db.db
+      .prepare("SELECT username FROM ciki_users WHERE email = ?")
+      .get(email) as { username: string } | undefined
+    if (!row) throw new Error("user not found")
+    return row.username
+  }
+
+  it("注册与管理员建号：撞名自动加 -2/-3，后缀不超 40 码点", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env, "owner@example.com")
+    await enableSmtpConfig(env)
+
+    // 同前缀、不同域：邮箱不同，显示名相同。
+    for (const email of ["dup@example.com", "dup@example.org"]) {
+      const res = await register(env, email)
+      expect(res.status).toBe(201)
+    }
+    expect(usernameOf(db, "dup@example.com")).toBe("dup")
+    expect(usernameOf(db, "dup@example.org")).toBe("dup-2")
+
+    // 管理员后台建号同口径。
+    const created = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/users",
+      { email: "dup@example.net", password: "Test-Password-123" },
+      admin
+    )
+    expect(created.status).toBe(201)
+    expect(usernameOf(db, "dup@example.net")).toBe("dup-3")
+
+    // 40 码点基础名：后缀算在 40 码点之内（截短腾位），不是超限截断掉后缀。
+    const long = "a".repeat(42)
+    for (const email of [`${long}@example.com`, `${long}@example.org`]) {
+      expect((await register(env, email)).status).toBe(201)
+    }
+    const first = usernameOf(db, `${long}@example.com`)
+    const second = usernameOf(db, `${long}@example.org`)
+    expect(Array.from(first)).toHaveLength(40)
+    expect(Array.from(second)).toHaveLength(40)
+    expect(second).toBe(`${"a".repeat(38)}-2`)
+  })
+
+  it("改名撞名 409 USERNAME_TAKEN（大小写也算）；改成自己当前名可以", async () => {
+    const { env } = await initializedContext()
+    const alice = await adminSession(env, "alice@example.com")
+    const bob = await userSession(env, alice, "bob@example.com")
+
+    const clash = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { username: "Alice" },
+      bob
+    )
+    expect(clash.status).toBe(409)
+    expect(await clash.json()).toMatchObject({ code: "USERNAME_TAKEN" })
+    expect((await me(env, bob)).username).toBe("bob")
+
+    // 自己改名只换大小写不算撞名。
+    const self = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { username: "Bob" },
+      bob
+    )
+    expect(self.status).toBe(200)
+    expect((await me(env, bob)).username).toBe("Bob")
+  })
+
+  it("并发兜底：查重后写入撞唯一约束 → 换下一个后缀，不回 500", async () => {
+    const { env } = await initializedContext()
+    await adminSession(env, "seed@example.com")
+
+    let attempts = 0
+    const name = await insertWithUniqueUsername(
+      env.DB,
+      "ciki_",
+      "fresh",
+      async (username) => {
+        attempts += 1
+        if (attempts === 1) {
+          // 等价于「查完重名、写入那一刻被别人占了」。
+          throw new Error("UNIQUE constraint failed: ciki_users.username")
+        }
+        return username
+      }
+    )
+    expect(name).toBe("fresh-2")
+    expect(attempts).toBe(2)
+
+    // 邮箱冲突不是重名：原样抛给路由层（映射 409 EMAIL_TAKEN），不静默重试。
+    await expect(
+      insertWithUniqueUsername(env.DB, "ciki_", "other", async () => {
+        throw new Error("UNIQUE constraint failed: ciki_users.email")
+      })
+    ).rejects.toThrow(/users\.email/)
+  })
+
+  it("评论按 username 展示：重名账号显示 dup-2", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const first = await userSession(env, admin, "dup@example.org")
+    const suffixed = await userSession(env, admin, "dup@example.com")
+
+    const spaces = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as Array<{ id: number; isDefault: boolean }>
+    const spaceId = spaces.find((space) => space.isDefault)?.id
+    expect(spaceId).toBeDefined()
+
+    const suffixedId = (await (
+      await jsonRequest(env, "GET", "/api/me", undefined, suffixed)
+    ).json()) as { id: number }
+    await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${spaceId}/members`,
+      { userId: suffixedId.id, role: "editor" },
+      admin
+    )
+
+    const page = (await (
+      await jsonRequest(
+        env,
+        "POST",
+        "/api/pages",
+        {
+          title: "评论展示",
+          spaceId,
+          parentId: null,
+          contentJson: JSON.stringify({ type: "doc" }),
+          contentHtml: "<p>评论展示</p>",
+          contentText: "评论展示"
+        },
+        admin
+      )
+    ).json()) as { id: number }
+
+    const posted = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      { bodyMd: "重名账号的评论" },
+      suffixed
+    )
+    expect(posted.status).toBe(201)
+
+    const threads = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${page.id}/comments`,
+        undefined,
+        admin
+      )
+    ).json()) as { threads: Array<{ authorName: string }> }
+    expect(threads.threads[0]?.authorName).toBe("dup-2")
+    // 先注册的那一个保持 dup，没有被误改。
+    expect((await me(env, first)).username).toBe("dup")
   })
 })

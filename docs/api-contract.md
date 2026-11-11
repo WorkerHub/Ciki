@@ -2,9 +2,9 @@
 
 本文件由后端实现单在计划确认后冻结，是前端实现单的接口依据。实现期如需变更，先上报 Chief 裁决，**不得单方面改动**；改动必须同步更新本文件。
 
-## 零、本版变更（迁移坍缩为 schema_v7 + 注册必须验证邮箱）
+## 零、本版变更（迁移坍缩为 schema_v7 + 注册必须验证邮箱 + username 唯一）
 
-本版两件事：**迁移链坍缩为单一 `schema_v7`**（结构不变）、**自助注册后必须验证邮箱才能登录**。下表是上一版完成、本版不变的现行结构（整数 id + 内容上 R2），仍需按它对接：
+本版三件事：**迁移链坍缩为单一 `schema_v7`**（结构不变）、**自助注册后必须验证邮箱才能登录**、**`users.username` 加上唯一索引（`schema_v8`，大小写不敏感、空串除外）**。下表是上一版完成、本版不变的现行结构（整数 id + 内容上 R2），仍需按它对接：
 
 | 位置                   | 旧                                    | 新                                                                |
 | ---------------------- | ------------------------------------- | ----------------------------------------------------------------- |
@@ -56,12 +56,13 @@
 
 迁移清单见下，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
-- `schema_v7`（唯一迁移，本版起系统里只有这一个版本标记）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`）并把已有用户并入默认空间。全部 `CREATE … IF NOT EXISTS` / `INSERT OR IGNORE`，重复执行无副作用。
+- `schema_v7`（基线迁移：结构坍缩后的定版结构与默认空间种子）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`）并把已有用户并入默认空间。全部 `CREATE … IF NOT EXISTS` / `INSERT OR IGNORE`，重复执行无副作用。
 - 存量库（**唯一支持的升级源 = 当前生产形态**：整数 id、正文在 R2、`users` 仍带 `base_currency`/`timezone`/`theme`）：同一条迁移先做一次全表重建——①按定版 DDL 建 `v7_*` 临时表；②按「定版列 ∩ 旧表列」整表拷贝，`users` 丢掉三列、`email_verified` 一律置 1（存量用户不锁任何人），正文不重传、`content_hash` 原样搬；③三道校验：逐表行数相等、`pages` 与 `page_revisions` 按 id 逐行 `content_hash` 相等、两表里每个内容对象全量回读并复核哈希；④单个 `db.batch()` 逐表 DROP + RENAME 完成切换，再补索引。任一校验不过就抛错：**不切表、不记账、旧数据一字未动**，修好重跑即可（重跑开头先清 `v7_*`）。已是定版结构的库命中幂等空转，只补索引。
 - 更早的开发期形态（uuid id、正文在 `content_json`）**不提供升级路径**：命中即报 `Unsupported legacy database shape` 并中止，一个表都不动；请先用上一版升级到 v6 形态，或重置开发库。`users` 还带三列但 `pages` 缺失的残缺现场同样明确报错，不做猜测性修复。
 - `schema_v1`–`schema_v6`（含 `schema_v6` 的 UUID→整数、正文上 R2 重建）的增量定义已清除；旧账本里的这些已应用行保留不动，执行器只认当前列表。
+- `schema_v8`（`users.username` 唯一索引）：`prepare` 先在存量库里消解重名——同一名字（大小写不敏感）里 `id` 最小者保留原名，其余按 `-2`、`-3`…递增，空串归一为「用户」，超长/带控制符/带首尾空白的历史名字同时按 1–40 码点规范化；随后 `sql` 建 `{prefix}users_username`（`username COLLATE NOCASE` 唯一，`WHERE username <> ''` 即空串不参与）。重建路径（`schema_v7` 的 prepare）同样在**建索引之前、临时表上**先消解，校验不过时旧库连用户名都一字未动。重复执行无副作用：干净的库一条 UPDATE 都不发，索引已存在时建索引语句是空操作。存量升级到本版会因此改写重名账号的 `username`（其余列不动、`updated_at` 不动）。
 
-今后结构变化只在末尾追加 `schema_v8`、`schema_v9`…，`schema_v7` 不得改名、改内容或调序。
+今后结构变化只在末尾追加 `schema_v9`、`schema_v10`…，`schema_v7` / `schema_v8` 不得改名、改内容或调序。
 
 **升级前必须记下回退点**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先跑一次 `wrangler d1 time-travel info <库名>`，把输出的 bookmark 留档（Time Travel 始终开启，回溯窗口为最近 30 天，Workers Free 套餐 7 天；`wrangler d1 info <库名>` 需显示 `version: production`，wrangler v3.4.0+）。不要再试 `wrangler d1 export`：库里有 FTS5 虚拟表，Cloudflare 会拒绝（`cannot export databases with virtual tables (fts5)`）。回退只能按这个 bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`，原地覆盖整库）；Time Travel 只管 D1，R2 里的正文对象不可变、不参与回退。
 
@@ -71,21 +72,21 @@
 
 ### users
 
-| 列                     | 类型                             | 说明                                                                                                                         |
-| ---------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| id                     | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                                  |
-| email                  | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                           |
-| username               | TEXT NOT NULL DEFAULT ''         | 唯一、1–40 码点，注册时取邮箱前缀（重名自动加后缀）、之后可改；这是**唯一对外的用户身份**                                    |
-| avatar_key             | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像      |
-| password_hash          | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                             |
-| role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                             |
-| is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                          |
-| approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                          |
-| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在 `schema_v7` 重建时一律置 1 |
-| language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言（照 eNotify 保留；主题等纯前端偏好不进数据库）                                                                      |
-| created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                     |
+| 列                     | 类型                             | 说明                                                                                                                                                  |
+| ---------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                     | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                                                           |
+| email                  | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                                                    |
+| username               | TEXT NOT NULL DEFAULT ''         | 大小写不敏感唯一（空串除外）、1–40 码点；注册/建号时取邮箱前缀，重名自动加 `-2`/`-3` 后缀（后缀算在 40 码点内），之后可改；这是**唯一对外的用户身份** |
+| avatar_key             | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像                               |
+| password_hash          | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                                                      |
+| role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                                                      |
+| is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                                                   |
+| approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                   |
+| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在 `schema_v7` 重建时一律置 1                          |
+| language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言（照 eNotify 保留；主题等纯前端偏好不进数据库）                                                                                               |
+| created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                              |
 
-索引：`username` 上有唯一索引（空串除外），并发改重名由数据库兜底。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
+索引：`username` 上有唯一索引 `{prefix}users_username`（`COLLATE NOCASE`：`alice` 与 `Alice` 视为重名；`WHERE username <> ''`：空串不参与），并发改重名由数据库兜底。存量库升级时由 `schema_v8` 先消重（id 最小者留原名，其余 `-2/-3`，空串归一「用户」）再建索引。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
 
 ### user_2fa（TOTP + 邮箱验证码开关）
 
@@ -582,7 +583,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 - 用户表为空时：首个用户为 `admin`、直接批准并激活、邮箱直接视为已验证（`emailVerificationRequired:false`）。其余用户按 `registration_approval_required` 落 `pending`（`approvalRequired:true`）或直接批准，邮箱一律未验证（`emailVerificationRequired:true`）：注册成功后在后台发一封 `register_verify` 验证码邮件（6 位、10 分钟、单次消费），响应不等发信。
   - 「注册首封」只写入 60 秒重发冷却（`email_code_cd`），**不占**每小时 5 封的发码配额（只有重发才占 `email_code_send`）：用户刚注册就能收到码，随即点重发也不会把刚发出的码作废。
 - **站点未配置发信时，普通自助注册（非首个用户）直接 503 `{"error":"Email delivery is not configured","code":"EMAIL_NOT_CONFIGURED"}` 且不建号**——避免留下永远验证不了的账号。首个管理员与管理员后台建号不受此限。
-- 服务端把 `username` 初始化为邮箱前缀（按码点截断 40，重名自动加 `-2`、`-3` 后缀），客户端不能在注册时指定它；`public_id` 已不存在。
+- 服务端把 `username` 初始化为邮箱前缀（按码点截断 40，重名自动加 `-2`、`-3` 后缀——大小写不敏感，后缀算在 40 码点内），客户端不能在注册时指定它；同时改的并发请求由唯一索引兜底、撞键换下一个后缀重试，不回 500；`public_id` 已不存在。
 - 400 校验失败；403 `code:"REGISTRATION_DISABLED"`；409 `code:"EMAIL_TAKEN"`（唯一约束冲突一律映射成这个 409，含并发撞键）；503 `code:"EMAIL_NOT_CONFIGURED"`（见上）。
 
 #### POST /api/auth/email/verify（公开：注册邮箱验证）
@@ -768,7 +769,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```
 
 - 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。
-- `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；**必须唯一**，撞名 409 `code:"USERNAME_TAKEN"`。
+- `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；**必须唯一（大小写不敏感，`Alice` 与 `alice` 算重名；改成自己当前名字含只改大小写不算撞名）**，撞名 409 `code:"USERNAME_TAKEN"`（并发下由库内唯一索引兜底，同样 409 而非 500）；不自动加后缀。
 - `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key——平铺 `<uuid>.<ext>` 或带已知前缀（`avatars/` / `pages/` / `imports/`）都收；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
 - `id` / `email` 只读：传了也不生效（只认上面两个字段）。
 
@@ -876,7 +877,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "email": "…", "password": "…", "role": "user" }
 ```
 
-201，直接批准并激活；`username` 默认取邮箱前缀（重名自动加后缀）。邮箱已存在 → 409 `code:"EMAIL_TAKEN"`。
+201，直接批准并激活；`username` 默认取邮箱前缀（重名自动加 `-2`、`-3` 后缀，口径同注册）。邮箱已存在 → 409 `code:"EMAIL_TAKEN"`。
 
 #### PUT /api/admin/users/:id
 

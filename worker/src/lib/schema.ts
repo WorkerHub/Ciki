@@ -253,10 +253,22 @@ export const SCHEMA_TABLES: SchemaTable[] = [
 /**
  * 索引（只在正式表名上建，`{prefix}` 占位）。
  *
- * 唯一约束一律用唯一索引表达：部分唯一索引（`is_default`）SQLite 只在 CREATE INDEX
- * 里支持带 WHERE，表内联 UNIQUE 做不到。
+ * 唯一约束一律用唯一索引表达：部分唯一索引（`is_default`、`username` 空串除外）
+ * SQLite 只在 CREATE INDEX 里支持带 WHERE，表内联 UNIQUE 做不到。
  */
+
+/**
+ * `users.username` 的唯一性最终防线（契约「username 有唯一索引、空串除外」）。
+ *
+ * 大小写不敏感（`COLLATE NOCASE`）：`alice` 与 `Alice` 视为重名——username 是
+ * 唯一对外的用户身份，只差大小写的两个名字会在评论等处混淆。`schema_v8` 的
+ * 建索引语句与重建补索引共用这一份模板，避免两处 DDL 漂移。
+ */
+export const USERS_USERNAME_UNIQUE_INDEX = `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}users_username
+  ON {prefix}users(username COLLATE NOCASE) WHERE username <> ''`
+
 export const SCHEMA_INDEXES: string[] = [
+  USERS_USERNAME_UNIQUE_INDEX,
   `CREATE INDEX IF NOT EXISTS {prefix}passkey_credentials_user_id
     ON {prefix}passkey_credentials(user_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}passkey_credentials_credential_id
