@@ -4,13 +4,28 @@ import { useState } from "react"
 import { Navigate, useNavigate } from "react-router"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { Button } from "@/components/ui/button"
-import { firstPageId } from "@/lib/tree"
-import { canEdit } from "@/lib/space"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
+import { pageEditPath, pagePath, spacePath } from "@/lib/routes"
+import { canEdit } from "@/lib/space"
+import { firstPageId } from "@/lib/tree"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
-/** 首页：跳到页面树里的第一页；一页都没有时给「新建页面」空状态。 */
+/**
+ * `/` 的唯一职责：把入口指到当前空间的 slug 地址（`/s/<slug>`）。
+ * 空间列表还没到 / 加载失败 / 一个空间都没有时，沿用首页的骨架与空态，
+ * 不在这里另造一套提示。
+ */
+export function RootRedirect() {
+  const spaces = useSpacesStore((state) => state.spaces)
+  const currentId = useSpacesStore((state) => state.currentId)
+  const current = spaces.find((space) => space.id === currentId) ?? null
+
+  if (current) return <Navigate to={spacePath(current.slug)} replace />
+  return <HomeRedirect />
+}
+
+/** 空间首页（`/s/:slug`）：跳到页面树里的第一页；一页都没有时给「新建页面」空状态。 */
 export function HomeRedirect() {
   const tree = usePagesStore((state) => state.tree)
   const loading = usePagesStore((state) => state.loading)
@@ -29,7 +44,7 @@ export function HomeRedirect() {
     )
   }
 
-  if (first) return <Navigate to={`/p/${first}`} replace />
+  if (first !== null) return <Navigate to={pagePath(first)} replace />
 
   return (
     <div className="space-y-4">
@@ -55,7 +70,7 @@ export function HomeRedirect() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           parentId={null}
-          onCreated={(page) => navigate(`/p/${page.id}/edit`)}
+          onCreated={(page) => navigate(pageEditPath(page.id))}
         />
       ) : null}
     </div>

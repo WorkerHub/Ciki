@@ -1,5 +1,7 @@
 import { UserRound } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { displayUsername, UserAvatar } from "@/components/UserAvatar"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -7,8 +9,6 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
-import { displayUsername, UserAvatar } from "@/components/UserAvatar"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { describeApiError, meApi } from "@/lib/api"
@@ -182,12 +182,6 @@ export function ProfilePage() {
               />
             </div>
             <dl className="grid gap-3 text-sm sm:grid-cols-[6rem_1fr] sm:gap-3">
-              <dt className="text-xs font-medium text-muted-foreground">
-                用户 ID
-              </dt>
-              <dd className="font-mono text-xs break-all">
-                {user.publicId || user.id}
-              </dd>
               <dt className="text-xs font-medium text-muted-foreground">
                 邮箱
               </dt>

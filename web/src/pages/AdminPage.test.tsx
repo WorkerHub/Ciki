@@ -24,8 +24,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { adminApi } = await import("@/lib/api")
 
 const admin: Me = {
-  id: "u-admin",
-  publicId: "AB23CD45",
+  id: 1,
   username: "管理员",
   avatarUrl: null,
   email: "admin@example.com",

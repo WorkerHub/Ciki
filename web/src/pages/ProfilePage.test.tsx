@@ -20,8 +20,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { meApi } = await import("@/lib/api")
 
 const user: Me = {
-  id: "u1",
-  publicId: "AB23CD45",
+  id: 1,
   username: "小明",
   avatarUrl: null,
   email: "xiaoming@example.com",
@@ -47,11 +46,13 @@ describe("个人资料页", () => {
     vi.mocked(meApi.uploadAvatar).mockReset()
   })
 
-  it("只读展示用户 ID 与邮箱，用户名取当前显示名", () => {
+  it("只读展示邮箱，用户名取当前显示名；不再露第二个用户 ID", () => {
     render(<ProfilePage />)
 
-    expect(screen.getByText("AB23CD45")).toBeInTheDocument()
     expect(screen.getByText("xiaoming@example.com")).toBeInTheDocument()
+    // 对外身份只有用户名：个人页没有「用户 ID」这一行
+    expect(screen.queryByText("用户 ID")).toBeNull()
+    expect(screen.queryByText("AB23CD45")).toBeNull()
     expect(screen.getByLabelText("用户名")).toHaveValue("小明")
     expect(screen.getByRole("button", { name: "保存" })).toBeDisabled()
   })

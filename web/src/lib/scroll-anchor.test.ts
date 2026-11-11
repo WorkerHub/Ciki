@@ -112,24 +112,24 @@ describe("恢复到阅读位置", () => {
 
 describe("位置锚的存取", () => {
   it("按 pageId 存取：换页读不到，读完即删", () => {
-    rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
+    rememberScrollAnchor(1, { blockIndex: 2, ratio: 0.5 })
 
-    expect(readScrollAnchor("a")).toEqual({ blockIndex: 2, ratio: 0.5 })
-    expect(readScrollAnchor("b")).toBeNull()
-    expect(takeScrollAnchor("a")).toEqual({ blockIndex: 2, ratio: 0.5 })
-    expect(readScrollAnchor("a")).toBeNull()
+    expect(readScrollAnchor(1)).toEqual({ blockIndex: 2, ratio: 0.5 })
+    expect(readScrollAnchor(2)).toBeNull()
+    expect(takeScrollAnchor(1)).toEqual({ blockIndex: 2, ratio: 0.5 })
+    expect(readScrollAnchor(1)).toBeNull()
   })
 
   it("记 null 等于清掉这一页的位置", () => {
-    rememberScrollAnchor("a", { blockIndex: 2, ratio: 0.5 })
-    rememberScrollAnchor("a", null)
+    rememberScrollAnchor(1, { blockIndex: 2, ratio: 0.5 })
+    rememberScrollAnchor(1, null)
 
-    expect(readScrollAnchor("a")).toBeNull()
+    expect(readScrollAnchor(1)).toBeNull()
   })
 
   it("脏数据当作没有，不抛错", () => {
     sessionStorage.setItem("ciki-scroll-anchor", "not json")
 
-    expect(readScrollAnchor("a")).toBeNull()
+    expect(readScrollAnchor(1)).toBeNull()
   })
 })

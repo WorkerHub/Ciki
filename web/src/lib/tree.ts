@@ -2,16 +2,16 @@ import type { PageNode } from "@/lib/api"
 
 /** 页面树在 UI 里的扁平视图：只含当前展开的层级。 */
 export interface TreeRow {
-  id: string
+  id: number
   title: string
-  parentId: string | null
+  parentId: number | null
   depth: number
   sortOrder: number
   hasChildren: boolean
 }
 
 export interface DropTarget {
-  parentId: string | null
+  parentId: number | null
   /** 落在同级里的第几位（0 基）。 */
   sortOrder: number
 }
@@ -27,10 +27,10 @@ export function sortSiblings(nodes: PageNode[]): PageNode[] {
 
 export function flattenVisible(
   nodes: PageNode[],
-  expanded: Set<string>
+  expanded: Set<number>
 ): TreeRow[] {
   const rows: TreeRow[] = []
-  const walk = (list: PageNode[], depth: number, parentId: string | null) => {
+  const walk = (list: PageNode[], depth: number, parentId: number | null) => {
     sortSiblings(list).forEach((node) => {
       rows.push({
         id: node.id,
@@ -48,7 +48,7 @@ export function flattenVisible(
   return rows
 }
 
-export function findNode(nodes: PageNode[], id: string): PageNode | null {
+export function findNode(nodes: PageNode[], id: number): PageNode | null {
   for (const node of nodes) {
     if (node.id === id) return node
     const hit = findNode(node.children, id)
@@ -58,7 +58,7 @@ export function findNode(nodes: PageNode[], id: string): PageNode | null {
 }
 
 /** 面包屑：从根到目标页的整条链路。 */
-export function findPath(nodes: PageNode[], id: string): PageNode[] {
+export function findPath(nodes: PageNode[], id: number): PageNode[] {
   for (const node of nodes) {
     if (node.id === id) return [node]
     const childPath = findPath(node.children, id)
@@ -69,7 +69,7 @@ export function findPath(nodes: PageNode[], id: string): PageNode[] {
 
 export function siblingsOf(
   nodes: PageNode[],
-  parentId: string | null
+  parentId: number | null
 ): PageNode[] {
   if (!parentId) return sortSiblings(nodes)
   const parent = findNode(nodes, parentId)
@@ -77,7 +77,7 @@ export function siblingsOf(
 }
 
 /** 树的第一页（首页跳转用）：深度优先取第一个页面。 */
-export function firstPageId(nodes: PageNode[]): string | null {
+export function firstPageId(nodes: PageNode[]): number | null {
   const first = sortSiblings(nodes)[0]
   if (!first) return null
   return first.id
@@ -94,8 +94,8 @@ export function countNodes(nodes: PageNode[]): number {
  */
 export function projectDrop(
   rows: TreeRow[],
-  activeId: string,
-  overId: string,
+  activeId: number,
+  overId: number,
   dragOffsetX: number,
   indentWidth = INDENT_WIDTH
 ): DropTarget | null {
@@ -121,7 +121,7 @@ export function projectDrop(
   }
   if (overIndex > activeIndex && overIndex < activeSubtreeEnd) return null
 
-  let parentId: string | null = null
+  let parentId: number | null = null
   if (projectedDepth > 0) {
     for (let index = overIndex - 1; index >= 0; index -= 1) {
       const row = rows[index]

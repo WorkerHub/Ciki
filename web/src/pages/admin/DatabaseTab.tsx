@@ -3,23 +3,26 @@ import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
+  type AdminStorage,
   adminApi,
   describeApiError,
   type R2CleanupSummary,
   type SetupResult
 } from "@/lib/api"
-import { formatDateTime } from "@/lib/format"
+import { formatBytes, formatDateTime } from "@/lib/format"
 import { OrphanCleanupCard } from "@/pages/admin/OrphanCleanupCard"
 
 /** 清理锁是分钟级的，运行态用短轮询跟着走：锁一释放按钮就能用。 */
 const RUNNING_POLL_MS = 10_000
 
 /**
- * 数据库维护：检查并升级、孤儿图片两步清理；有清理记录时附一行最近一轮摘要。
- * 清理入口只调既有手动触发接口，可清理数与删除量全部由服务端给。
+ * 数据库维护：检查并升级、孤儿图片两步清理；有数据时附两行状态——
+ * 一行库体积与页数（服务端按 PRAGMA 口径给，D1 是 Ciki 独占库，不写 scope 字样），
+ * 一行最近一轮清理摘要。清理入口只调既有手动触发接口，可清理数与删除量全部由服务端给。
  */
 export function DatabaseTab() {
   const [result, setResult] = useState<SetupResult | null>(null)
+  const [storage, setStorage] = useState<AdminStorage | null>(null)
   const [lastRun, setLastRun] = useState<R2CleanupSummary | null>(null)
   const [runningSeconds, setRunningSeconds] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
@@ -45,9 +48,19 @@ export function DatabaseTab() {
     }
   }, [])
 
+  // 体积行只做展示：旧库还没有这个接口时整行不渲染，不占错误提示位。
+  const loadStorage = useCallback(async () => {
+    try {
+      setStorage(await adminApi.storage())
+    } catch {
+      setStorage(null)
+    }
+  }, [])
+
   useEffect(() => {
     void loadCleanup()
-  }, [loadCleanup])
+    void loadStorage()
+  }, [loadCleanup, loadStorage])
 
   // 已有一轮在跑：重读运行态直到锁释放，不要求用户刷新页面
   useEffect(() => {
@@ -61,8 +74,9 @@ export function DatabaseTab() {
     setError("")
     try {
       setResult(await adminApi.runAsAdmin())
-      // 升级前清理日志表还不存在，摘要接口会失败；升级成功后补拉一次
+      // 升级前清理日志表还不存在，摘要接口会失败；升级成功后两行一起补拉
       void loadCleanup()
+      void loadStorage()
     } catch (runError) {
       setError(describeApiError(runError))
     } finally {
@@ -129,6 +143,16 @@ export function DatabaseTab() {
         onBlocked={(seconds) => setRunningSeconds(Math.max(1, seconds))}
         onRefresh={() => void loadCleanup()}
       />
+
+      {storage ? (
+        <p className="text-xs text-muted-foreground">
+          数据库体积{" "}
+          {storage.databaseSizeBytes === null
+            ? "不可得"
+            : formatBytes(storage.databaseSizeBytes)}{" "}
+          · 页面 {storage.pageCount}
+        </p>
+      ) : null}
 
       {lastRun ? (
         <p className="text-xs text-muted-foreground">

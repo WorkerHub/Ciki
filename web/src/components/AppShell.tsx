@@ -28,6 +28,7 @@ import { PageTree } from "@/components/PageTree"
 import { SearchBox } from "@/components/SearchBox"
 import { SpaceSwitcher } from "@/components/SpaceSwitcher"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
+import { displayUsername, UserAvatar } from "@/components/UserAvatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -43,9 +44,9 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet"
-import { displayUsername, UserAvatar } from "@/components/UserAvatar"
 import { useIsMobile } from "@/hooks/useMediaQuery"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
+import { pageEditPath, spaceSearchPath, spaceTrashPath } from "@/lib/routes"
 import { canEdit } from "@/lib/space"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
@@ -54,20 +55,25 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /**
  * 这些页面不显示页面树侧栏：内容区全宽，移动端也不给抽屉入口。
- * 与路由表一一对应（/profile、/spaces 在 App.tsx 里新增）。
+ * 空间上下文里的回收站/设置在 `/s/:slug/` 下面，不能按前缀判；搜索页沿用原来的
+ * 「带侧栏的分类页」口径（改路径不改版式），`/s/:slug` 本身是空间首页，也带侧栏。
  */
-const SYSTEM_ROUTE_PREFIXES = [
-  "/settings",
-  "/trash",
-  "/about",
-  "/admin",
-  "/profile",
-  "/spaces"
-] as const
+const SYSTEM_ROUTE_PREFIXES = ["/settings", "/about", "/admin", "/profile"]
+
+const SPACE_SYSTEM_SEGMENTS = new Set(["trash", "settings"])
 
 function isSystemPath(pathname: string): boolean {
-  return SYSTEM_ROUTE_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  if (
+    SYSTEM_ROUTE_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    )
+  )
+    return true
+  const segments = pathname.split("/").filter(Boolean)
+  return (
+    segments.length === 3 &&
+    segments[0] === "s" &&
+    SPACE_SYSTEM_SEGMENTS.has(segments[2])
   )
 }
 
@@ -122,7 +128,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         parentId={null}
         onCreated={(page) => {
           onNavigate?.()
-          navigate(`/p/${page.id}/edit`)
+          navigate(pageEditPath(page.id))
         }}
       />
     </div>
@@ -132,6 +138,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 function UserMenu() {
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
+  const spaces = useSpacesStore((state) => state.spaces)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const currentSlug =
+    spaces.find((space) => space.id === currentSpaceId)?.slug ?? null
   const navigate = useNavigate()
   const [helpOpen, setHelpOpen] = useState(false)
 
@@ -183,7 +193,11 @@ function UserMenu() {
               系统管理
             </DropdownMenuItem>
           ) : null}
-          <DropdownMenuItem onSelect={() => navigate("/trash")}>
+          <DropdownMenuItem
+            onSelect={() =>
+              navigate(currentSlug ? spaceTrashPath(currentSlug) : "/")
+            }
+          >
             <Trash2 aria-hidden="true" />
             回收站
           </DropdownMenuItem>
@@ -222,7 +236,10 @@ export function AppShell() {
   const loadTree = usePagesStore((state) => state.load)
   const loadSpaces = useSpacesStore((state) => state.load)
   const spacesStatus = useSpacesStore((state) => state.status)
+  const spaces = useSpacesStore((state) => state.spaces)
   const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const currentSlug =
+    spaces.find((space) => space.id === currentSpaceId)?.slug ?? null
   const role = useSpaceRole(currentSpaceId)
   const canWrite = canEdit(role)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -321,7 +338,9 @@ export function AppShell() {
         size="icon-sm"
         variant="ghost"
         aria-label="搜索"
-        onClick={() => navigate("/search")}
+        onClick={() =>
+          navigate(currentSlug ? spaceSearchPath(currentSlug) : "/")
+        }
       >
         <Search aria-hidden="true" />
       </Button>
@@ -431,7 +450,7 @@ export function AppShell() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         parentId={null}
-        onCreated={(page) => navigate(`/p/${page.id}/edit`)}
+        onCreated={(page) => navigate(pageEditPath(page.id))}
       />
     </div>
   )

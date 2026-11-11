@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { ApiError, describeApiError, pagesApi } from "@/lib/api"
+import { ApiError, adminApi, describeApiError, pagesApi } from "@/lib/api"
 import { describeWebAuthnError } from "@/lib/webauthn"
 
 /**
@@ -337,11 +337,11 @@ describe("pagesApi.download：服务端分流的二进制下载", () => {
       })
     )
 
-    const result = await pagesApi.download("p1")
+    const result = await pagesApi.download(1)
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     const [url, init] = fetchMock.mock.calls[0]
-    expect(url).toBe("/api/pages/p1/download")
+    expect(url).toBe("/api/pages/1/download")
     expect(init?.method).toBe("GET")
     expect(init?.credentials).toBe("include")
     expect(init?.cache).toBe("no-store")
@@ -358,14 +358,12 @@ describe("pagesApi.download：服务端分流的二进制下载", () => {
       )
     )
 
-    const failure = await pagesApi
-      .download("p9")
-      .catch((error: unknown) => error)
+    const failure = await pagesApi.download(9).catch((error: unknown) => error)
 
     expect(failure).toBeInstanceOf(ApiError)
     expect((failure as ApiError).status).toBe(404)
     expect((failure as ApiError).code).toBe("PAGE_NOT_FOUND")
-    expect((failure as ApiError).path).toBe("/pages/p9/download")
+    expect((failure as ApiError).path).toBe("/pages/9/download")
     expect(describeApiError(failure)).toBe("对象不存在，或已被删除。")
   })
 })
@@ -386,5 +384,64 @@ describe("describeApiError：孤儿图片清理接口", () => {
   it("扫描期异常（500 Cleanup failed）→ 中文提示", () => {
     const error = apiError(500, "Cleanup failed", "/admin/r2-cleanup")
     expect(describeApiError(error)).toBe("清理失败，请稍后重试。")
+  })
+})
+
+/** 整数化后的 URL 形态：id 直接进路径，编辑态只有 `?format=json` 这一处查询参数。 */
+describe("整数 id 与新增端点的 URL", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("编辑态详情走 ?format=json，普通详情不带任何查询参数", async () => {
+    // stubFetch 复用同一个 Response 实例，body 只能读一次：每次请求单独铺一次
+    const editorFetch = stubFetch(new Response("{}", { status: 200 }))
+    await pagesApi.getForEditor(12)
+    expect(editorFetch.mock.calls[0][0]).toBe("/api/pages/12?format=json")
+
+    const readFetch = stubFetch(new Response("{}", { status: 200 }))
+    await pagesApi.get(12)
+    expect(readFetch.mock.calls[0][0]).toBe("/api/pages/12")
+  })
+
+  it("版本按 version_no 进路径，不再有版本行 id", async () => {
+    const urls: string[] = []
+    for (const run of [
+      () => pagesApi.revision(12, 3),
+      () => pagesApi.restoreRevision(12, 3),
+      () => pagesApi.deleteRevision(12, 3)
+    ]) {
+      const fetchMock = stubFetch(new Response("{}", { status: 200 }))
+      await run()
+      urls.push(fetchMock.mock.calls[0][0])
+    }
+
+    expect(urls).toEqual([
+      "/api/pages/12/revisions/3",
+      "/api/pages/12/revisions/3/restore",
+      "/api/pages/12/revisions/3"
+    ])
+  })
+
+  it("库体积读 /admin/storage，字段名按冻结契约", async () => {
+    const fetchMock = stubFetch(
+      new Response(
+        JSON.stringify({
+          pageCount: 12,
+          trashedPageCount: 3,
+          revisionCount: 40,
+          databaseSizeBytes: 1024,
+          sizeScope: "own-database",
+          measure: "pragma"
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    )
+
+    const storage = await adminApi.storage()
+
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/storage")
+    expect(storage.pageCount).toBe(12)
+    expect(storage.databaseSizeBytes).toBe(1024)
   })
 })

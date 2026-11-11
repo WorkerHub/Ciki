@@ -23,7 +23,7 @@ export interface ScrollAnchor {
 const STORAGE_KEY = "ciki-scroll-anchor"
 
 interface StoredAnchor extends ScrollAnchor {
-  pageId: string
+  pageId: number
 }
 
 /** 正文/标题的最近滚动祖先：位置保持跟主区走，不以窗口为准。 */
@@ -94,7 +94,7 @@ export function restoreScrollAnchor(
   return true
 }
 
-function readStored(pageId: string): ScrollAnchor | null {
+function readStored(pageId: number): ScrollAnchor | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return null
@@ -114,7 +114,7 @@ function readStored(pageId: string): ScrollAnchor | null {
 
 /** 记下（或清除）某个页面的位置锚。`null` 表示这一页没有值得记的位置。 */
 export function rememberScrollAnchor(
-  pageId: string,
+  pageId: number,
   anchor: ScrollAnchor | null
 ): void {
   try {
@@ -134,12 +134,12 @@ export function rememberScrollAnchor(
 }
 
 /** 读某个页面的位置锚（不删除）：编辑页进来时用，返回阅读时还要用同一条。 */
-export function readScrollAnchor(pageId: string): ScrollAnchor | null {
+export function readScrollAnchor(pageId: number): ScrollAnchor | null {
   return readStored(pageId)
 }
 
 /** 读并删除：阅读页恢复后即用掉，之后的普通访问不会复活旧位置。 */
-export function takeScrollAnchor(pageId: string): ScrollAnchor | null {
+export function takeScrollAnchor(pageId: number): ScrollAnchor | null {
   const anchor = readStored(pageId)
   if (!anchor) return null
   try {

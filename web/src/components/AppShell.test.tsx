@@ -21,8 +21,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const { pagesApi, spacesApi } = await import("@/lib/api")
 
 const admin: Me = {
-  id: "u1",
-  publicId: "AB23CD45",
+  id: 1,
   username: "管理员",
   avatarUrl: null,
   email: "admin@example.com",
@@ -39,15 +38,15 @@ const admin: Me = {
 
 const member: Me = {
   ...admin,
-  id: "u2",
-  publicId: "EF45GH67",
+  id: 2,
   username: "成员",
   email: "member@example.com",
   role: "user"
 }
 
 const defaultSpace: Space = {
-  id: "space-default",
+  id: 1,
+  slug: "default",
   name: "默认空间",
   description: "",
   myRole: "editor",
@@ -93,7 +92,7 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       spaces: [defaultSpace],
       status: "ready",
       error: null,
-      currentId: "space-default"
+      currentId: 1
     })
     vi.mocked(pagesApi.tree).mockResolvedValue([])
     vi.mocked(spacesApi.list).mockResolvedValue([defaultSpace])
@@ -237,7 +236,7 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
   })
 
   it("分类页容器不居中：左缘与文章页正文对齐，系统页仍居中", () => {
-    const search = renderShell("/search")
+    const search = renderShell("/s/default/search")
     // 壳层容器是 Suspense 之外的第一个 div（Suspense 不产 DOM）
     const searchWrapper = screen.getByText("页面内容").parentElement
     expect(searchWrapper).toHaveClass("px-4", "sm:px-6", "max-w-[1140px]")

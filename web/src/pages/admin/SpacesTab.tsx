@@ -12,8 +12,9 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table"
-import { adminApi, type AdminSpace, describeApiError } from "@/lib/api"
+import { type AdminSpace, adminApi, describeApiError } from "@/lib/api"
 import { formatDate } from "@/lib/format"
+import { spaceSettingsPath } from "@/lib/routes"
 
 /** 系统管理 · 空间总览：站点管理员看全部空间的成员与页面统计。 */
 export function SpacesTab() {
@@ -104,9 +105,11 @@ export function SpacesTab() {
                         </Badge>
                       ) : null}
                     </span>
-                    <span className="block font-mono text-[11px] text-muted-foreground">
-                      {space.id}
-                    </span>
+                    {space.slug ? (
+                      <span className="block font-mono text-[11px] text-muted-foreground">
+                        /s/{space.slug}
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell className="max-w-[12rem] truncate text-xs text-muted-foreground">
                     {space.description || "—"}
@@ -124,12 +127,15 @@ export function SpacesTab() {
                     {formatDate(space.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button asChild size="sm" variant="ghost">
-                      <Link to={`/spaces/${space.id}/settings`}>
-                        <ExternalLink aria-hidden="true" />
-                        空间设置
-                      </Link>
-                    </Button>
+                    {/* 空间设置按 slug 寻址；后端没给 slug 时不给死链 */}
+                    {space.slug ? (
+                      <Button asChild size="sm" variant="ghost">
+                        <Link to={spaceSettingsPath(space.slug)}>
+                          <ExternalLink aria-hidden="true" />
+                          空间设置
+                        </Link>
+                      </Button>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}

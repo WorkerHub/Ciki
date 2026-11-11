@@ -214,15 +214,13 @@ export type Role = "admin" | "user"
 export type ApprovalStatus = "pending" | "approved" | "rejected"
 
 export interface User {
-  id: string
+  id: number
   email: string
   role: Role
 }
 
 export interface Me extends User {
-  /** 对外展示的用户 ID（8 位，系统生成且不可改）。 */
-  publicId: string
-  /** 显示名，可改、不要求唯一。 */
+  /** 显示名，可改、不要求唯一；对外身份就是它（不再有第二个用户 id）。 */
   username: string
   /** 头像地址；没有头像时为 null。 */
   avatarUrl: string | null
@@ -376,8 +374,8 @@ export interface ApiTokenIssued {
 }
 
 export interface PageNode {
-  id: string
-  parentId: string | null
+  id: number
+  parentId: number | null
   title: string
   sortOrder: number
   updatedAt: string
@@ -385,29 +383,36 @@ export interface PageNode {
 }
 
 export interface TrashNode {
-  id: string
-  parentId: string | null
+  id: number
+  parentId: number | null
   title: string
   deletedAt: string
   updatedAt: string
 }
 
 export interface PageDetail {
-  id: string
-  parentId: string | null
+  id: number
+  parentId: number | null
   /** 页面所属空间；读写入口都按它判定角色。 */
-  spaceId: string
+  spaceId: number
   title: string
   sortOrder: number
-  contentJson: string
   contentHtml: string
   contentText: string
   /** 服务端派生的 Markdown（只读展示/导出用，空页为空串）；前端从不回写。 */
   contentMd: string
-  createdBy: string
-  updatedBy: string
+  createdBy: number
+  updatedBy: number
   createdAt: string
   updatedAt: string
+}
+
+/**
+ * 编辑态详情：`GET /api/pages/:id?format=json` 在普通详情上追加 `contentJson`。
+ * 正文 JSON 只在 R2 里，普通详情不碰它（阅读热路径零 R2 读）。
+ */
+export interface PageContentDetail extends PageDetail {
+  contentJson: string
 }
 
 export interface PageInput {
@@ -418,15 +423,15 @@ export interface PageInput {
 }
 
 export interface RevisionSummary {
-  id: string
+  /** 页内版本号（第 N 版），版本寻址与展示都用它，不再暴露版本行 id。 */
+  versionNo: number
   title: string
-  editorId: string
+  editorId: number
   createdAt: string
 }
 
 export interface RevisionDetail extends RevisionSummary {
-  pageId: string
-  contentJson: string
+  pageId: number
   contentHtml: string
   contentText: string
 }
@@ -454,10 +459,10 @@ export interface RevisionPruneResult {
  * 已软删但仍有存活回复的顶层评论照常下发：`deletedAt` 非空、`html` 为空串。
  */
 export interface CommentDto {
-  id: string
+  id: number
   /** NULL=顶层评论；回复一律归一指向其顶层评论 id（只有一级）。 */
-  parentId: string | null
-  authorId: string
+  parentId: number | null
+  authorId: number
   authorName: string
   /** 头像地址；没有头像时为 null。 */
   authorAvatarUrl: string | null
@@ -482,12 +487,12 @@ export interface CommentList {
 }
 
 export interface SearchResult {
-  pageId: string
+  pageId: number
   title: string
   snippet: string
   updatedAt: string
   /** 全空间搜索：结果自带所属空间，前端据此标注。 */
-  spaceId: string
+  spaceId: number
   spaceName: string
 }
 
@@ -571,7 +576,9 @@ export interface SmtpConfigInput {
 export type SpaceRole = "admin" | "editor" | "viewer"
 
 export interface Space {
-  id: string
+  id: number
+  /** 对外地址段：由空间名生成、创建后不随改名变化（`/s/<slug>/…`）。 */
+  slug: string
   name: string
   description: string
   /** 当前用户在该空间的有效角色（站点管理员由前端统一视为 admin）。 */
@@ -582,33 +589,52 @@ export interface Space {
 }
 
 export interface SpaceMember {
-  userId: string
+  userId: number
   username: string
-  publicId: string
   email: string
   role: SpaceRole
   createdAt: string
 }
 
 export interface SpaceCandidate {
-  userId: string
+  userId: number
   username: string
-  publicId: string
   email: string
 }
 
-/** 系统管理「空间总览」的行：统计字段只在这个端点返回。 */
+/**
+ * 系统管理「空间总览」的行：统计字段只在这个端点返回。
+ * `slug` 与本项目的 Space DTO 同源（`GET /api/spaces` 必带）；若后端这个端点
+ * 漏下发，前端只是不给设置入口，不拿数字 id 顶替地址。
+ */
 export interface AdminSpace {
-  id: string
+  id: number
+  slug?: string
   name: string
   description: string
   isDefault: boolean
-  createdBy: string
+  createdBy: number
   createdAt: string
   updatedAt: string
   memberCount: number
   pageCount: number
   trashedPageCount: number
+}
+
+/**
+ * 系统管理 → 数据库维护的体积口径（GET /api/admin/storage）。
+ * D1 是 Ciki 独占库，`sizeScope` 即本库；前端只展示 `pageCount` 与体积，
+ * 不渲染 scope 文案（不出现「共享库」字样）。
+ * PRAGMA 读不到时 `databaseSizeBytes` 为 null —— 显示「不可得」，绝不估算。
+ */
+export interface AdminStorage {
+  /** 未删除页面数（不含回收站）。 */
+  pageCount: number
+  trashedPageCount: number
+  revisionCount: number
+  databaseSizeBytes: number | null
+  sizeScope: string
+  measure: string
 }
 
 /* ------------------------------------------------------------------ *
@@ -782,68 +808,72 @@ export const siteApi = {
 }
 
 /** 空间参数缺省时后端按默认空间处理（契约里空串/缺省同义）。 */
-function spaceQuery(spaceId?: string | null): string {
-  return spaceId ? `?spaceId=${encodeURIComponent(spaceId)}` : ""
+function spaceQuery(spaceId?: number | null): string {
+  return spaceId ? `?spaceId=${spaceId}` : ""
 }
 
 export const pagesApi = {
-  tree: (spaceId?: string | null) =>
+  tree: (spaceId?: number | null) =>
     api.get<PageNode[]>(`/pages${spaceQuery(spaceId)}`),
-  trash: (spaceId?: string | null) =>
+  trash: (spaceId?: number | null) =>
     api.get<TrashNode[]>(`/pages/trash${spaceQuery(spaceId)}`),
-  get: (id: string) => api.get<PageDetail>(`/pages/${id}`),
+  get: (id: number) => api.get<PageDetail>(`/pages/${id}`),
+  /** 编辑态：在详情上追加 `contentJson`（服务端按 `content_hash` 从 R2 取）。 */
+  getForEditor: (id: number) =>
+    api.get<PageContentDetail>(`/pages/${id}?format=json`),
   /**
    * 阅读页「下载 .md」：服务端按该页 MD 是否引用站内图自动分流（无图回 .md、
    * 含图回 zip），都是二进制，文件名在 Content-Disposition 里。
    */
-  download: (id: string) => downloadFile(`/pages/${id}/download`),
-  create: (input: PageInput & { parentId: string | null; spaceId?: string }) =>
+  download: (id: number) => downloadFile(`/pages/${id}/download`),
+  create: (input: PageInput & { parentId: number | null; spaceId?: number }) =>
     api.post<PageDetail>("/pages", input),
-  update: (id: string, input: PageInput) =>
+  update: (id: number, input: PageInput) =>
     api.put<PageDetail>(`/pages/${id}`, input),
   move: (
-    id: string,
-    parentId: string | null,
+    id: number,
+    parentId: number | null,
     sortOrder?: number,
-    spaceId?: string
+    spaceId?: number
   ) =>
     api.post<{ success: true }>(`/pages/${id}/move`, {
       parentId,
       ...(sortOrder === undefined ? {} : { sortOrder }),
       ...(spaceId ? { spaceId } : {})
     }),
-  remove: (id: string) => api.del<{ success: true }>(`/pages/${id}`),
-  restore: (id: string) => api.post<{ success: true }>(`/pages/${id}/restore`),
-  removePermanent: (id: string) =>
+  remove: (id: number) => api.del<{ success: true }>(`/pages/${id}`),
+  restore: (id: number) => api.post<{ success: true }>(`/pages/${id}/restore`),
+  removePermanent: (id: number) =>
     api.del<{ success: true }>(`/pages/${id}/permanent`),
-  revisions: (id: string) =>
+  revisions: (id: number) =>
     api.get<RevisionSummary[]>(`/pages/${id}/revisions`),
-  revision: (id: string, revisionId: string) =>
-    api.get<RevisionDetail>(`/pages/${id}/revisions/${revisionId}`),
-  restoreRevision: (id: string, revisionId: string) =>
-    api.post<PageDetail>(`/pages/${id}/revisions/${revisionId}/restore`),
+  /** 版本按页内 `version_no`（第 N 版）寻址，不再用版本行 id。 */
+  revision: (id: number, versionNo: number) =>
+    api.get<RevisionDetail>(`/pages/${id}/revisions/${versionNo}`),
+  restoreRevision: (id: number, versionNo: number) =>
+    api.post<PageDetail>(`/pages/${id}/revisions/${versionNo}/restore`),
   /** 删单条版本；每页最新一条由服务端拒绝（409 REVISION_IS_LATEST）。 */
-  deleteRevision: (id: string, revisionId: string) =>
-    api.del<{ success: true }>(`/pages/${id}/revisions/${revisionId}`),
+  deleteRevision: (id: number, versionNo: number) =>
+    api.del<{ success: true }>(`/pages/${id}/revisions/${versionNo}`),
   /** 按页只保留最新一条，其余全删；返回真实删除条数。 */
-  pruneRevisions: (id: string) =>
+  pruneRevisions: (id: number) =>
     api.post<{ deleted: number }>(`/pages/${id}/revisions/prune`)
 }
 
 export const commentsApi = {
   /** 一次取整页（不分页）：顶层按时间正序，各自回复按时间正序平铺。 */
-  list: (pageId: string) => api.get<CommentList>(`/pages/${pageId}/comments`),
+  list: (pageId: number) => api.get<CommentList>(`/pages/${pageId}/comments`),
   /** 顶层评论不带 parentId；回复的 parentId 恒为顶层评论 id。 */
   create: (
-    pageId: string,
-    input: { bodyMd: string; parentId?: string | null }
+    pageId: number,
+    input: { bodyMd: string; parentId?: number | null }
   ) => api.post<CommentDto>(`/pages/${pageId}/comments`, input),
-  update: (pageId: string, commentId: string, bodyMd: string) =>
+  update: (pageId: number, commentId: number, bodyMd: string) =>
     api.put<CommentDto>(`/pages/${pageId}/comments/${commentId}`, { bodyMd }),
-  remove: (pageId: string, commentId: string) =>
+  remove: (pageId: number, commentId: number) =>
     api.del<{ success: true }>(`/pages/${pageId}/comments/${commentId}`),
   /** 预览走与列表同一条服务端渲染净化链，前端不自引 MD 库。 */
-  preview: (pageId: string, bodyMd: string) =>
+  preview: (pageId: number, bodyMd: string) =>
     api.post<{ html: string }>(`/pages/${pageId}/comments/preview`, {
       bodyMd
     })
@@ -856,20 +886,20 @@ export const searchApi = {
 
 export const spacesApi = {
   list: () => api.get<Space[]>("/spaces"),
-  get: (id: string) => api.get<Space>(`/spaces/${id}`),
+  get: (id: number) => api.get<Space>(`/spaces/${id}`),
   create: (input: { name: string; description?: string }) =>
     api.post<Space>("/spaces", input),
-  update: (id: string, input: { name?: string; description?: string }) =>
+  update: (id: number, input: { name?: string; description?: string }) =>
     api.put<Space>(`/spaces/${id}`, input),
-  remove: (id: string) => api.del<{ success: true }>(`/spaces/${id}`),
-  members: (id: string) => api.get<SpaceMember[]>(`/spaces/${id}/members`),
-  addMember: (id: string, input: { userId: string; role: SpaceRole }) =>
+  remove: (id: number) => api.del<{ success: true }>(`/spaces/${id}`),
+  members: (id: number) => api.get<SpaceMember[]>(`/spaces/${id}/members`),
+  addMember: (id: number, input: { userId: number; role: SpaceRole }) =>
     api.post<SpaceMember>(`/spaces/${id}/members`, input),
-  updateMember: (id: string, userId: string, role: SpaceRole) =>
+  updateMember: (id: number, userId: number, role: SpaceRole) =>
     api.put<SpaceMember>(`/spaces/${id}/members/${userId}`, { role }),
-  removeMember: (id: string, userId: string) =>
+  removeMember: (id: number, userId: number) =>
     api.del<{ success: true }>(`/spaces/${id}/members/${userId}`),
-  candidates: (id: string, q: string) =>
+  candidates: (id: number, q: string) =>
     api.get<SpaceCandidate[]>(
       `/spaces/${id}/member-candidates?q=${encodeURIComponent(q)}`
     )
@@ -881,7 +911,7 @@ export const adminApi = {
   createUser: (email: string, password: string, role: Role) =>
     api.post<AdminUser>("/admin/users", { email, password, role }),
   updateUser: (
-    id: string,
+    id: number,
     patch: {
       email?: string
       password?: string
@@ -889,10 +919,10 @@ export const adminApi = {
       isActive?: boolean
     }
   ) => api.put<AdminUser>(`/admin/users/${id}`, patch),
-  deleteUser: (id: string) => api.del<{ success: true }>(`/admin/users/${id}`),
-  approve: (id: string) =>
+  deleteUser: (id: number) => api.del<{ success: true }>(`/admin/users/${id}`),
+  approve: (id: number) =>
     api.post<{ success: true }>(`/admin/users/${id}/approve`),
-  reject: (id: string) =>
+  reject: (id: number) =>
     api.post<{ success: true }>(`/admin/users/${id}/reject`),
   runAsAdmin: () => api.post<SetupResult>("/admin/setup"),
   /** 最近一轮真实清理（排除 dry-run 与被防双跑守卫跳过的运行）。 */
@@ -901,6 +931,8 @@ export const adminApi = {
   runR2Cleanup: (dryRun: boolean) =>
     api.post<R2CleanupRunResult>("/admin/r2-cleanup", { dryRun }),
   spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
+  /** 数据库体积与页数（数据库维护页那一行）。 */
+  storage: () => api.get<AdminStorage>("/admin/storage"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
     api.put<{ success: true }>("/admin/settings", patch),

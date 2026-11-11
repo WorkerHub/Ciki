@@ -24,10 +24,11 @@ import { useSpaceRole } from "@/hooks/useSpaceRole"
 import {
   ApiError,
   describeApiError,
-  type PageDetail,
+  type PageContentDetail,
   pagesApi
 } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
+import { pagePath, parseIdParam } from "@/lib/routes"
 import { readScrollAnchor, restoreScrollAnchor } from "@/lib/scroll-anchor"
 import { canEdit } from "@/lib/space"
 import { usePagesStore } from "@/stores/pages"
@@ -35,14 +36,15 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 编辑页：标题 + 正文，Ctrl/⌘+S 保存，未保存离开要确认（规格 §2）。 */
 export function PageEdit() {
-  const { pageId } = useParams<{ pageId: string }>()
+  const params = useParams<{ pageId: string }>()
+  const pageId = parseIdParam(params.pageId)
   const navigate = useNavigate()
   const loadTree = usePagesStore((state) => state.load)
   const spaces = useSpacesStore((state) => state.spaces)
   const spacesStatus = useSpacesStore((state) => state.status)
   const currentSpaceId = useSpacesStore((state) => state.currentId)
   const selectSpace = useSpacesStore((state) => state.select)
-  const [page, setPage] = useState<PageDetail | null>(null)
+  const [page, setPage] = useState<PageContentDetail | null>(null)
   const [title, setTitle] = useState("")
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState("")
@@ -55,7 +57,7 @@ export function PageEdit() {
   const [savedAt, setSavedAt] = useState<string | null>(null)
   const role = useSpaceRole(page?.spaceId)
   const readOnly = page !== null && !canEdit(role)
-  const syncedPage = useRef<string | null>(null)
+  const syncedPage = useRef<number | null>(null)
   /** 「放弃修改」已经放行过这一次导航：blocker 不能再拦（它读到的是置位前的 dirty）。 */
   const leavingByCancel = useRef(false)
 
@@ -67,7 +69,13 @@ export function PageEdit() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken 只是「重新加载」的触发器
   useEffect(() => {
-    if (!pageId) return
+    if (pageId === null) {
+      // 非数字 id：不发请求，直接落到「页面不存在」
+      setPage(null)
+      setLoading(false)
+      setNotFound(true)
+      return
+    }
     let alive = true
     // 换页先把旧页状态清干净：避免把 A 的正文/标题写进 B
     setPage(null)
@@ -78,7 +86,7 @@ export function PageEdit() {
     setNotFound(false)
     setLoading(true)
     pagesApi
-      .get(pageId)
+      .getForEditor(pageId)
       .then((detail) => {
         if (!alive) return
         setPage(detail)
@@ -101,7 +109,7 @@ export function PageEdit() {
 
   /** 页面数据不到位就绝不允许写回：加载中、加载失败、换页途中都返回 false。 */
   const ready = Boolean(
-    editor && page && pageId && page.id === pageId && !loading
+    editor && page && pageId !== null && page.id === pageId && !loading
   )
 
   // 直链进来时空间跟着页面走（与阅读页同一口径），每个页面只同步一次
@@ -116,7 +124,7 @@ export function PageEdit() {
   // 从阅读页进来时按记下的锚点落回原处（每次载入只做一次）。
   // 正文到位前 useEditor 会重建一次实例：DOM 没挂进文档、或顶层块数还与 contentJson
   // 对不上时先不动手，等下一次渲染拿到的就是最终实例，否则会按空文档算错位置。
-  const anchorRestored = useRef<string | null>(null)
+  const anchorRestored = useRef<number | null>(null)
   useEffect(() => {
     if (!ready || !editor || !page) return
     if (anchorRestored.current === page.id) return
@@ -138,7 +146,7 @@ export function PageEdit() {
     if (
       !editor ||
       !page ||
-      !pageId ||
+      pageId === null ||
       page.id !== pageId ||
       loading ||
       saving
@@ -167,20 +175,20 @@ export function PageEdit() {
 
   /** 取消编辑：没改动就直接回阅读态；有未保存改动先问一句，不自己丢内容。 */
   const cancelEdit = useCallback(() => {
-    if (!pageId) return
+    if (pageId === null) return
     if (dirty) {
       setCancelOpen(true)
       return
     }
-    navigate(`/p/${pageId}`)
+    navigate(pagePath(pageId))
   }, [dirty, navigate, pageId])
 
   /** 确认放弃：不发保存请求、不生成版本，直接回阅读态（位置由阅读页的锚点恢复）。 */
   const discardChanges = useCallback(() => {
-    if (!pageId) return
+    if (pageId === null) return
     setCancelOpen(false)
     leavingByCancel.current = true
-    navigate(`/p/${pageId}`)
+    navigate(pagePath(pageId))
   }, [navigate, pageId])
 
   // 页面加载完成前不挂 Ctrl/⌘+S：否则会把空文档写回页面
@@ -240,7 +248,7 @@ export function PageEdit() {
   }
 
   // 加载失败：给重试入口，绝不渲染一个空编辑器
-  if (!page || page.id !== pageId) {
+  if (!page || pageId === null || page.id !== pageId) {
     return (
       <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
         <p role="alert" className="text-sm text-destructive">
@@ -275,7 +283,7 @@ export function PageEdit() {
           className="mt-3"
           size="sm"
           variant="outline"
-          onClick={() => navigate(`/p/${page.id}`)}
+          onClick={() => navigate(pagePath(page.id))}
         >
           返回阅读
         </Button>
@@ -290,7 +298,7 @@ export function PageEdit() {
           type="button"
           size="sm"
           variant="ghost"
-          onClick={() => navigate(`/p/${pageId}`)}
+          onClick={() => navigate(pagePath(pageId))}
           className="text-muted-foreground"
         >
           <ArrowLeft aria-hidden="true" />

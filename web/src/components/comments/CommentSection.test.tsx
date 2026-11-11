@@ -22,9 +22,9 @@ const { commentsApi } = await import("@/lib/api")
 
 function comment(overrides: Partial<CommentDto> = {}): CommentDto {
   return {
-    id: "c1",
+    id: 1,
     parentId: null,
-    authorId: "u1",
+    authorId: 1,
     authorName: "小明",
     authorAvatarUrl: null,
     bodyMd: "第一行\n第二行",
@@ -43,10 +43,10 @@ function thread(overrides: Partial<CommentThread> = {}): CommentThread {
 }
 
 function renderSection() {
-  return render(<CommentSection pageId="p1" />)
+  return render(<CommentSection pageId={1} />)
 }
 
-function item(id: string) {
+function item(id: number) {
   return document.querySelector<HTMLElement>(`[data-comment-id="${id}"]`)
 }
 
@@ -81,7 +81,7 @@ describe("页尾评论区", () => {
   it("有评论时标题带服务端给的条数", async () => {
     vi.mocked(commentsApi.list).mockResolvedValue({
       total: 3,
-      threads: [thread({ replies: [comment({ id: "r1", parentId: "c1" })] })]
+      threads: [thread({ replies: [comment({ id: 4, parentId: 1 })] })]
     })
     renderSection()
     const heading = await screen.findByRole("heading", { name: /^评论/ })
@@ -94,8 +94,8 @@ describe("页尾评论区", () => {
       threads: [
         thread({
           replies: [
-            comment({ id: "r1", parentId: "c1", authorName: "小红" }),
-            comment({ id: "r2", parentId: "c1", authorName: "小刚" })
+            comment({ id: 4, parentId: 1, authorName: "小红" }),
+            comment({ id: 5, parentId: 1, authorName: "小刚" })
           ]
         })
       ]
@@ -103,9 +103,9 @@ describe("页尾评论区", () => {
     renderSection()
     await screen.findByText("小红")
 
-    const top = item("c1") as HTMLElement
-    const first = item("r1") as HTMLElement
-    const second = item("r2") as HTMLElement
+    const top = item(1) as HTMLElement
+    const first = item(4) as HTMLElement
+    const second = item(5) as HTMLElement
     // 回复不在顶层评论的正文元素里，而是与它同处一个串容器
     expect(top.contains(first)).toBe(false)
     expect(top.parentElement?.contains(first)).toBe(true)
@@ -115,9 +115,9 @@ describe("页尾评论区", () => {
     expect(indent.contains(second)).toBe(true)
     expect(
       Array.from(indent.querySelectorAll<HTMLElement>("[data-comment-id]")).map(
-        (node) => node.dataset.commentId
+        (node) => Number(node.dataset.commentId)
       )
-    ).toEqual(["r1", "r2"])
+    ).toEqual([4, 5])
   })
 
   it("编辑过的评论在名字行尾显「已编辑」，没编辑过的不显", async () => {
@@ -125,15 +125,15 @@ describe("页尾评论区", () => {
       total: 2,
       threads: [
         thread({ editedAt: "2026-11-11T03:00:00.000Z" }),
-        thread({ id: "c2", authorName: "小红" })
+        thread({ id: 2, authorName: "小红" })
       ]
     })
     renderSection()
     await screen.findByText("小明")
     expect(
-      within(item("c1") as HTMLElement).getByText("已编辑")
+      within(item(1) as HTMLElement).getByText("已编辑")
     ).toBeInTheDocument()
-    expect(within(item("c2") as HTMLElement).queryByText("已编辑")).toBeNull()
+    expect(within(item(2) as HTMLElement).queryByText("已编辑")).toBeNull()
   })
 
   it("服务端下发的 HTML 直接呈现，不经过任何前端渲染", async () => {
@@ -162,17 +162,17 @@ describe("页尾评论区", () => {
           html: "",
           canEdit: false,
           canDelete: false,
-          replies: [comment({ id: "r1", parentId: "c1", authorName: "小红" })]
+          replies: [comment({ id: 4, parentId: 1, authorName: "小红" })]
         })
       ]
     })
     renderSection()
     await screen.findByText("该评论已删除")
 
-    expect(within(item("c1") as HTMLElement).queryByRole("button")).toBeNull()
+    expect(within(item(1) as HTMLElement).queryByRole("button")).toBeNull()
     expect(screen.getByText("小红")).toBeInTheDocument()
     expect(
-      within(item("r1") as HTMLElement).getByRole("button", { name: "回复" })
+      within(item(4) as HTMLElement).getByRole("button", { name: "回复" })
     ).toBeInTheDocument()
   })
 
@@ -182,13 +182,13 @@ describe("页尾评论区", () => {
       threads: [
         thread({ canEdit: true, canDelete: true }),
         thread({
-          id: "c2",
+          id: 2,
           authorName: "小红",
           canEdit: false,
           canDelete: false
         }),
         thread({
-          id: "c3",
+          id: 3,
           authorName: "小刚",
           canEdit: false,
           canDelete: true
@@ -200,27 +200,27 @@ describe("页尾评论区", () => {
 
     // 自己的：编辑 + 删除
     expect(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "编辑" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "编辑" })
     ).toBeInTheDocument()
     expect(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "删除" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "删除" })
     ).toBeInTheDocument()
     // 他人的：只有回复
     expect(
-      within(item("c2") as HTMLElement).queryByRole("button", { name: "编辑" })
+      within(item(2) as HTMLElement).queryByRole("button", { name: "编辑" })
     ).toBeNull()
     expect(
-      within(item("c2") as HTMLElement).queryByRole("button", { name: "删除" })
+      within(item(2) as HTMLElement).queryByRole("button", { name: "删除" })
     ).toBeNull()
     expect(
-      within(item("c2") as HTMLElement).getByRole("button", { name: "回复" })
+      within(item(2) as HTMLElement).getByRole("button", { name: "回复" })
     ).toBeInTheDocument()
     // 管理员删他人评论：多一个删除、仍然没有编辑
     expect(
-      within(item("c3") as HTMLElement).queryByRole("button", { name: "编辑" })
+      within(item(3) as HTMLElement).queryByRole("button", { name: "编辑" })
     ).toBeNull()
     expect(
-      within(item("c3") as HTMLElement).getByRole("button", { name: "删除" })
+      within(item(3) as HTMLElement).getByRole("button", { name: "删除" })
     ).toBeInTheDocument()
   })
 
@@ -237,11 +237,11 @@ describe("页尾评论区", () => {
 
     vi.mocked(commentsApi.list).mockResolvedValue({
       total: 1,
-      threads: [thread({ id: "new", bodyMd: "问一下", html: "<p>问一下</p>" })]
+      threads: [thread({ id: 6, bodyMd: "问一下", html: "<p>问一下</p>" })]
     })
     await user.click(screen.getByRole("button", { name: "发表" }))
 
-    expect(vi.mocked(commentsApi.create)).toHaveBeenCalledWith("p1", {
+    expect(vi.mocked(commentsApi.create)).toHaveBeenCalledWith(1, {
       bodyMd: "问一下",
       parentId: null
     })
@@ -256,8 +256,8 @@ describe("页尾评论区", () => {
       total: 2,
       threads: [
         thread({
-          id: "c1",
-          replies: [comment({ id: "r1", parentId: "c1", html: "<p>追问</p>" })]
+          id: 1,
+          replies: [comment({ id: 4, parentId: 1, html: "<p>追问</p>" })]
         })
       ]
     })
@@ -265,7 +265,7 @@ describe("页尾评论区", () => {
     await screen.findByText("追问")
 
     await user.click(
-      within(item("r1") as HTMLElement).getByRole("button", { name: "回复" })
+      within(item(4) as HTMLElement).getByRole("button", { name: "回复" })
     )
     const box = screen.getByRole("textbox", { name: "回复内容" })
     await user.type(box, "再追一句")
@@ -273,9 +273,9 @@ describe("页尾评论区", () => {
       within(composerOf(box)).getByRole("button", { name: "回复" })
     )
 
-    expect(vi.mocked(commentsApi.create)).toHaveBeenCalledWith("p1", {
+    expect(vi.mocked(commentsApi.create)).toHaveBeenCalledWith(1, {
       bodyMd: "再追一句",
-      parentId: "c1"
+      parentId: 1
     })
   })
 
@@ -289,42 +289,38 @@ describe("页尾评论区", () => {
     await screen.findByText("第一行")
 
     await user.click(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "编辑" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "编辑" })
     )
-    let box = within(item("c1") as HTMLElement).getByRole("textbox", {
+    let box = within(item(1) as HTMLElement).getByRole("textbox", {
       name: "编辑评论"
     })
     expect(box).toHaveValue("第一行\n第二行")
 
     await user.click(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "取消" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "取消" })
     )
     expect(
-      within(item("c1") as HTMLElement).queryByRole("textbox", {
+      within(item(1) as HTMLElement).queryByRole("textbox", {
         name: "编辑评论"
       })
     ).toBeNull()
     expect(vi.mocked(commentsApi.update)).not.toHaveBeenCalled()
 
     await user.click(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "编辑" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "编辑" })
     )
-    box = within(item("c1") as HTMLElement).getByRole("textbox", {
+    box = within(item(1) as HTMLElement).getByRole("textbox", {
       name: "编辑评论"
     })
     await user.clear(box)
     await user.type(box, "改好了")
     await user.click(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "保存" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "保存" })
     )
 
-    expect(vi.mocked(commentsApi.update)).toHaveBeenCalledWith(
-      "p1",
-      "c1",
-      "改好了"
-    )
+    expect(vi.mocked(commentsApi.update)).toHaveBeenCalledWith(1, 1, "改好了")
     expect(
-      within(item("c1") as HTMLElement).queryByRole("textbox", {
+      within(item(1) as HTMLElement).queryByRole("textbox", {
         name: "编辑评论"
       })
     ).toBeNull()
@@ -340,7 +336,7 @@ describe("页尾评论区", () => {
     await screen.findByText("第一行")
 
     await user.click(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "删除" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "删除" })
     )
     let dialog = await screen.findByRole("alertdialog")
     expect(within(dialog).getByText("删除这条评论？")).toBeInTheDocument()
@@ -348,11 +344,11 @@ describe("页尾评论区", () => {
     expect(vi.mocked(commentsApi.remove)).not.toHaveBeenCalled()
 
     await user.click(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "删除" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "删除" })
     )
     dialog = await screen.findByRole("alertdialog")
     await user.click(within(dialog).getByRole("button", { name: "删除" }))
-    expect(vi.mocked(commentsApi.remove)).toHaveBeenCalledWith("p1", "c1")
+    expect(vi.mocked(commentsApi.remove)).toHaveBeenCalledWith(1, 1)
     // 删除成功才关框
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())
   })
@@ -367,7 +363,7 @@ describe("页尾评论区", () => {
     await screen.findByText("第一行")
 
     await user.click(
-      within(item("c1") as HTMLElement).getByRole("button", { name: "删除" })
+      within(item(1) as HTMLElement).getByRole("button", { name: "删除" })
     )
     const dialog = await screen.findByRole("alertdialog")
     vi.mocked(commentsApi.remove).mockRejectedValueOnce(
@@ -402,7 +398,7 @@ describe("页尾评论区", () => {
     await user.type(composer, "草稿")
     await user.click(screen.getByRole("button", { name: "预览" }))
 
-    expect(vi.mocked(commentsApi.preview)).toHaveBeenCalledWith("p1", "草稿")
+    expect(vi.mocked(commentsApi.preview)).toHaveBeenCalledWith(1, "草稿")
     expect(await screen.findByText("加粗")).toBeInTheDocument()
     expect(screen.queryByRole("textbox", { name: "发表评论" })).toBeNull()
 

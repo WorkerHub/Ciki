@@ -23,25 +23,25 @@ describe("搜索结果的空间标注", () => {
       query: "部署",
       results: [
         {
-          pageId: "p1",
+          pageId: 1,
           title: "部署手册",
           snippet: "支付服务的部署步骤",
           updatedAt: "2026-11-08T00:00:00.000Z",
-          spaceId: "space-2",
+          spaceId: 2,
           spaceName: "支付团队"
         },
         {
-          pageId: "p2",
+          pageId: 2,
           title: "默认空间的部署说明",
           snippet: "站点级部署",
           updatedAt: "2026-11-08T00:00:00.000Z",
-          spaceId: "space-default",
+          spaceId: 1,
           spaceName: "默认空间"
         }
       ]
     })
     render(
-      <MemoryRouter initialEntries={["/search?q=部署"]}>
+      <MemoryRouter initialEntries={["/s/default/search?q=部署"]}>
         <SearchPage />
       </MemoryRouter>
     )
@@ -57,17 +57,17 @@ describe("搜索结果的空间标注", () => {
       query: "部署",
       results: [
         {
-          pageId: "p1",
+          pageId: 1,
           title: "部署手册",
           snippet: "支付服务的部署步骤",
           updatedAt: "2026-11-08T00:00:00.000Z",
-          spaceId: "",
+          spaceId: 1,
           spaceName: ""
         }
       ]
     })
     render(
-      <MemoryRouter initialEntries={["/search?q=部署"]}>
+      <MemoryRouter initialEntries={["/s/default/search?q=部署"]}>
         <SearchPage />
       </MemoryRouter>
     )

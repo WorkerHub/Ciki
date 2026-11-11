@@ -14,10 +14,11 @@ import {
   AlertDialogTitle
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { describeApiError, pagesApi, type TrashNode } from "@/lib/api"
 import { formatDateTime, formatRelative } from "@/lib/format"
+import { spaceTrashPath } from "@/lib/routes"
 import { canEdit } from "@/lib/space"
-import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -58,7 +59,7 @@ export function TrashPage() {
         {/* 回收站按空间隔离，页头直接给切换入口（切完留在本页按新空间重拉列表）；
             宽度收窄成控件尺寸，-ml-2 抵消切换器自身的水平内边距，左边缘与标题对齐 */}
         <div className="-ml-2 max-w-64">
-          <SpaceSwitcher navigateOnSwitch={false} />
+          <SpaceSwitcher switchPath={(space) => spaceTrashPath(space.slug)} />
         </div>
         <h1 className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight">
           <Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
