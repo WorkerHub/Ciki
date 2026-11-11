@@ -4,11 +4,15 @@
  * 读：站点管理员看全部空间，普通用户只看自己是成员的空间。
  * 写：空间信息与成员管理仅空间 `admin` / 站点管理员；任何登录用户都能建空间，
  * 创建者自动成为该空间 `admin`。
+ *
+ * id 是整数自增主键；URL 里的空间段用 `slug`（`/s/<slug>/…`，前端从 `GET /api/spaces`
+ * 的 `slug` 解析）。slug 在创建时由空间名生成、之后不随改名变化。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
-import { readJsonBody } from "../lib/http"
+import { parseId, readIdInput, readJsonBody } from "../lib/http"
+import { uniqueSpaceSlug } from "../lib/slug"
 import { findUserById } from "../db/queries/users"
 import {
   countSpaceAdmins,
@@ -18,12 +22,14 @@ import {
   findSpaceMember,
   insertSpace,
   insertSpaceMember,
+  listSpaceSlugs,
   listAllSpaces,
   listMemberCandidates,
   listSpaceMembers,
   listSpacesForUser,
   updateSpace,
   updateSpaceMemberRole,
+  updateSpaceSlug,
   type MemberCandidateRow,
   type SpaceMemberViewRow,
   type SpaceRow,
@@ -49,6 +55,7 @@ function isSiteAdmin(c: Context<HonoEnv>): boolean {
 function toSpaceDto(space: SpaceRow, role: SpaceRole) {
   return {
     id: space.id,
+    slug: space.slug,
     name: space.name,
     description: space.description,
     myRole: role,
@@ -62,7 +69,6 @@ function toMemberDto(row: SpaceMemberViewRow) {
   return {
     userId: row.user_id,
     username: row.username,
-    publicId: row.public_id,
     email: row.email,
     role: row.role,
     createdAt: row.created_at
@@ -73,7 +79,6 @@ function toCandidateDto(row: MemberCandidateRow) {
   return {
     userId: row.user_id,
     username: row.username,
-    publicId: row.public_id,
     email: row.email
   }
 }
@@ -88,7 +93,7 @@ function forbidden(c: Context<HonoEnv>) {
 
 async function accessFor(
   c: Context<HonoEnv>,
-  spaceId: string
+  spaceId: number
 ): Promise<SpaceAccess | null> {
   return resolveSpaceAccess(
     c.env.DB,
@@ -141,8 +146,37 @@ spaceRoutes.post("/", async (c) => {
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
   const now = new Date().toISOString()
+
+  // 先落行拿自增 id：slug 的兜底形态 `space-<id>` 要等 id 出来才知道。
+  const inserted = await c.env.DB.batch([
+    insertSpace(c.env.DB, prefix, {
+      name,
+      description,
+      is_default: 0,
+      created_by: userId,
+      created_at: now,
+      updated_at: now
+    })
+  ])
+  const id = inserted[0].meta.last_row_id
+  const usedSlugs = new Set(await listSpaceSlugs(c.env.DB, prefix))
+  const slug = uniqueSpaceSlug(name, id, (candidate) =>
+    usedSlugs.has(candidate)
+  )
+
+  await c.env.DB.batch([
+    updateSpaceSlug(c.env.DB, prefix, id, slug),
+    insertSpaceMember(c.env.DB, prefix, {
+      space_id: id,
+      user_id: userId,
+      role: "admin",
+      created_at: now
+    })
+  ])
+
   const space: SpaceRow = {
-    id: crypto.randomUUID(),
+    id,
+    slug,
     name,
     description,
     is_default: 0,
@@ -150,28 +184,21 @@ spaceRoutes.post("/", async (c) => {
     created_at: now,
     updated_at: now
   }
-
-  await c.env.DB.batch([
-    insertSpace(c.env.DB, prefix, space),
-    insertSpaceMember(c.env.DB, prefix, {
-      space_id: space.id,
-      user_id: userId,
-      role: "admin",
-      created_at: now
-    })
-  ])
-
   return c.json(toSpaceDto(space, "admin"), 201)
 })
 
 spaceRoutes.get("/:id", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   return c.json(toSpaceDto(access.space, access.role))
 })
 
 spaceRoutes.put("/:id", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
 
@@ -237,7 +264,9 @@ spaceRoutes.put("/:id", async (c) => {
 })
 
 spaceRoutes.delete("/:id", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
   if (access.space.is_default) {
@@ -269,7 +298,9 @@ spaceRoutes.delete("/:id", async (c) => {
 // ── 成员 ────────────────────────────────────────────────────────────────────
 
 spaceRoutes.get("/:id/members", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
 
@@ -279,13 +310,15 @@ spaceRoutes.get("/:id/members", async (c) => {
 })
 
 spaceRoutes.post("/:id/members", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
 
   const body = await readJsonBody<{ userId?: unknown; role?: unknown }>(c)
-  const userId = typeof body?.userId === "string" ? body.userId.trim() : ""
-  if (!userId) return c.json({ error: "userId required" }, 400)
+  const userId = readIdInput(body?.userId)
+  if (!userId) return c.json({ error: "userId must be an integer" }, 400)
   if (!isSpaceRole(body?.role)) {
     return c.json(
       { error: "role must be admin, editor or viewer", code: "INVALID_ROLE" },
@@ -323,7 +356,6 @@ spaceRoutes.post("/:id/members", async (c) => {
     {
       userId: user.id,
       username: user.username,
-      publicId: user.public_id,
       email: user.email,
       role: body.role,
       createdAt: now
@@ -333,7 +365,10 @@ spaceRoutes.post("/:id/members", async (c) => {
 })
 
 spaceRoutes.put("/:id/members/:userId", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  const userId = parseId(c.req.param("userId"))
+  if (id === null || userId === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
 
@@ -346,7 +381,6 @@ spaceRoutes.put("/:id/members/:userId", async (c) => {
   }
 
   const prefix = getTablePrefix(c.env)
-  const userId = c.req.param("userId")
   const member = await findSpaceMember(
     c.env.DB,
     prefix,
@@ -381,7 +415,6 @@ spaceRoutes.put("/:id/members/:userId", async (c) => {
   return c.json({
     userId,
     username: user?.username ?? "",
-    publicId: user?.public_id ?? "",
     email: user?.email ?? "",
     role: body.role,
     createdAt: member.created_at
@@ -389,12 +422,14 @@ spaceRoutes.put("/:id/members/:userId", async (c) => {
 })
 
 spaceRoutes.delete("/:id/members/:userId", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  const userId = parseId(c.req.param("userId"))
+  if (id === null || userId === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
 
   const prefix = getTablePrefix(c.env)
-  const userId = c.req.param("userId")
   const member = await findSpaceMember(
     c.env.DB,
     prefix,
@@ -423,7 +458,9 @@ spaceRoutes.delete("/:id/members/:userId", async (c) => {
 })
 
 spaceRoutes.get("/:id/member-candidates", async (c) => {
-  const access = await accessFor(c, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return spaceNotFound(c)
+  const access = await accessFor(c, id)
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
 

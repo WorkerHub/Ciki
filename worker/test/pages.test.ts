@@ -74,7 +74,7 @@ async function revisionList(
   env: Parameters<typeof adminSession>[0],
   cookie: string,
   pageId: string
-): Promise<Array<{ id: string; title: string }>> {
+): Promise<Array<{ versionNo: number; title: string }>> {
   const res = await jsonRequest(
     env,
     "GET",
@@ -83,7 +83,7 @@ async function revisionList(
     cookie
   )
   expect(res.status).toBe(200)
-  return (await res.json()) as Array<{ id: string; title: string }>
+  return (await res.json()) as Array<{ versionNo: number; title: string }>
 }
 
 describe("页面：新建、详情、树与消毒", () => {
@@ -145,7 +145,7 @@ describe("页面：新建、详情、树与消毒", () => {
         undefined,
         admin
       )
-    ).json()) as Array<{ id: string; title: string }>
+    ).json()) as Array<{ versionNo: number; title: string }>
     expect(revisions.map((revision) => revision.title)).toEqual([
       "第二版",
       "第一版"
@@ -155,7 +155,7 @@ describe("页面：新建、详情、树与消毒", () => {
     const restore = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${oldest.id}/restore`,
+      `/api/pages/${page.id}/revisions/${oldest.versionNo}/restore`,
       undefined,
       admin
     )
@@ -294,7 +294,7 @@ describe("页面：无改动保存不新增 revision", () => {
     const restore = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${revisions[0].id}/restore`,
+      `/api/pages/${page.id}/revisions/${revisions[0].versionNo}/restore`,
       undefined,
       admin
     )
@@ -599,7 +599,7 @@ describe("页面：空间角色权限", () => {
     const viewerRestore = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${viewerRevisions[0].id}/restore`,
+      `/api/pages/${page.id}/revisions/${viewerRevisions[0].versionNo}/restore`,
       undefined,
       viewer
     )
@@ -649,7 +649,7 @@ describe("页面：空间角色权限", () => {
     const rolledBack = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${revisions[revisions.length - 1].id}/restore`,
+      `/api/pages/${page.id}/revisions/${revisions[revisions.length - 1].versionNo}/restore`,
       undefined,
       user
     )

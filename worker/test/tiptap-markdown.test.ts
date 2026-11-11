@@ -14,7 +14,6 @@ import { describe, expect, it } from "vitest"
 import {
   CIKI_MD_ORIGIN,
   derivePageMarkdown,
-  resolvePageMarkdown,
   serializeTiptapMarkdown
 } from "../src/lib/tiptap-markdown"
 import { TiptapRenderError } from "../src/lib/tiptap-html"
@@ -80,38 +79,5 @@ describe("MD 派生的降级口径", () => {
     expect(
       derivePageMarkdown(JSON.stringify({ type: "doc" }), "不该用到")
     ).toBe("")
-  })
-
-  it("resolvePageMarkdown：库里有 content_md 就用它，没有才现生成", () => {
-    const doc = JSON.stringify({
-      type: "doc",
-      content: [
-        {
-          type: "paragraph",
-          content: [{ type: "text", text: "现生成" }]
-        }
-      ]
-    })
-    expect(
-      resolvePageMarkdown({
-        content_md: "库里存好的",
-        content_json: doc,
-        content_text: "现生成"
-      })
-    ).toBe("库里存好的")
-    expect(
-      resolvePageMarkdown({
-        content_md: null,
-        content_json: doc,
-        content_text: "现生成"
-      })
-    ).toBe("现生成")
-    expect(
-      resolvePageMarkdown({
-        content_md: "",
-        content_json: doc,
-        content_text: "现生成"
-      })
-    ).toBe("现生成")
   })
 })

@@ -90,7 +90,7 @@ async function requirePassword(
   const ip = clientIp(c)
   const attempts = await consumeCounter(c.env.DB, prefix, {
     action: "reauth",
-    account: userId,
+    account: String(userId),
     ip,
     windowSeconds: 300
   })
@@ -106,7 +106,7 @@ async function requirePassword(
   if (!(await verifyPassword(password, user.password_hash))) {
     return c.json({ error: "Password is incorrect" }, 403)
   }
-  await clearAccountCounters(c.env.DB, prefix, "reauth", userId)
+  await clearAccountCounters(c.env.DB, prefix, "reauth", String(userId))
   return null
 }
 
@@ -134,7 +134,7 @@ async function requireFactorReauth(
 
 async function loadActiveUser(
   c: Context<HonoEnv>,
-  userId: string
+  userId: number
 ): Promise<UserRow | null> {
   const prefix = getTablePrefix(c.env)
   const user = await findUserById(c.env.DB, prefix, userId)
@@ -182,7 +182,7 @@ async function requireEmailConfigured(
 async function sendEmailCode(
   c: Context<HonoEnv>,
   options: {
-    userId: string
+    userId: number
     email: string
     purpose: EmailCodePurpose
     binding?: string
@@ -364,7 +364,7 @@ auth2faRoutes.post("/email-otp/send-login", async (c) => {
 
   const limits = await consumeEmailCodeSendLimits(db, prefix, {
     purpose: "2fa_login",
-    accountKey: login.userId,
+    accountKey: String(login.userId),
     ip: clientIp(c)
   })
   if (!limits.allowed) return emailCodeRateLimited(c, limits.retryAfter)
@@ -608,7 +608,7 @@ auth2faRoutes.post("/passkey/register/options", async (c) => {
   const options = await buildRegistrationOptions({
     rpID: hostOf(c),
     rpName: "ciki",
-    user: { id: user.id, email: user.email },
+    user: { id: String(user.id), email: user.email },
     existing: existing.map((credential) => ({
       credentialId: credential.credential_id,
       publicKey: credential.public_key,
@@ -659,7 +659,6 @@ auth2faRoutes.post("/passkey/register/verify", async (c) => {
       ? (response.transports as string[])
       : []
     await insertPasskey(c.env.DB, prefix, {
-      id: crypto.randomUUID(),
       userId,
       credentialId: credential.id,
       publicKey: btoa(
@@ -731,7 +730,7 @@ auth2faRoutes.post("/email-otp/send-verify", async (c) => {
 
   const limits = await consumeEmailCodeSendLimits(c.env.DB, prefix, {
     purpose: "2fa_enable",
-    accountKey: userId,
+    accountKey: String(userId),
     ip: clientIp(c)
   })
   if (!limits.allowed) return emailCodeRateLimited(c, limits.retryAfter)
@@ -773,7 +772,7 @@ auth2faRoutes.post("/email-otp/enable", async (c) => {
 
   const limits = await consumeEmailCodeVerifyLimits(db, prefix, {
     purpose: "2fa_enable",
-    accountKey: userId,
+    accountKey: String(userId),
     ip: clientIp(c)
   })
   if (!limits.allowed) return emailCodeRateLimited(c, limits.retryAfter)
@@ -788,7 +787,7 @@ auth2faRoutes.post("/email-otp/enable", async (c) => {
 
   await resetEmailCodeVerifyCounter(db, prefix, {
     purpose: "2fa_enable",
-    accountKey: userId
+    accountKey: String(userId)
   })
   await setEmailOtpEnabled(db, prefix, userId, true)
   await clearSessionRestriction(db, prefix, c.get("sessionId"))
@@ -818,7 +817,7 @@ auth2faRoutes.post("/email-otp/disable", async (c) => {
 export async function twofaSummary(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<{
   totpEnabled: boolean
   passkeyEnabled: boolean

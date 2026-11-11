@@ -5,8 +5,10 @@
  * （带 TABLE_PREFIX），换前缀即换一套账本。账本名自规格 §4.4 起带前导下划线
  * （`_<前缀>schema_migrations`），旧版无下划线的账本由 ensureLedgerTable() 改名承接。
  */
-import { getMigrations } from "./migrations"
+import { getMigrations, type MigrationContext } from "./migrations"
+import { getTablePrefix } from "./table-prefix"
 import { legacyMigrationsTable, migrationsTable } from "./tables"
+import type { Env } from "../types"
 
 export type LedgerMigrationStatus = "applied" | "skipped"
 
@@ -122,11 +124,15 @@ function migrationError(name: string, err: unknown): Error {
  * 执行所有未记账的迁移。每条迁移按「prepare → sql → 记账」执行，三阶段全部成功
  * 才记账；失败立即抛出，不记录该迁移、也不继续后续迁移（下次 setup 会重跑它，
  * 各阶段都是幂等的）。
+ *
+ * 入参是整个 Env：重建迁移要写 `ciki-content` 内容桶、要用加密钥重加密 TOTP 密文，
+ * 只给 `db + prefix` 表达不了这些能力。
  */
 export async function runLedgerMigrations(
-  db: D1Database,
-  prefix: string
+  env: Env
 ): Promise<LedgerMigrationResult[]> {
+  const db = env.DB
+  const prefix = getTablePrefix(env)
   const ledger = await ensureLedgerTable(db, prefix)
 
   const recorded = await db
@@ -141,7 +147,8 @@ export async function runLedgerMigrations(
       continue
     }
     try {
-      if (migration.prepare) await migration.prepare(db, prefix)
+      const context: MigrationContext = { db, prefix, env }
+      if (migration.prepare) await migration.prepare(context)
       for (const statement of splitStatements(migration.sql)) {
         await db.prepare(statement).run()
       }

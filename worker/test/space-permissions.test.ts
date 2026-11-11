@@ -342,7 +342,7 @@ describe("空间权限：viewer 只读", () => {
     const rollback = await jsonRequest(
       env,
       "POST",
-      `/api/pages/${page.id}/revisions/${revisions[0].id}/restore`,
+      `/api/pages/${page.id}/revisions/${revisions[0].versionNo}/restore`,
       undefined,
       viewer
     )

@@ -37,7 +37,6 @@ export const meRoutes = new Hono<HonoEnv>()
 function meDto(user: UserRow, twofa: Awaited<ReturnType<typeof twofaSummary>>) {
   return {
     id: user.id,
-    publicId: user.public_id ?? "",
     username: user.username ?? "",
     email: user.email,
     role: user.role,
@@ -58,7 +57,7 @@ meRoutes.get("/", async (c) => {
 })
 
 /**
- * 个人资料：只改显示名与头像。id / email / publicId 一律只读，不接受写入；
+ * 个人资料：只改显示名与头像。id / email 一律只读，不接受写入；
  * 头像必须是本人上传过、且 R2 里仍在的 key（null 表示清除）。前端已改走
  * `POST /api/me/avatar`，这里的 avatarKey 只作兼容保留。
  */
@@ -102,7 +101,7 @@ meRoutes.put("/profile", async (c) => {
       const object = UPLOAD_KEY_RE.test(candidate)
         ? await c.env.R2.head(candidate)
         : null
-      if (!object || object.customMetadata?.uploaderId !== userId) {
+      if (!object || object.customMetadata?.uploaderId !== String(userId)) {
         return c.json({ error: "Invalid avatar", code: "INVALID_AVATAR" }, 400)
       }
       avatarKey = candidate
@@ -181,7 +180,7 @@ meRoutes.put("/password", async (c) => {
   const userId = c.get("userId")
   const limit = await consumeCounter(c.env.DB, prefix, {
     action: "password_change",
-    account: userId,
+    account: String(userId),
     ip: clientIp(c),
     windowSeconds: 300
   })
@@ -252,7 +251,7 @@ meRoutes.post("/import-token", async (c) => {
   const userId = c.get("userId")
   const limit = await consumeCounter(c.env.DB, prefix, {
     action: "import_token",
-    account: userId,
+    account: String(userId),
     windowSeconds: 300
   })
   if (limit.count > 10) {
@@ -288,7 +287,7 @@ meRoutes.post("/read-token", async (c) => {
   const userId = c.get("userId")
   const limit = await consumeCounter(c.env.DB, prefix, {
     action: "read_token",
-    account: userId,
+    account: String(userId),
     windowSeconds: 300
   })
   if (limit.count > 10) {

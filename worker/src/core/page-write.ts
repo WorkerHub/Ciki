@@ -1,106 +1,43 @@
 /**
- * 页面写入的单一写路径：页面行 + revision + FTS 索引在同一个 `db.batch()`
- * 事务里完成。
+ * 页面写入的单一写路径：正文上 R2 + 衍生件/版本/FTS 落 D1。
  *
  * `/api/pages` 的新建/保存/回滚与 `/api/import/pages` 的导入都走这里，
- * 保证「导入更新同名页 = 与正常保存同一路径」：有改动都追加一条 revision、都同步
+ * 保证「导入更新同名页 = 与正常保存同一路径」：有改动都追加一条版本、都同步
  * 搜索索引，没有第二套写法。
  *
- * 无改动的保存在这里收口：归一化后的内容与库里现存行四列全等时判定为无改动，
- * 不写页面行、不追加 revision、不重建 FTS，原样返回现存行（`updated_at` /
- * `updated_by` 都不动），调用方拿到的响应形状与正常保存一致。派生出来的 MD
- * （`content_md`）不参与这个判定：它是 `content_json` 的函数，四项全等时必然也相等。
+ * 顺序定死（规格「读写路径」）：算 JSON → 算哈希 → PUT 对象 → 单次 `db.batch()`
+ * 落衍生件 + `content_hash` + 新版本行。先 R2 后 D1，失败只产孤儿对象（由月度内容 GC
+ * 收），绝不允许 D1 指针悬空。无改动的保存在 PUT 之前就返回：不写行、不追加版本、
+ * 不重建 FTS。
  *
- * `content_md` 与正文同批写：MD 由 `lib/page-input.ts` 在生成 html/纯文本的同一处
- * 从 JSON 派生，本文件只负责把它写进页面行（不写 history：版本表仍只存 JSON，
- * 版本的 MD 将来按需生成）。列由迁移 `schema_v4` 补上，所以先探列——升级前按旧形态
- * 写，保存不会因为缺列而失败。
- *
- * 版本正文的落库形态在这里定：`page_revisions.content_gzip` 就绪（迁移 `schema_v2`
- * 已跑）时只写一份 gzip 的 JSON，HTML/纯文本不入版本表；列还不存在时（部署后、管理员
- * 点「检查并升级数据库」之前）按旧三列写——保存不会因为缺列而失败，升级时迁移会把
- * 这些行一并转换。
+ * 正文只以 `content/<sha256>` 对象存在（`core/content-store.ts`）；D1 留
+ * `content_html` / `content_text` / `content_md` 三件派生件，读页、搜索、MD 下载
+ * 全走 D1，热路径不碰 R2。
  *
  * 保留数修剪（规格「保留数设置」）在 `savePageContent` 里落地：新增版本之后，把该页
  * 超出上限的最旧版本删掉，与其他写入语句在同一个 `db.batch()` 事务里。
  */
 import {
-  hasContentMdColumn,
   insertPage,
   maxSortOrder,
   updatePageContent,
   type PageRow
 } from "../db/queries/pages"
 import {
-  hasGzipColumn,
+  insertFirstRevision,
   insertRevision,
-  trimPageRevisionStatement,
-  type RevisionRow
+  trimPageRevisionStatement
 } from "../db/queries/revisions"
-import { indexPageStatements } from "../lib/fts"
-import { gzipText } from "../lib/gzip"
+import { hashContent, putContent, putContentHashed } from "./content-store"
+import { firstPageIndexStatement, indexPageStatements } from "../lib/fts"
+import { revisionsTable } from "../lib/tables"
 import type { PageContent } from "../lib/page-input"
+import type { Env } from "../types"
 import { readRetentionLimit } from "./revision-retention"
-
-/**
- * 版本时间戳的单调时钟：保证同一 isolate 内先后写入的版本时间严格递增（毫秒级）。
- *
- * 为什么要它：版本排序一律用 `created_at DESC, id DESC`（不依赖 `rowid`，见
- * db/queries/revisions.ts 的说明），而 `created_at` 只有毫秒精度——连续两次保存很容易
- * 落在同一毫秒，那样「最新一条」就退化成比 UUID 大小，同一个库不同环境还可能给出不同
- * 答案。这里把时间顶到上一版本 +1ms，同一 isolate 内「写入次序 = 排序结果」永远成立。
- * 跨 isolate 的并发写仍可能同毫秒，那属于真正的同时写入，次序本就无定义。
- *
- * 只动版本行的 `created_at`：页面行的 `updated_at` 仍用调用方给的时间，不变。
- */
-let lastRevisionAtMs = 0
-
-function nextRevisionTimestamp(now: string): string {
-  const requested = Date.parse(now)
-  const base = Number.isFinite(requested) ? requested : Date.now()
-  const at = Math.max(base, lastRevisionAtMs + 1)
-  lastRevisionAtMs = at
-  return new Date(at).toISOString()
-}
-
-function newRevision(
-  pageId: string,
-  content: PageContent,
-  editorId: string,
-  createdAt: string
-): RevisionRow {
-  return {
-    id: crypto.randomUUID(),
-    page_id: pageId,
-    title: content.title,
-    content_json: content.contentJson,
-    content_html: content.contentHtml,
-    content_text: content.contentText,
-    editor_id: editorId,
-    created_at: nextRevisionTimestamp(createdAt)
-  }
-}
-
-/**
- * 一条版本行的 INSERT 语句，形态取决于库是否已有 `content_gzip` 列。
- *
- * 列是否就绪只探一次（命中后由 db/queries/revisions.ts 的 isolate 缓存记住真值）：
- * 升级动作发生在任意请求之外，缓存「假」会让 isolate 继续写旧形态行，所以只缓存真值。
- */
-async function revisionStatement(
-  db: D1Database,
-  prefix: string,
-  row: RevisionRow
-): Promise<D1PreparedStatement> {
-  const gzip = (await hasGzipColumn(db, prefix))
-    ? await gzipText(row.content_json)
-    : null
-  return insertRevision(db, prefix, row, gzip)
-}
 
 export interface PageWriteOptions {
   content: PageContent
-  userId: string
+  userId: number
   now: string
 }
 
@@ -108,35 +45,41 @@ export interface PageWriteOptions {
  * 归一化后的来稿与库里现存行是否全等（= 本次保存无改动）。
  *
  * 比对口径是「服务端归一化后的值」对「上次归一化落库的值」，逐字节严格比较：
- * 不对库里的值再做一次消毒/取纯文本，也不比较 `parent_id` / `space_id` /
- * `sort_order`（这三项不归保存管）。宁可多记一条 revision，也不吞掉真实改动。
+ * 标题、正文哈希、HTML、纯文本四项全等即无改动（MD 是 JSON 的函数，必然也相等）。
+ * 不比较 `parent_id` / `space_id` / `sort_order`（这三项不归保存管）。宁可多记一条
+ * 版本，也不吞掉真实改动。
  */
-function contentUnchanged(existing: PageRow, content: PageContent): boolean {
+export function contentUnchanged(
+  existing: PageRow,
+  content: PageContent,
+  hash: string
+): boolean {
   return (
     existing.title === content.title &&
-    existing.content_json === content.contentJson &&
+    existing.content_hash === hash &&
     existing.content_html === content.contentHtml &&
     existing.content_text === content.contentText
   )
 }
 
-/** 新建页面（追加到同级末尾），同时写首条 revision 与 FTS。 */
+/** 新建页面（追加到同级末尾），同时写首条版本与 FTS。 */
 export async function createPage(
-  db: D1Database,
+  env: Env,
   prefix: string,
-  options: PageWriteOptions & { parentId: string | null; spaceId: string }
+  options: PageWriteOptions & { parentId: number | null; spaceId: number }
 ): Promise<PageRow> {
   const { content, userId, now, parentId, spaceId } = options
-  const row: PageRow = {
-    id: crypto.randomUUID(),
+  const db = env.DB
+  const hash = await putContent(env, content.contentJson)
+
+  const row = {
     space_id: spaceId,
     parent_id: parentId,
     title: content.title,
     sort_order: await maxSortOrder(db, prefix, spaceId, parentId),
-    content_json: content.contentJson,
+    content_hash: hash,
     content_html: content.contentHtml,
     content_text: content.contentText,
-    // 派生件与正文同批落库（升级前没有这一列时写不进去，见 insertPage 的 includeMd）。
     content_md: content.contentMd,
     created_by: userId,
     updated_by: userId,
@@ -145,57 +88,92 @@ export async function createPage(
     deleted_at: null
   }
 
-  // 新建页只有这一条版本（保留数下限是 1），不需要修剪。
-  await db.batch([
-    insertPage(db, prefix, row, await hasContentMdColumn(db, prefix)),
-    await revisionStatement(
-      db,
-      prefix,
-      newRevision(row.id, content, userId, now)
-    ),
-    ...indexPageStatements(db, prefix, {
-      id: row.id,
-      title: row.title,
-      contentText: row.content_text
+  // 页面行 + 首条版本 + FTS 在同一个事务里：页面 INSERT 之后的语句用
+  // `last_insert_rowid()` 取刚分配的整数 id（见 insertFirstRevision 的说明），
+  // 所以不会出现「页面建了、版本或索引没写」的半套数据。
+  const inserted = await db.batch([
+    insertPage(db, prefix, row),
+    insertFirstRevision(db, prefix, {
+      title: content.title,
+      content_hash: hash,
+      editor_id: userId,
+      created_at: now
+    }),
+    firstPageIndexStatement(db, prefix, {
+      title: content.title,
+      contentText: content.contentText
     })
   ])
+  const id = inserted[0].meta.last_row_id
 
-  return row
+  // 自检：D1 文档保证 batch 内语句「顺序、非并发」执行，所以 `last_insert_rowid()`
+  // 一定拿到刚插入的页面 id。万一某个运行时不满足（例如 batch 被拆到不同连接），
+  // 首条版本或索引就会写错/写空——这里按 id 复核一次，缺什么补什么，绝不留下
+  // 「有页面、没版本、搜不到」的静默坏数据（新建是低频操作，多一次查询可接受）。
+  const hasFirstRevision = await db
+    .prepare(
+      `SELECT 1 AS ok FROM ${revisionsTable(prefix)} WHERE page_id = ? LIMIT 1`
+    )
+    .bind(id)
+    .first<{ ok: number }>()
+  if (!hasFirstRevision) {
+    await db.batch([
+      insertRevision(db, prefix, {
+        page_id: id,
+        title: content.title,
+        content_hash: hash,
+        editor_id: userId,
+        created_at: now
+      }),
+      ...indexPageStatements(db, prefix, {
+        id,
+        title: content.title,
+        contentText: content.contentText
+      })
+    ])
+  }
+
+  return { id, ...row }
 }
 
 /**
  * 覆盖既有页面的内容（保存/回滚/导入更新共用）。
  *
- * 内容与现存行四列全等 → 无改动：不写页面行、不追加 revision、不重建 FTS，
- * 直接返回现存行；否则原样写入并追加一条 revision、同步 FTS。
+ * 与现存行全等 → 无改动：不写页面行、不追加版本、不重建 FTS、也不上传对象，
+ * 直接返回现存行；否则先 PUT 内容对象、再在一个事务里写页面行 + 新版本 + FTS + 修剪。
  */
 export async function savePageContent(
-  db: D1Database,
+  env: Env,
   prefix: string,
   existing: PageRow,
   options: PageWriteOptions
 ): Promise<PageRow> {
   const { content, userId, now } = options
-  if (contentUnchanged(existing, content)) return existing
+  const db = env.DB
+  const hash = await hashContent(content.contentJson)
+  if (contentUnchanged(existing, content, hash)) return existing
 
-  const revision = newRevision(existing.id, content, userId, now)
+  // 先 R2 后 D1：对象写成功才动库，指针永不悬空。
+  await putContentHashed(env, hash, content.contentJson)
+
   const statements = [
-    updatePageContent(
-      db,
-      prefix,
-      {
-        id: existing.id,
-        title: content.title,
-        content_json: content.contentJson,
-        content_html: content.contentHtml,
-        content_text: content.contentText,
-        content_md: content.contentMd,
-        updated_by: userId,
-        updated_at: now
-      },
-      await hasContentMdColumn(db, prefix)
-    ),
-    await revisionStatement(db, prefix, revision),
+    updatePageContent(db, prefix, {
+      id: existing.id,
+      title: content.title,
+      content_hash: hash,
+      content_html: content.contentHtml,
+      content_text: content.contentText,
+      content_md: content.contentMd,
+      updated_by: userId,
+      updated_at: now
+    }),
+    insertRevision(db, prefix, {
+      page_id: existing.id,
+      title: content.title,
+      content_hash: hash,
+      editor_id: userId,
+      created_at: now
+    }),
     ...indexPageStatements(db, prefix, {
       id: existing.id,
       title: content.title,
@@ -204,13 +182,9 @@ export async function savePageContent(
   ]
 
   // 修剪与插入同一个事务：要么「新版本进、超出的最旧版本出」一起生效，要么都不生效。
-  // 刚插入的这条 id 传进去排除在外，所以「最新一条是当前内容的快照、不可剪」不依赖
-  // 时间戳的毫秒精度，同一毫秒连写也不会被剪掉。
   const limit = await readRetentionLimit(db, prefix)
   if (limit !== null) {
-    statements.push(
-      trimPageRevisionStatement(db, prefix, existing.id, limit, revision.id)
-    )
+    statements.push(trimPageRevisionStatement(db, prefix, existing.id, limit))
   }
 
   await db.batch(statements)
@@ -218,7 +192,7 @@ export async function savePageContent(
   return {
     ...existing,
     title: content.title,
-    content_json: content.contentJson,
+    content_hash: hash,
     content_html: content.contentHtml,
     content_text: content.contentText,
     content_md: content.contentMd,

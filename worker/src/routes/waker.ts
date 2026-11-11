@@ -11,11 +11,7 @@
  * 不碰库、不进业务。
  */
 import { Hono } from "hono"
-import {
-  R2_CLEANUP_JOB_NAME,
-  R2CleanupBusyError,
-  runR2Cleanup
-} from "../core/r2-cleanup"
+import { R2_CLEANUP_JOB_NAME, runAllBucketCleanups } from "../core/r2-cleanup"
 import { wakerSigningKey } from "../core/waker-gate"
 import { getTablePrefix } from "../lib/table-prefix"
 import { wakerExecutionsTable } from "../lib/tables"
@@ -33,24 +29,30 @@ function createCleanupReceiver(env: Env) {
       // 同步语义：handler await 到整轮跑完才返回，SDK 之后才回 2xx；抛错则由
       // SDK 释放幂等占位并回 5xx，平台按同一 executionId 重试。
       [R2_CLEANUP_JOB_NAME]: async () => {
-        try {
-          const summary = await runR2Cleanup(env, {
-            trigger: "waker",
-            dryRun: false,
-            rerunGuard: "enforce"
-          })
-          console.info("waker callback r2 cleanup run:", summary)
-          return { ...summary }
-        } catch (err) {
-          if (err instanceof R2CleanupBusyError) {
-            // 另一轮（自动或手动）正在跑：抢到锁那轮已经把同样的活干完了，
-            // 这里吞成一次成功响应，不让平台按 executionId 重试。不写日志行。
-            console.info(
-              `waker callback r2 cleanup skipped: another run holds the lock (retry after ${err.retryAfterSeconds}s)`
-            )
-            return { skipped: true, reason: "cleanup_in_progress" }
+        // 同一个任务名跑两类清理（先图片、后内容）：waker 侧注册不用改。
+        // 某一类被别的入口占着锁只跳过那一类（抢到锁那轮已经把同样的活干完了），
+        // 不写日志行、也不算失败，避免平台按 executionId 反复重试。
+        const outcomes = await runAllBucketCleanups(env, {
+          trigger: "waker",
+          dryRun: false,
+          rerunGuard: "enforce"
+        })
+        console.info("waker callback r2 cleanup runs:", outcomes)
+        const busy = outcomes.filter((outcome) => outcome.status === "busy")
+        // 两类都被别的入口占着：这一轮什么也没做，按成功返回（平台不重试）。
+        if (busy.length === outcomes.length) {
+          return {
+            ok: true,
+            skipped: true,
+            reason: "cleanup_in_progress"
           }
-          throw err
+        }
+        return {
+          ok: true,
+          trigger: "waker",
+          skipped: busy.length > 0,
+          reason: busy.length > 0 ? "cleanup_in_progress" : undefined,
+          runs: outcomes
         }
       }
     },

@@ -31,17 +31,17 @@ import {
 async function saveTimes(
   env: Parameters<typeof savePage>[0],
   cookie: string,
-  pageId: string,
+  pageId: number,
   title: string,
   times: number
-): Promise<string[]> {
-  const ids: string[] = []
+): Promise<number[]> {
+  const ids: number[] = []
   for (let index = 0; index < times; index += 1) {
     await savePage(env, cookie, pageId, {
       title,
       text: `${title} 第 ${index + 1} 次保存`
     })
-    ids.push((await listRevisions(env, cookie, pageId))[0].id)
+    ids.push((await listRevisions(env, cookie, pageId))[0].versionNo)
   }
   return ids
 }
@@ -115,7 +115,7 @@ describe("保留数：写入时修剪", () => {
 
     const newestIds = await saveTimes(env, admin, page.id, "保留页", 5)
     const revisions = await listRevisions(env, admin, page.id)
-    expect(revisions.map((revision) => revision.id)).toEqual(
+    expect(revisions.map((revision) => revision.versionNo)).toEqual(
       newestIds.slice(-3).reverse()
     )
     expect(countRevisionsInDb(context.db, page.id)).toBe(3)
@@ -133,7 +133,7 @@ describe("保留数：写入时修剪", () => {
     const newestIds = await saveTimes(env, admin, page.id, "不限页", 5)
     const revisions = await listRevisions(env, admin, page.id)
     expect(revisions).toHaveLength(6)
-    expect(revisions.map((revision) => revision.id).slice(0, 5)).toEqual(
+    expect(revisions.map((revision) => revision.versionNo).slice(0, 5)).toEqual(
       newestIds.slice().reverse()
     )
   })
@@ -145,7 +145,7 @@ describe("保留数：写入时修剪", () => {
 
     const newestIds = await saveTimes(env, admin, page.id, "只留一条", 3)
     expect(countRevisionsInDb(context.db, page.id)).toBe(1)
-    expect((await listRevisions(env, admin, page.id))[0].id).toBe(
+    expect((await listRevisions(env, admin, page.id))[0].versionNo).toBe(
       newestIds[newestIds.length - 1]
     )
   })
@@ -163,7 +163,12 @@ describe("保留数：写入时修剪", () => {
 
     const firstVersion = (await listRevisions(env, admin, page.id)).at(-2)
     if (!firstVersion) throw new Error("revision missing")
-    const restore = await restoreRevision(env, admin, page.id, firstVersion.id)
+    const restore = await restoreRevision(
+      env,
+      admin,
+      page.id,
+      firstVersion?.versionNo ?? 0
+    )
     expect(restore.status).toBe(200)
     expect(
       ((await restore.json()) as { contentText: string }).contentText
@@ -245,11 +250,12 @@ describe("保留数：手动全站修剪", () => {
     const body = (await res.json()) as { limit: number; deleted: number }
     expect(body).toEqual({ limit: 2, deleted: preview.prunableRevisions })
 
-    // 每页收敛到 2 条，且留下的都是最新两条。
+    // 每页收敛到 2 条，且留下的都是最新两条（version_no 递增、留尾部）。
     for (const pageId of [a.id, b.id]) {
       const rows = revisionRows(context.db, pageId)
       expect(rows).toHaveLength(2)
-      expect(rows.at(-1)?.content_gzip).toBeTruthy()
+      expect(rows.at(-1)?.version_no).toBeGreaterThan(rows[0].version_no)
+      expect(rows.at(-1)?.content_hash).toMatch(/^[0-9a-f]{64}$/)
     }
     expect(countRevisionsInDb(context.db)).toBe(5)
 

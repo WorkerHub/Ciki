@@ -2,7 +2,7 @@
 
 English | [中文](./README.md)
 
-Ciki is an internal team wiki: pages are organized by space and in a tree, with multi-member collaboration, version history and full-text search. A single Cloudflare Workers deployment unit serves both the API and the frontend static assets; data lives in D1 and images in R2.
+Ciki is an internal team wiki: pages are organized by space and in a tree, with multi-member collaboration, version history and full-text search. A single Cloudflare Workers deployment unit serves both the API and the frontend static assets; structured data lives in D1 while page bodies (`content/<sha256>`) and images live in two separate R2 buckets.
 
 ## Screenshots
 
@@ -87,10 +87,14 @@ If you only deploy through GitHub Actions, this is all you need. To run the app 
 - Open the database afterwards and note its **Database name** and **Database ID**; you will enter them in the next step.
 - Ciki's table names carry the `ciki_` prefix by default, so you can reuse an existing D1 database without colliding with other projects in it.
 
-**R2 bucket** (images)
+**R2 buckets** (images and page content)
 
-- The bucket name is fixed to `ciki-assets` (set in `worker/wrangler.toml` and in the deploy workflow).
-- The deploy workflow creates it idempotently: it creates the bucket when missing and skips it when present. You can also create it up front under R2 Object Storage → Create bucket; the name must be `ciki-assets`.
+You need **two** buckets, with fixed names and bindings (set in `worker/wrangler.toml` and in the deploy workflow):
+
+- `ciki-assets` (binding `R2`): uploaded images and avatars.
+- `ciki-content` (binding `CONTENT`): page bodies and revision bodies, keyed `content/<sha256>`.
+
+- The deploy workflow creates both idempotently: it creates a bucket when missing and skips it when present. You can also create them up front under R2 Object Storage → Create bucket; the names must match exactly.
 - The `CLOUDFLARE_API_TOKEN` used for deployment needs **R2 edit** permission; otherwise the bucket step fails the deployment (nothing has been deployed at that point).
 
 ### 3. Configure GitHub Secrets and Variables
@@ -138,7 +142,15 @@ curl -X POST https://<your-site-domain>/api/setup -H "X-Setup-Secret: $SETUP_SEC
 unset SETUP_SECRET
 ```
 
-After each upgrade deployment, an admin clicks "Check and upgrade database" under Admin → Database Maintenance (系统管理 → 数据库维护) to apply pending migrations (`POST /api/admin/setup` with an admin session; no `SETUP_SECRET` needed). Migrations are additive, already-applied ones show as `skipped`, and the UI offers no drop-table or wipe-database action.
+After each upgrade deployment, an admin clicks "Check and upgrade database" under Admin → Database Maintenance (系统管理 → 数据库维护) to apply pending migrations (`POST /api/admin/setup` with an admin session; no `SETUP_SECRET` needed). Already-applied migrations show as `skipped`, and the UI offers no drop-table or wipe-database action.
+
+**Upgrades that include the one-time rebuild (integer IDs + page content moved to R2, migration `schema_v6`) must be backed up first and cannot be undone**: that step rebuilds every table and moves page bodies into `ciki-content`; no uuid-to-integer mapping is kept, so a backup is the only way back. Export the whole database before pressing the button:
+
+```sh
+npx wrangler d1 export <database-name> --remote --output ciki-$(date +%F).sql
+```
+
+Keep the `.sql` locally (or as a CI artifact) and check it is not empty before upgrading. A failed migration changes nothing and records nothing, so you can fix the cause and run it again; after a successful run this backup is the only rollback path, so keep it until the site has been verified.
 
 ### 6. Register the admin
 
@@ -158,7 +170,14 @@ Decide the effective prefix before initialization: changing it later means a dif
 
 ### Monthly R2 cleanup (optional)
 
-Images in R2 are swept once a month: an object is deleted only when it is **not referenced anywhere and was uploaded more than 30 days ago**. The reference set is every user's avatar plus every `/api/files/<key>` found in the current and historical bodies of all pages; pages in the trash still count, so their images are kept until the page is permanently deleted.
+Orphaned R2 objects are swept once a month, **once per bucket and logged per bucket** (`r2_cleanup_runs.kind` = `images` / `content`); an object is deleted only when it is **not referenced anywhere and was uploaded more than 30 days ago**:
+
+- Image bucket (`ciki-assets`): the reference set is every user's avatar plus every `/api/files/<key>` found in the current and historical bodies of all pages; pages in the trash still count, so their images are kept until the page is permanently deleted.
+- Content bucket (`ciki-content`): the reference set is every `pages.content_hash` and every `page_revisions.content_hash` (trashed pages and their revisions included); only body objects nothing points at are deleted (this is how orphans left by a failed write get collected).
+
+Each bucket is listed and pruned only by its own cleanup kind, and the lock plus the 20-day rerun guard are kept per kind.
+
+Before enabling content GC for the first time, run a dry run from Admin → Database Maintenance (`POST /api/admin/r2-cleanup` with `{"kind":"content","dryRun":true}`): `prunable` / `prunableBytes` in the response are the number and size of objects that would be deleted (not capped by the per-run limit); check them against expectations (for example orphans left by a failed migration) before running for real.
 
 There is exactly one switch — whether the GitHub Secret `WAKER_SIGNING_KEY` exists:
 

@@ -28,23 +28,28 @@ function assets() {
 export interface TestContext {
   env: Env
   db: SqliteD1
+  /** 图片桶（ciki-assets）。 */
   r2: MemoryR2
+  /** 正文桶（ciki-content）：与图片桶完全隔离，清理测试要能分别断言。 */
+  content: MemoryR2
 }
 
 /** 新环境：空库 + 内存 R2 + 假静态资源。 */
 export function makeContext(overrides: Partial<Env> = {}): TestContext {
   const db = new SqliteD1()
   const r2 = new MemoryR2()
+  const content = new MemoryR2()
   const env = {
     DB: db as unknown as D1Database,
     R2: r2 as unknown as R2Bucket,
+    CONTENT: content as unknown as R2Bucket,
     ASSETS: assets() as unknown as Fetcher,
     SETUP_SECRET: TEST_SETUP_SECRET,
     ENCRYPTION_KEY: TEST_ENCRYPTION_KEY,
     TABLE_PREFIX: "ciki_",
     ...overrides
   } as Env
-  return { env, db, r2 }
+  return { env, db, r2, content }
 }
 
 /** 跑一次 setup（建表 + 默认设置），返回上下文。 */

@@ -142,12 +142,21 @@ describe("waker 回调：验签与防重放", () => {
     expect(res.body.trigger).toBe("waker")
     expect(r2.store.has("orphan.png")).toBe(false)
 
-    const row = db.db
-      .prepare("SELECT trigger, status, deleted FROM ciki_r2_cleanup_runs")
-      .get() as { trigger: string; status: string; deleted: number }
-    expect(row.trigger).toBe("waker")
-    expect(row.status).toBe("ok")
-    expect(row.deleted).toBe(1)
+    // 同一次回调把两个桶各跑一轮：两行日志，各带自己的 kind。
+    const rows = db.db
+      .prepare(
+        "SELECT kind, trigger, status, deleted FROM ciki_r2_cleanup_runs ORDER BY kind"
+      )
+      .all() as Array<{
+      kind: string
+      trigger: string
+      status: string
+      deleted: number
+    }>
+    expect(rows).toEqual([
+      { kind: "content", trigger: "waker", status: "ok", deleted: 0 },
+      { kind: "images", trigger: "waker", status: "ok", deleted: 1 }
+    ])
   })
 
   it("缺签名头 → 400 invalid_request", async () => {
@@ -190,17 +199,17 @@ describe("waker 回调：验签与防重放", () => {
     })
     const first = await send(env)
     expect(first.status).toBe(200)
-    expect(countRuns(db)).toBe(1)
+    expect(countRuns(db)).toBe(2)
 
     const second = await send(env)
     expect(second.status).toBe(200)
     expect(second.body.duplicate).toBe(true)
-    expect(countRuns(db)).toBe(1)
+    expect(countRuns(db)).toBe(2)
   })
 })
 
 describe("waker 回调：撞上另一轮清理的锁", () => {
-  it("另一轮持锁 → 200 且降级为 skipped，不跑、不写日志行", async () => {
+  it("同类另一轮持锁 → 那一类跳过，另一类照跑（只写它自己的日志行）", async () => {
     const { env, db, r2 } = await initializedContext({
       WAKER_SIGNING_KEY: SIGNING_KEY
     })
@@ -216,7 +225,7 @@ describe("waker 回调：撞上另一轮清理的锁", () => {
          VALUES (?, ?, ?)`
       )
       .run(
-        CLEANUP_LOCK_KEY,
+        `${CLEANUP_LOCK_KEY}:images`,
         JSON.stringify({
           token: "manual-holder",
           startedAt: new Date().toISOString(),
@@ -231,7 +240,8 @@ describe("waker 回调：撞上另一轮清理的锁", () => {
     expect(res.body.ok).toBe(true)
     expect(res.body.skipped).toBe(true)
     expect(res.body.reason).toBe("cleanup_in_progress")
-    expect(countRuns(db)).toBe(0)
+    // 图片那一类被占着不跑；内容桶没有锁，照跑一轮。
+    expect(countRuns(db)).toBe(1)
     expect(r2.store.has("orphan.png")).toBe(true)
 
     // 交给平台的响应体同样带 skipped（平台按 2xx 判成功，不会重试）。

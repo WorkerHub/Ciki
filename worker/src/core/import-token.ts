@@ -11,7 +11,7 @@ import { sha256Hex, randomToken } from "./auth"
 import { importTokensTable, usersTable } from "../lib/tables"
 
 export interface ImportTokenRow {
-  user_id: string
+  user_id: number
   token_hash: string
   created_at: string
   last_used_at: string | null
@@ -40,7 +40,7 @@ export function toImportTokenStatus(
 export async function getImportTokenRow(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<ImportTokenRow | null> {
   return db
     .prepare(`SELECT * FROM ${importTokensTable(prefix)} WHERE user_id = ?`)
@@ -52,7 +52,7 @@ export async function getImportTokenRow(
 export async function issueImportToken(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<{ token: string; createdAt: string }> {
   const token = randomToken()
   const tokenHash = await sha256Hex(token)
@@ -76,7 +76,7 @@ export async function issueImportToken(
 export async function revokeImportToken(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<boolean> {
   const now = new Date().toISOString()
   const result = await db
@@ -91,7 +91,7 @@ export async function revokeImportToken(
 }
 
 export interface ImportIdentity {
-  userId: string
+  userId: number
   role: string
 }
 
@@ -113,7 +113,7 @@ export async function findImportToken(
     )
     .bind(tokenHash)
     .first<{
-      userId: string
+      userId: number
       role: string
       isActive: number
       approvalStatus: string
@@ -127,7 +127,7 @@ export async function findImportToken(
 export async function touchImportToken(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<void> {
   await db
     .prepare(

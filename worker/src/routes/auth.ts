@@ -40,11 +40,9 @@ import {
   readJsonBody,
   runInBackground
 } from "../lib/http"
-import { generateId } from "../core/auth"
 import {
   DEFAULT_SITE_NAME,
   defaultUsernameFromEmail,
-  insertWithFreshPublicId,
   isEmailConflict
 } from "../core/identity"
 import { isEmailConfigured, sendEmailCodeMessage } from "../services/email"
@@ -77,7 +75,7 @@ const DUMMY_HASH =
  * 找回密码验码的等成本假用户：账号不存在时也在它上面跑一遍同一条
  * `SHA-256("password_reset:<id>:<code>")`，用时与真实校验一致。
  */
-const PASSWORD_RESET_DUMMY_USER_ID = "password-reset-dummy-user-000000000000"
+const PASSWORD_RESET_DUMMY_USER_ID = 0
 
 const LOGIN_WINDOW = 300
 const LOGIN_LIMIT = 10
@@ -183,19 +181,15 @@ authRoutes.post("/register", async (c) => {
     "registration_approval_required",
     true
   )
-  const id = generateId()
   const passwordHash = await hashPassword(password)
+  let id: number
   try {
-    await insertWithFreshPublicId((publicId) =>
-      createUserFirstIsAdmin(c.env.DB, prefix, {
-        id,
-        email,
-        username: defaultUsernameFromEmail(email),
-        public_id: publicId,
-        password_hash: passwordHash,
-        approvalStatus: approvalRequired ? "pending" : "approved"
-      })
-    )
+    id = await createUserFirstIsAdmin(c.env.DB, prefix, {
+      email,
+      username: defaultUsernameFromEmail(email),
+      password_hash: passwordHash,
+      approvalStatus: approvalRequired ? "pending" : "approved"
+    })
   } catch (err) {
     if (isEmailConflict(err)) {
       return c.json(

@@ -41,7 +41,7 @@ export const importRoutes = new Hono<HonoEnv>()
 importRoutes.use("*", importTokenMiddleware)
 
 type ImportSpace =
-  | { ok: true; spaceId: string }
+  | { ok: true; spaceId: number }
   | { ok: false; response: Response }
 
 /** 解析 space_id（缺省 = 默认空间），并校验令牌用户对该空间有编辑权。 */
@@ -53,7 +53,7 @@ async function resolveImportSpace(
   if (!parsed.ok) {
     return {
       ok: false,
-      response: c.json({ error: "space_id must be a string" }, 400)
+      response: c.json({ error: "space_id must be an integer" }, 400)
     }
   }
 
@@ -110,7 +110,13 @@ importRoutes.get("/spaces", async (c) => {
     c.get("role") === "admin"
       ? await listAllSpaces(c.env.DB, prefix)
       : await listEditableSpaces(c.env.DB, prefix, c.get("userId"))
-  return c.json(spaces.map((space) => ({ id: space.id, name: space.name })))
+  return c.json(
+    spaces.map((space) => ({
+      id: space.id,
+      slug: space.slug,
+      name: space.name
+    }))
+  )
 })
 
 /** GET /api/import/parents：未删页面的扁平摘要，插件据此选父页。 */
@@ -142,7 +148,7 @@ importRoutes.post("/check", async (c) => {
   }
   const parent = readParentId(body.parentId)
   if (!parent.ok) {
-    return c.json({ error: "parentId must be a string or null" }, 400)
+    return c.json({ error: "parentId must be an integer or null" }, 400)
   }
 
   const space = await resolveImportSpace(c, body.space_id)
@@ -189,7 +195,7 @@ importRoutes.post("/pages", async (c) => {
   }
   const parent = readParentId(body?.parentId)
   if (!parent.ok) {
-    return c.json({ error: "parentId must be a string or null" }, 400)
+    return c.json({ error: "parentId must be an integer or null" }, 400)
   }
   const parentId = parent.value
 
@@ -211,14 +217,10 @@ importRoutes.post("/pages", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
   const userId = c.get("userId")
-  if (parentId) {
+  if (parentId !== null) {
     const parentRow = await getPageRow(db, prefix, parentId)
-    if (!parentRow) {
-      return c.json(
-        { error: "Parent page is deleted", code: "PARENT_DELETED" },
-        409
-      )
-    }
+    // 父页根本不存在 ≠ 父页被软删：前者 404（不泄露存在性），后者 409 由下面判定。
+    if (!parentRow) return c.json({ error: "Page not found" }, 404)
     // 令牌用户看不见的父页按不存在处理，不泄露它属于哪个空间。
     const parentRole = await resolveSpaceRole(
       db,
@@ -253,7 +255,7 @@ importRoutes.post("/pages", async (c) => {
       parsed.value.title
     )
     if (existing) {
-      await savePageContent(db, prefix, existing, {
+      await savePageContent(c.env, prefix, existing, {
         content: parsed.value,
         userId,
         now
@@ -262,7 +264,7 @@ importRoutes.post("/pages", async (c) => {
     }
   }
 
-  const row = await createPage(db, prefix, {
+  const row = await createPage(c.env, prefix, {
     spaceId: space.spaceId,
     parentId,
     content: parsed.value,

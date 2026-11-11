@@ -151,7 +151,7 @@ describe("代码块折叠：属性变化照常算一次编辑存版", () => {
 
     // 版本预览按 JSON 重渲染，折叠态跟着 JSON 走。
     const latest = (await (
-      await getRevision(env, admin, page.id, revisions[0].id)
+      await getRevision(env, admin, page.id, revisions[0].versionNo)
     ).json()) as { contentHtml: string }
     expect(latest.contentHtml).toContain('data-collapsed="false"')
   })

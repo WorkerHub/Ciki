@@ -206,7 +206,7 @@ export async function runSetup(env: Env): Promise<SetupResult> {
 
   let migrations: LedgerMigrationResult[]
   try {
-    migrations = await runLedgerMigrations(db, prefix)
+    migrations = await runLedgerMigrations(env)
   } catch (err) {
     // 规格 §4.4：新旧账本同存（或旧账本结构不符）属异常，中止并汇报，
     // 不合并、不删除、也不继续播种默认设置；一个表都不动。

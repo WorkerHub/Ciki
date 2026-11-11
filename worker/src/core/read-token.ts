@@ -16,7 +16,7 @@ import { randomToken, sha256Hex } from "./auth"
 import { readTokensTable, usersTable } from "../lib/tables"
 
 export interface ReadTokenRow {
-  user_id: string
+  user_id: number
   token_hash: string
   created_at: string
   last_used_at: string | null
@@ -43,7 +43,7 @@ export function toReadTokenStatus(row: ReadTokenRow | null): ReadTokenStatus {
 export async function getReadTokenRow(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<ReadTokenRow | null> {
   return db
     .prepare(`SELECT * FROM ${readTokensTable(prefix)} WHERE user_id = ?`)
@@ -55,7 +55,7 @@ export async function getReadTokenRow(
 export async function issueReadToken(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<{ token: string; createdAt: string }> {
   const token = randomToken()
   const tokenHash = await sha256Hex(token)
@@ -79,7 +79,7 @@ export async function issueReadToken(
 export async function revokeReadToken(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<boolean> {
   const now = new Date().toISOString()
   const result = await db
@@ -94,7 +94,7 @@ export async function revokeReadToken(
 }
 
 export interface ReadIdentity {
-  userId: string
+  userId: number
   /** 站点角色；`admin` 在读接口里等于「可见全部空间」。 */
   role: string
 }
@@ -117,7 +117,7 @@ export async function findReadToken(
     )
     .bind(tokenHash)
     .first<{
-      userId: string
+      userId: number
       role: string
       isActive: number
       approvalStatus: string
@@ -131,7 +131,7 @@ export async function findReadToken(
 export async function touchReadToken(
   db: D1Database,
   prefix: string,
-  userId: string
+  userId: number
 ): Promise<void> {
   await db
     .prepare(

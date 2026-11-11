@@ -165,8 +165,8 @@ async function issueResetToken(
   return body.resetToken
 }
 
-function userIdOf(db: TestContext["db"], email: string): string {
-  return scalar<{ id: string }>(
+function userIdOf(db: TestContext["db"], email: string): number {
+  return scalar<{ id: number }>(
     db,
     "SELECT id FROM ciki_users WHERE email = ?",
     email
@@ -399,7 +399,7 @@ describe("验码（POST /api/auth/password/verify）", () => {
 
     const challenge = scalar<{
       key: string
-      user_id: string
+      user_id: number
       purpose: string
       payload: string
       ttl: number
@@ -412,7 +412,8 @@ describe("验码（POST /api/auth/password/verify）", () => {
     expect(challenge.key).not.toBe(body.resetToken)
     expect(challenge.user_id).toBe(userIdOf(db, "admin@example.com"))
     expect(challenge.purpose).toBe("password_reset")
-    expect(challenge.payload).toBe(challenge.user_id)
+    // payload 存十进制文本（挑战表是 TEXT 列），与整数 user_id 同值。
+    expect(challenge.payload).toBe(String(challenge.user_id))
     expect(challenge.ttl).toBe(600)
     // 验码成功后该邮箱的验码失败计数清零。
     expect(

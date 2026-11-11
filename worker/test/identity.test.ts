@@ -9,16 +9,13 @@ import {
   userSession
 } from "./support/app"
 
-const PUBLIC_ID_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/
-
 const PNG = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
   0x48, 0x44, 0x52
 ])
 
 interface MeShape {
-  id: string
-  publicId: string
+  id: number
   username: string
   email: string
   role: string
@@ -67,41 +64,40 @@ async function postAvatar(
   })
 }
 
-describe("身份模型：public_id 与显示名", () => {
-  it("注册自动生成 8 位 public_id，显示名默认取邮箱前缀", async () => {
+describe("身份模型：username 与显示名", () => {
+  it("注册即以邮箱前缀作 username，对外身份不含内部整数 id", async () => {
     const { env, db } = await initializedContext()
     const cookie = await adminSession(env, "alice@example.com")
 
     const profile = await me(env, cookie)
-    expect(profile.publicId).toMatch(PUBLIC_ID_RE)
     expect(profile.username).toBe("alice")
     expect(profile.email).toBe("alice@example.com")
     expect(profile.avatarUrl).toBeNull()
+    expect(profile).not.toHaveProperty("publicId")
 
     const row = db.db
-      .prepare("SELECT username, public_id FROM ciki_users WHERE email = ?")
-      .get("alice@example.com") as { username: string; public_id: string }
-    expect(row).toEqual({
-      username: "alice",
-      public_id: profile.publicId
-    })
+      .prepare("SELECT id, username FROM ciki_users WHERE email = ?")
+      .get("alice@example.com") as { id: number; username: string }
+    expect(row.username).toBe("alice")
+    expect(Number.isInteger(row.id)).toBe(true)
+    expect(profile.id).toBe(row.id)
   })
 
-  it("两个用户的 public_id 不同；重复邮箱注册 409 EMAIL_TAKEN", async () => {
+  it("注册时 username 唯一（重名自动加后缀）；重复邮箱注册 409 EMAIL_TAKEN", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env, "alice@example.com")
     const other = await userSession(env, admin, "bob@example.com")
 
     const [first, second] = [await me(env, admin), await me(env, other)]
     expect(second.username).toBe("bob")
-    expect(second.publicId).not.toBe(first.publicId)
+    expect(second.id).not.toBe(first.id)
 
     const duplicate = await register(env, "alice@example.com")
     expect(duplicate.status).toBe(409)
     expect(await duplicate.json()).toMatchObject({ code: "EMAIL_TAKEN" })
   })
 
-  it("PUT /api/me/profile 改显示名；id/email/publicId 只读且不接受写入", async () => {
+  it("PUT /api/me/profile 改显示名；id/email/username 之外的字段不接受写入", async () => {
     const { env } = await initializedContext()
     const cookie = await adminSession(env)
     const before = await me(env, cookie)
@@ -142,14 +138,15 @@ describe("身份模型：public_id 与显示名", () => {
       env,
       "PUT",
       "/api/me/profile",
-      { id: "x", email: "other@example.com", publicId: "AAAAAAAA" },
+      { id: 999, email: "other@example.com" },
       cookie
     )
     expect(readOnly.status).toBe(400)
     const after = await me(env, cookie)
     expect(after.id).toBe(before.id)
     expect(after.email).toBe(before.email)
-    expect(after.publicId).toBe(before.publicId)
+    // 上面已经成功改过名，这里确认只读字段的写入被整单拒绝、名字没被带回旧值。
+    expect(after.username).toBe("观察者")
   })
 })
 
@@ -236,8 +233,9 @@ describe("头像专用上传口", () => {
     const firstKey = (firstMe.avatarUrl ?? "").replace("/api/files/", "")
     expect(firstKey).toMatch(/^avatars\/[0-9a-f-]{36}\.png$/)
     expect(firstMe).toEqual(await me(env, admin))
+    // R2 的 customMetadata 只收字符串：整数用户 id 落库时转成十进制文本。
     expect(r2.store.get(firstKey)?.customMetadata).toMatchObject({
-      uploaderId: firstMe.id,
+      uploaderId: String(firstMe.id),
       category: "avatars"
     })
 

@@ -85,10 +85,6 @@ export async function safeEqual(a: string, b: string): Promise<boolean> {
   return diff === 0
 }
 
-export function generateId(): string {
-  return crypto.randomUUID()
-}
-
 export async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",

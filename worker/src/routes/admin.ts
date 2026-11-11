@@ -5,6 +5,12 @@
 import { Hono } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import {
+  pagesTable,
+  revisionsTable,
+  spacesTable,
+  usersTable
+} from "../lib/tables"
+import {
   createApprovedUser,
   deleteUser,
   findUserByEmail,
@@ -23,7 +29,7 @@ import {
   joinDefaultSpace,
   listSpaceOverviews
 } from "../db/queries/spaces"
-import { generateId, hashPassword } from "../core/auth"
+import { hashPassword } from "../core/auth"
 import {
   getAllSettings,
   getBooleanSetting,
@@ -33,7 +39,6 @@ import {
 import {
   DEFAULT_SITE_NAME,
   defaultUsernameFromEmail,
-  insertWithFreshPublicId,
   isEmailConflict,
   normalizeSiteName
 } from "../core/identity"
@@ -42,9 +47,15 @@ import {
   cleanupLockRemainingSeconds,
   cleanupRunDto,
   R2CleanupBusyError,
-  runR2Cleanup
+  runR2Cleanup,
+  runAllBucketCleanups
 } from "../core/r2-cleanup"
-import { lastCleanupRun, readCleanupLock } from "../db/queries/r2-cleanup"
+import { runContentCleanup } from "../core/content-cleanup"
+import {
+  lastCleanupRun,
+  readCleanupLock,
+  type CleanupKind
+} from "../db/queries/r2-cleanup"
 import {
   normalizeRetentionInput,
   pruneAllPages,
@@ -53,7 +64,7 @@ import {
   writeRetentionLimit
 } from "../core/revision-retention"
 import { adminMiddleware } from "../middleware/admin"
-import { clientIp, readJsonBody } from "../lib/http"
+import { clientIp, parseId, readJsonBody } from "../lib/http"
 import { consumeCounter } from "../core/counters"
 import {
   isEmailConfigured,
@@ -142,19 +153,15 @@ adminRoutes.post("/users", async (c) => {
     )
   }
 
-  const id = generateId()
   const passwordHash = await hashPassword(password)
+  let id: number
   try {
-    await insertWithFreshPublicId((publicId) =>
-      createApprovedUser(c.env.DB, prefix, {
-        id,
-        email,
-        username: defaultUsernameFromEmail(email),
-        public_id: publicId,
-        password_hash: passwordHash,
-        role: body?.role === "admin" ? "admin" : "user"
-      })
-    )
+    id = await createApprovedUser(c.env.DB, prefix, {
+      email,
+      username: defaultUsernameFromEmail(email),
+      password_hash: passwordHash,
+      role: body?.role === "admin" ? "admin" : "user"
+    })
   } catch (err) {
     if (isEmailConflict(err)) {
       return c.json(
@@ -176,7 +183,8 @@ adminRoutes.post("/users", async (c) => {
 
 adminRoutes.put("/users/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const uid = c.req.param("id")
+  const uid = parseId(c.req.param("id"))
+  if (uid === null) return c.json({ error: "User not found" }, 404)
   const body = await readJsonBody<{
     role?: unknown
     isActive?: unknown
@@ -263,7 +271,8 @@ adminRoutes.put("/users/:id", async (c) => {
 
 adminRoutes.delete("/users/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const uid = c.req.param("id")
+  const uid = parseId(c.req.param("id"))
+  if (uid === null) return c.json({ error: "User not found" }, 404)
   if (uid === c.get("userId")) {
     return c.json({ error: "Cannot delete yourself" }, 400)
   }
@@ -281,7 +290,8 @@ adminRoutes.delete("/users/:id", async (c) => {
 
 adminRoutes.post("/users/:id/approve", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const uid = c.req.param("id")
+  const uid = parseId(c.req.param("id"))
+  if (uid === null) return c.json({ error: "User not found" }, 404)
   const user = await findUserById(c.env.DB, prefix, uid)
   if (!user) return c.json({ error: "User not found" }, 404)
   await updateUser(c.env.DB, prefix, uid, {
@@ -293,7 +303,8 @@ adminRoutes.post("/users/:id/approve", async (c) => {
 
 adminRoutes.post("/users/:id/reject", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const uid = c.req.param("id")
+  const uid = parseId(c.req.param("id"))
+  if (uid === null) return c.json({ error: "User not found" }, 404)
   const user = await findUserById(c.env.DB, prefix, uid)
   if (!user) return c.json({ error: "User not found" }, 404)
   if (uid === c.get("userId")) {
@@ -407,7 +418,7 @@ adminRoutes.put("/system/smtp", async (c) => {
   const prefix = getTablePrefix(c.env)
   const limit = await consumeCounter(c.env.DB, prefix, {
     action: "smtp_config",
-    account: c.get("userId"),
+    account: String(c.get("userId")),
     ip: clientIp(c),
     windowSeconds: 300
   })
@@ -454,7 +465,7 @@ adminRoutes.post("/system/smtp/test", async (c) => {
   const prefix = getTablePrefix(c.env)
   const limit = await consumeCounter(c.env.DB, prefix, {
     action: "smtp_test",
-    account: c.get("userId"),
+    account: String(c.get("userId")),
     ip: clientIp(c),
     windowSeconds: 300
   })
@@ -523,24 +534,36 @@ adminRoutes.post("/setup", async (c) => {
   }
 })
 
+/** `kind` 入参：只认 `images` / `content`，缺省 `images`（图片清理的老调用不改）。 */
+function readCleanupKind(value: unknown): CleanupKind {
+  return value === "content" ? "content" : "images"
+}
+
 /**
- * R2 孤儿清理的手动入口（规格 §3）：管理员手动触发，页面上的两步 UI 调它。
+ * R2 孤儿清理的手动入口（规格 §3 + 「内容 GC」）：管理员手动触发，页面上的两步 UI 调它。
  *
  * `{"dryRun": true}` 只算不删，响应里多带 `prunable` / `prunableBytes`（全量可清理数
  * 与总字节，不受单轮 200 上限截断）；不传 / 传 false 则真实删除。
+ * `kind` 选桶：`images`（缺省）扫 `ciki-assets`，`content` 扫 `ciki-content`。
  *
- * 手动实跑**不受 20 天幂等闸约束**（定版第 4 条：闸只约束自动入口），30 天龄规则照旧。
- * 并发互斥仍在：已有一轮在跑就回 409 `CLEANUP_IN_PROGRESS`，什么也不做、不写日志行。
+ * 手动实跑**不受 20 天幂等闸约束**（闸只约束自动入口），30 天龄规则照旧。
+ * 并发互斥仍在：同类清理已有一轮在跑就回 409 `CLEANUP_IN_PROGRESS`，什么也不做、
+ * 不写日志行。
  */
 adminRoutes.post("/r2-cleanup", async (c) => {
-  const body = await readJsonBody<{ dryRun?: unknown }>(c)
+  const body = await readJsonBody<{ dryRun?: unknown; kind?: unknown }>(c)
   const dryRun = body?.dryRun === true
+  const kind = readCleanupKind(body?.kind)
   try {
-    const summary = await runR2Cleanup(c.env, {
-      trigger: "manual",
+    const options = {
+      trigger: "manual" as const,
       dryRun,
-      rerunGuard: "bypass"
-    })
+      rerunGuard: "bypass" as const
+    }
+    const summary =
+      kind === "content"
+        ? await runContentCleanup(c.env, options)
+        : await runR2Cleanup(c.env, options)
     return c.json(summary)
   } catch (err) {
     if (err instanceof R2CleanupBusyError) {
@@ -561,6 +584,25 @@ adminRoutes.post("/r2-cleanup", async (c) => {
   }
 })
 
+/** 手动把两类清理一起跑一轮（管理面「全部清理」按钮）。 */
+adminRoutes.post("/r2-cleanup/all", async (c) => {
+  const body = await readJsonBody<{ dryRun?: unknown }>(c)
+  try {
+    const outcomes = await runAllBucketCleanups(c.env, {
+      trigger: "manual",
+      dryRun: body?.dryRun === true,
+      rerunGuard: "bypass"
+    })
+    return c.json({ runs: outcomes })
+  } catch (err) {
+    console.error(
+      "Admin r2 cleanup (all) failed:",
+      err instanceof Error ? err.message : err
+    )
+    return c.json({ error: "Cleanup failed" }, 500)
+  }
+})
+
 /**
  * 「数据库维护」页的数据源：最近一轮真实运行（dry_run / skipped 不算）+ 运行态。
  * `running` 读 `system_settings` 的清理锁行、按同一 TTL 判占用是否仍有效（过期锁
@@ -568,10 +610,12 @@ adminRoutes.post("/r2-cleanup", async (c) => {
  */
 adminRoutes.get("/r2-cleanup", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const last = await lastCleanupRun(c.env.DB, prefix)
-  const record = (await readCleanupLock(c.env.DB, prefix))?.record ?? null
+  const kind = readCleanupKind(c.req.query("kind"))
+  const last = await lastCleanupRun(c.env.DB, prefix, kind)
+  const record = (await readCleanupLock(c.env.DB, prefix, kind))?.record ?? null
   const retryAfter = cleanupLockRemainingSeconds(record, Date.now())
   return c.json({
+    kind,
     lastRun: last === null ? null : cleanupRunDto(last),
     running:
       record !== null && retryAfter !== null
@@ -582,5 +626,73 @@ adminRoutes.get("/r2-cleanup", async (c) => {
             retryAfter
           }
         : null
+  })
+})
+
+/**
+ * 库体积口径：SQLite 页计数（`PRAGMA page_count × PRAGMA page_size`）。
+ *
+ * Ciki 的 D1 是**本项目的独占库**（2026-11-08 定版：TABLE_PREFIX=none、裸表名），
+ * 所以这个数字就是本站整库体积，响应里带 `scope: "own-database"`。
+ * PRAGMA 读不到（被运行时禁用/无权限）时返回 `null` 并把 measure 标成
+ * `unavailable`——绝不拿行数估算冒充体积。
+ */
+async function readDatabaseSize(db: D1Database): Promise<{
+  bytes: number | null
+  measure: "sqlite-page-count" | "unavailable"
+}> {
+  try {
+    const pages = await db
+      .prepare("PRAGMA page_count")
+      .first<{ page_count: number }>()
+    const size = await db
+      .prepare("PRAGMA page_size")
+      .first<{ page_size: number }>()
+    if (!pages || !size) return { bytes: null, measure: "unavailable" }
+    return {
+      bytes: pages.page_count * size.page_size,
+      measure: "sqlite-page-count"
+    }
+  } catch {
+    return { bytes: null, measure: "unavailable" }
+  }
+}
+
+/**
+ * 「系统管理 → 数据库维护」的体积与页数数据源（展示归前端单 B）。
+ *
+ * 页数、回收站页数、版本数、空间数、用户数都从 D1 现算；体积按上面的页计数口径。
+ */
+adminRoutes.get("/storage", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const row = await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM ${pagesTable(prefix)}
+           WHERE deleted_at IS NULL) AS page_count,
+         (SELECT COUNT(*) FROM ${pagesTable(prefix)}
+           WHERE deleted_at IS NOT NULL) AS trashed_page_count,
+         (SELECT COUNT(*) FROM ${revisionsTable(prefix)}) AS revision_count,
+         (SELECT COUNT(*) FROM ${spacesTable(prefix)}) AS space_count,
+         (SELECT COUNT(*) FROM ${usersTable(prefix)}) AS user_count`
+    )
+    .first<{
+      page_count: number
+      trashed_page_count: number
+      revision_count: number
+      space_count: number
+      user_count: number
+    }>()
+  const size = await readDatabaseSize(db)
+  return c.json({
+    pageCount: row?.page_count ?? 0,
+    trashedPageCount: row?.trashed_page_count ?? 0,
+    revisionCount: row?.revision_count ?? 0,
+    spaceCount: row?.space_count ?? 0,
+    userCount: row?.user_count ?? 0,
+    databaseSizeBytes: size.bytes,
+    sizeScope: "own-database",
+    measure: size.measure
   })
 })

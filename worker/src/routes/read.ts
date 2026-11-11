@@ -7,18 +7,22 @@
  *
  * 三个接口的字段是**冻结契约**，按规格逐字使用 snake_case（`parent_id` / `updated_at`
  * / `created_at` / `content_json`）——这是本仓「响应字段一律 camelCase」通则的唯一例外，
- * 连接器按此对接，别在实现里顺手改成 camelCase。
+ * 连接器按此对接，别在实现里顺手改成 camelCase。id 已随 ID 重构改为整数。
+ *
+ * 正文分工：默认 `markdown` 与树/搜索都只读 D1；`?format=json` 按 `content_hash`
+ * 从内容桶取（连接器要原文时才走这一步）。
  *
  * 软删页面（`deleted_at` 非空）在三处一律排除：树、搜索、单页。
  */
 import { Hono } from "hono"
 import { getPageRow } from "../db/queries/pages"
+import { readContent } from "../core/content-store"
 import { resolveSpaceRole } from "../core/space-access"
 import { makeSnippet, toMatchQuery } from "../lib/fts"
+import { parseId } from "../lib/http"
 import { toPlainText } from "../lib/sanitize"
 import { pagesFtsTable, pagesTable, spaceMembersTable } from "../lib/tables"
 import { getTablePrefix } from "../lib/table-prefix"
-import { resolvePageMarkdown } from "../lib/tiptap-markdown"
 import { readTokenMiddleware } from "../middleware/read-token"
 import type { HonoEnv } from "../types"
 
@@ -31,9 +35,9 @@ readRoutes.use("*", readTokenMiddleware)
 export const READ_SEARCH_LIMIT = 20
 
 interface TreeRow {
-  id: string
+  id: number
   title: string
-  parent_id: string | null
+  parent_id: number | null
   updated_at: string
 }
 
@@ -73,7 +77,7 @@ readRoutes.get("/tree", async (c) => {
 })
 
 interface SearchHitRow {
-  id: string
+  id: number
   title: string
   contentText: string
   updatedAt: string
@@ -97,12 +101,13 @@ readRoutes.get("/search", async (c) => {
          SELECT space_id FROM ${spaceMembersTable(prefix)} WHERE user_id = ?
        )`
   const stmt = c.env.DB.prepare(
-    `SELECT f.page_id AS id,
+    `SELECT CAST(f.page_id AS INTEGER) AS id,
             p.title AS title,
             p.content_text AS contentText,
             p.updated_at AS updatedAt
        FROM ${fts} f
-       JOIN ${pagesTable(prefix)} p ON p.id = f.page_id AND p.deleted_at IS NULL
+       JOIN ${pagesTable(prefix)} p ON p.id = CAST(f.page_id AS INTEGER)
+        AND p.deleted_at IS NULL
       WHERE ${fts} MATCH ?
         ${membershipFilter}
       ORDER BY bm25(${fts}, 0.0, 10.0, 1.0)
@@ -127,8 +132,8 @@ readRoutes.get("/search", async (c) => {
 /**
  * 单页正文。
  *
- * 默认给 `markdown`（即 `content_md`；回填完成前按需现生成，不会报错也不会是空文档）；
- * `?format=json` 时改给 `content_json`（真源原文），两者不并存。
+ * 默认给 `markdown`（即落库的 `content_md`，热路径只读 D1）；`?format=json` 时改给
+ * `content_json`（按 `content_hash` 从内容桶取原文），两者不并存。
  *
  * 不存在、已软删、或所在空间不是令牌用户的可见空间，一律 404——不泄露页面存在性，
  * 与站内页面直链口径一致。
@@ -136,7 +141,9 @@ readRoutes.get("/search", async (c) => {
 readRoutes.get("/pages/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const row = await getPageRow(db, prefix, c.req.param("id"))
+  const id = parseId(c.req.param("id"))
+  if (id === null) return c.json({ error: "Page not found" }, 404)
+  const row = await getPageRow(db, prefix, id)
   if (!row || row.deleted_at) return c.json({ error: "Page not found" }, 404)
 
   const role = await resolveSpaceRole(
@@ -156,7 +163,17 @@ readRoutes.get("/pages/:id", async (c) => {
     updated_at: row.updated_at
   }
   if (c.req.query("format") === "json") {
-    return c.json({ ...base, content_json: row.content_json })
+    try {
+      return c.json({
+        ...base,
+        content_json: await readContent(c.env, row.content_hash)
+      })
+    } catch {
+      return c.json(
+        { error: "Page content unavailable", code: "CONTENT_MISSING" },
+        500
+      )
+    }
   }
-  return c.json({ ...base, markdown: resolvePageMarkdown(row) })
+  return c.json({ ...base, markdown: row.content_md })
 })

@@ -15,7 +15,6 @@
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
-import { generateId } from "../core/auth"
 import { canDeleteComment, canEditComment } from "../core/comment-access"
 import { resolveSpaceRole, type SpaceRole } from "../core/space-access"
 import {
@@ -33,7 +32,7 @@ import {
   type CommentBodyResult
 } from "../lib/comment-input"
 import { renderCommentHtml } from "../lib/comment-render"
-import { readJsonBody, readParentId } from "../lib/http"
+import { parseId, readJsonBody, readParentId } from "../lib/http"
 import { getTablePrefix } from "../lib/table-prefix"
 import type { HonoEnv } from "../types"
 
@@ -43,9 +42,9 @@ export const commentRoutes = new Hono<HonoEnv>()
 const DELETED_AUTHOR_NAME = "已注销用户"
 
 interface CommentDto {
-  id: string
-  parentId: string | null
-  authorId: string
+  id: number
+  parentId: number | null
+  authorId: number
   authorName: string
   authorAvatarUrl: string | null
   bodyMd: string
@@ -62,7 +61,7 @@ interface ThreadDto extends CommentDto {
 }
 
 interface Viewer {
-  userId: string
+  userId: number
   role: SpaceRole
 }
 
@@ -103,7 +102,7 @@ function isSiteAdmin(c: Context<HonoEnv>): boolean {
  */
 async function commentTarget(
   c: Context<HonoEnv>,
-  pageId: string
+  pageId: number
 ): Promise<{ page: PageRow; role: SpaceRole } | null> {
   const prefix = getTablePrefix(c.env)
   const page = await getPageRow(c.env.DB, prefix, pageId)
@@ -154,7 +153,7 @@ function buildThreads(
   viewer: Viewer
 ): { total: number; threads: ThreadDto[] } {
   const tops: CommentListRow[] = []
-  const repliesByParent = new Map<string, CommentListRow[]>()
+  const repliesByParent = new Map<number, CommentListRow[]>()
   for (const row of rows) {
     if (row.parent_id === null) {
       tops.push(row)
@@ -185,7 +184,9 @@ function buildThreads(
 // ── 列表 ────────────────────────────────────────────────────────────────────
 
 commentRoutes.get("/:id/comments", async (c) => {
-  const target = await commentTarget(c, c.req.param("id"))
+  const pageId = parseId(c.req.param("id"))
+  if (pageId === null) return pageNotFound(c)
+  const target = await commentTarget(c, pageId)
   if (!target) return pageNotFound(c)
 
   const prefix = getTablePrefix(c.env)
@@ -203,7 +204,9 @@ commentRoutes.get("/:id/comments", async (c) => {
  * 必须注册在 `/:id/comments/:commentId` 之前的口径这里不冲突：后者只收 PUT/DELETE。
  */
 commentRoutes.post("/:id/comments/preview", async (c) => {
-  const target = await commentTarget(c, c.req.param("id"))
+  const pageId = parseId(c.req.param("id"))
+  if (pageId === null) return pageNotFound(c)
+  const target = await commentTarget(c, pageId)
   if (!target) return pageNotFound(c)
 
   const body = await readJsonBody<Record<string, unknown>>(c)
@@ -218,7 +221,9 @@ commentRoutes.post("/:id/comments/preview", async (c) => {
 // ── 发表 ────────────────────────────────────────────────────────────────────
 
 commentRoutes.post("/:id/comments", async (c) => {
-  const target = await commentTarget(c, c.req.param("id"))
+  const pageId = parseId(c.req.param("id"))
+  if (pageId === null) return pageNotFound(c)
+  const target = await commentTarget(c, pageId)
   if (!target) return pageNotFound(c)
 
   const body = await readJsonBody<Record<string, unknown>>(c)
@@ -229,7 +234,7 @@ commentRoutes.post("/:id/comments", async (c) => {
   }
   const parent = readParentId(body?.parentId)
   if (!parent.ok) {
-    return c.json({ error: "parentId must be a string or null" }, 400)
+    return c.json({ error: "parentId must be an integer or null" }, 400)
   }
 
   const prefix = getTablePrefix(c.env)
@@ -242,8 +247,8 @@ commentRoutes.post("/:id/comments", async (c) => {
    * 挂在该串下，与规格「串结构保留」一致（占位因为多了一条存活回复而继续保留）。
    * 只有「不存在 / 不属于本页」才是 404。
    */
-  let parentId: string | null = null
-  if (parent.value) {
+  let parentId: number | null = null
+  if (parent.value !== null) {
     const parentRow = await getCommentWithAuthor(
       db,
       prefix,
@@ -254,9 +259,7 @@ commentRoutes.post("/:id/comments", async (c) => {
     parentId = parentRow.parent_id ?? parentRow.id
   }
 
-  const id = generateId()
-  await insertComment(db, prefix, {
-    id,
+  const id = await insertComment(db, prefix, {
     pageId: target.page.id,
     parentId,
     authorId: c.get("userId"),
@@ -275,13 +278,14 @@ commentRoutes.post("/:id/comments", async (c) => {
 // ── 编辑 ────────────────────────────────────────────────────────────────────
 
 commentRoutes.put("/:id/comments/:commentId", async (c) => {
-  const target = await commentTarget(c, c.req.param("id"))
+  const pageId = parseId(c.req.param("id"))
+  const commentId = parseId(c.req.param("commentId"))
+  if (pageId === null || commentId === null) return pageNotFound(c)
+  const target = await commentTarget(c, pageId)
   if (!target) return pageNotFound(c)
 
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const pageId = target.page.id
-  const commentId = c.req.param("commentId")
   const existing = await getCommentWithAuthor(db, prefix, pageId, commentId)
   if (!existing) return commentNotFound(c)
   if (existing.deleted_at) return commentDeleted(c)
@@ -312,7 +316,10 @@ commentRoutes.put("/:id/comments/:commentId", async (c) => {
 // ── 删除（软删） ────────────────────────────────────────────────────────────
 
 commentRoutes.delete("/:id/comments/:commentId", async (c) => {
-  const target = await commentTarget(c, c.req.param("id"))
+  const pageId = parseId(c.req.param("id"))
+  const commentId = parseId(c.req.param("commentId"))
+  if (pageId === null || commentId === null) return pageNotFound(c)
+  const target = await commentTarget(c, pageId)
   if (!target) return pageNotFound(c)
 
   const prefix = getTablePrefix(c.env)
@@ -321,7 +328,7 @@ commentRoutes.delete("/:id/comments/:commentId", async (c) => {
     db,
     prefix,
     target.page.id,
-    c.req.param("commentId")
+    commentId
   )
   if (!existing) return commentNotFound(c)
   if (!canDeleteComment(target.role, existing.author_id, c.get("userId"))) {
