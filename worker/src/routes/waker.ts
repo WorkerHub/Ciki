@@ -56,7 +56,8 @@ function createCleanupReceiver(env: Env) {
         }
       }
     },
-    // 同一个值既当「配没配」的开关，也当验签用钥；null 即 SDK 的 fail closed 路径。
+    // 判定与验签同源（三态）：只有已配置态给出钥，未配置与关闭（`false`）一律 null，
+    // 即 SDK 的 fail closed 路径。
     signingKey: () => wakerSigningKey(env),
     ledger: createD1ExecutionLedger(env.DB, {
       table: wakerExecutionsTable(prefix)

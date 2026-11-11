@@ -34,9 +34,10 @@ export interface Env {
   /**
    * waker 项目的回调签名钥（可选，只来自 secrets）。
    *
-   * 月度 R2 清理（图片 + 内容两套）的触发开关就是它配没配（规格 §3：不设 WAKER_MODE）：
-   * 配了 → waker 回调接管、`scheduled()` 自行跳过；没配 → 走 Worker 内置
-   * Cron Trigger，waker 回调口由 SDK fail closed（500 signing_key_missing）。
+   * 月度 R2 清理（图片 + 内容两套）的触发开关就是它（规格 §3：不设 WAKER_MODE），三态：
+   * 未配置 → 走 Worker 内置 Cron Trigger；`false`（保留值）→ 显式关闭自动清理；
+   * 其余非空值 → waker 回调接管、`scheduled()` 自行跳过。未配置与关闭两态的回调口都由 SDK
+   * fail closed（500 signing_key_missing，`false` 绝不当钥）。
    * 解析口径见 src/core/waker-gate.ts（空值 / `*_PLACEHOLDER` 一律算未配置）。
    */
   WAKER_SIGNING_KEY?: string

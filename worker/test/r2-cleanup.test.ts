@@ -8,7 +8,7 @@
  * - 桶隔离：两边各自只扫自己的桶，图片清理不碰内容对象、内容清理不碰图片对象；
  * - 并发互斥：同 kind 撞锁 409 / 过期接管 / 锁必释放，跨 kind 互不阻塞。
  */
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import handler from "../src/index"
 import {
   CLEANUP_LOCK_TTL_MS,
@@ -693,7 +693,7 @@ describe("管理接口：手动触发与摘要", () => {
   })
 })
 
-describe("scheduled：两个入口按 WAKER_SIGNING_KEY 有无让路", () => {
+describe("scheduled：两个入口按 WAKER_SIGNING_KEY 三态让路", () => {
   it("配了 key → 直接跳过，不跑也不写日志行", async () => {
     const context = await initializedContext({
       WAKER_SIGNING_KEY: "unit-test-signing-key"
@@ -709,6 +709,55 @@ describe("scheduled：两个入口按 WAKER_SIGNING_KEY 有无让路", () => {
 
     expect(countRuns(db)).toBe(0)
     expect(r2.store.has(OLD_ORPHAN)).toBe(true)
+  })
+
+  it("显式关闭（false）→ 跳过本轮且不回落 Cron，日志写明是关闭而非故障", async () => {
+    const context = await initializedContext({ WAKER_SIGNING_KEY: "false" })
+    const { env, db, r2, content } = context
+    const orphanHash = await seedContentObject(
+      context,
+      JSON.stringify({ type: "doc", content: [] })
+    )
+    await seedImageObject(r2, OLD_ORPHAN)
+    const infoLog = vi.spyOn(console, "info").mockImplementation(() => {})
+
+    await handler.scheduled!(
+      {} as ScheduledController,
+      env,
+      {} as ExecutionContext
+    )
+
+    const logged = infoLog.mock.calls.flat().join(" ")
+    infoLog.mockRestore()
+
+    // 两类自动清理都没跑：无日志行、两个桶的孤儿对象都还在。
+    expect(countRuns(db)).toBe(0)
+    expect(r2.store.has(OLD_ORPHAN)).toBe(true)
+    expect(content.store.has(contentObjectKey(orphanHash))).toBe(true)
+    // 日志是关闭文案，与会「waker 接管」的已配置态分开。
+    expect(logged).toContain("WAKER_SIGNING_KEY=false")
+    expect(logged).toContain("显式关闭")
+    expect(logged).not.toContain("waker 接管")
+  })
+
+  it("显式关闭（false）→ 管理员手动清理照旧真删（关的只是自动触发）", async () => {
+    const context = await initializedContext({ WAKER_SIGNING_KEY: "false" })
+    const { env, db, r2 } = context
+    const admin = await adminSession(env)
+    await seedImageObject(r2, OLD_ORPHAN)
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/admin/r2-cleanup",
+      {},
+      admin
+    )
+    expect(res.status).toBe(200)
+
+    expect(r2.store.has(OLD_ORPHAN)).toBe(false)
+    expect(countRuns(db, "images")).toBe(1)
+    expect(lastRunRow(db, "images").trigger).toBe("manual")
   })
 
   it("没配 key → 走 Cron 入口把两个桶各跑一轮并落日志", async () => {

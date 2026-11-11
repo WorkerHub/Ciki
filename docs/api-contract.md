@@ -529,21 +529,22 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ### waker 回调（`POST /_waker/execute`，不走会话）
 
-月度清理的第二个触发入口：只看 `WAKER_SIGNING_KEY` 配没配，不设 `WAKER_MODE`。
+月度清理的第二个触发入口：只看 `WAKER_SIGNING_KEY` 的取值（三态），不设 `WAKER_MODE`。
 
-- 已配置：waker 平台回调本入口，验签通过后执行一轮；Worker 内置 Cron 的 `scheduled()` 检测到 key 存在直接跳过（`wrangler.toml` 的 `[triggers] crons` 保留，靠 key 有无让路）。
-- 未配置：本入口 fail closed，回 `500 {"ok":false,"error":{"code":"signing_key_missing"}}`，不碰数据库、不进业务；清理走内置 Cron。
+- 已配置（其余非空值）：waker 平台回调本入口，验签通过后执行一轮；Worker 内置 Cron 的 `scheduled()` 检测到真 key 直接跳过（`wrangler.toml` 的 `[triggers] crons` 保留，靠取值让路）。
+- 显式关闭（保留值 `false`，大小写敏感）：本入口与内置 Cron 都不自动跑；本入口 fail closed，回 `500 signing_key_missing`（`false` 绝不当验签钥）；`scheduled()` 跳过且不回落 Cron，只记一条「显式关闭」日志。管理员手动清理不受影响。
+- 未配置（非字符串 / 空 / 空白 / `*_PLACEHOLDER`）：本入口 fail closed，回 `500 {"ok":false,"error":{"code":"signing_key_missing"}}`，不碰数据库、不进业务；清理走内置 Cron。
 
 协议按 waker 客户端 SDK 的冻结契约（ciki 不另发明）：头 `X-Waker-Timestamp`（epoch 秒）、`X-Waker-Execution-Id`、`X-Waker-Job-Id`、`X-Waker-Signature`（`v2=<hex>`）；HMAC-SHA256 覆盖 `<timestamp>\n<executionId>\n<jobId>\n<rawBody>`；时间窗 300s；`executionId` 由 `{prefix}waker_executions` 去重，重复投递回 200 `duplicate` 且不再跑业务。
 
-| 状态码 | `error.code`          | 含义                                      |
-| ------ | --------------------- | ----------------------------------------- |
-| 400    | `invalid_request`     | 缺签名头 / 请求体非法 / id 与头不一致     |
-| 401    | `invalid_signature`   | 签名校验失败                              |
-| 401    | `stale_timestamp`     | 时间戳超出 300s 窗口（防重放）            |
-| 404    | `unknown_job`         | 任务名不是 `monthly-r2-orphan-cleanup`    |
-| 500    | `job_failed`          | 业务抛错（平台按同一 executionId 重试）   |
-| 500    | `signing_key_missing` | 未配置 `WAKER_SIGNING_KEY`（fail closed） |
+| 状态码 | `error.code`          | 含义                                                                                          |
+| ------ | --------------------- | --------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request`     | 缺签名头 / 请求体非法 / id 与头不一致                                                         |
+| 401    | `invalid_signature`   | 签名校验失败                                                                                  |
+| 401    | `stale_timestamp`     | 时间戳超出 300s 窗口（防重放）                                                                |
+| 404    | `unknown_job`         | 任务名不是 `monthly-r2-orphan-cleanup`                                                        |
+| 500    | `job_failed`          | 业务抛错（平台按同一 executionId 重试）                                                       |
+| 500    | `signing_key_missing` | 未配置 `WAKER_SIGNING_KEY`（含空值与占位值），或设为保留值 `false` 显式关闭（均 fail closed） |
 
 **管理面一次性静态注册**（舰队侧动作，ciki 不代填、不调注册 API）：
 
