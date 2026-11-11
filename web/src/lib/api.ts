@@ -62,6 +62,8 @@ const NO_REFRESH_PATHS = [
   "/auth/password/forgot",
   "/auth/password/verify",
   "/auth/password/reset",
+  "/auth/email/verify",
+  "/auth/email/resend",
   "/auth/config",
   "/setup/state",
   "/setup"
@@ -333,6 +335,27 @@ export interface EmailCodeSent {
   cooldownSeconds: number
   /** 本次验证码有效期秒数（契约固定 600）。 */
   expiresInSeconds: number
+}
+
+/**
+ * 注册回执（#85 契约）：`emailVerificationRequired` 为 true 表示账号还要先验证
+ * 邮箱才能登录（服务端已在响应之外异步发码）；`approvalRequired` 表示还等管理员批准。
+ * 该字段是后加的，旧后端缺失时按 false 读。
+ */
+export interface RegisterResult {
+  success: true
+  approvalRequired: boolean
+  emailVerificationRequired?: boolean
+}
+
+/**
+ * 重发注册验证码的回执（#85 契约）：与找回密码同口径，账号存在与否都是这一个
+ * 200 —— 前端只看 `cooldownSeconds`，不从响应推断账号状态。
+ */
+export interface VerificationEmailSent {
+  success: true
+  /** 重发冷却秒数（契约固定 60）。 */
+  cooldownSeconds: number
 }
 
 /** 登录第二步可用的验证方式（契约顺序：totp → passkey → email_otp）。 */
@@ -657,9 +680,29 @@ export const setupApi = {
 export const authApi = {
   config: () => api.get<AuthConfig>("/auth/config", { skipRefresh: true }),
   register: (email: string, password: string) =>
-    api.post<{ success: true; approvalRequired: boolean }>(
+    api.post<RegisterResult>(
       "/auth/register",
       { email, password },
+      { skipRefresh: true }
+    ),
+  /**
+   * 注册邮箱验证（公开，不依赖会话）：未知邮箱 / 码错 / 过期 / 已用过一律
+   * 400 `INVALID_CODE`，前端只有一句话可说；成功只置「已验证」，不发放会话。
+   */
+  verifyEmail: (email: string, code: string) =>
+    api.post<{ success: true }>(
+      "/auth/email/verify",
+      { email, code },
+      { skipRefresh: true }
+    ),
+  /**
+   * 重发注册验证码（公开）：账号不存在、已停用、已拒绝、已验证一律 200 但不发信，
+   * 冷却期内重复请求也是 200。站点没配发信时 503 `EMAIL_NOT_CONFIGURED`。
+   */
+  resendVerificationEmail: (email: string) =>
+    api.post<VerificationEmailSent>(
+      "/auth/email/resend",
+      { email },
       { skipRefresh: true }
     ),
   login: (email: string, password: string) =>
@@ -982,7 +1025,9 @@ const AUTH_FORM_PATHS = [
   "/auth/2fa/email-otp/send-login",
   "/auth/password/forgot",
   "/auth/password/verify",
-  "/auth/password/reset"
+  "/auth/password/reset",
+  "/auth/email/verify",
+  "/auth/email/resend"
 ]
 
 function isAuthFormPath(path: string | undefined) {
@@ -1000,6 +1045,14 @@ const PASSWORD_RESET_PATHS = [
 function isPasswordResetPath(path: string | undefined) {
   if (!path) return false
   return PASSWORD_RESET_PATHS.includes(path.split("?")[0])
+}
+
+/** 注册邮箱验证（#85 契约）：未知邮箱与码错/过期/已用过的回执完全同形。 */
+const EMAIL_VERIFY_PATHS = ["/auth/email/verify"]
+
+function isEmailVerifyPath(path: string | undefined) {
+  if (!path) return false
+  return EMAIL_VERIFY_PATHS.includes(path.split("?")[0])
 }
 
 /** 把契约错误码翻成可以直接给用户看的句子（组件只管展示返回值）。 */
@@ -1044,6 +1097,17 @@ export function describeApiError(error: unknown): string {
       return "目标父页面还在回收站里，请先恢复父页面。"
     case "PAGE_NOT_DELETED":
       return "只有已删除的页面才能彻底删除。"
+    // 页尾评论（契约「页尾评论」）：软删的评论仍以占位保留，
+    // 并发删除时再编辑会撞 409；只说结果，不讲软删之类的机制。
+    case "COMMENT_EMPTY":
+      return "评论内容不能为空。"
+    case "COMMENT_NOT_FOUND":
+      return "找不到这条评论，可能已被删除。"
+    case "COMMENT_DELETED":
+      return "这条评论已被删除，不能再修改。"
+    // 导入专用：contentJson 解析不了、或按当前 schema 渲染不了。
+    case "INVALID_CONTENT_JSON":
+      return "页面内容的格式不正确，无法保存。"
     case "PAYLOAD_TOO_LARGE":
       return "内容或图片超过了单次保存上限，请精简后重试。"
     case "FILE_TOO_LARGE":
@@ -1064,6 +1128,12 @@ export function describeApiError(error: unknown): string {
       return "空间里还有页面，请先把页面移动到其他空间，或彻底删除回收站里的页面。"
     case "SPACE_MISMATCH":
       return "目标父页面不在这个空间里。"
+    // 导入是唯一带这个码的入口（页面直链无权时仍走 404 口径）。
+    case "SPACE_FORBIDDEN":
+      return "你在这个空间里没有导入页面的权限。"
+    // 导入与建页面都可能在站点缺默认空间时撞上（409）。
+    case "DEFAULT_SPACE_MISSING":
+      return "站点还没有可用的默认空间，请联系管理员。"
     case "ALREADY_MEMBER":
       return "该用户已经是这个空间的成员。"
     case "USER_NOT_ELIGIBLE":
@@ -1083,9 +1153,15 @@ export function describeApiError(error: unknown): string {
     case "INVALID_CODE":
       // 找回密码的验码（auth.ts）与邮箱 2FA 的启用验码（auth-2fa.ts）共用这个码：
       // 前者失败即作废、必须重新拿码，后者只是输错、可以就地重输。
+      // 注册邮箱验证（#85）同时可能是「未知邮箱」，只说到已验证码这一层。
+      if (isEmailVerifyPath(error.path)) return "验证码不正确或已过期。"
       return isPasswordResetPath(error.path)
         ? "验证码不正确或已过期，请重新获取。"
         : "验证码不正确，请重新输入。"
+    case "EMAIL_NOT_VERIFIED":
+      // 登录门禁（#85）：登录页会给「去验证 / 重新发送验证码」两个入口，
+      // 这里只兜其它 surfaces 上的裸展示。
+      return "邮箱还没有验证，请先完成邮箱验证。"
     case "INVALID_RESET_TOKEN":
       return "这次重置已失效（验证码换来的凭证过期或已被使用），请重新获取验证码。"
     case "WEAK_PASSWORD":

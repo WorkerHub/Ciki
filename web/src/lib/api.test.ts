@@ -196,6 +196,99 @@ describe("describeApiError：空间相关错误码", () => {
   })
 })
 
+/**
+ * 评论 / 页面 JSON / 导入三族的错误码（契约「页尾评论」「页面写入」「导入」）：
+ * 各自都是 4xx，映射表缺一条就会落到后端英文原文或通用兜底上——用户要么读到英文，
+ * 要么读到一句不指向这件事的结论。每条只断言结果句，同时钉住「不漏英文原文」
+ * 与「不等于通用兜底」。
+ */
+describe("describeApiError：评论 / 页面 JSON / 导入的错误码", () => {
+  it("发表/编辑评论空正文（400 COMMENT_EMPTY）→ 中文提示，不漏英文原文", () => {
+    const error = apiError(
+      400,
+      "Comment body required",
+      "/pages/1/comments",
+      "COMMENT_EMPTY"
+    )
+    expect(describeApiError(error)).toBe("评论内容不能为空。")
+    expect(describeApiError(error)).not.toContain("Comment")
+    expect(describeApiError(error)).not.toBe(error.message)
+  })
+
+  it("评论不存在 / 不属于本页（404 COMMENT_NOT_FOUND）→ 中文提示，不退回通用 404 兜底", () => {
+    const error = apiError(
+      404,
+      "Comment not found",
+      "/pages/1/comments/9",
+      "COMMENT_NOT_FOUND"
+    )
+    expect(describeApiError(error)).toBe("找不到这条评论，可能已被删除。")
+    expect(describeApiError(error)).not.toContain("Comment")
+    expect(describeApiError(error)).not.toBe("对象不存在，或已被删除。")
+  })
+
+  it("编辑一条已删除的评论（409 COMMENT_DELETED）→ 中文提示，不落 409 的英文兜底", () => {
+    const error = apiError(
+      409,
+      "Comment is deleted",
+      "/pages/1/comments/9",
+      "COMMENT_DELETED"
+    )
+    expect(describeApiError(error)).toBe("这条评论已被删除，不能再修改。")
+    expect(describeApiError(error)).not.toContain("Comment")
+    expect(describeApiError(error)).not.toBe("当前状态冲突，请刷新后重试。")
+  })
+
+  it("contentJson 解析失败 / 渲染不了（400 INVALID_CONTENT_JSON）→ 同一句中文，不漏英文原文", () => {
+    const unparsable = apiError(
+      400,
+      "contentJson must be valid JSON",
+      "/import/pages",
+      "INVALID_CONTENT_JSON"
+    )
+    const unrenderable = apiError(
+      400,
+      "contentJson cannot be rendered: unknown node type: foo",
+      "/import/pages",
+      "INVALID_CONTENT_JSON"
+    )
+    expect(describeApiError(unparsable)).toBe(
+      "页面内容的格式不正确，无法保存。"
+    )
+    expect(describeApiError(unrenderable)).toBe(
+      "页面内容的格式不正确，无法保存。"
+    )
+    expect(describeApiError(unparsable)).not.toContain("contentJson")
+    expect(describeApiError(unparsable)).not.toBe(unparsable.message)
+  })
+
+  it("站点没有默认空间（409 DEFAULT_SPACE_MISSING）→ 中文提示，不落 409 的英文兜底", () => {
+    const error = apiError(
+      409,
+      "Default space missing",
+      "/pages",
+      "DEFAULT_SPACE_MISSING"
+    )
+    expect(describeApiError(error)).toBe(
+      "站点还没有可用的默认空间，请联系管理员。"
+    )
+    expect(describeApiError(error)).not.toContain("space")
+    expect(describeApiError(error)).not.toBe(error.message)
+  })
+
+  it("导入到无权空间（403 SPACE_FORBIDDEN）→ 中文提示，不落 403 的英文兜底", () => {
+    const error = apiError(
+      403,
+      "Space forbidden",
+      "/import/pages",
+      "SPACE_FORBIDDEN"
+    )
+    expect(describeApiError(error)).toBe("你在这个空间里没有导入页面的权限。")
+    expect(describeApiError(error)).not.toContain("Space")
+    expect(describeApiError(error)).not.toBe(error.message)
+  })
+})
+
 describe("describeApiError：版本治理相关错误码", () => {
   it("最新一条不许删、保留数不限时不能全站修剪", () => {
     expect(
@@ -324,6 +417,51 @@ describe("describeApiError：找回密码的三个入口", () => {
     expect(
       describeApiError(apiError(401, "Nope", "/auth/password/verify"))
     ).toBe("验证未通过，请重试。")
+  })
+})
+
+/**
+ * 注册邮箱验证（单 A #85 冻结契约）：登录门禁的 403 与验证端点的 400 各一句
+ * 用户看得懂的话；验证端点的错码同时可能是「未知邮箱」，只说到验证码这一层。
+ */
+describe("describeApiError：注册邮箱验证", () => {
+  it("登录被门禁拦下 → 说清要先验证邮箱，不是密码错", () => {
+    const error = apiError(
+      403,
+      "Email not verified",
+      "/auth/login",
+      "EMAIL_NOT_VERIFIED"
+    )
+    expect(describeApiError(error)).toBe("邮箱还没有验证，请先完成邮箱验证。")
+    expect(describeApiError(error)).not.toBe("验证未通过，请重试。")
+  })
+
+  it("验证端点的错码 / 过期 / 未知邮箱同形 → 只说验证码不对或已过期", () => {
+    const error = apiError(
+      400,
+      "Invalid or expired code",
+      "/auth/email/verify",
+      "INVALID_CODE"
+    )
+    expect(describeApiError(error)).toBe("验证码不正确或已过期。")
+  })
+
+  it("验证端点上的 401（代理 / 中间件）不说会话过期", () => {
+    expect(
+      describeApiError(apiError(401, "Unauthorized", "/auth/email/verify"))
+    ).toBe("验证未通过，请重试。")
+  })
+
+  it("站点没配发信时重发验证码 → 指向系统管理 → 邮件配置", () => {
+    const error = apiError(
+      503,
+      "Email delivery is not configured",
+      "/auth/email/resend",
+      "EMAIL_NOT_CONFIGURED"
+    )
+    expect(describeApiError(error)).toBe(
+      "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    )
   })
 })
 
