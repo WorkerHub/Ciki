@@ -1,9 +1,9 @@
 /**
- * 结构坍缩后的唯一迁移（`schema_v7`）的**演练测试**：拿真实生产形态（v6 形态）的库
+ * 结构坍缩后的迁移（`schema_v7` + `schema_v8`）的**演练测试**：拿真实生产形态（v6 形态）的库
  * 跑一次完整升级。
  *
  * 这是本单最重要的证据——重建是不可回头的一次性操作，所以逐项对应验收标准：
- * - 只记一条迁移（`schema_v7`），旧账本行原样留着；
+ * - 只记 `schema_v7` + `schema_v8` 两条迁移，旧账本行原样留着；
  * - `users` 的三列消失、`language` 逐值保真、存量用户 `email_verified` 一律置 1；
  * - 其余列逐值保真、逐表行数不变、页面/版本的 `content_hash` 逐行不变、正文对象
  *   全量可回读（不抽样、不重传）；
@@ -24,7 +24,11 @@ import { toMatchQuery } from "../src/lib/fts"
 import { gunzipText, gzipText } from "../src/lib/gzip"
 import { SCHEMA_TABLES } from "../src/lib/schema"
 import { runSetup } from "../src/lib/setup"
-import { TEST_ENCRYPTION_KEY, makeContext } from "./support/app"
+import {
+  TEST_ENCRYPTION_KEY,
+  initializedContext,
+  makeContext
+} from "./support/app"
 import type { MemoryR2 } from "./support/memory-r2"
 import type { SqliteD1 } from "./support/sqlite-d1"
 import {
@@ -38,6 +42,16 @@ import {
 } from "./support/v6-schema"
 
 const TOTP_SECRET = "JBSWY3DPEHPK3PXP"
+
+/**
+ * 一次完整升级按账本顺序执行 `schema_v7` + `schema_v8` 两条，状态相同。
+ */
+function ledgerResult(status: "applied" | "skipped") {
+  return [
+    { name: "schema_v7", status },
+    { name: "schema_v8", status }
+  ]
+}
 
 function encryptedTotp(): Promise<string> {
   return encryptSecret(TEST_ENCRYPTION_KEY, TOTP_SECRET, "ciki:totp:1")
@@ -76,14 +90,12 @@ async function corruptObject(content: MemoryR2, hash: string): Promise<void> {
 }
 
 describe("重建：生产形态（v6）跑一次 setup", () => {
-  it("只记 schema_v7；users 三列消失、language 保真、存量用户一律已验证", async () => {
+  it("只记 schema_v7 + schema_v8；users 三列消失、language 保真、存量用户一律已验证", async () => {
     const { env, db } = await v6Context()
     const result = await runSetup(env)
     if (!result.success) throw new Error(result.error)
 
-    expect(result.migrations).toEqual([
-      { name: "schema_v7", status: "applied" }
-    ])
+    expect(result.migrations).toEqual(ledgerResult("applied"))
 
     const userColumns = columns(db, "ciki_users")
     expect(userColumns).not.toContain("base_currency")
@@ -326,7 +338,8 @@ describe("重建：生产形态（v6）跑一次 setup", () => {
       "schema_v4",
       "schema_v5",
       "schema_v6",
-      "schema_v7"
+      "schema_v7",
+      "schema_v8"
     ])
   })
 
@@ -349,7 +362,8 @@ describe("重建：生产形态（v6）跑一次 setup", () => {
       "ciki_spaces_slug",
       "ciki_pages_content_hash",
       "ciki_email_codes_expires_at",
-      "ciki_sessions_token_hash"
+      "ciki_sessions_token_hash",
+      "ciki_users_username"
     ]) {
       expect(indexes).toContain(name)
     }
@@ -370,7 +384,7 @@ describe("重建：生产形态（v6）跑一次 setup", () => {
 
     const again = await runSetup(env)
     if (!again.success) throw new Error(again.error)
-    expect(again.migrations).toEqual([{ name: "schema_v7", status: "skipped" }])
+    expect(again.migrations).toEqual(ledgerResult("skipped"))
     expect(
       db.db.prepare("SELECT COUNT(*) AS count FROM ciki_pages").get()
     ).toEqual(before.pages)
@@ -396,9 +410,7 @@ describe("重建：失败与重跑", () => {
 
     const result = await runSetup(env)
     if (!result.success) throw new Error(result.error)
-    expect(result.migrations).toEqual([
-      { name: "schema_v7", status: "applied" }
-    ])
+    expect(result.migrations).toEqual(ledgerResult("applied"))
     expect(tableNames(db).filter((name) => name.includes("v7_"))).toEqual([])
     expect(
       db.db.prepare("SELECT COUNT(*) AS count FROM ciki_users").get()
@@ -428,7 +440,7 @@ describe("重建：失败与重跑", () => {
     await putContent(env, V6_HOME_JSON)
     const retry = await runSetup(env)
     if (!retry.success) throw new Error(retry.error)
-    expect(retry.migrations).toEqual([{ name: "schema_v7", status: "applied" }])
+    expect(retry.migrations).toEqual(ledgerResult("applied"))
     expect(columns(db, "ciki_users")).not.toContain("base_currency")
     expect(
       db.db
@@ -453,7 +465,7 @@ describe("重建：失败与重跑", () => {
     await putContent(env, V6_CHILD_JSON)
     const retry = await runSetup(env)
     if (!retry.success) throw new Error(retry.error)
-    expect(retry.migrations).toEqual([{ name: "schema_v7", status: "applied" }])
+    expect(retry.migrations).toEqual(ledgerResult("applied"))
     expect(tableNames(db).filter((name) => name.includes("v7_"))).toEqual([])
   })
 
@@ -531,12 +543,180 @@ describe("定版结构：空库之外的兜底", () => {
     )
     const result = await runSetup(env)
     if (!result.success) throw new Error(result.error)
-    expect(result.migrations).toEqual([
-      { name: "schema_v7", status: "applied" }
-    ])
+    expect(result.migrations).toEqual(ledgerResult("applied"))
     const names = tableNames(db)
     for (const table of SCHEMA_TABLES) {
       expect(names).toContain(`ciki_${table.name}`)
     }
+  })
+})
+
+describe("schema_v8：username 唯一索引与存量重名消解", () => {
+  /** 往定版结构的 users 插一行（重建后的表没有 base_currency 等三列）。 */
+  function insertUser(db: SqliteD1, id: number, username: string): void {
+    const now = "2026-05-02T00:00:00.000Z"
+    db.db
+      .prepare(
+        `INSERT INTO ciki_users
+          (id, email, password_hash, role, is_active, approval_status, email_verified,
+           language, username, avatar_key, created_at, updated_at)
+         VALUES (?, ?, ?, 'user', 1, 'approved', 1, 'zh', ?, '', ?, ?)`
+      )
+      .run(id, `u${id}@example.com`, `hash-${id}`, username, now, now)
+  }
+
+  /** 把已升级的库退回「v7 既存库」现场：去掉唯一索引与 v8 账本行。 */
+  async function rewindToV7(db: SqliteD1): Promise<void> {
+    await db.exec("DROP INDEX IF EXISTS ciki_users_username")
+    await db.exec(
+      "DELETE FROM _ciki_schema_migrations WHERE name = 'schema_v8'"
+    )
+  }
+
+  function usernames(db: SqliteD1): Array<{ id: number; username: string }> {
+    return db.db
+      .prepare("SELECT id, username FROM ciki_users ORDER BY id")
+      .all() as Array<{ id: number; username: string }>
+  }
+
+  it("v6 升级：只给撞名补 -2，空串原样留着，索引随后建上", async () => {
+    const { env, db } = await v6Context()
+    const now = "2026-05-02T00:00:00.000Z"
+    // 两种典型存量：与 admin 重名（要加后缀）、以及 username 还是空串（不参与唯一约束）。
+    db.db
+      .prepare(
+        `INSERT INTO ciki_users
+          (id, email, password_hash, role, is_active, approval_status, email_verified,
+           base_currency, timezone, language, theme, username, avatar_key, created_at, updated_at)
+         VALUES (3, 'dup@example.com', 'hash-3', 'user', 1, 'approved', 1,
+                 'CNY', 'UTC', 'zh', 'system', 'admin', '', ?, ?)`
+      )
+      .run(now, now)
+    db.db
+      .prepare(
+        `INSERT INTO ciki_users
+          (id, email, password_hash, role, is_active, approval_status, email_verified,
+           base_currency, timezone, language, theme, username, avatar_key, created_at, updated_at)
+         VALUES (4, 'empty@example.com', 'hash-4', 'user', 1, 'approved', 1,
+                 'CNY', 'UTC', 'zh', 'system', '', '', ?, ?)`
+      )
+      .run(now, now)
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    expect(result.migrations).toEqual(ledgerResult("applied"))
+    expect(usernames(db)).toEqual([
+      { id: 1, username: "admin" },
+      { id: 2, username: "editor" },
+      { id: 3, username: "admin-2" },
+      { id: 4, username: "" }
+    ])
+    // 索引已在：大小写不同也算撞名。
+    expect(() => insertUser(db, 5, "ADMIN")).toThrow(/UNIQUE constraint failed/)
+  })
+
+  it("v7 既存库：重名先消解再建索引，重跑幂等且不再改名", async () => {
+    const { env, db } = await initializedContext()
+    await rewindToV7(db)
+    insertUser(db, 1, "dup")
+    insertUser(db, 2, "DUP")
+    insertUser(db, 3, "")
+    insertUser(db, 4, "  spaced  ")
+    insertUser(db, 5, "b".repeat(41))
+    insertUser(db, 6, "é")
+    insertUser(db, 7, "É")
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    expect(result.migrations).toEqual([
+      { name: "schema_v7", status: "skipped" },
+      { name: "schema_v8", status: "applied" }
+    ])
+    // 只消重名：DUP 只加后缀（保留原大小写）；空白、41 码点、非 ASCII 大小写
+    // 都原样保留（索引的 COLLATE NOCASE 也只折 ASCII，é 与 É 本来就不是重名）。
+    expect(usernames(db)).toEqual([
+      { id: 1, username: "dup" },
+      { id: 2, username: "DUP-2" },
+      { id: 3, username: "" },
+      { id: 4, username: "  spaced  " },
+      { id: 5, username: "b".repeat(41) },
+      { id: 6, username: "é" },
+      { id: 7, username: "É" }
+    ])
+    expect(
+      db.db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='index' AND name='ciki_users_username'"
+        )
+        .get()
+    ).toEqual({ name: "ciki_users_username" })
+
+    const again = await runSetup(env)
+    if (!again.success) throw new Error(again.error)
+    expect(again.migrations).toEqual(ledgerResult("skipped"))
+    expect(usernames(db)).toEqual([
+      { id: 1, username: "dup" },
+      { id: 2, username: "DUP-2" },
+      { id: 3, username: "" },
+      { id: 4, username: "  spaced  " },
+      { id: 5, username: "b".repeat(41) },
+      { id: 6, username: "é" },
+      { id: 7, username: "É" }
+    ])
+  })
+
+  it("补后缀不抢未处理行的原名：carol/carol/carol-2 → carol/carol-3/carol-2", async () => {
+    const { env, db } = await initializedContext()
+    await rewindToV7(db)
+    insertUser(db, 1, "carol")
+    insertUser(db, 2, "carol")
+    insertUser(db, 3, "carol-2")
+    insertUser(db, 4, "dave")
+    insertUser(db, 5, "dave")
+    insertUser(db, 6, "dave-2")
+    insertUser(db, 7, "dave-3")
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    // 只有真正的重名（id 2、id 5）补后缀，且跳过稍后几行本来就有的 -2/-3：
+    // 不重名的行（id 3/6/7）一字不改。
+    expect(usernames(db)).toEqual([
+      { id: 1, username: "carol" },
+      { id: 2, username: "carol-3" },
+      { id: 3, username: "carol-2" },
+      { id: 4, username: "dave" },
+      { id: 5, username: "dave-4" },
+      { id: 6, username: "dave-2" },
+      { id: 7, username: "dave-3" }
+    ])
+
+    // 幂等：再跑一次不再改名。
+    const again = await runSetup(env)
+    if (!again.success) throw new Error(again.error)
+    expect(again.migrations).toEqual(ledgerResult("skipped"))
+    expect(usernames(db).map((row) => row.username)).toEqual([
+      "carol",
+      "carol-3",
+      "carol-2",
+      "dave",
+      "dave-4",
+      "dave-2",
+      "dave-3"
+    ])
+  })
+
+  it("40 码点基础名：后缀算在 40 码点内，结果不超限", async () => {
+    const { env, db } = await initializedContext()
+    await rewindToV7(db)
+    const long = "a".repeat(40)
+    insertUser(db, 1, long)
+    insertUser(db, 2, long)
+
+    const result = await runSetup(env)
+    if (!result.success) throw new Error(result.error)
+    const rows = usernames(db)
+    expect(rows[0].username).toBe(long)
+    expect(rows[1].username).toBe(`${"a".repeat(38)}-2`)
+    expect(Array.from(rows[1].username)).toHaveLength(40)
   })
 })

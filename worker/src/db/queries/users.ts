@@ -137,6 +137,28 @@ export async function findUserById(
     .first<UserRow>()
 }
 
+/**
+ * 用户名是否已被别人占用：大小写不敏感（与唯一索引的 COLLATE NOCASE 同口径），
+ * 空串不参与唯一约束。`excludeUserId` 用于改名——改成自己当前的名字（含只改
+ * 大小写）不算撞名。
+ */
+export async function usernameTaken(
+  db: D1Database,
+  prefix: string,
+  username: string,
+  excludeUserId = 0
+): Promise<boolean> {
+  const row = await db
+    .prepare(
+      `SELECT 1 AS taken FROM ${usersTable(prefix)}
+        WHERE username <> '' AND username = ? COLLATE NOCASE AND id <> ?
+        LIMIT 1`
+    )
+    .bind(username, excludeUserId)
+    .first<{ taken: number }>()
+  return row !== null
+}
+
 const UPDATABLE = new Set([
   "email",
   "password_hash",

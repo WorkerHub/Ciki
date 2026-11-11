@@ -4,9 +4,14 @@
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
-import { findUserById, updateUser, type UserRow } from "../db/queries/users"
+import {
+  findUserById,
+  updateUser,
+  usernameTaken,
+  type UserRow
+} from "../db/queries/users"
 import { twofaSummary } from "./auth-2fa"
-import { normalizeUsername } from "../core/identity"
+import { isUsernameConflict, normalizeUsername } from "../core/identity"
 import { UPLOAD_KEY_RE, storeImageUpload } from "../lib/upload"
 import {
   deleteSessionById,
@@ -92,6 +97,18 @@ meRoutes.put("/profile", async (c) => {
   const user = await findUserById(c.env.DB, prefix, userId)
   if (!user) return c.json({ error: "User not found" }, 404)
 
+  // 改名撞名：username 是唯一对外身份（大小写不敏感），撞了回 409 让用户自己换，
+  // 不自动加后缀。并发下两条请求同时改成同一个名字，由库内唯一索引兜底（见下）。
+  if (
+    username !== undefined &&
+    (await usernameTaken(c.env.DB, prefix, username, userId))
+  ) {
+    return c.json(
+      { error: "Username already taken", code: "USERNAME_TAKEN" },
+      409
+    )
+  }
+
   let avatarKey: string | null | undefined
   if (hasAvatar) {
     if (body.avatarKey === null) {
@@ -111,7 +128,19 @@ meRoutes.put("/profile", async (c) => {
   const updates: Record<string, unknown> = {}
   if (username !== undefined) updates.username = username
   if (avatarKey !== undefined) updates.avatar_key = avatarKey ?? ""
-  await updateUser(c.env.DB, prefix, userId, updates)
+  try {
+    await updateUser(c.env.DB, prefix, userId, updates)
+  } catch (err) {
+    // 查重与写入之间的竞态：库里唯一索引说了算，同样回 409 而不是 500。
+    // 名字与头像在同一条 UPDATE 里，冲突时两列都不变。
+    if (isUsernameConflict(err)) {
+      return c.json(
+        { error: "Username already taken", code: "USERNAME_TAKEN" },
+        409
+      )
+    }
+    throw err
+  }
 
   const previous = user.avatar_key
   if (avatarKey !== undefined) {

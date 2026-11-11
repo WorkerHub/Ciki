@@ -43,6 +43,7 @@ import {
   isEmailConflict,
   normalizeSiteName
 } from "../core/identity"
+import { insertWithUniqueUsername } from "../core/username"
 import { runSetup } from "../lib/setup"
 import {
   cleanupLockRemainingSeconds,
@@ -158,12 +159,19 @@ adminRoutes.post("/users", async (c) => {
   const passwordHash = await hashPassword(password)
   let id: number
   try {
-    id = await createApprovedUser(c.env.DB, prefix, {
-      email,
-      username: defaultUsernameFromEmail(email),
-      password_hash: passwordHash,
-      role: body?.role === "admin" ? "admin" : "user"
-    })
+    // 显示名取邮箱前缀；重名自动加 -2、-3（大小写不敏感），并发撞键重试。
+    id = await insertWithUniqueUsername(
+      c.env.DB,
+      prefix,
+      defaultUsernameFromEmail(email),
+      (username) =>
+        createApprovedUser(c.env.DB, prefix, {
+          email,
+          username,
+          password_hash: passwordHash,
+          role: body?.role === "admin" ? "admin" : "user"
+        })
+    )
   } catch (err) {
     if (isEmailConflict(err)) {
       return c.json(
