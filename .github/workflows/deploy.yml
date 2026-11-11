@@ -61,6 +61,9 @@ jobs:
       # 资源 ID 走 secrets.*（GitHub 自动掩码，不需要 add-mask）；
       # D1_DATABASE_NAME 保持 variable 明文；WAKER_SIGNING_KEY 是**可选**项
       # （配了月度清理走 waker、不配走内置 Cron），所以缺它不会中止部署。
+      # CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID 除了解析
+      # wrangler.toml，也会作为 Worker secret 上传：/api/admin/storage 调
+      # Cloudflare D1 REST API 取库体积要用（令牌需含 D1 读；不新增 secret 名）。
       - name: Materialize secrets + wrangler config
         env:
           ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}

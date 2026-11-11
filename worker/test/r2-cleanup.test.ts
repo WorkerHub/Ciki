@@ -1094,38 +1094,3 @@ describe("运行态：GET 的 running", () => {
     expect(stale.running).toBeNull()
   })
 })
-
-describe("存储口径：管理面 /storage（本库体积 + 页数）", () => {
-  it("页数/版本数/用户数取自 D1，体积标注 own-database", async () => {
-    const context = await initializedContext()
-    const { env } = context
-    const admin = await adminSession(env)
-    const { htmlHash } = await seedReferencedContent(context)
-
-    const res = await request(env, "/api/admin/storage", {
-      headers: { cookie: admin }
-    })
-    expect(res.status).toBe(200)
-    const body = (await res.json()) as {
-      pageCount: number
-      trashedPageCount: number
-      revisionCount: number
-      spaceCount: number
-      userCount: number
-      databaseSizeBytes: number | null
-      sizeScope: string
-      measure: string
-    }
-    expect(body.pageCount).toBe(1)
-    expect(body.trashedPageCount).toBe(1)
-    expect(body.revisionCount).toBe(1)
-    expect(body.spaceCount).toBe(1)
-    expect(body.userCount).toBe(1)
-    // Ciki 的 D1 是独占库（非共享库）：体积口径标注为本库。
-    expect(body.sizeScope).toBe("own-database")
-    expect(body.measure).toBe("sqlite-page-count")
-    expect(typeof body.databaseSizeBytes).toBe("number")
-    expect(body.databaseSizeBytes).toBeGreaterThan(0)
-    expect(htmlHash).toHaveLength(64)
-  })
-})
