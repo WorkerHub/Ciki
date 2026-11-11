@@ -249,7 +249,7 @@ describe("保存路径：content_md 与正文同批落库", () => {
     expect(columns).not.toContain("content_json")
   })
 
-  it("无改动保存：判等口径仍是四项，MD 与版本条数都不动", async () => {
+  it("无改动保存：判等只看正文三项，MD 与版本条数都不动", async () => {
     const { env, db } = await initializedContext()
     const admin = await adminSession(env)
     const page = await createRichPage(env, admin)

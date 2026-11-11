@@ -290,7 +290,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 索引：`(space_id, parent_id, sort_order)`、`(space_id, deleted_at)`、`(parent_id, sort_order)`、`(deleted_at)`、`(updated_at)`、`(content_hash)`。
 
-正文 JSON 不在 D1：`content_hash` 指向 `ciki-content` 桶里的对象（key `content/<sha256>`，值 = gzip 后的 JSON UTF-8 字节）。同一份正文全站共用一个对象；`content_html` / `content_text` / `content_md` 是它的派生件，写路径同一次 `db.batch()` 落库，正常保存/导入覆盖/回滚三条入口共用。判等仍是「标题 + 正文哈希 + HTML + 纯文本」四项，无改动保存既不上传也不写库。将来调整派生规则要重刷时，直接按 `content_hash` 重算 HTML/文本/MD 即可（不需要碰正文对象）。
+正文 JSON 不在 D1：`content_hash` 指向 `ciki-content` 桶里的对象（key `content/<sha256>`，值 = gzip 后的 JSON UTF-8 字节）。同一份正文全站共用一个对象；`content_html` / `content_text` / `content_md` 是它的派生件，写路径同一次 `db.batch()` 落库，正常保存/导入覆盖/回滚三条入口共用。版本增长的判等只看正文：「正文哈希 + HTML + 纯文本」三项全等即无改动，既不上传对象也不写版本行；标题属页级元数据，单独变化只原地改标题与搜索索引（不改版本号）。将来调整派生规则要重刷时，直接按 `content_hash` 重算 HTML/文本/MD 即可（不需要碰正文对象）。
 
 ### page_revisions
 
@@ -304,7 +304,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | editor_id    | INTEGER NOT NULL         | 编辑者用户 id（0 = 已彻底删除）                          |
 | created_at   | TEXT NOT NULL            | ISO 时间                                                 |
 
-索引 `(page_id, version_no DESC)`、`(content_hash)`。每次新建/有实际改动的保存/回滚都追加一条；标题 + 正文哈希 + HTML + 纯文本全等即无改动，不追加。版本号只在插入时由 `MAX(version_no)+1` 生成，删中间版本不会重排编号。
+索引 `(page_id, version_no DESC)`、`(content_hash)`。新建页面追加首条；之后只有**正文有实际改动**的保存/回滚才追加一条（正文哈希 + HTML + 纯文本全等 = 无改动，不追加）；仅改标题不追加（标题当页级元数据原地更新，版本的 `title` 保留保存当时的快照）。版本号只在插入时由 `MAX(version_no)+1` 生成，删中间版本不会重排编号。
 
 - 正文只有一份：内容桶里的 `content/<content_hash>`（gzip 的 TipTap JSON）。版本的 HTML/纯文本**不落库**，查看版本时按需渲染；`pages` 表另存了当前内容的派生列，阅读页不读 R2。
 - 版本的 JSON 无法按当前编辑器 schema 渲染、或对象在但 gzip 字节已损坏时，查看与回滚都回 `422 {"error":"Revision content cannot be rendered: …","code":"REVISION_UNRENDERABLE"}`，不写回页面；`content_hash` 指向的对象**整个不存在**（指针脏了，不是版本内容问题）回 `500 {"error":"Page content unavailable","code":"CONTENT_MISSING"}`，与阅读接口取不到 JSON 同一口径。
@@ -1174,7 +1174,12 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 { "title": "…", "contentJson": "…", "contentHtml": "…", "contentText": "…" }
 ```
 
-200 完整详情。空间 `editor` 及以上可编辑；`viewer` 403、非成员 404。四列（`title` / `contentJson` 归一化后 / `contentHtml` 消毒后 / `contentText` 规范化后）与库里现存值全等 → 判定为无改动：不写页面行（`updatedAt`、`updatedBy` 不动）、不追加 revision、不重建 FTS，响应与正常保存同形（返回现存页面详情）；任一项不同即正常保存，追加一条 revision 并同步 FTS。
+200 完整详情。空间 `editor` 及以上可编辑；`viewer` 403、非成员 404。两档判定：
+
+- **正文没变**（`contentJson` 归一化后的哈希 + `contentHtml` 消毒后 + `contentText` 规范化后与库里全等）：不追加 revision、不上传对象。标题也没变 → 不写任何行（`updatedAt`、`updatedBy` 不动）；只有标题变了 → 只原地更新 `title` / `updatedAt` / `updatedBy` 并同步搜索索引（标题在 FTS 里），**不产新版本、不新增 R2 对象**——这是前端「改名」的唯一入口，改名零版本增长；
+- **正文变了**：先 PUT 内容对象，再在同一个 `db.batch()` 里写页面行 + 追加一条 revision + 重建 FTS + 按保留数修剪。
+
+两种情形都返回与正常保存同形的完整详情。
 
 #### POST /api/pages/:id/move
 
@@ -1237,7 +1242,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 #### POST /api/pages/:id/revisions/:versionNo/restore
 
-以该快照写回页面并生成新 revision（`versionNo` = 当前最大 +1），返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；与当前页面全等（即回滚到当前版本）→ 无改动：不写行、不新增 revision，响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`、对象缺失 500 `code:"CONTENT_MISSING"`，两种情况下页面内容保持原样。
+以该快照写回页面并生成新 revision（`versionNo` = 当前最大 +1），返回 200 完整页面详情。快照内容由该版本的 JSON 重渲染（HTML/纯文本与「查看单个版本」同一路径）再写回；正文与当前全等（即回滚到当前版本）→ 不新增 revision（标题不同则按改名口径原地更新），响应仍是 200 完整页面详情。需所属空间 `editor` 及以上；`viewer` 403、非成员 404。渲染失败 422 `code:"REVISION_UNRENDERABLE"`、对象缺失 500 `code:"CONTENT_MISSING"`，两种情况下页面内容保持原样。
 
 ### 评论
 
@@ -1570,7 +1575,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 图片→`![alt](绝对地址)`：本站路径（`/api/files/...`）补全为 `https://ciki.oneboy.app` + 路径；已是绝对地址或 `data:` 原样保留；只有 `data-original-src` 的未转存占位图用它。
 - 颜色/高亮→丢弃只留文字；下划线→降为纯文字；未知节点降级为它的文字内容。
 - 派生**永不报错**：JSON 无法解析或不合当前 schema 时退回已消毒的纯文本（`content_text`）。
-- `content_md` 不参与无改动保存的判等（判等仍是标题 + `content_json` + `content_html` + `content_text` 四项）；历史版本不存 MD。
+- `content_md` 不参与无改动保存的判等（判等只看正文：正文哈希 + `content_html` + `content_text` 三项；标题变化只原地改标题与索引，不计入版本增长）；历史版本不存 MD。
 
 ### 服务端消毒规则（content_html）
 

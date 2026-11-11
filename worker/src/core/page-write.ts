@@ -7,8 +7,8 @@
  *
  * 顺序定死（规格「读写路径」）：算 JSON → 算哈希 → PUT 对象 → 单次 `db.batch()`
  * 落衍生件 + `content_hash` + 新版本行。先 R2 后 D1，失败只产孤儿对象（由月度内容 GC
- * 收），绝不允许 D1 指针悬空。无改动的保存在 PUT 之前就返回：不写行、不追加版本、
- * 不重建 FTS。
+ * 收），绝不允许 D1 指针悬空。正文全等的保存在 PUT 之前就返回：不写行、不追加版本；
+ * 只有标题变则原地更新标题与搜索索引（同样不追加版本、不新增对象）。
  *
  * 正文只以 `content/<sha256>` 对象存在（`core/content-store.ts`）；D1 留
  * `content_html` / `content_text` / `content_md` 三件派生件，读页、搜索、MD 下载
@@ -21,6 +21,7 @@ import {
   insertPage,
   maxSortOrder,
   updatePageContent,
+  updatePageTitle,
   type PageRow
 } from "../db/queries/pages"
 import {
@@ -42,20 +43,19 @@ export interface PageWriteOptions {
 }
 
 /**
- * 归一化后的来稿与库里现存行是否全等（= 本次保存无改动）。
+ * 正文部分（哈希 + HTML + 纯文本）是否全等 = 本次保存是否不需要新版本。
  *
- * 比对口径是「服务端归一化后的值」对「上次归一化落库的值」，逐字节严格比较：
- * 标题、正文哈希、HTML、纯文本四项全等即无改动（MD 是 JSON 的函数，必然也相等）。
+ * **标题不参与**：改名是页级元数据变更，不能长版本（用户口径「改名应零版本增长」）。
+ * 比对口径是「服务端归一化后的值」对「上次归一化落库的值」，逐字节严格比较。
  * 不比较 `parent_id` / `space_id` / `sort_order`（这三项不归保存管）。宁可多记一条
- * 版本，也不吞掉真实改动。
+ * 版本，也不吞掉真实正文改动。
  */
-export function contentUnchanged(
+export function bodyUnchanged(
   existing: PageRow,
   content: PageContent,
   hash: string
 ): boolean {
   return (
-    existing.title === content.title &&
     existing.content_hash === hash &&
     existing.content_html === content.contentHtml &&
     existing.content_text === content.contentText
@@ -139,8 +139,11 @@ export async function createPage(
 /**
  * 覆盖既有页面的内容（保存/回滚/导入更新共用）。
  *
- * 与现存行全等 → 无改动：不写页面行、不追加版本、不重建 FTS、也不上传对象，
- * 直接返回现存行；否则先 PUT 内容对象、再在一个事务里写页面行 + 新版本 + FTS + 修剪。
+ * 正文全等（哈希 + HTML + 纯文本）即不产新版本、不上传对象：
+ * - 标题也没变 → 完全无改动，直接返回现存行；
+ * - 只有标题变了 → 页级元数据原地更新（只写 title + 更新时间，同步 FTS），不写版本行。
+ *
+ * 正文有改动 → 先 PUT 内容对象，再在一个事务里写页面行 + 新版本 + FTS + 修剪。
  */
 export async function savePageContent(
   env: Env,
@@ -151,7 +154,30 @@ export async function savePageContent(
   const { content, userId, now } = options
   const db = env.DB
   const hash = await hashContent(content.contentJson)
-  if (contentUnchanged(existing, content, hash)) return existing
+
+  if (bodyUnchanged(existing, content, hash)) {
+    if (existing.title === content.title) return existing
+    // 改名：不产新版本、不新增 R2 对象，只把标题当元数据改写（搜索索引跟着换标题）。
+    await db.batch([
+      updatePageTitle(db, prefix, {
+        id: existing.id,
+        title: content.title,
+        updated_by: userId,
+        updated_at: now
+      }),
+      ...indexPageStatements(db, prefix, {
+        id: existing.id,
+        title: content.title,
+        contentText: existing.content_text
+      })
+    ])
+    return {
+      ...existing,
+      title: content.title,
+      updated_by: userId,
+      updated_at: now
+    }
+  }
 
   // 先 R2 后 D1：对象写成功才动库，指针永不悬空。
   await putContentHashed(env, hash, content.contentJson)

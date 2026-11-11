@@ -102,6 +102,7 @@ adminRoutes.get("/spaces", async (c) => {
   return c.json(
     spaces.map((space) => ({
       id: space.id,
+      slug: space.slug,
       name: space.name,
       description: space.description,
       isDefault: Boolean(space.is_default),

@@ -207,6 +207,23 @@ export function updatePageContent(
     )
 }
 
+/**
+ * 只改标题（页级元数据，不参与版本增长）：正文列与 `content_hash` 一律不动。
+ */
+export function updatePageTitle(
+  db: D1Database,
+  prefix: string,
+  page: { id: number; title: string; updated_by: number; updated_at: string }
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `UPDATE ${pagesTable(prefix)}
+          SET title = ?, updated_by = ?, updated_at = ?
+        WHERE id = ? AND deleted_at IS NULL`
+    )
+    .bind(page.title, page.updated_by, page.updated_at, page.id)
+}
+
 export function updatePagePlacement(
   db: D1Database,
   prefix: string,
