@@ -13,6 +13,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 import { ArticleToc } from "@/components/ArticleToc"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
+import { CommentSection } from "@/components/comments/CommentSection"
 import { MovePageDialog } from "@/components/MovePageDialog"
 import {
   AlertDialog,
@@ -461,6 +462,9 @@ export function PageView() {
           </Button>
         </div>
       )}
+
+      {/* 页尾评论区：评论挂页面，正文换版/回滚都不影响它。 */}
+      <CommentSection key={page.id} pageId={page.id} />
 
       <RevisionsDialog
         pageId={page.id}

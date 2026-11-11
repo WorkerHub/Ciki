@@ -372,6 +372,38 @@
   overflow-wrap: normal;
 }
 
+/* 评论正文的代码围栏：服务端下发的是裸 <pre><code class="language-*">，没有
+   CodeBlockView 的 .code-block 壳，上面那套匹配不上，这里按同一套视觉补上
+   （浅色底在明暗两态都保留，与正文代码块同口径；语言标注留在 code 的 class 上）。 */
+.wiki-content.comment-body pre {
+  margin: 0.875em 0;
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: #f6f8fa;
+  color: #24292f;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.wiki-content.comment-body pre > code {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
 /* highlight.js —— GitHub 浅色配色（小样 index.html 定版） */
 .wiki-content .hljs-comment,
 .wiki-content .hljs-punctuation {
