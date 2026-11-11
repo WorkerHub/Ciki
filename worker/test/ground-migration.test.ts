@@ -579,10 +579,10 @@ describe("schema_v8：username 唯一索引与存量重名消解", () => {
       .all() as Array<{ id: number; username: string }>
   }
 
-  it("v6 升级：id 小者留原名、其余 -2、空串归一「用户」，索引随后建上", async () => {
+  it("v6 升级：只给撞名补 -2，空串原样留着，索引随后建上", async () => {
     const { env, db } = await v6Context()
     const now = "2026-05-02T00:00:00.000Z"
-    // 两种典型存量：与 admin 重名、以及 username 还是空串。
+    // 两种典型存量：与 admin 重名（要加后缀）、以及 username 还是空串（不参与唯一约束）。
     db.db
       .prepare(
         `INSERT INTO ciki_users
@@ -609,7 +609,7 @@ describe("schema_v8：username 唯一索引与存量重名消解", () => {
       { id: 1, username: "admin" },
       { id: 2, username: "editor" },
       { id: 3, username: "admin-2" },
-      { id: 4, username: "用户" }
+      { id: 4, username: "" }
     ])
     // 索引已在：大小写不同也算撞名。
     expect(() => insertUser(db, 5, "ADMIN")).toThrow(/UNIQUE constraint failed/)
@@ -621,6 +621,10 @@ describe("schema_v8：username 唯一索引与存量重名消解", () => {
     insertUser(db, 1, "dup")
     insertUser(db, 2, "DUP")
     insertUser(db, 3, "")
+    insertUser(db, 4, "  spaced  ")
+    insertUser(db, 5, "b".repeat(41))
+    insertUser(db, 6, "é")
+    insertUser(db, 7, "É")
 
     const result = await runSetup(env)
     if (!result.success) throw new Error(result.error)
@@ -628,11 +632,16 @@ describe("schema_v8：username 唯一索引与存量重名消解", () => {
       { name: "schema_v7", status: "skipped" },
       { name: "schema_v8", status: "applied" }
     ])
-    // 保留原大小写：DUP 只加后缀，不被规范化成小写。
+    // 只消重名：DUP 只加后缀（保留原大小写）；空白、41 码点、非 ASCII 大小写
+    // 都原样保留（索引的 COLLATE NOCASE 也只折 ASCII，é 与 É 本来就不是重名）。
     expect(usernames(db)).toEqual([
       { id: 1, username: "dup" },
       { id: 2, username: "DUP-2" },
-      { id: 3, username: "用户" }
+      { id: 3, username: "" },
+      { id: 4, username: "  spaced  " },
+      { id: 5, username: "b".repeat(41) },
+      { id: 6, username: "é" },
+      { id: 7, username: "É" }
     ])
     expect(
       db.db
@@ -648,7 +657,11 @@ describe("schema_v8：username 唯一索引与存量重名消解", () => {
     expect(usernames(db)).toEqual([
       { id: 1, username: "dup" },
       { id: 2, username: "DUP-2" },
-      { id: 3, username: "用户" }
+      { id: 3, username: "" },
+      { id: 4, username: "  spaced  " },
+      { id: 5, username: "b".repeat(41) },
+      { id: 6, username: "é" },
+      { id: 7, username: "É" }
     ])
   })
 

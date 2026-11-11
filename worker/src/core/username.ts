@@ -5,8 +5,8 @@
  * 路径都只是「尽量一次写对」的辅助：
  * - 新建号先查重拿空位，写入仍撞键就换下一个后缀重试——查重与写入之间的竞态由
  *   索引兜底，不会 500；
- * - 迁移在建索引之前先按「id 最小者保留原名、其余 -2/-3、空串归一『用户』」
- *   把存量重名消解掉，否则唯一索引建不上。
+ * - 迁移在建索引之前先把存量重名消解掉（id 最小者保留原名、其余 -2/-3），否则
+ *   唯一索引建不上。
  *
  * 后缀口径与 `usernameWithSuffix` 同一份实现：后缀算在 40 码点之内。
  */
@@ -20,22 +20,26 @@ import { usernameTaken } from "../db/queries/users"
 /** 撞名重试上限：留足余量，正常一次就中。超过说明基础名被占得离谱，直接报错。 */
 export const MAX_USERNAME_ATTEMPTS = 50
 
-/** 每批 UPDATE 条数：单次 `db.batch()` 别塞太大，用户量也不大。 */
-const RENAMES_PER_BATCH = 100
-
-/** 唯一性比较口径：与索引的 COLLATE NOCASE 对齐（只折 ASCII 大小写）。 */
+/**
+ * 唯一性比较口径与索引的 `COLLATE NOCASE` 完全一致：只折 ASCII 大写字母。
+ * 不能用 `toLowerCase()`——它会把 `é`/`É` 也当成重名（索引认为两者不同），
+ * 白白改掉一个本来不重名的用户名。
+ */
 function usernameKey(name: string): string {
-  return name.toLowerCase()
+  return name.replace(/[A-Z]/g, (char) => char.toLowerCase())
 }
 
 /**
  * 消解一张 users 表（正式表或重建用的 `v7_users` 临时表）里的重名，返回改名条数。
  *
- * 按 id 升序逐行分配：候选名先按 `cleanUsername` 规范化（去控制字符、trim、截到
- * 40 码点、空串→「用户」），被先前的行占用就继续 `-2`、`-3`…找空位。只对真的
- * 变了的行发 UPDATE，`updated_at` 不动（这是结构归一，不是用户改名）。
+ * 只做一件事：给真正的重名（大小写不敏感）补 `-2`、`-3` 后缀（后缀算在 40 码点内，
+ * 基础名太长时截短腾位），同一名字里 id 最小者保留原名。**其余用户名一字不改**：
+ * 不 trim、不截断、空串也不改写（索引的 `WHERE username <> ''` 已把空串排除在唯一
+ * 约束之外，它不会造成撞键）。
  *
- * 幂等：干净的表上一条 UPDATE 都不会发。调用方必须在建唯一索引之前调用它。
+ * 只对真的变了的行发 UPDATE，全部改动在一次 `db.batch()`（D1 的事务单位）里提交：
+ * 要么全改、要么一条都不改（升级失败时旧库的用户名原样保留）；`updated_at` 不动。
+ * 幂等：干净的表上一条 UPDATE 都不会发。
  */
 export async function resolveDuplicateUsernames(
   db: D1Database,
@@ -49,11 +53,13 @@ export async function resolveDuplicateUsernames(
   const updates: Array<{ id: number; username: string }> = []
 
   for (const row of rows.results) {
-    const base = cleanUsername(row.username ?? "")
-    let candidate = base
+    // 空串不参与唯一约束，也不占用任何名字：原样留着，多个空串可以共存。
+    if (row.username === "") continue
+
+    let candidate = row.username
     let n = 2
     while (taken.has(usernameKey(candidate))) {
-      candidate = usernameWithSuffix(base, n)
+      candidate = usernameWithSuffix(row.username, n)
       n += 1
     }
     taken.add(usernameKey(candidate))
@@ -62,10 +68,9 @@ export async function resolveDuplicateUsernames(
     }
   }
 
-  for (let start = 0; start < updates.length; start += RENAMES_PER_BATCH) {
-    const batch = updates.slice(start, start + RENAMES_PER_BATCH)
+  if (updates.length > 0) {
     await db.batch(
-      batch.map((entry) =>
+      updates.map((entry) =>
         db
           .prepare(`UPDATE ${table} SET username = ? WHERE id = ?`)
           .bind(entry.username, entry.id)
@@ -82,6 +87,10 @@ export async function resolveDuplicateUsernames(
  * `insert` 是真正的建号语句，拿到候选名后执行；它抛用户名唯一约束冲突（并发下
  * 别人刚好占了这个名字）就换下一个后缀重试，其它错误原样抛给调用方（邮箱冲突仍
  * 由路由层映射成 409）。attempt 1 就是 `base` 本身，之后依次 `-2`、`-3`…。
+ *
+ * 回调返回 `null`（注册的首个用户守卫在写库那一刻发现表已非空、一个字节都没写）
+ * 时**原样返回、不重试**：那是路由层 503 `EMAIL_NOT_CONFIGURED` 的唯一来源，
+ * 吞掉它去重试只会把 503 变成重试耗尽后的 500。
  */
 export async function insertWithUniqueUsername<T>(
   db: D1Database,

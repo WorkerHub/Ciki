@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { Env } from "../src/types"
+import { isUsernameConflict } from "../src/core/identity"
 import { insertWithUniqueUsername } from "../src/core/username"
 import {
   adminSession,
@@ -473,8 +474,10 @@ describe("username 唯一性：自动后缀、改名撞名 409", () => {
       async (username) => {
         attempts += 1
         if (attempts === 1) {
-          // 等价于「查完重名、写入那一刻被别人占了」。
-          throw new Error("UNIQUE constraint failed: ciki_users.username")
+          // 等价于「查完重名、写入那一刻被别人占了」，用 D1 的真实报法。
+          throw new Error(
+            "D1_ERROR: UNIQUE constraint failed: ciki_users.username: SQLITE_CONSTRAINT"
+          )
         }
         return username
       }
@@ -488,6 +491,102 @@ describe("username 唯一性：自动后缀、改名撞名 409", () => {
         throw new Error("UNIQUE constraint failed: ciki_users.email")
       })
     ).rejects.toThrow(/users\.email/)
+  })
+
+  it("唯一约束分类：按 <表>.<列> 精确判定，邮箱冲突与其它错误都不算重名", () => {
+    // 列形态（SQLite 对列唯一索引的报法，带表前缀时是 <前缀>users.username）。
+    expect(
+      isUsernameConflict(
+        new Error("UNIQUE constraint failed: ciki_users.username")
+      )
+    ).toBe(true)
+    expect(
+      isUsernameConflict(new Error("UNIQUE constraint failed: users.username"))
+    ).toBe(true)
+    // 多列唯一索引：逗号分隔，任一段是 username 才是重名。
+    expect(
+      isUsernameConflict(
+        new Error(
+          "UNIQUE constraint failed: ciki_users.email, ciki_users.username"
+        )
+      )
+    ).toBe(true)
+    // 邮箱冲突：不是重名，绝不能被重试吞掉。
+    expect(
+      isUsernameConflict(
+        new Error("UNIQUE constraint failed: ciki_users.email")
+      )
+    ).toBe(false)
+    expect(
+      isUsernameConflict(
+        new Error("UNIQUE constraint failed: ciki_users.old_username")
+      )
+    ).toBe(false)
+    // 表达式索引的报法才带索引名；非 username 索引不算。
+    expect(
+      isUsernameConflict(
+        new Error("UNIQUE constraint failed: index 'ciki_users_username'")
+      )
+    ).toBe(true)
+    expect(
+      isUsernameConflict(
+        new Error("UNIQUE constraint failed: index 'ciki_users_email'")
+      )
+    ).toBe(false)
+    // D1 会在末尾追加 `: SQLITE_CONSTRAINT`（真实线上报法），不能因此漏判。
+    expect(
+      isUsernameConflict(
+        new Error(
+          "D1_ERROR: UNIQUE constraint failed: ciki_users.username: SQLITE_CONSTRAINT"
+        )
+      )
+    ).toBe(true)
+    expect(
+      isUsernameConflict(
+        new Error(
+          "D1_ERROR: UNIQUE constraint failed: ciki_users.email: SQLITE_CONSTRAINT"
+        )
+      )
+    ).toBe(false)
+    expect(
+      isUsernameConflict(
+        new Error(
+          "D1_ERROR: UNIQUE constraint failed: index 'ciki_users_username': SQLITE_CONSTRAINT"
+        )
+      )
+    ).toBe(true)
+    // 非唯一约束、非约束错误一律不算。
+    expect(
+      isUsernameConflict(
+        new Error("NOT NULL constraint failed: ciki_users.username")
+      )
+    ).toBe(false)
+    expect(isUsernameConflict(new Error("boom"))).toBe(false)
+  })
+
+  it("首个用户守卫：insert 返回 null 原样返回、不重试，路由据此回 503", async () => {
+    const { env } = await initializedContext()
+    await adminSession(env, "dup@example.com")
+
+    // 单元层：null 是「没建号」的终态，不能被当成一次失败的后缀重试。
+    let attempts = 0
+    const notCreated = await insertWithUniqueUsername(
+      env.DB,
+      "ciki_",
+      "fresh",
+      async () => {
+        attempts += 1
+        return null
+      }
+    )
+    expect(notCreated).toBeNull()
+    expect(attempts).toBe(1)
+
+    // 路由层：表已非空 + 想要的用户名已被占（会先试 dup、dup-2 再写入），
+    // 未配发信时的守卫拦下写入 → 仍是 503，不是重试耗尽后的 500。
+    const res = await register(env, "dup@example.org")
+    expect(res.status).toBe(503)
+    expect(await res.json()).toMatchObject({ code: "EMAIL_NOT_CONFIGURED" })
   })
 
   it("评论按 username 展示：重名账号显示 dup-2", async () => {

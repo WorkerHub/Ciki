@@ -10,8 +10,8 @@ export const MAX_USERNAME_LENGTH = 40
 export const MAX_SITE_NAME_LENGTH = 32
 
 /**
- * 显示名的兜底值：邮箱前缀为空（或全是控制字符）时用，存量重建时也按它归一空串。
- * 「用户」本身也算占用，第二个空串会拿到「用户-2」。
+ * 新建号的兜底显示名：邮箱前缀为空（或全是控制字符）时用。迁移消解存量重名时
+ * 不用它——历史用户名一律原样保留，空串既不参与唯一约束、也不改写。
  */
 export const FALLBACK_USERNAME = "用户"
 
@@ -94,13 +94,28 @@ export function isEmailConflict(err: unknown): boolean {
 /**
  * 用户名唯一键冲突（`users_username` 索引的并发兜底）。
  *
- * SQLite 对唯一索引报 `UNIQUE constraint failed: users.username`（带前缀时是
- * `<前缀>users.username`）；不同版本也可能只报索引名，所以按「含 username 且不是
- * email」判定，避免与邮箱冲突混淆。
+ * SQLite 对**列**唯一索引报 `UNIQUE constraint failed: <表>.username`（带表前缀时
+ * 是 `<前缀>users.username`；多列唯一索引用逗号分隔）；只有表达式索引才报
+ * `UNIQUE constraint failed: index '<索引名>'`。D1 还会在末尾追加
+ * `: SQLITE_CONSTRAINT`，先剔掉再按列名 / 索引名精确匹配——不用子串猜，
+ * 否则邮箱冲突会被误当成用户名冲突，把注册重试烧在错的分支上。
  */
 export function isUsernameConflict(err: unknown): boolean {
   const message = uniqueViolationMessage(err)
   if (!message) return false
-  if (isEmailConflict(err)) return false
-  return /username/i.test(message)
+  const detail = message
+    .replace(/^.*?UNIQUE constraint failed:\s*/i, "")
+    .replace(/\s*:\s*[A-Z_0-9]+$/, "")
+    .trim()
+    .toLowerCase()
+  const columns = detail.split(",").map((part) => part.trim())
+  if (
+    columns.some(
+      (column) => column === "username" || column.endsWith(".username")
+    )
+  ) {
+    return true
+  }
+  // 表达式索引的报法：我们的列索引不会走到这里，留着兜住将来改写成 lower(username) 的情况。
+  return /^index\s+'[^']*_username'$/.test(detail)
 }
