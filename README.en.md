@@ -144,13 +144,19 @@ unset SETUP_SECRET
 
 After each upgrade deployment, an admin clicks "Check and upgrade database" under Admin → Database Maintenance (系统管理 → 数据库维护) to apply pending migrations (`POST /api/admin/setup` with an admin session; no `SETUP_SECRET` needed). Already-applied migrations show as `skipped`, and the UI offers no drop-table or wipe-database action.
 
-**Upgrades that include the one-time rebuild (integer IDs + page content moved to R2, migration `schema_v6`) must be backed up first and cannot be undone**: that step rebuilds every table and moves page bodies into `ciki-content`; no uuid-to-integer mapping is kept, so a backup is the only way back. Export the whole database before pressing the button:
+**Upgrades that include the one-time rebuild (integer IDs + page content moved to R2, migration `schema_v6`) must record a rollback point first and cannot be undone**: that step rebuilds every table and moves page bodies into `ciki-content`; no uuid-to-integer mapping is kept, so only that rollback point can take you back. D1 backups are handled by Cloudflare's Time Travel: it is always on and needs no manual backup, and restores to any point within the last 30 days (Workers Paid; 7 days on Free). It requires a database whose `wrangler d1 info <database-name>` shows `version: production` (wrangler v3.4.0+; this project pins ^4.14.1). **Do not use `wrangler d1 export`** — the database has FTS5 virtual tables, and Cloudflare rejects that command (`cannot export databases with virtual tables (fts5)`). Record the current bookmark before pressing the button:
 
 ```sh
-npx wrangler d1 export <database-name> --remote --output ciki-$(date +%F).sql
+npx wrangler d1 time-travel info <database-name>
 ```
 
-Keep the `.sql` locally (or as a CI artifact) and check it is not empty before upgrading. A failed migration changes nothing and records nothing, so you can fix the cause and run it again; after a successful run this backup is the only rollback path, so keep it until the site has been verified.
+Keep the `The current bookmark is '…'` line together with its timestamp in your ticket or password manager: once a bookmark expires it can no longer serve as a rollback point. A failed migration changes nothing and records nothing, so you can fix the cause and run it again; once the upgrade succeeds, restore that bookmark in place if you need to go back:
+
+```sh
+npx wrangler d1 time-travel restore <database-name> --bookmark=<bookmark>
+```
+
+`restore` overwrites the whole database (it asks for confirmation) and prints the previous bookmark that undoes the restore — keep that one as well. Time Travel only rolls D1 back: the body objects in R2 are immutable and are neither reverted nor deleted, so restoring D1 needs no change to `ciki-content`.
 
 ### 6. Register the admin
 

@@ -144,13 +144,19 @@ unset SETUP_SECRET
 
 每次升级部署后，管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」即可补跑迁移（`POST /api/admin/setup`，登录管理员会话即可，不需要 `SETUP_SECRET`）。已执行的迁移显示为 `skipped`；界面不提供删表 / 清库入口。
 
-**含一次性重建的升级（ID 整数化 + 正文上 R2，迁移 `schema_v6`）必须先备份，且不可回退**：这一步会把所有表按新结构重建、把正文搬进 `ciki-content`，旧 uuid 与新整数之间不留对照表，出问题只能靠备份还原。点按钮之前先导出一次完整库：
+**含一次性重建的升级（ID 整数化 + 正文上 R2，迁移 `schema_v6`）必须先记下回退点，且不可回退**：这一步会把所有表按新结构重建、把正文搬进 `ciki-content`，旧 uuid 与新整数之间不留对照表，出问题只能靠回退点恢复。D1 的备份由 Cloudflare 的 Time Travel 承担：始终开启、不需要手动备份，可以回到最近 30 天内的任意时刻（Workers Paid 套餐；Free 套餐 7 天），`wrangler d1 info <库名>` 显示 `version: production` 才支持（wrangler 需 v3.4.0+，本项目已锁 ^4.14.1）。**不要再按旧命令 `wrangler d1 export` 导出**——库里有 FTS5 虚拟表，这条命令会被 Cloudflare 拒绝（`cannot export databases with virtual tables (fts5)`）。点按钮之前先记下当前 bookmark：
 
 ```sh
-npx wrangler d1 export <库名> --remote --output ciki-$(date +%F).sql
+npx wrangler d1 time-travel info <库名>
 ```
 
-导出的 `.sql` 落到本机（或 CI 产物）留档，确认文件非空再点升级。迁移失败时旧数据一字未动、账本不记账，修好原因重跑即可；升级成功后这次备份就是唯一的回滚手段，请保留到确认站点一切正常之后。
+把输出里的 `The current bookmark is '…'` 连同时间存进工单或密码管理器：bookmark 过期之后就不能再当回退点。迁移失败时旧数据一字未动、账本不记账，修好原因重跑即可；升级成功后一旦要回到升级前，按这个 bookmark 原地还原：
+
+```sh
+npx wrangler d1 time-travel restore <库名> --bookmark=<bookmark>
+```
+
+`restore` 会覆盖整个库（会二次确认），结束时还会给出「撤销这次还原」的旧 bookmark，一并留档。Time Travel 只回退 D1：R2 里的正文对象不可变、既不会被回退也不会被删，所以还原 D1 不需要动 `ciki-content`。
 
 ### 6. 注册管理员
 
