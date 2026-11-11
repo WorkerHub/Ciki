@@ -580,6 +580,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 201 `{"success":true,"approvalRequired":false,"emailVerificationRequired":false}`。
 - 用户表为空时：首个用户为 `admin`、直接批准并激活、邮箱直接视为已验证（`emailVerificationRequired:false`）。其余用户按 `registration_approval_required` 落 `pending`（`approvalRequired:true`）或直接批准，邮箱一律未验证（`emailVerificationRequired:true`）：注册成功后在后台发一封 `register_verify` 验证码邮件（6 位、10 分钟、单次消费），响应不等发信。
+  - 「注册首封」只写入 60 秒重发冷却（`email_code_cd`），**不占**每小时 5 封的发码配额（只有重发才占 `email_code_send`）：用户刚注册就能收到码，随即点重发也不会把刚发出的码作废。
 - **站点未配置发信时，普通自助注册（非首个用户）直接 503 `{"error":"Email delivery is not configured","code":"EMAIL_NOT_CONFIGURED"}` 且不建号**——避免留下永远验证不了的账号。首个管理员与管理员后台建号不受此限。
 - 服务端把 `username` 初始化为邮箱前缀（按码点截断 40，重名自动加 `-2`、`-3` 后缀），客户端不能在注册时指定它；`public_id` 已不存在。
 - 400 校验失败；403 `code:"REGISTRATION_DISABLED"`；409 `code:"EMAIL_TAKEN"`（唯一约束冲突一律映射成这个 409，含并发撞键）；503 `code:"EMAIL_NOT_CONFIGURED"`（见上）。
@@ -611,6 +612,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 账号不存在、已停用、已拒绝、已通过验证、发送失败、60 秒冷却期内重复请求：一律 200 但不发信（冷却期内也不重发）。
 - 限频复用 `email_code_cd` / `email_code_send` / `email_code_send_ip`（用途 `register_verify`、账号为邮箱）：60 秒冷却、每小时 5 封、每 IP 每小时 20 封；小时配额用尽 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`（冷却期仍是 200）。
+- 限频在查账号**之前**消费：上面那些静默场景（含已验证账号、未知邮箱）同样计入冷却与每小时配额，只是响应形状不变——前端按 200 正常起倒计时即可，不要假设「已验证账号不计数」。
 
 #### POST /api/auth/login
 
@@ -1637,5 +1639,6 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 主题等纯前端偏好不进本契约（客户端持久化）。
 - 注册后按 `emailVerificationRequired` 分流：`true` → 跳「验证邮箱」页（输入 6 位码调 `POST /api/auth/email/verify`，页面提供重发按钮调 `POST /api/auth/email/resend`）；`false`（首个管理员、管理员后台建号）→ 直接去登录。该字段缺失视为 `false`。
 - 登录拿到 403 `EMAIL_NOT_VERIFIED` → 登录页给出「重新发送验证码」入口（`resend`，按钮按响应的 `cooldownSeconds` 倒计时），不要提示密码错误。403 `ACCOUNT_PENDING_APPROVAL` 是另一件事：等管理员批准。
+- 管理员在后台改用户邮箱只作废该用户未用的验证码、**不回退** `email_verified`（改完仍可登录）；「自助改邮箱后重新验证」属后续小单，本契约不含。
 - 站点 `emailConfigured:false` 时收起自助注册入口（普通注册会 503 `EMAIL_NOT_CONFIGURED`）；`emailConfigured:true` 才展示注册表单。
 - 本契约不含：公开分享、多人实时协同、宏、Jira、通用附件、Markdown 存储与邮件通知渠道（SMTP 配置与验证码 plumbing 见「数据模型」与「管理」，邮箱验证码 2FA、找回密码与注册邮箱验证端点见「鉴权」）。

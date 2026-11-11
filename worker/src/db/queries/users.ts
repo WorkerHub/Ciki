@@ -22,7 +22,12 @@ export interface UserRow {
  * `email_verified=0`，由注册邮箱验证流程置位。单条语句判定“是否首个用户”，避免
  * 并发下出现两个管理员。
  *
- * 返回新用户的整数 id（`meta.last_row_id`），调用方不必再查一次。
+ * `requireEmptyTable` 把「只接受首个用户」也压进同一条语句（`WHERE` 里的 COUNT）：
+ * 站点没配发信时调用方传 true，并发注册的第二个请求在写入那一刻就会发现表已非空、
+ * 一行都不写（返回 null），由调用方回 503——不能靠插入前的 COUNT 预检，那个窗口里
+ * 两个请求会都以为自己是第一个。
+ *
+ * 返回新用户的整数 id（`meta.last_row_id`）；被 `requireEmptyTable` 拦下时返回 null。
  */
 export async function createUserFirstIsAdmin(
   db: D1Database,
@@ -32,8 +37,9 @@ export async function createUserFirstIsAdmin(
     username: string
     password_hash: string
     approvalStatus: "pending" | "approved"
-  }
-): Promise<number> {
+  },
+  options: { requireEmptyTable?: boolean } = {}
+): Promise<number | null> {
   const table = usersTable(prefix)
   const now = new Date().toISOString()
   const active = data.approvalStatus === "approved" ? 1 : 0
@@ -46,7 +52,8 @@ export async function createUserFirstIsAdmin(
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'approved' ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE 0 END,
-         'zh', ?, ?`
+         'zh', ?, ?
+       WHERE ? = 0 OR (SELECT COUNT(*) FROM ${table}) = 0`
     )
     .bind(
       data.email,
@@ -55,9 +62,11 @@ export async function createUserFirstIsAdmin(
       active,
       data.approvalStatus,
       now,
-      now
+      now,
+      options.requireEmptyTable ? 1 : 0
     )
     .run()
+  if (result.meta.changes === 0) return null
   return result.meta.last_row_id
 }
 

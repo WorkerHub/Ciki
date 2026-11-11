@@ -517,6 +517,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，两套账本与记录都不动", async () => {
     const { env, db } = makeContext()
+    // 旧版部署遗留的账本行，字面量不参与判定（只要不是当前的 schema_v7）。
     await createLegacyLedger(db, "ciki_schema_migrations", ["schema_v1"])
     await createLegacyLedger(db, "_ciki_schema_migrations", MIGRATION_NAMES)
 

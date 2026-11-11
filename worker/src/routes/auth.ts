@@ -10,7 +10,6 @@ import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { getBooleanSetting, getSetting } from "../db/queries/settings"
 import {
-  countUsers,
   createUserFirstIsAdmin,
   findUserByEmail,
   findUserById,
@@ -183,17 +182,12 @@ authRoutes.post("/register", async (c) => {
 
   // 注册必须走邮箱验证：站点发不出信时不让任何人落一个「永远验证不了」的账号。
   // 首个用户（站点管理员）免验证，所以这一条只拦非首个用户。
-  // 并发下两人同时注册首个账号由建号 SQL 的 COUNT 兜底，这里只做站点配置判定。
-  const firstUser = (await countUsers(c.env.DB, prefix)) === 0
-  if (!firstUser && !(await isEmailConfigured(c.env))) {
-    return c.json(
-      {
-        error: "Email delivery is not configured",
-        code: "EMAIL_NOT_CONFIGURED"
-      },
-      503
-    )
-  }
+  //
+  // 判断必须和建号在同一条语句里：插入前先 COUNT 再决定，两个并发请求会都以为
+  // 自己是第一个（一个成了管理员，另一个带着未验证账号落库、却再也发不出信）。
+  // 所以「没配发信」时把 `requireEmptyTable` 传给建号语句，写库那一刻表已非空就
+  // 一行不写、这里回 503——与冻结契约「不建号」严格一致。
+  const emailConfigured = await isEmailConfigured(c.env)
 
   const approvalRequired = await getBooleanSetting(
     c.env.DB,
@@ -202,14 +196,19 @@ authRoutes.post("/register", async (c) => {
     true
   )
   const passwordHash = await hashPassword(password)
-  let id: number
+  let id: number | null
   try {
-    id = await createUserFirstIsAdmin(c.env.DB, prefix, {
-      email,
-      username: defaultUsernameFromEmail(email),
-      password_hash: passwordHash,
-      approvalStatus: approvalRequired ? "pending" : "approved"
-    })
+    id = await createUserFirstIsAdmin(
+      c.env.DB,
+      prefix,
+      {
+        email,
+        username: defaultUsernameFromEmail(email),
+        password_hash: passwordHash,
+        approvalStatus: approvalRequired ? "pending" : "approved"
+      },
+      { requireEmptyTable: !emailConfigured }
+    )
   } catch (err) {
     if (isEmailConflict(err)) {
       return c.json(
@@ -218,6 +217,16 @@ authRoutes.post("/register", async (c) => {
       )
     }
     throw err
+  }
+  // 没配发信、且这条 INSERT 被「只接受首个用户」的守卫拦下：一个字节都没写。
+  if (id === null) {
+    return c.json(
+      {
+        error: "Email delivery is not configured",
+        code: "EMAIL_NOT_CONFIGURED"
+      },
+      503
+    )
   }
 
   const user = await findUserById(c.env.DB, prefix, id)

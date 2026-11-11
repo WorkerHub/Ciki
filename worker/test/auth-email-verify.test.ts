@@ -10,6 +10,7 @@
  * 落库、限频、验码全走真实代码，码从捕获的邮件 HTML 里取。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { createUserFirstIsAdmin } from "../src/db/queries/users"
 import type { Env } from "../src/types"
 import type { TestContext } from "./support/app"
 import {
@@ -513,6 +514,64 @@ describe("重发", () => {
     const body = (await blocked.json()) as { code: string; retryAfter: number }
     expect(body.code).toBe("RATE_LIMITED")
     expect(body.retryAfter).toBeGreaterThan(0)
+  })
+})
+
+describe("注册并发兜底：首封发不出去时一个字节都不写", () => {
+  const account = (email: string, username: string) => ({
+    email,
+    username,
+    password_hash: "hash",
+    approvalStatus: "pending" as const
+  })
+
+  it("站点没配发信：守卫只放行首个用户，第二个请求 0 行写入", async () => {
+    const ctx = await initializedContext()
+    // 两条并发请求都会在插入前看到空表；守卫把判断压进 INSERT 本身。
+    const first = await createUserFirstIsAdmin(
+      ctx.env.DB,
+      "ciki_",
+      account("first@example.com", "first"),
+      { requireEmptyTable: true }
+    )
+    expect(first).toBe(1)
+    const second = await createUserFirstIsAdmin(
+      ctx.env.DB,
+      "ciki_",
+      account("second@example.com", "second"),
+      { requireEmptyTable: true }
+    )
+    expect(second).toBeNull()
+    expect(countRows(ctx, "ciki_users")).toBe(1)
+    expect(
+      row<{ email: string; role: string; email_verified: number }>(
+        ctx,
+        "SELECT email, role, email_verified FROM ciki_users"
+      )
+    ).toEqual({ email: "first@example.com", role: "admin", email_verified: 1 })
+  })
+
+  it("站点已配发信：守卫关闭，第二个用户照常建号且未验证", async () => {
+    const ctx = await initializedContext()
+    await createUserFirstIsAdmin(
+      ctx.env.DB,
+      "ciki_",
+      account("first@example.com", "first"),
+      { requireEmptyTable: false }
+    )
+    const second = await createUserFirstIsAdmin(
+      ctx.env.DB,
+      "ciki_",
+      account("second@example.com", "second"),
+      { requireEmptyTable: false }
+    )
+    expect(second).toBe(2)
+    expect(
+      row<{ role: string; email_verified: number }>(
+        ctx,
+        "SELECT role, email_verified FROM ciki_users WHERE email = 'second@example.com'"
+      )
+    ).toEqual({ role: "user", email_verified: 0 })
   })
 })
 
