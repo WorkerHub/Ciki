@@ -59,25 +59,22 @@ Ciki 是团队内部使用的 wiki：页面按空间与树形层级组织，支�
 
 ## 部署指南
 
-下面按「克隆 → 建资源 → 配 Secrets → 部署 → 初始化 → 注册管理员」的顺序走一遍。全程只需要一个 Cloudflare 账户和一个 GitHub 仓库，不需要在本地长期跑服务。
+下面按「Fork → 建 Cloudflare 资源 → 配 Secrets 与 Variables → 触发部署 → 初始化 → 注册管理员」的顺序走一遍。全程在浏览器里完成：不用把仓库克隆到本地，也不需要在本地长期跑服务，只需要一个 Cloudflare 账户和一个 GitHub 账户。
 
 ### 前置要求
 
 - Cloudflare 账户，已开通 Workers、D1 与 R2（R2 首次使用需在控制台启用）
-- GitHub 账户，并把仓库 fork 或复制到自己的账号下（部署工作流在仓库的 Actions 里跑）
-- 本机安装 Git（只走 GitHub Actions 部署时，本地只需要它来克隆仓库）
-- 本地开发另需 Node.js 22 或更高版本与 pnpm（`corepack enable` 会自动使用仓库锁定的 pnpm 版本）
+- GitHub 账户，用来把仓库 fork 到自己账号下（部署工作流在你 fork 出的仓库里跑）
+- 只有本地开发才需要本机装 Git、Node.js 22 或更高版本与 pnpm（`corepack enable` 会自动使用仓库锁定的 pnpm 版本）；部署用不到
 
-### 1. 克隆仓库
+### 1. Fork 仓库
 
-```bash
-git clone https://github.com/<你的 GitHub 账号>/Ciki.git
-cd Ciki
-```
+打开 <https://github.com/WorkerHub/Ciki>，点右上角 **Fork**，fork 到自己的账号下，保持公开即可（公开仓库的 Actions 不占额度，私有 fork 会消耗你的分钟数）。以后要拿上游更新，在 fork 仓库首页点 **Sync fork**。
 
-如果直接使用本仓库（有写权限），把地址换成 `https://github.com/WorkerHub/Ciki.git`。
+fork 出来的仓库，工作流默认是关着的，先启用：
 
-只走 GitHub Actions 部署时，到这里就够了；想先在本地跑一遍再执行 `pnpm install`（见「本地开发」）。
+- 打开 fork 仓库的 **Actions** 标签页，按页面提示点 **I understand my workflows, go ahead and enable them**（中文界面：「我已了解我的工作流，继续启用」）。
+- 启用之后，**Actions → Deploy → Run workflow** 就能手动触发部署，推送到 `main` 也会自动触发（见第 4 步）。
 
 ### 2. 创建 Cloudflare 资源
 
@@ -99,7 +96,7 @@ cd Ciki
 
 ### 3. 配置 GitHub Secrets 与 Variables
 
-打开仓库的 Settings → Secrets and variables → Actions。资源 ID 放 **Secrets**（GitHub 会自动打码），库名与表前缀这类非机密放 **Variables**。
+打开 fork 仓库的 Settings → Secrets and variables → Actions。资源 ID 放 **Secrets**（GitHub 会自动打码），库名与表前缀这类非机密放 **Variables**。
 
 **Secrets**（切到 Secrets 标签页 → New repository secret，逐个添加）
 
@@ -108,8 +105,8 @@ cd Ciki
 | `CLOUDFLARE_API_TOKEN`  | Cloudflare API Token。可用「Edit Cloudflare Workers」模板，并确认权限里有 Workers Scripts 编辑、D1 编辑与 R2 编辑（缺哪个补哪个）                                                                                 |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare 账户 ID（控制台首页右侧可复制）                                                                                                                                                                        |
 | `D1_DATABASE_ID`        | 上一步记下的 D1 Database ID                                                                                                                                                                                       |
-| `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，用 `openssl rand -base64 32` 生成（也接受 64 位 hex）。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定                                |
-| `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串，例如 `openssl rand -hex 16`                                                                                                                                                 |
+| `ENCRYPTION_KEY`        | TOTP 密钥的 AES-GCM 加密钥，32 字节，base64（44 字符）或 hex（64 字符）均可。生成后先在密码管理器留底；部署后不要更换，否则已绑定的两步验证会全部失效，需要重新绑定                                               |
+| `SETUP_SECRET`          | 初始化数据库用的令牌，任意随机字符串（例如 32 位 hex）                                                                                                                                                            |
 | `WAKER_SIGNING_KEY`     | **可选**。配了就把月度 R2 清理交给 waker 平台回调，不配则走 Worker 内置 Cron Trigger；配成保留值 `false` 则是显式关闭自动清理（手动清理仍可用）。值由 waker 建项目时一次性给出，只写进 GitHub Secrets、不要进仓库 |
 
 **Variables**（切到 Variables 标签页 → New repository variable）
@@ -119,22 +116,38 @@ cd Ciki
 | `D1_DATABASE_NAME` | D1 数据库名（明文，非机密）                                                                                  |
 | `TABLE_PREFIX`     | 表前缀，可选。不设置或留空 → `ciki_`；填 `none` → 无前缀；填其他值（如 `wiki`）→ `wiki_`。详见下文「表前缀」 |
 
+**不用终端生成密钥**：浏览器打开任意页面，按 F12 → Console，跑下面这行得到 44 字符 base64（32 字节）：
+
+```js
+btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+```
+
+跑这行得到 64 位 hex：
+
+```js
+Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) =>
+  b.toString(16).padStart(2, "0")
+).join("")
+```
+
+`SETUP_SECRET` 只要求随机，两条结果都能用。习惯命令行的，`openssl rand -base64 32` 与 `openssl rand -hex 16` 等价。
+
 以上 5 个必需 Secret（外加可选的 `WAKER_SIGNING_KEY`）与 2 个 Variable 就是部署需要的全部配置：`deploy.yml` 只引用这些名字。缺任何必需项，或值仍是模板里的 `*_PLACEHOLDER` / `replace-with-*`，或 `ENCRYPTION_KEY` 不是 32 字节，部署都会在上传前中止并点名，不会用空值或占位值顶替；`WAKER_SIGNING_KEY` 留空只表示「走内置 Cron」，不会让部署失败；写成 `false` 是合法的关闭态保留值，同样不会被当缺失或占位拦截。
 
 ### 4. 部署
 
-把改动推送到 `main`（或合并 Pull Request）后，仓库的自动校验（CI）会先跑一遍，全部通过才自动部署；也可以在仓库的 Actions → Deploy → Run workflow 手动触发。
+把改动推送到 fork 的 `main`（或合并 Pull Request）后，仓库的自动校验（CI）会先跑一遍，全部通过才自动部署。刚 fork 下来、还没有任何推送时，直接到 **Actions → Deploy → Run workflow** 手动触发即可；两条路径跑的是同一条部署工作流。
 
 部署工作流按顺序做四件事：构建前端 → 解析 secrets 与 `wrangler.toml` 占位符 → 补建 R2 bucket → `wrangler deploy`。表结构不在这一步创建，接着做初始化。
 
 ### 5. 初始化数据库
 
-部署成功只代表 Worker 上线，表还没有建。打开站点：未初始化时会自动跳转到 `/setup` 初始化页。
+部署成功只代表 Worker 上线，表还没有建。用浏览器打开站点：未初始化时会自动跳转到 `/setup` 初始化页。
 
 1. 填入 `SETUP_SECRET`（只放在请求头 `X-Setup-Secret`，不会进 URL）。
-2. 提交后接口只跑迁移，成功时返回生效的表前缀与已执行的迁移列表，核对前缀与预期一致。
+2. 提交后接口只跑迁移，页面会显示生效的表前缀与已执行的迁移列表，核对前缀与预期一致。
 
-也可以命令行完成（输入不回显、不进命令历史）：
+**可选**（需要本地终端）：习惯命令行的话，也可以在本机用 curl 完成同一步，输入不回显、不进命令历史：
 
 ```bash
 read -rs SETUP_SECRET
@@ -144,13 +157,19 @@ unset SETUP_SECRET
 
 每次升级部署后，管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」即可补跑迁移（`POST /api/admin/setup`，登录管理员会话即可，不需要 `SETUP_SECRET`）。已执行的迁移显示为 `skipped`；界面不提供删表 / 清库入口。
 
-**含一次性重建的升级（ID 整数化 + 正文上 R2，迁移 `schema_v6`）必须先备份，且不可回退**：这一步会把所有表按新结构重建、把正文搬进 `ciki-content`，旧 uuid 与新整数之间不留对照表，出问题只能靠备份还原。点按钮之前先导出一次完整库：
+**含一次性重建的升级（ID 整数化 + 正文上 R2，迁移 `schema_v6`）必须先记下回退点，且不可回退**：这一步会把所有表按新结构重建、把正文搬进 `ciki-content`，旧 uuid 与新整数之间不留对照表，出问题只能靠回退点恢复。D1 的备份由 Cloudflare 的 Time Travel 承担：始终开启、不需要手动备份，可以回到最近 30 天内的任意时刻（Workers Paid 套餐；Free 套餐 7 天），`wrangler d1 info <库名>` 显示 `version: production` 才支持（wrangler 需 v3.4.0+，本项目已锁 ^4.14.1）。**不要再按旧命令 `wrangler d1 export` 导出**——库里有 FTS5 虚拟表，这条命令会被 Cloudflare 拒绝（`cannot export databases with virtual tables (fts5)`）。点按钮之前先记下当前 bookmark：
 
 ```sh
-npx wrangler d1 export <库名> --remote --output ciki-$(date +%F).sql
+npx wrangler d1 time-travel info <库名>
 ```
 
-导出的 `.sql` 落到本机（或 CI 产物）留档，确认文件非空再点升级。迁移失败时旧数据一字未动、账本不记账，修好原因重跑即可；升级成功后这次备份就是唯一的回滚手段，请保留到确认站点一切正常之后。
+把输出里的 `The current bookmark is '…'` 连同时间存进工单或密码管理器：bookmark 过期之后就不能再当回退点。迁移失败时旧数据一字未动、账本不记账，修好原因重跑即可；升级成功后一旦要回到升级前，按这个 bookmark 原地还原：
+
+```sh
+npx wrangler d1 time-travel restore <库名> --bookmark=<bookmark>
+```
+
+`restore` 会覆盖整个库（会二次确认），结束时还会给出「撤销这次还原」的旧 bookmark，一并留档。Time Travel 只回退 D1：R2 里的正文对象不可变、既不会被回退也不会被删，所以还原 D1 不需要动 `ciki-content`。
 
 ### 6. 注册管理员
 
@@ -208,7 +227,11 @@ curl -X POST https://<你的站点域名>/api/admin/r2-cleanup \
 
 ## 本地开发
 
+本地跑需要本机装 Git（用来克隆仓库）、Node.js 22 或更高版本与 pnpm：
+
 ```bash
+git clone https://github.com/<你的 GitHub 账号>/Ciki.git
+cd Ciki
 pnpm install
 cp worker/.dev.vars.example worker/.dev.vars   # 填入本地 ENCRYPTION_KEY / SETUP_SECRET
 pnpm dev

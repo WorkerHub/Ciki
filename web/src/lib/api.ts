@@ -1032,6 +1032,9 @@ export function describeApiError(error: unknown): string {
       return "清理正在进行，请稍后再试。"
     case "REVISION_UNRENDERABLE":
       return "这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。"
+    case "CONTENT_MISSING":
+      // 正文存储（内容桶）取不到对象：是运维问题，别把用户往「内容坏了」上引。
+      return "页面正文暂时取不到（内容存储不可用或对象缺失），请稍后重试；持续失败请让管理员检查内容存储（ciki-content）。"
     case "PAGE_MOVE_CYCLE":
       return "不能把页面移动到它自己的子页面下。"
     case "PARENT_DELETED":

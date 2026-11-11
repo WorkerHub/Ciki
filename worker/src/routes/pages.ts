@@ -108,7 +108,7 @@ function pageNotFound(c: Context<HonoEnv>) {
   return c.json({ error: "Page not found" }, 404)
 }
 
-/** 内容对象缺失（被误删/迁移未完成）：明确 5xx，不把空正文当成正常结果。 */
+/** 正文取不到（对象被误删/内容桶不可用/字节坏）：明确 5xx，不把空正文当成正常结果。 */
 function contentUnavailable(c: Context<HonoEnv>) {
   return c.json(
     { error: "Page content unavailable", code: "CONTENT_MISSING" },
@@ -145,17 +145,18 @@ function badInput(parsed: Extract<PageContentResult, { ok: false }>) {
 
 /**
  * 版本正文取不出来的两种口径（查看与回滚共用）：
- * 对象整个不见了 → 500 `CONTENT_MISSING`；对象在但渲染不了/字节坏掉 → 422。
+ * 正文取不到（对象缺失/内容桶不可用/字节坏）→ 500 `CONTENT_MISSING`，与阅读接口同一口径；
+ * 正文取到了但渲染不了 → 422 `REVISION_UNRENDERABLE`。
  */
 function revisionContentFailed(
   c: Context<HonoEnv>,
   result: Extract<RevisionContentResult, { ok: false }>
 ) {
-  if (result.kind === "missing") return contentUnavailable(c)
+  if (result.kind === "unavailable") return contentUnavailable(c)
   return unrenderableRevision(c, result.error)
 }
 
-/** 版本的 JSON 无法按当前编辑器 schema 渲染 → 422（查看与回滚同一口径）。 */
+/** 版本的 JSON 能取到、但无法按当前编辑器 schema 渲染 → 422（查看与回滚同一口径）。 */
 function unrenderableRevision(c: Context<HonoEnv>, reason: string) {
   return c.json(
     {

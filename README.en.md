@@ -59,25 +59,22 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 
 ## Deployment Guide
 
-The steps below follow: clone → create resources → configure Secrets → deploy → initialize → register the admin. All you need is a Cloudflare account and a GitHub repository; no long-running local service is required.
+The steps below follow: fork → create Cloudflare resources → configure Secrets and Variables → deploy → initialize → register the admin. Everything happens in the browser: no local clone and no long-running local service is needed — just a Cloudflare account and a GitHub account.
 
 ### Prerequisites
 
 - A Cloudflare account with Workers, D1 and R2 enabled (R2 must be enabled in the dashboard the first time)
-- A GitHub account, with the repository forked or copied to your own account (the deploy workflow runs from that repository's Actions)
-- Git on your machine (when deploying only through GitHub Actions, it is the only local tool you need, for cloning the repository)
-- Node.js 22 or later and pnpm for local development (`corepack enable` picks up the pnpm version pinned by the repository)
+- A GitHub account, used to fork the repository to your own account (the deploy workflow runs from your fork)
+- Git, Node.js 22 or later and pnpm are needed for local development only (`corepack enable` picks up the pnpm version pinned by the repository); deployment needs none of them
 
-### 1. Clone the repository
+### 1. Fork the repository
 
-```bash
-git clone https://github.com/<your-github-account>/Ciki.git
-cd Ciki
-```
+Open <https://github.com/WorkerHub/Ciki> and click **Fork** in the top right to fork it to your own account. Keeping it public is all you need (Actions minutes are free on public repositories; a private fork spends your quota). To pick up upstream changes later, use **Sync fork** on the fork's home page.
 
-If you have write access to the upstream repository, use `https://github.com/WorkerHub/Ciki.git` instead.
+Workflows are disabled by default in a fork, so enable them first:
 
-If you only deploy through GitHub Actions, this is all you need. To run the app locally first, run `pnpm install` (see "Local Development").
+- Open the fork's **Actions** tab and confirm the banner with **I understand my workflows, go ahead and enable them** (Chinese UI: 「我已了解我的工作流，继续启用」).
+- Once enabled, **Actions → Deploy → Run workflow** triggers a deploy manually, and pushing to `main` triggers it automatically (see step 4).
 
 ### 2. Create Cloudflare resources
 
@@ -99,18 +96,18 @@ You need **two** buckets, with fixed names and bindings (set in `worker/wrangler
 
 ### 3. Configure GitHub Secrets and Variables
 
-Open the repository's Settings → Secrets and variables → Actions. Keep resource IDs in **Secrets** (GitHub masks them automatically); non-secret values such as the database name and table prefix go in **Variables**.
+Open the fork's Settings → Secrets and variables → Actions. Keep resource IDs in **Secrets** (GitHub masks them automatically); non-secret values such as the database name and table prefix go in **Variables**.
 
 **Secrets** (Secrets tab → New repository secret, one at a time)
 
-| Secret                  | Purpose                                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token. The "Edit Cloudflare Workers" template works; make sure the permissions include Workers Scripts edit, D1 edit and R2 edit (add whichever is missing)                                                                                                                                                                                          |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID (copy it from the right side of the dashboard home page)                                                                                                                                                                                                                                                                                      |
-| `D1_DATABASE_ID`        | The D1 Database ID noted in the previous step                                                                                                                                                                                                                                                                                                                       |
-| `ENCRYPTION_KEY`        | AES-GCM key for TOTP secrets, 32 bytes, generated with `openssl rand -base64 32` (64-char hex also works). Store a copy in your password manager first; do not change it after deploying, or every enrolled two-factor setup stops working and users must enroll again                                                                                              |
-| `SETUP_SECRET`          | Token for database initialization, any random string, e.g. `openssl rand -hex 16`                                                                                                                                                                                                                                                                                   |
-| `WAKER_SIGNING_KEY`     | **Optional.** When set to a real key, the monthly R2 cleanup is driven by waker platform callbacks; when absent, the Worker's built-in Cron Trigger runs it; the reserved value `false` turns automatic cleanup off (manual cleanup still works). The value is shown once by waker when the project is created — keep it in GitHub Secrets, never in the repository |
+| Secret                  | Purpose                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | Cloudflare API token. The "Edit Cloudflare Workers" template works; make sure the permissions include Workers Scripts edit, D1 edit and R2 edit (add whichever is missing)                                                                                                                                                                            |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID (copy it from the right side of the dashboard home page)                                                                                                                                                                                                                                                                        |
+| `D1_DATABASE_ID`        | The D1 Database ID noted in the previous step                                                                                                                                                                                                                                                                                                         |
+| `ENCRYPTION_KEY`        | AES-GCM key for TOTP secrets, 32 bytes, either base64 (44 chars) or hex (64 chars). Store a copy in your password manager first; do not change it after deploying, or every enrolled two-factor setup stops working and users must enroll again                                                                                                       |
+| `SETUP_SECRET`          | Token for database initialization, any random string (e.g. 32 hex chars)                                                                                                                                                                                                                                                                              |
+| `WAKER_SIGNING_KEY`     | **Optional.** When set, the monthly R2 cleanup is driven by waker platform callbacks; when absent, the Worker's built-in Cron Trigger runs it; the reserved value `false` turns automatic cleanup off (manual cleanup still works). The value is shown once by waker when the project is created — keep it in GitHub Secrets, never in the repository |
 
 **Variables** (Variables tab → New repository variable)
 
@@ -119,22 +116,38 @@ Open the repository's Settings → Secrets and variables → Actions. Keep resou
 | `D1_DATABASE_NAME` | D1 database name (plain text, not a secret)                                                                                             |
 | `TABLE_PREFIX`     | Table prefix, optional. Unset or empty → `ciki_`; `none` → no prefix; any other value (e.g. `wiki`) → `wiki_`. See "Table prefix" below |
 
+**Generating the keys without a terminal**: open any page, press F12 → Console, and run this for a 44-character base64 value (32 bytes):
+
+```js
+btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))))
+```
+
+or this for a 64-character hex value:
+
+```js
+Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) =>
+  b.toString(16).padStart(2, "0")
+).join("")
+```
+
+`SETUP_SECRET` only has to be random, so either result works for it too. If you prefer a shell, `openssl rand -base64 32` and `openssl rand -hex 16` are equivalent.
+
 These five required Secrets (plus the optional `WAKER_SIGNING_KEY`) and two Variables are everything the deployment needs: `deploy.yml` references only these names. A missing required item, a value still in template form (`*_PLACEHOLDER` / `replace-with-*`), or an `ENCRYPTION_KEY` that is not 32 bytes makes the deploy abort before uploading and name the offending item — no empty or placeholder value is ever substituted. A missing `WAKER_SIGNING_KEY` merely means "use the built-in Cron" and never fails the deploy; the reserved value `false` is a valid "off" setting too and is never rejected as missing or as a placeholder.
 
 ### 4. Deploy
 
-Push to `main` (or merge a pull request): the repository's automated checks (CI) run first, and only a green run triggers the deploy. You can also trigger it manually from Actions → Deploy → Run workflow.
+Push to your fork's `main` (or merge a pull request): the repository's automated checks (CI) run first, and only a green run triggers the deploy. On a fresh fork with nothing pushed yet, go to **Actions → Deploy → Run workflow** and trigger it manually; both paths run the same deploy workflow.
 
 The deploy workflow does four things in order: build the frontend → resolve secrets and the `wrangler.toml` placeholders → create the R2 bucket when missing → `wrangler deploy`. It does not create tables; that happens in the next step.
 
 ### 5. Initialize the database
 
-A successful deploy only means the Worker is live; the tables do not exist yet. Open the site: an uninitialized deployment redirects to the `/setup` page.
+A successful deploy only means the Worker is live; the tables do not exist yet. Open the site in a browser: an uninitialized deployment redirects to the `/setup` page.
 
 1. Enter `SETUP_SECRET` (it travels only in the `X-Setup-Secret` request header, never in the URL).
-2. Submit; the endpoint only runs migrations and returns the effective table prefix and the list of migrations it ran. Check the prefix against your expectation.
+2. Submit; the endpoint only runs migrations and the page shows the effective table prefix and the list of migrations it ran. Check the prefix against your expectation.
 
-You can also do it from the command line (input is not echoed and does not reach shell history):
+**Optional** (needs a local terminal): if you prefer the command line, you can run the same step with curl on your machine; input is not echoed and does not reach shell history:
 
 ```bash
 read -rs SETUP_SECRET
@@ -144,13 +157,19 @@ unset SETUP_SECRET
 
 After each upgrade deployment, an admin clicks "Check and upgrade database" under Admin → Database Maintenance (系统管理 → 数据库维护) to apply pending migrations (`POST /api/admin/setup` with an admin session; no `SETUP_SECRET` needed). Already-applied migrations show as `skipped`, and the UI offers no drop-table or wipe-database action.
 
-**Upgrades that include the one-time rebuild (integer IDs + page content moved to R2, migration `schema_v6`) must be backed up first and cannot be undone**: that step rebuilds every table and moves page bodies into `ciki-content`; no uuid-to-integer mapping is kept, so a backup is the only way back. Export the whole database before pressing the button:
+**Upgrades that include the one-time rebuild (integer IDs + page content moved to R2, migration `schema_v6`) must record a rollback point first and cannot be undone**: that step rebuilds every table and moves page bodies into `ciki-content`; no uuid-to-integer mapping is kept, so only that rollback point can take you back. D1 backups are handled by Cloudflare's Time Travel: it is always on and needs no manual backup, and restores to any point within the last 30 days (Workers Paid; 7 days on Free). It requires a database whose `wrangler d1 info <database-name>` shows `version: production` (wrangler v3.4.0+; this project pins ^4.14.1). **Do not use `wrangler d1 export`** — the database has FTS5 virtual tables, and Cloudflare rejects that command (`cannot export databases with virtual tables (fts5)`). Record the current bookmark before pressing the button:
 
 ```sh
-npx wrangler d1 export <database-name> --remote --output ciki-$(date +%F).sql
+npx wrangler d1 time-travel info <database-name>
 ```
 
-Keep the `.sql` locally (or as a CI artifact) and check it is not empty before upgrading. A failed migration changes nothing and records nothing, so you can fix the cause and run it again; after a successful run this backup is the only rollback path, so keep it until the site has been verified.
+Keep the `The current bookmark is '…'` line together with its timestamp in your ticket or password manager: once a bookmark expires it can no longer serve as a rollback point. A failed migration changes nothing and records nothing, so you can fix the cause and run it again; once the upgrade succeeds, restore that bookmark in place if you need to go back:
+
+```sh
+npx wrangler d1 time-travel restore <database-name> --bookmark=<bookmark>
+```
+
+`restore` overwrites the whole database (it asks for confirmation) and prints the previous bookmark that undoes the restore — keep that one as well. Time Travel only rolls D1 back: the body objects in R2 are immutable and are neither reverted nor deleted, so restoring D1 needs no change to `ciki-content`.
 
 ### 6. Register the admin
 
@@ -208,7 +227,11 @@ Admin → Database Maintenance shows one line summarising the latest real run (r
 
 ## Local Development
 
+Running it locally needs Git (to clone the repository), Node.js 22 or later, and pnpm:
+
 ```bash
+git clone https://github.com/<your-github-account>/Ciki.git
+cd Ciki
 pnpm install
 cp worker/.dev.vars.example worker/.dev.vars   # fill in local ENCRYPTION_KEY / SETUP_SECRET
 pnpm dev
