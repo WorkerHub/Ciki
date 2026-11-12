@@ -244,6 +244,24 @@ describe("令牌空间范围：管理端点", () => {
     expect((await status(env, admin, READ_PATH)).spaceIds).toBeNull()
   })
 
+  it("吊销后再重置且不带 spaceIds：沿用吊销行上的范围，不放大", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const a = await createSpace(env, admin, "甲空间")
+
+    await issue(env, admin, READ_PATH)
+    await putSpaces(env, admin, READ_PATH, { spaceIds: [a] })
+
+    const revoke = await jsonRequest(env, "DELETE", READ_PATH, undefined, admin)
+    expect(revoke.status).toBe(200)
+    // 吊销只标记行、不删范围；旧端点读最新一行，范围仍在。
+    expect((await status(env, admin, READ_PATH)).spaceIds).toEqual([a])
+
+    // 吊销后的下一次重置（不带 spaceIds）必须沿用这一份，而不是回到不限制。
+    await issue(env, admin, READ_PATH)
+    expect((await status(env, admin, READ_PATH)).spaceIds).toEqual([a])
+  })
+
   it("没有令牌时不能预设范围（404）；读写两类令牌的范围互不影响", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)

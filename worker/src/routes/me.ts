@@ -457,7 +457,9 @@ async function legacyIssueToken(
   }
 
   const previous = await getLatestTokenRow(c.env.DB, prefix, userId, kind)
-  // 不带 spaceIds = 保留现有范围（重置不悄悄放大）；没有旧令牌则保持不限制。
+  // 不带 spaceIds = 保留现有范围（重置不悄悄放大）。getLatestTokenRow 含已吊销行
+  // ——范围行不随吊销删除，所以「吊销后再重置」也必须沿用；只有该类从未有过任何
+  // 一行时才回到「不限制」。
   const nextScope: TokenScope | undefined =
     scope.action === "set"
       ? scope.scope
