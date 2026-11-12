@@ -45,16 +45,9 @@ export function pickInitialSpace(
   return spaces.find((space) => space.isDefault) ?? spaces[0] ?? null
 }
 
-/** 可作为跨空间移动目标的候选：自己可编辑、且不是当前所在的空间。 */
-export function editableSpaces(
-  spaces: Space[],
-  isSiteAdmin: boolean,
-  exceptId?: number | null
-): Space[] {
-  return spaces.filter(
-    (space) =>
-      space.id !== exceptId && canEdit(effectiveRole(space, isSiteAdmin))
-  )
+/** 可作为移动目标的候选：自己可编辑的全部空间（含页面当前所在空间，同空间改父页也走它）。 */
+export function editableSpaces(spaces: Space[], isSiteAdmin: boolean): Space[] {
+  return spaces.filter((space) => canEdit(effectiveRole(space, isSiteAdmin)))
 }
 
 /** 路由里的 slug → 空间；列表未到时返回 null（调用方据此给骨架/404）。 */

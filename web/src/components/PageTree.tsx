@@ -47,14 +47,16 @@ import { Label } from "@/components/ui/label"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { describeApiError } from "@/lib/api"
 import { pageEditPath, pagePath, parseIdParam } from "@/lib/routes"
-import { canEdit, editableSpaces } from "@/lib/space"
+import { canEdit } from "@/lib/space"
 import {
+  dropFromDragEnd,
+  dropPreview,
+  type DropPreview,
   flattenVisible,
   projectDrop,
   siblingsOf,
   type TreeRow
 } from "@/lib/tree"
-import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -73,8 +75,6 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   const spaceName =
     spaces.find((space) => space.id === currentSpaceId)?.name ?? null
   const readOnly = !canEdit(useSpaceRole(currentSpaceId))
-  const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
-  const moveTargets = editableSpaces(spaces, isSiteAdmin, currentSpaceId)
   const expanded = usePagesStore((state) => state.expanded)
   const toggle = usePagesStore((state) => state.toggle)
   const expandTo = usePagesStore((state) => state.expandTo)
@@ -87,7 +87,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
     [tree, expanded]
   )
   const [activeId, setActiveId] = useState<number | null>(null)
-  const [offsetLeft, setOffsetLeft] = useState(0)
+  const [preview, setPreview] = useState<DropPreview | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [createParent, setCreateParent] = useState<TreeRow | null>(null)
   const [renameTarget, setRenameTarget] = useState<TreeRow | null>(null)
@@ -142,7 +142,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
         setRenameValue(row.title)
         setRenameTarget(row)
         break
-      case "move-to-space":
+      case "move":
         setMoveTarget(row)
         break
       case "delete":
@@ -159,23 +159,35 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
     }
   }
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(Number(event.active.id))
-    setOffsetLeft(0)
+  /**
+   * 拖动中的落点预览：位移与目标全部从事件上取，不使用可能尚未提交的 state。
+   * onDragMove 与 onDragOver 共用：光标在原地划进另一行、或横向微调时预览都跟得上。
+   */
+  const trackDrop = (event: DragMoveEvent) => {
+    if (!event.over) {
+      setPreview(null)
+      return
+    }
+    const target = projectDrop(
+      rows,
+      Number(event.active.id),
+      Number(event.over.id),
+      event.delta.x
+    )
+    setPreview(dropPreview(rows, Number(event.active.id), target))
   }
 
-  const handleDragMove = (event: DragMoveEvent) => {
-    setOffsetLeft(event.delta.x)
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(Number(event.active.id))
+    setPreview(null)
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const active = Number(event.active.id)
-    const over = event.over ? Number(event.over.id) : null
+    const target = dropFromDragEnd(rows, event)
     setActiveId(null)
-    setOffsetLeft(0)
-    if (!over || readOnly) return
-    const target = projectDrop(rows, active, over, offsetLeft)
-    if (!target) return
+    setPreview(null)
+    if (!target || readOnly) return
     setActionError("")
     try {
       await movePage(active, target.parentId, target.sortOrder)
@@ -255,11 +267,12 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
-          onDragMove={handleDragMove}
+          onDragMove={trackDrop}
+          onDragOver={trackDrop}
           onDragEnd={handleDragEnd}
           onDragCancel={() => {
             setActiveId(null)
-            setOffsetLeft(0)
+            setPreview(null)
           }}
         >
           <SortableContext
@@ -281,7 +294,13 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
                     active={activePageId === row.id}
                     canMoveUp={index > 0}
                     canMoveDown={index >= 0 && index < siblings.length - 1}
-                    canMoveToSpace={!readOnly && moveTargets.length > 0}
+                    dropLine={
+                      preview?.beforeId === row.id
+                        ? { position: "before", depth: preview.depth }
+                        : preview?.afterId === row.id
+                          ? { position: "after", depth: preview.depth }
+                          : undefined
+                    }
                     onToggle={() => toggle(row.id)}
                     onOpen={() => openPage(row)}
                     onAction={(action) => handleAction(row, action)}
@@ -319,16 +338,20 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
       <MovePageDialog
         pageId={moveTarget?.id ?? 0}
         pageTitle={moveTarget?.title ?? ""}
+        parentId={moveTarget?.parentId ?? null}
         sourceSpaceId={currentSpaceId ?? 0}
         open={moveTarget !== null}
         onOpenChange={(open) => {
           if (!open) setMoveTarget(null)
         }}
         onMoved={(targetSpaceId) => {
-          const name =
-            moveTargets.find((space) => space.id === targetSpaceId)?.name ??
-            t("shell.tree.targetSpace")
-          setMovedTo(name)
+          // 同空间改父页面：树已重拉，不需要「已移动到某空间」的提示
+          if (targetSpaceId !== currentSpaceId) {
+            const name =
+              spaces.find((space) => space.id === targetSpaceId)?.name ??
+              t("shell.tree.targetSpace")
+            setMovedTo(name)
+          }
           if (activePageId === moveTarget?.id) navigate("/")
           setMoveTarget(null)
         }}

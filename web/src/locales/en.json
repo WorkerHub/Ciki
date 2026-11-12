@@ -111,7 +111,7 @@
       "rowActions": "Actions for “{{title}}”",
       "addChild": "New subpage",
       "rename": "Rename",
-      "moveToSpace": "Move to space…",
+      "move": "Move…",
       "moveUp": "Move up",
       "moveDown": "Move down",
       "delete": "Delete (with subpages)"
@@ -280,7 +280,7 @@
       "refresh": "Refresh",
       "edit": "Edit",
       "newChild": "Subpage",
-      "moveToSpace": "Move to space",
+      "move": "Move",
       "download": "Download .md",
       "history": "History",
       "delete": "Delete",
@@ -366,13 +366,16 @@
     },
     "move": {
       "title": "Move “{{title}}”",
-      "description": "The page moves to the top level of the target space together with its subpages; they no longer show up in this space.",
-      "noTargets": "There is no other space you can move pages to. You need edit permission in another space.",
+      "description": "The page moves together with its subpages.",
+      "noTargets": "There is no space you can move pages to. You need edit permission in a space.",
       "targetSpace": "Target space",
       "targetPlaceholder": "Select a space",
       "targetRequired": "Choose a target space",
+      "parentPage": "Parent page",
+      "parentPlaceholder": "Select a parent page",
+      "topLevel": "Top level (no parent)",
       "moving": "Moving…",
-      "submit": "Move to space"
+      "submit": "Move"
     }
   },
   "editor": {
