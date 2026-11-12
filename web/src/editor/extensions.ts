@@ -1,12 +1,10 @@
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
 import Image from "@tiptap/extension-image"
-import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
 import { Table } from "@tiptap/extension-table"
 import TableRow from "@tiptap/extension-table-row"
 import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
-import Underline from "@tiptap/extension-underline"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import { common, createLowlight } from "lowlight"
@@ -127,18 +125,22 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
   return [
     StarterKit.configure({
       codeBlock: false,
-      heading: { levels: [1, 2, 3, 4, 5, 6] }
+      heading: { levels: [1, 2, 3, 4, 5, 6] },
+      // Link 与 Underline 自 TipTap 3 起由 StarterKit 内置，只能在这里配置；
+      // 再单独注册同名扩展会触发 Duplicate extension names，且最终生效的配置不确定。
+      link: {
+        openOnClick: !isEdit,
+        autolink: true,
+        HTMLAttributes: {
+          rel: "noopener noreferrer nofollow",
+          target: "_blank"
+        }
+      }
     }),
     WikiCodeBlock.configure({
       lowlight,
       defaultLanguage: null,
       languageClassPrefix: "language-"
-    }),
-    Underline,
-    Link.configure({
-      openOnClick: !isEdit,
-      autolink: true,
-      HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" }
     }),
     WikiImage.configure({ allowBase64: true, inline: false }),
     // 颜色三件套：文字颜色（TextStyle+Color）、高亮、单元格底色。
