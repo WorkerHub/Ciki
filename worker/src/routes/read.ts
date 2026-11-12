@@ -1,24 +1,30 @@
 /**
- * 只读接口（一期）：供 Muse 的自定义连接器接入，**只有读，没有任何写接口**。
+ * 只读接口（二期）：供 Muse 的自定义连接器接入，**只有读，没有任何写接口**。
  *
- * 鉴权只认只读令牌（`Authorization: Bearer`，见 middleware/read-token.ts）；权限等于
- * 令牌所属用户本人的读权限：站点管理员可见全部空间，其余人只见自己是成员的空间，
- * 与站内页面树/搜索同一口径（SQL 层过滤，非成员空间连标题都不会出现在响应里）。
+ * 鉴权只认 `Authorization: Bearer`，可以是**只读令牌**或**读写令牌**（二期 §3.1，两种令牌
+ * 都计入 `read` 桶），见 middleware/read-token.ts。权限 = 令牌所属用户本人的读权限
+ * **∩ 令牌空间范围**（§2.5）：站点管理员可见全部空间、其余人只见自己是成员的空间，
+ * 与站内页面树/搜索同一口径（SQL 层过滤，非成员空间连标题都不会出现在响应里）；范围是
+ * 叠在成员过滤之上的一层，只收窄不放大，且对站点管理员同样生效。
  *
- * 三个接口的字段是**冻结契约**，按规格逐字使用 snake_case（`parent_id` / `space_id`
- * / `sort_order` / `updated_at` / `created_at` / `content_json`）——这是本仓「响应字段
- * 一律 camelCase」通则的唯一例外，连接器按此对接，别在实现里顺手改成 camelCase。
- * id 已随 ID 重构改为整数。
+ * 四个接口（`spaces` / `tree` / `search` / `pages/:id`）的字段是**冻结契约**，按规格逐字
+ * 使用 snake_case（`parent_id` / `space_id` / `sort_order` / `updated_at` / `created_at` /
+ * `content_json`）——这是本仓「响应字段一律 camelCase」通则的唯一例外，连接器按此对接，
+ * 别在实现里顺手改成 camelCase。id 已随 ID 重构改为整数。
  *
  * 正文分工：默认 `markdown` 与树/搜索都只读 D1；`?format=json` 按 `content_hash`
  * 从内容桶取（连接器要原文时才走这一步）。
  *
  * 软删页面（`deleted_at` 非空）在三处一律排除：树、搜索、单页。
+ * 范围外的页面与空间一律按不存在处理（四接口一致）：tree / search 不返回该空间的行，
+ * `pages/:id` 回 404，`/spaces` 不列出，均不泄露存在性。
  */
 import { Hono } from "hono"
+import type { Context } from "hono"
 import { getPageRow } from "../db/queries/pages"
 import { readContent } from "../core/content-store"
 import { resolveSpaceRole } from "../core/space-access"
+import { listTokenVisibleSpaces, tokenScopeAllows } from "../core/token-scope"
 import { makeSnippet, toMatchQuery } from "../lib/fts"
 import { parseId } from "../lib/http"
 import { toPlainText } from "../lib/sanitize"
@@ -29,11 +35,79 @@ import type { HonoEnv } from "../types"
 
 export const readRoutes = new Hono<HonoEnv>()
 
-// 整段只认只读令牌：会话 Cookie 在这里无效（职责分离，见中间件注释）。
+// 整段只认令牌（只读令牌或读写令牌）：会话 Cookie 在这里无效（职责分离，见中间件注释）。
 readRoutes.use("*", readTokenMiddleware)
 
 /** 搜索上限（规格定版：20 条，不分页）。 */
 export const READ_SEARCH_LIMIT = 20
+
+/** 一段 WHERE 片段 + 它自己的绑定值（树的成员过滤与范围过滤各一段）。 */
+interface SpaceFilter {
+  sql: string
+  binds: number[]
+}
+
+/**
+ * 树 / 搜索共用的空间过滤（§2.5：「在现行权限过滤之外再叠一层范围过滤」）。
+ *
+ * 返回两段：①成员过滤（现行口径，站点管理员为空）；②令牌范围过滤
+ * （`null` = 不限制，SQL 原样、零额外查询；数组 = `space_id IN (...)`）。
+ * 两者用 `AND` 叠加，范围只收窄、不替代成员过滤。
+ */
+function spaceFilters(c: Context<HonoEnv>, prefix: string): SpaceFilter[] {
+  const filters: SpaceFilter[] = []
+
+  if (c.get("role") !== "admin") {
+    filters.push({
+      sql: `AND p.space_id IN (
+         SELECT space_id FROM ${spaceMembersTable(prefix)} WHERE user_id = ?
+       )`,
+      binds: [c.get("userId")]
+    })
+  }
+
+  const scope = c.get("tokenScope")
+  if (scope !== null) {
+    // 空集不会落库（getTokenScope 无行即回 null），防御性地当作「什么都看不见」。
+    filters.push(
+      scope.length === 0
+        ? { sql: "AND 1 = 0", binds: [] }
+        : {
+            sql: `AND p.space_id IN (${scope.map(() => "?").join(", ")})`,
+            binds: scope
+          }
+    )
+  }
+
+  return filters
+}
+
+/** 过滤段的绑定值摊平成一次 `bind` 要的数组（顺序与 SQL 里出现的顺序一致）。 */
+function filterBinds(filters: SpaceFilter[]): number[] {
+  return filters.flatMap((filter) => filter.binds)
+}
+
+/**
+ * 令牌的**有效可见空间**（§1）：主人可见空间 ∩ 令牌范围，排序沿用站内空间列表的
+ * `SPACE_ORDER`（默认空间在前 → 名称大小写不敏感 → 创建时间）。
+ *
+ * 每项只给 `id` / `name` / `slug` 三个键（精确键集合，接入方按此对接）；`slug` 用来拼
+ * 站内地址 `/s/<slug>/…`。
+ */
+readRoutes.get("/spaces", async (c) => {
+  const spaces = await listTokenVisibleSpaces(c.env.DB, getTablePrefix(c.env), {
+    userId: c.get("userId"),
+    isSiteAdmin: c.get("role") === "admin",
+    scope: c.get("tokenScope")
+  })
+  return c.json({
+    spaces: spaces.map((space) => ({
+      id: space.id,
+      name: space.name,
+      slug: space.slug
+    }))
+  })
+})
 
 interface TreeRow {
   id: number
@@ -51,24 +125,22 @@ interface TreeRow {
  */
 readRoutes.get("/tree", async (c) => {
   const prefix = getTablePrefix(c.env)
-  const siteAdmin = c.get("role") === "admin"
-  const membershipFilter = siteAdmin
-    ? ""
-    : `AND p.space_id IN (
-         SELECT space_id FROM ${spaceMembersTable(prefix)} WHERE user_id = ?
-       )`
+  const filters = spaceFilters(c, prefix)
+  const where = filters.map((filter) => filter.sql).join("\n        ")
+  const binds = filterBinds(filters)
   const stmt = c.env.DB.prepare(
     `SELECT p.id AS id, p.title AS title, p.parent_id AS parent_id,
             p.space_id AS space_id, p.sort_order AS sort_order,
             p.updated_at AS updated_at
        FROM ${pagesTable(prefix)} p
       WHERE p.deleted_at IS NULL
-        ${membershipFilter}
+        ${where}
       ORDER BY p.space_id, p.sort_order, p.created_at`
   )
-  const rows = siteAdmin
-    ? await stmt.all<TreeRow>()
-    : await stmt.bind(c.get("userId")).all<TreeRow>()
+  const rows = await (binds.length > 0
+    ? stmt.bind(...binds)
+    : stmt
+  ).all<TreeRow>()
 
   return c.json(
     rows.results.map((row) => ({
@@ -100,12 +172,8 @@ readRoutes.get("/search", async (c) => {
 
   const prefix = getTablePrefix(c.env)
   const fts = pagesFtsTable(prefix)
-  const siteAdmin = c.get("role") === "admin"
-  const membershipFilter = siteAdmin
-    ? ""
-    : `AND p.space_id IN (
-         SELECT space_id FROM ${spaceMembersTable(prefix)} WHERE user_id = ?
-       )`
+  const filters = spaceFilters(c, prefix)
+  const where = filters.map((filter) => filter.sql).join("\n        ")
   const stmt = c.env.DB.prepare(
     `SELECT CAST(f.page_id AS INTEGER) AS id,
             p.title AS title,
@@ -115,18 +183,16 @@ readRoutes.get("/search", async (c) => {
        JOIN ${pagesTable(prefix)} p ON p.id = CAST(f.page_id AS INTEGER)
         AND p.deleted_at IS NULL
       WHERE ${fts} MATCH ?
-        ${membershipFilter}
+        ${where}
       ORDER BY bm25(${fts}, 0.0, 10.0, 1.0)
       LIMIT ?`
   )
-  const hits = siteAdmin
-    ? await stmt.bind(match, READ_SEARCH_LIMIT).all<SearchHitRow>()
-    : await stmt
-        .bind(match, c.get("userId"), READ_SEARCH_LIMIT)
-        .all<SearchHitRow>()
+  const rows = await stmt
+    .bind(match, ...filterBinds(filters), READ_SEARCH_LIMIT)
+    .all<SearchHitRow>()
 
   return c.json(
-    hits.results.map((row) => ({
+    rows.results.map((row) => ({
       id: row.id,
       title: toPlainText(row.title),
       snippet: makeSnippet(row.contentText || row.title, query),
@@ -141,8 +207,8 @@ readRoutes.get("/search", async (c) => {
  * 默认给 `markdown`（即落库的 `content_md`，热路径只读 D1）；`?format=json` 时改给
  * `content_json`（按 `content_hash` 从内容桶取原文），两者不并存。
  *
- * 不存在、已软删、或所在空间不是令牌用户的可见空间，一律 404——不泄露页面存在性，
- * 与站内页面直链口径一致。
+ * 不存在、已软删、或所在空间不在令牌的有效可见范围（非成员或范围外），一律 404——
+ * 不泄露页面存在性，与站内页面直链口径一致。先判范围（纯谓词、不查库），再算成员角色。
  */
 readRoutes.get("/pages/:id", async (c) => {
   const prefix = getTablePrefix(c.env)
@@ -151,6 +217,9 @@ readRoutes.get("/pages/:id", async (c) => {
   if (id === null) return c.json({ error: "Page not found" }, 404)
   const row = await getPageRow(db, prefix, id)
   if (!row || row.deleted_at) return c.json({ error: "Page not found" }, 404)
+  if (!tokenScopeAllows(c.get("tokenScope"), row.space_id)) {
+    return c.json({ error: "Page not found" }, 404)
+  }
 
   const role = await resolveSpaceRole(
     db,
