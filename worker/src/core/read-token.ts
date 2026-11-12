@@ -1,19 +1,23 @@
 /**
- * 个人只读接口令牌（一期：供 Muse 的自定义连接器接入）。
+ * 个人只读接口令牌（一期：供 Muse 的自定义连接器接入；二期加空间范围）。
  *
  * 与导入令牌（core/import-token.ts）并列、**互不通用**：存储在各自的表里，校验各查
  * 各的表，所以「导入令牌调读接口」「只读令牌调导入/写接口」在服务端天然被拒——双向
  * 隔离靠表隔离落地，不靠前置判断，也不靠前端。规格明确要求导入令牌这一侧原样不动，
- * 因此这里照抄它的口径而不去抽取共用组件。
+ * 因此这里照抄它的口径而不去抽取共用组件；读写令牌（core/write-token.ts）与本节
+ * 逐函数同构、只换一张表。
  *
  * - 每用户一枚（`user_id` 主键），生成/重置即覆盖；库里只存令牌的 SHA-256 hex，与
  *   `sessions` / `import_tokens` 同口径，库被读也拿不到可用凭证。
  * - 明文只在生成/重置的响应里出现一次，此后只能查状态。
  * - 不设过期列：失效只走 吊销 / 重置 / 用户被停用或未批准；校验每次回表。
  * - `last_used_at` 每次通过令牌调用读接口时更新（供设置页显示最近使用时间）。
+ * - 空间范围（二期，见 core/token-scope.ts）：状态多一个 `spaceIds`（`null` = 不限制）；
+ *   生成/重置时可一并换范围（不带 = 保留现有范围，不会悄悄放大）。
  */
 import { randomToken, sha256Hex } from "./auth"
 import { readTokensTable, usersTable } from "../lib/tables"
+import { scopeReplaceStatements, type TokenScope } from "./token-scope"
 
 export interface ReadTokenRow {
   user_id: number
@@ -23,20 +27,26 @@ export interface ReadTokenRow {
   revoked_at: string | null
 }
 
-/** 对外状态（永不包含 token_hash 或明文），形状与 `ImportTokenStatus` 一致。 */
+/** 对外状态（永不包含 token_hash 或明文），形状与 `ImportTokenStatus` / `WriteTokenStatus` 一致。 */
 export interface ReadTokenStatus {
   active: boolean
   createdAt: string | null
   lastUsedAt: string | null
   revokedAt: string | null
+  /** 当前空间范围：`null` = 不限制；数组 = 范围（升序）。 */
+  spaceIds: TokenScope
 }
 
-export function toReadTokenStatus(row: ReadTokenRow | null): ReadTokenStatus {
+export function toReadTokenStatus(
+  row: ReadTokenRow | null,
+  spaceIds: TokenScope
+): ReadTokenStatus {
   return {
     active: Boolean(row && !row.revoked_at),
     createdAt: row?.created_at ?? null,
     lastUsedAt: row?.last_used_at ?? null,
-    revokedAt: row?.revoked_at ?? null
+    revokedAt: row?.revoked_at ?? null,
+    spaceIds
   }
 }
 
@@ -51,31 +61,48 @@ export async function getReadTokenRow(
     .first<ReadTokenRow>()
 }
 
-/** 生成或覆盖（重置）当前用户的只读令牌，返回明文（只此一次）。 */
+/**
+ * 生成或覆盖（重置）当前用户的只读令牌，返回明文（只此一次）。
+ *
+ * `scope` 省略 = 保留现有范围；`null` = 清除范围；数组 = 设成该范围。令牌 upsert 与
+ * 范围替换在同一次 `db.batch()` 里落库（D1 的事务单位），不会出现「密钥换了、范围
+ * 没换」。
+ */
 export async function issueReadToken(
   db: D1Database,
   prefix: string,
-  userId: number
+  userId: number,
+  options: { scope?: TokenScope } = {}
 ): Promise<{ token: string; createdAt: string }> {
   const token = randomToken()
   const tokenHash = await sha256Hex(token)
   const now = new Date().toISOString()
-  await db
-    .prepare(
-      `INSERT INTO ${readTokensTable(prefix)} (user_id, token_hash, created_at, last_used_at, revoked_at)
-       VALUES (?, ?, ?, NULL, NULL)
-       ON CONFLICT(user_id) DO UPDATE SET
-         token_hash = excluded.token_hash,
-         created_at = excluded.created_at,
-         last_used_at = NULL,
-         revoked_at = NULL`
+  const statements = [
+    db
+      .prepare(
+        `INSERT INTO ${readTokensTable(prefix)} (user_id, token_hash, created_at, last_used_at, revoked_at)
+         VALUES (?, ?, ?, NULL, NULL)
+         ON CONFLICT(user_id) DO UPDATE SET
+           token_hash = excluded.token_hash,
+           created_at = excluded.created_at,
+           last_used_at = NULL,
+           revoked_at = NULL`
+      )
+      .bind(userId, tokenHash, now)
+  ]
+  if (options.scope !== undefined) {
+    statements.push(
+      ...scopeReplaceStatements(db, prefix, "read", userId, options.scope)
     )
-    .bind(userId, tokenHash, now)
-    .run()
+  }
+  await db.batch(statements)
   return { token, createdAt: now }
 }
 
-/** 吊销：从未生成过返回 false（路由转 404），已吊销视为成功（幂等）。 */
+/**
+ * 吊销：从未生成过返回 false（路由转 404），已吊销视为成功（幂等）。
+ * 范围行不动：之后重新生成但不带范围时沿用，范围只会更窄，不会悄悄放大。
+ */
 export async function revokeReadToken(
   db: D1Database,
   prefix: string,

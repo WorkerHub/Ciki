@@ -1,21 +1,26 @@
 /**
- * 数据库结构的唯一真源：单一迁移 `schema_v1`（基线），结构即 `schema.ts` 的定版 DDL。
+ * 数据库结构的唯一真源：基线迁移 `schema_v1`（结构即 `schema.ts` 的定版 DDL）
+ * ＋ 之后的追加迁移 `schema_v2`（令牌两张新表，纯追加）。
  *
- * - 全新库：`sql` 按 `schema.ts` 的定版 DDL 一次建出全部表/索引（`users.username`
- *   的唯一索引就在基线里）并播种默认空间（名称按建库语言）；重复执行无副作用（全部
- *   `CREATE … IF NOT EXISTS`，唯一一条播种带「spaces 为空」守卫）。
+ * - 全新库：`schema_v1` 的 `sql` 按 `schema.ts` 的定版 DDL 一次建出全部基线表/索引
+ *   （`users.username` 的唯一索引就在基线里）并播种默认空间（名称按建库语言），
+ *   随后 `schema_v2` 补上令牌两张表；重复执行无副作用（全部 `CREATE … IF NOT EXISTS`，
+ *   唯一一条播种带「spaces 为空」守卫）。
  * - 存量库：唯一支持的升级源是**当前生产形态**（`schema_v8`）。`prepare` 只做只读
  *   校验（见 `schema-shape.ts`），通过后 `sql` 全是幂等空转、结构与数据一字不动，
  *   唯一的效果是账本被改写：`supersedes` 里的旧记录（`schema_v2`…`schema_v8`，以及
  *   增量链时代与基线同名的旧 `schema_v1` 行）与本条记账在同一个 `db.batch()` 里
- *   原子清掉并写回 `schema_v1`，账本从此只剩一行。
+ *   原子清掉并写回 `schema_v1`；紧接着 `schema_v2` 补上令牌两张表并记账，账本最终
+ *   为 `schema_v1` + `schema_v2` 两条。
  * - 其他形态一律拒绝、不改任何数据与账本：账本有 `schema_v7` 没有 `schema_v8`、
  *   结构对不上基线、更早的 v6 及以前形态。错误信息指路：先用上一版（支持 v7→v8
  *   的发布）升到 `schema_v8`，再换本版本升级。
  *
- * 基线已冻结：今后结构变化从 `schema_v2` 往后追加，`schema_v1` 不得改名、改内容
- * 或调序。迁移必须可重复执行；`prepare` 抛错则该迁移不记账，下次 setup 从头重跑。
- * 语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）。表名/索引名一律经
+ * 基线已冻结：`schema_v1` 不得改名、改内容或调序；结构变化只在末尾追加新的
+ * `schema_vN`（**纯追加**：只 `CREATE … IF NOT EXISTS`，不重建任何现有表，也不把新表
+ * 写回 `schema.ts` 的基线清单——`schema-shape.ts` 拿那份清单判 v1 是否已应用）。
+ * 迁移必须可重复执行；`prepare` 抛错则该迁移不记账，下次 setup 从头重跑。语句之间
+ * 用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）。表名/索引名一律经
  * tables.ts / schema.ts 拼装，本文件只写 `{prefix}` 占位。
  */
 import type { Env } from "../types"
@@ -33,7 +38,14 @@ import {
   rejection,
   tableExists
 } from "./schema-shape"
-import { migrationsTable, tableName, usersTable } from "./tables"
+import {
+  migrationsTable,
+  tableName,
+  tokenSpaceScopesTable,
+  usersTable,
+  writeTokensTable,
+  writeTokensTokenHashIndex
+} from "./tables"
 
 /** 迁移执行时能拿到的东西：库、生效前缀、迁移可用的绑定、以及账本快照。 */
 export interface MigrationContext {
@@ -64,11 +76,30 @@ export interface Migration {
 export const BASELINE_MIGRATION_NAME = "schema_v1"
 
 /**
- * 增量链时代留下的旧账本记录（`schema_v2`–`schema_v8`）：升级时一并清除。
+ * 增量链时代的旧账本记录（`schema_v2`–`schema_v8`）：应用 `schema_v1` 时一并清除。
  * `schema_v1` 自己不在列表里——它的旧同名行由执行器在记账时删掉再写。
+ *
+ * `schema_v2` 虽然已经是**现行**迁移（写令牌表），旧账本里的同名行仍是增量链时代
+ * 的另一条迁移：不删掉的话它会让执行器把新 v2 当成「已应用」而跳过，新表永远不建。
+ */
+export const SUPERSEDED_LEDGER_RECORDS = [
+  "schema_v2",
+  "schema_v3",
+  "schema_v4",
+  "schema_v5",
+  "schema_v6",
+  "schema_v7",
+  "schema_v8"
+] as const
+
+/**
+ * 已经不再存在、账本里出现即说明账本没收敛的旧记录（`schema_v3`–`schema_v8`）。
+ *
+ * `schema_v2` 不在其中：它现在是活迁移，账本里的那一行代表新表已建好，不能再要求
+ * 「账本里一条旧记录都没有」——否则每次 setup 都会把 `schema_v1` 判成未应用而重放，
+ * 连带删掉 v2 的记账行。
  */
 export const RETIRED_MIGRATIONS = [
-  "schema_v2",
   "schema_v3",
   "schema_v4",
   "schema_v5",
@@ -196,16 +227,53 @@ async function baselineApplied(ctx: MigrationContext): Promise<boolean> {
 }
 
 /**
- * `schema_v1` —— 唯一的版本标记，即冻结的基线结构（定版 DDL + username 唯一索引 +
- * 默认空间种子）。结构变化从 `schema_v2` 往后追加，本条不得改名、改内容或调序；
- * 建库语言只影响种子那一行的 name，不构成结构或谓词变更。
+ * `schema_v1` —— 基线结构（定版 DDL + username 唯一索引 + 默认空间种子）。
+ * 本条不得改名、改内容或调序；建库语言只影响种子那一行的 name，不构成结构或谓词
+ * 变更。后续结构变化一律以新的 `schema_vN` 追加（见下方 `schema_v2`）。
  */
 const SCHEMA_V1: Migration = {
   name: BASELINE_MIGRATION_NAME,
   sql: "",
   prepare: prepareBaseline,
-  supersedes: RETIRED_MIGRATIONS,
+  supersedes: SUPERSEDED_LEDGER_RECORDS,
   isApplied: baselineApplied
+}
+
+/**
+ * `schema_v2` —— 令牌两张新表（规格 §2.1 / §3.1 / §6）：**纯追加**，只
+ * `CREATE … IF NOT EXISTS`，不重建、不改动任何现有表与数据，所以存量 v1 库升级
+ * ＝只建这两张表，重复执行是幂等空转。
+ *
+ * - `write_tokens`：读写接口令牌，逐列同 `read_tokens`（`user_id` 主键，每用户一枚），
+ *   库里只存 SHA-256；`token_hash` 唯一索引与只读令牌同口径（查找用）。
+ * - `token_space_scopes`：`(token_kind, user_id, space_id)` 三列联合主键，一行 =
+ *   「该用户的该类令牌可见该空间」；无行 = 不限制。
+ *
+ * 新表**不写进** `schema.ts` 的 `SCHEMA_TABLES` / `SCHEMA_INDEXES`：那是 `schema_v1`
+ * 的基线清单，`schema-shape.ts` 拿它判 v1 是否已应用，加进去会让只有 v1 的存量库
+ * 被误判「结构缺失」而整个升级被拒。
+ */
+const SCHEMA_V2_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS ${writeTokensTable("{prefix}")} (
+  user_id      INTEGER PRIMARY KEY,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS ${writeTokensTokenHashIndex("{prefix}")}
+  ON ${writeTokensTable("{prefix}")}(token_hash)`,
+  `CREATE TABLE IF NOT EXISTS ${tokenSpaceScopesTable("{prefix}")} (
+  token_kind TEXT NOT NULL CHECK (token_kind IN ('read', 'write')),
+  user_id    INTEGER NOT NULL,
+  space_id   INTEGER NOT NULL,
+  PRIMARY KEY (token_kind, user_id, space_id)
+)`
+]
+
+const SCHEMA_V2: Migration = {
+  name: "schema_v2",
+  sql: ""
 }
 
 export function getMigrations(
@@ -230,5 +298,13 @@ export function getMigrations(
     }
   }
 
-  return [{ ...SCHEMA_V1, sql }]
+  return [
+    { ...SCHEMA_V1, sql },
+    {
+      ...SCHEMA_V2,
+      sql: SCHEMA_V2_STATEMENTS.map((statement) =>
+        statement.replaceAll("{prefix}", prefix)
+      ).join(";\n\n")
+    }
+  ]
 }

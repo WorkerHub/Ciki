@@ -19,6 +19,7 @@ interface TokenStatus {
   createdAt: string | null
   lastUsedAt: string | null
   revokedAt: string | null
+  spaceIds: number[] | null
 }
 
 const READ_TOKEN_PATH = "/api/me/read-token"
@@ -63,7 +64,8 @@ describe("只读令牌：生成、哈希落库、重置与吊销", () => {
       active: false,
       createdAt: null,
       lastUsedAt: null,
-      revokedAt: null
+      revokedAt: null,
+      spaceIds: null
     })
 
     const { token, createdAt } = await issueToken(env, admin)
@@ -87,7 +89,8 @@ describe("只读令牌：生成、哈希落库、重置与吊销", () => {
       active: true,
       createdAt,
       lastUsedAt: null,
-      revokedAt: null
+      revokedAt: null,
+      spaceIds: null
     })
     expect(JSON.stringify(status)).not.toContain(token)
 
