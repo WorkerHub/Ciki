@@ -99,7 +99,7 @@ describe("页面树空状态", () => {
     )
   })
 
-  it("编辑及以上才有「移动到空间」入口，点开是移动对话框", async () => {
+  it("编辑及以上才有「移动」入口，点开是移动对话框", async () => {
     const user = userEvent.setup()
     useSpacesStore.setState({
       spaces: [
@@ -131,14 +131,12 @@ describe("页面树空状态", () => {
     await user.click(
       screen.getByRole("button", { name: "页面「可移动页面」操作" })
     )
-    await user.click(
-      await screen.findByRole("menuitem", { name: "移动到空间…" })
-    )
+    await user.click(await screen.findByRole("menuitem", { name: "移动…" }))
 
     expect(await screen.findByText("移动「可移动页面」")).toBeInTheDocument()
   })
 
-  it("只有一个空间时不显示移动到空间", async () => {
+  it("只有一个空间时也给「移动」入口（同空间改父页面）", async () => {
     const user = userEvent.setup()
     usePagesStore.setState({
       tree: [
@@ -160,7 +158,7 @@ describe("页面树空状态", () => {
     expect(
       await screen.findByRole("menuitem", { name: "重命名" })
     ).toBeInTheDocument()
-    expect(screen.queryByRole("menuitem", { name: "移动到空间…" })).toBeNull()
+    expect(screen.getByRole("menuitem", { name: "移动…" })).toBeInTheDocument()
   })
 
   it("只读空间：行内不给操作菜单与拖拽手柄", () => {

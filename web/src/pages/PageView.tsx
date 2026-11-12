@@ -60,12 +60,11 @@ import {
   restoreScrollAnchor,
   takeScrollAnchor
 } from "@/lib/scroll-anchor"
-import { canEdit, editableSpaces } from "@/lib/space"
+import { canEdit } from "@/lib/space"
 import { extractToc } from "@/lib/toc"
 import { findPath } from "@/lib/tree"
 import { cn } from "@/lib/utils"
 import { RevisionsDialog } from "@/pages/RevisionsDialog"
-import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -79,7 +78,6 @@ export function PageView() {
   const pageId = parseIdParam(params.pageId)
   const navigate = useNavigate()
   const location = useLocation()
-  const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
   const tree = usePagesStore((state) => state.tree)
   const removePage = usePagesStore((state) => state.removePage)
   const expandTo = usePagesStore((state) => state.expandTo)
@@ -260,10 +258,6 @@ export function PageView() {
   }, [page, spaces, spacesStatus, currentSpaceId, selectSpace])
 
   const path = pageId === null ? [] : findPath(tree, pageId)
-  const canMoveToSpace =
-    canWrite &&
-    Boolean(page) &&
-    editableSpaces(spaces, isSiteAdmin, page?.spaceId ?? null).length > 0
 
   if (loading) {
     return (
@@ -396,17 +390,15 @@ export function PageView() {
                   <Plus aria-hidden="true" />
                   {t("page.view.newChild")}
                 </Button>
-                {canMoveToSpace ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setMoveOpen(true)}
-                  >
-                    <ArrowRightLeft aria-hidden="true" />
-                    {t("page.view.moveToSpace")}
-                  </Button>
-                ) : null}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setMoveOpen(true)}
+                >
+                  <ArrowRightLeft aria-hidden="true" />
+                  {t("page.view.move")}
+                </Button>
               </>
             ) : null}
             <Button
@@ -494,10 +486,16 @@ export function PageView() {
       <MovePageDialog
         pageId={page.id}
         pageTitle={page.title}
+        parentId={page.parentId}
         sourceSpaceId={page.spaceId}
         open={moveOpen}
         onOpenChange={setMoveOpen}
         onMoved={(targetSpaceId) => {
+          if (targetSpaceId === page.spaceId) {
+            // 同空间改父页：面包颊跟着变，就地刷新详情与侧栏
+            void refresh()
+            return
+          }
           // 同一 URL 不会触发重新加载：就地改本地详情的空间，再切换当前空间
           setPage((prev) => (prev ? { ...prev, spaceId: targetSpaceId } : prev))
           selectSpace(targetSpaceId)

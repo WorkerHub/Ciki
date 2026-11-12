@@ -196,7 +196,7 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(screen.queryByRole("link", { name: "编辑" })).toBeNull()
     expect(screen.queryByRole("button", { name: "子页面" })).toBeNull()
     expect(screen.queryByRole("button", { name: "删除" })).toBeNull()
-    expect(screen.queryByRole("button", { name: "移动到空间" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "移动" })).toBeNull()
     expect(screen.getByRole("button", { name: "历史" })).toBeInTheDocument()
   })
 
@@ -309,7 +309,7 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(pagesApi.tree).not.toHaveBeenCalled()
   })
 
-  it("editor 有编辑、子页面、删除，并在有别的可编辑空间时显示移动入口", async () => {
+  it("editor 有编辑、子页面、删除与移动入口", async () => {
     useSpacesStore.setState({
       spaces: [
         space({ myRole: "editor" }),
@@ -323,18 +323,16 @@ describe("阅读页按空间角色收口写入口", () => {
     ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "子页面" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument()
-    expect(
-      screen.getByRole("button", { name: "移动到空间" })
-    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "移动" })).toBeInTheDocument()
   })
 
-  it("只有一个空间时不显示移动到空间", async () => {
+  it("只有一个空间时也给移动入口（同空间改父页面）", async () => {
     renderView()
 
     expect(
       await screen.findByRole("link", { name: "编辑" })
     ).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "移动到空间" })).toBeNull()
+    expect(screen.getByRole("button", { name: "移动" })).toBeInTheDocument()
   })
 
   it("站点管理员即使不是空间成员也有全部写入口", async () => {
@@ -886,14 +884,15 @@ describe("阅读页：英文界面", () => {
     ).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
 
-    await userEvent.click(screen.getByRole("button", { name: "Move to space" }))
+    await userEvent.click(screen.getByRole("button", { name: "Move" }))
     expect(
       await screen.findByText("Move “支付服务部署手册”")
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/moves to the top level of the target space/)
+      screen.getByText(/moves together with its subpages/)
     ).toBeInTheDocument()
     expect(screen.getByLabelText("Target space")).toBeInTheDocument()
+    expect(screen.getByLabelText("Parent page")).toBeInTheDocument()
   })
 
   it("页面不存在时给英文空态", async () => {

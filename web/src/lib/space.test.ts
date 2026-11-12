@@ -67,20 +67,20 @@ describe("进入应用时的当前空间", () => {
   })
 })
 
-describe("跨空间移动的目标空间", () => {
+describe("移动页面的目标空间", () => {
   const spaces = [
     space({ id: 1, myRole: "admin" }),
     space({ id: 2, myRole: "editor" }),
     space({ id: 3, myRole: "viewer" })
   ]
 
-  it("只留当前用户可编辑、且不是当前所在的空间", () => {
-    expect(editableSpaces(spaces, false, 1).map((item) => item.id)).toEqual([2])
+  it("只留当前用户可编辑的空间（含页面当前所在空间）", () => {
+    expect(editableSpaces(spaces, false).map((item) => item.id)).toEqual([1, 2])
   })
 
   it("站点管理员对所有空间都有编辑权", () => {
-    expect(editableSpaces(spaces, true, 1).map((item) => item.id)).toEqual([
-      2, 3
+    expect(editableSpaces(spaces, true).map((item) => item.id)).toEqual([
+      1, 2, 3
     ])
   })
 })

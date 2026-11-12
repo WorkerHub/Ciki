@@ -28,7 +28,7 @@ export type TreeRowAction =
   | "delete"
   | "move-up"
   | "move-down"
-  | "move-to-space"
+  | "move"
 
 export function PageTreeRow({
   row,
@@ -37,7 +37,7 @@ export function PageTreeRow({
   active,
   canMoveUp,
   canMoveDown,
-  canMoveToSpace = false,
+  dropLine,
   onToggle,
   onOpen,
   onAction
@@ -49,8 +49,8 @@ export function PageTreeRow({
   active: boolean
   canMoveUp: boolean
   canMoveDown: boolean
-  /** 有别的可编辑空间时才给「移动到空间」入口。 */
-  canMoveToSpace?: boolean
+  /** 拖动中的落点预览：线画在这行的上沿或下沿，按落点层级缩进。 */
+  dropLine?: { position: "before" | "after"; depth: number }
   onToggle: () => void
   onOpen: () => void
   onAction: (action: TreeRowAction) => void
@@ -74,6 +74,18 @@ export function PageTreeRow({
       className={cn("relative list-none", isDragging && "z-10 opacity-70")}
       data-tree-row={row.id}
     >
+      {dropLine ? (
+        <span
+          aria-hidden="true"
+          data-drop-preview=""
+          className="pointer-events-none absolute z-20 h-0.5 rounded-full bg-primary"
+          style={{
+            left: dropLine.depth * INDENT_WIDTH + 2,
+            right: 4,
+            ...(dropLine.position === "before" ? { top: -1 } : { bottom: -1 })
+          }}
+        />
+      ) : null}
       <div
         className={cn(
           "group relative flex items-center gap-0.5 rounded-md pr-0.5 max-sm:min-h-10",
@@ -160,12 +172,10 @@ export function PageTreeRow({
                   <Pencil aria-hidden="true" />
                   {t("shell.tree.rename")}
                 </DropdownMenuItem>
-                {canMoveToSpace ? (
-                  <DropdownMenuItem onSelect={() => onAction("move-to-space")}>
-                    <ArrowRightLeft aria-hidden="true" />
-                    {t("shell.tree.moveToSpace")}
-                  </DropdownMenuItem>
-                ) : null}
+                <DropdownMenuItem onSelect={() => onAction("move")}>
+                  <ArrowRightLeft aria-hidden="true" />
+                  {t("shell.tree.move")}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={!canMoveUp}

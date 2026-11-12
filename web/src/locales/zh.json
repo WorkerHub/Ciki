@@ -111,7 +111,7 @@
       "rowActions": "页面「{{title}}」操作",
       "addChild": "新建子页面",
       "rename": "重命名",
-      "moveToSpace": "移动到空间…",
+      "move": "移动…",
       "moveUp": "上移",
       "moveDown": "下移",
       "delete": "删除（含子页面）"
@@ -280,7 +280,7 @@
       "refresh": "刷新",
       "edit": "编辑",
       "newChild": "子页面",
-      "moveToSpace": "移动到空间",
+      "move": "移动",
       "download": "下载 .md",
       "history": "历史",
       "delete": "删除",
@@ -362,13 +362,16 @@
     },
     "move": {
       "title": "移动「{{title}}」",
-      "description": "页面连同它的子页面会一起移到目标空间的顶层；之后在原空间里就看不到它们了。",
-      "noTargets": "没有可移动到的其他空间。你需要在另一个空间里拥有编辑权限。",
+      "description": "页面连同它的子页面会一起移动。",
+      "noTargets": "没有可移动到的空间。你需要在某个空间里拥有编辑权限。",
       "targetSpace": "目标空间",
       "targetPlaceholder": "选择空间",
       "targetRequired": "请选择目标空间",
+      "parentPage": "父页面",
+      "parentPlaceholder": "选择父页面",
+      "topLevel": "顶层（无父页面）",
       "moving": "移动中…",
-      "submit": "移动到空间"
+      "submit": "移动"
     }
   },
   "editor": {

@@ -33,7 +33,12 @@ interface PagesState {
     parentId: number | null,
     sortOrder: number
   ) => Promise<void>
-  movePageToSpace: (id: number, targetSpaceId: number) => Promise<void>
+  movePageTo: (
+    id: number,
+    targetSpaceId: number,
+    parentId: number | null,
+    sortOrder: number
+  ) => Promise<void>
   removePage: (id: number) => Promise<void>
   restorePage: (id: number) => Promise<void>
   purgePage: (id: number) => Promise<void>
@@ -150,10 +155,16 @@ export const usePagesStore = create<PagesState>((set, get) => {
       if (parentId !== null) get().expand(parentId)
     },
 
-    movePageToSpace: async (id, targetSpaceId) => {
-      await pagesApi.move(id, null, undefined, targetSpaceId)
-      // 源空间的树先重拉：页面从当前树里消失（目标空间由调用方切换后加载）
+    movePageTo: async (id, targetSpaceId, parentId, sortOrder) => {
+      const before = findNode(get().tree, id)
+      // spaceId 与 parentId 一起给：cross 空间时服务端会把整棵后代子树的 space_id 一起改。
+      await pagesApi.move(id, parentId, sortOrder, targetSpaceId)
       await load()
+      await repairOrder([parentId, before?.parentId ?? null])
+      await load()
+      // 父子页就在当前树里时展开它，让用户直接看到落位
+      if (parentId !== null && targetSpaceId === get().spaceId)
+        get().expand(parentId)
     },
 
     removePage: async (id) => {
