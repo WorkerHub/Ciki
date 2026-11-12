@@ -31,6 +31,10 @@ const storage: AdminStorage = {
   trashedPageCount: 3,
   revisionCount: 40,
   databaseSizeBytes: 3_565_158,
+  assetsSizeBytes: 2_097_152,
+  contentSizeBytes: 524_288,
+  assetsObjectCount: 24,
+  contentObjectCount: 40,
   sizeScope: "own-database",
   measure: "cloudflare-d1-api"
 }
@@ -89,22 +93,56 @@ describe("系统管理 · 数据库升级", () => {
     expect(screen.queryByText(/每月/)).toBeNull()
   })
 
-  it("库体积与页数并成一行：体积取服务端口径，页数是未删除页面数", async () => {
+  it("库体积、两个桶体积与页数并成一行：按桶分开显示，不合并", async () => {
     render(<DatabaseTab />)
 
     expect(
-      await screen.findByText("数据库体积 3.4 MB · 页面 12")
+      await screen.findByText(
+        "数据库体积 3.4 MB · 图片体积 2.0 MB · 正文体积 512.0 KB · 页面 12"
+      )
     ).toBeInTheDocument()
-    // 只此一行、无说明文字，也不出现共享库 scope 字样
+    // 只此一行、无说明文字，也不出现共享库 scope 字样、不显示对象数
     expect(screen.queryByText(/共享/)).toBeNull()
     expect(screen.queryByText(/PRAGMA/)).toBeNull()
     expect(screen.getAllByText(/数据库体积/)).toHaveLength(1)
+    expect(screen.queryByText(/个对象/)).toBeNull()
+  })
+
+  it("某一桶统计失败时整项不渲染，其余项照常", async () => {
+    vi.mocked(adminApi.storage).mockResolvedValue({
+      ...storage,
+      assetsSizeBytes: null
+    })
+    render(<DatabaseTab />)
+
+    expect(
+      await screen.findByText("数据库体积 3.4 MB · 正文体积 512.0 KB · 页面 12")
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/图片体积/)).toBeNull()
+    expect(screen.queryByText(/不可得/)).toBeNull()
+  })
+
+  it("空桶的 0 字节是真数，照实显示 0 B", async () => {
+    vi.mocked(adminApi.storage).mockResolvedValue({
+      ...storage,
+      contentSizeBytes: 0,
+      contentObjectCount: 0
+    })
+    render(<DatabaseTab />)
+
+    expect(
+      await screen.findByText(
+        "数据库体积 3.4 MB · 图片体积 2.0 MB · 正文体积 0 B · 页面 12"
+      )
+    ).toBeInTheDocument()
   })
 
   it("体积读不到时显式「不可得」，不拿页数估算", async () => {
     vi.mocked(adminApi.storage).mockResolvedValue({
       ...storage,
-      databaseSizeBytes: null
+      databaseSizeBytes: null,
+      assetsSizeBytes: null,
+      contentSizeBytes: null
     })
     render(<DatabaseTab />)
 
