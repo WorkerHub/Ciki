@@ -7,8 +7,9 @@ import {
   runSetup
 } from "../lib/setup"
 import { safeEqual } from "../core/auth"
+import { resolveRequestLanguage } from "../core/language"
 import { consumeCounter, ensureCountersTable } from "../core/counters"
-import { clientIp } from "../lib/http"
+import { clientIp, readJsonBody } from "../lib/http"
 import type { HonoEnv } from "../types"
 
 export const setupRoutes = new Hono<HonoEnv>()
@@ -34,10 +35,19 @@ setupRoutes.get("/state", async (c) => {
 /**
  * 只跑迁移（纯升级，与建账号端点分离）。密钥只认 X-Setup-Secret 请求头，
  * 常量时间比较；按 IP 限流 3 次/10 分钟（D1 计数表为权威）。
+ *
+ * 可选请求体 `{"language":"en"}`：只用于**全新库**播种默认空间的名字（规格 §2.3、
+ * §2.10）。取值口径：显式合法值 > `Accept-Language` 首标签 > `zh`；不带 body 的
+ * 老调用行为不变。
  */
 setupRoutes.post("/", async (c) => {
   const prefix = getTablePrefix(c.env)
   const ip = clientIp(c)
+  const body = await readJsonBody<{ language?: unknown }>(c)
+  const language = resolveRequestLanguage(
+    body?.language,
+    c.req.header("Accept-Language")
+  )
 
   // 前缀冲突先做只读探测：冲突时一个表都不写（限流计数表会建表，必须排在后面）。
   // 冲突细节只在密钥正确时返回，避免未授权探测共享库里其他项目的前缀。
@@ -50,7 +60,7 @@ setupRoutes.post("/", async (c) => {
     ) {
       return c.json({ error: "Invalid setup secret" }, 403)
     }
-    const result = await runSetup(c.env)
+    const result = await runSetup(c.env, { language })
     return c.json(result, 409)
   }
 
@@ -85,7 +95,7 @@ setupRoutes.post("/", async (c) => {
   }
 
   try {
-    const result = await runSetup(c.env)
+    const result = await runSetup(c.env, { language })
     if (!result.success) return c.json(result, 409)
     return c.json(result)
   } catch (err) {

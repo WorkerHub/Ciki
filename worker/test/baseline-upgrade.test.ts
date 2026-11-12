@@ -162,6 +162,24 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     expect(businessSnapshot(context)).toEqual(beforeData)
   })
 
+  it("带 language=en 升级：存量默认空间名一字不改", async () => {
+    const context = await v8Context()
+    const beforeData = businessSnapshot(context)
+
+    const result = await runSetup(context.env, { language: "en" })
+    if (!result.success) throw new Error(result.error)
+    expect(result.migrations).toEqual([
+      { name: "schema_v1", status: "applied" }
+    ])
+
+    // 播种只在全新库生效：升级路径即使带了英文也不会被改名。
+    const row = context.db.db
+      .prepare("SELECT id, slug, name FROM ciki_spaces ORDER BY id")
+      .all() as Array<{ id: number; slug: string; name: string }>
+    expect(row[0]).toEqual({ id: 1, slug: "space-1", name: "默认空间" })
+    expect(businessSnapshot(context)).toEqual(beforeData)
+  })
+
   it("升级后全链路可用：既有会话、登录、读页、搜索、评论、注册验证", async () => {
     const context = await v8Context()
     const { env } = context

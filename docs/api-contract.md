@@ -51,13 +51,13 @@
 - **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节（这一份存 R2，不占 D1）；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；D1 里的三列派生值（HTML + 纯文本 + MD）合计 ≤ 1,900,000 字节（页面行仍在 2 MB 上限内）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
 - **纯文本字段**：`title` 与 `contentText` 保存时剥除 HTML 标签并折叠空白，入库与搜索片段都不含 HTML 语法。
 - **脱敏**：任何 DTO 都不返回 `password_hash`、TOTP 密文、passkey `public_key`、会话令牌或挑战原值。
-- **界面语言与邮件语言**：支持集 `zh` / `en`（ISO 639-1）。`users.language` 是账号偏好，`GET /api/me` 输出（历史脏值读作 `zh`）；注册入参、更新接口的校验口径见各端点。4 类验证码邮件（`register_verify` / `2fa_login` / `password_reset` / `2fa_enable`）按同一语言出文案：已注册用户按账号语言，注册首封按注册入参语言；中文文案逐字不变，英文为新增译文。
+- **界面语言与邮件语言**：支持集 `zh` / `en`（ISO 639-1）。`users.language` 是账号偏好，`GET /api/me` 输出（历史脏值读作 `zh`）；注册入参、更新接口的校验口径见各端点。4 类验证码邮件（`register_verify` / `2fa_login` / `password_reset` / `2fa_enable`）按同一语言出文案：已注册用户按账号语言，注册首封按注册入参语言；中文文案逐字不变，英文为新增译文。首次 `POST /api/setup` 播种的默认空间名同样按 setup 请求语言（`zh` → 「默认空间」，`en` → `Default Space`），口径见「POST /api/setup」。
 
 ## 二、数据模型
 
 迁移清单见下，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
-- `schema_v1`（基线迁移，也是系统里唯一的版本标记）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引（含 `{prefix}users_username`：`username COLLATE NOCASE` 唯一、`WHERE username <> ''` 空串除外）。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一条迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`），**只在新库播种**：账本里已有任何记录就不写——即使默认空间已被删空，升级也不补行（升级只改账本、不动数据）。全部 `CREATE … IF NOT EXISTS`，重复执行无副作用。
+- `schema_v1`（基线迁移，也是系统里唯一的版本标记）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引（含 `{prefix}users_username`：`username COLLATE NOCASE` 唯一、`WHERE username <> ''` 空串除外）。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一条迁移末尾播种默认空间（id `1`、slug `space-1`、名称按 setup 请求语言：`zh` → 「默认空间」、`en` → `Default Space`、`is_default=1`），**只在新库播种**：账本里已有任何记录就不写——即使默认空间已被删空，升级也不补行（升级只改账本、不动数据）；存量库与用户改过名的空间永远不被改名。全部 `CREATE … IF NOT EXISTS`，重复执行无副作用。
 - 存量库（**唯一支持的升级源 = 当前生产形态**，即 `schema_v8` 形态：整数 id、正文在 R2、`users` 三列已删、`username` 唯一索引在位）：`prepare` 只做**只读形态校验**，通过后结构与数据一字不动，唯一的动作是**账本手术**——把残留的 `schema_v1`–`schema_v8` 八行在同一个 `db.batch()`（事务）里清掉并写回一行 `schema_v1`。校验不过、或账本有 `schema_v7` 却没有 `schema_v8`（停在 username 唯一索引那一步）：setup 以 409 `MIGRATION_REJECTED` 中止并把指路信息回显给管理员——**先用上一版（支持 v7 → v8 的发布）升到 `schema_v8`，再换本版升级**；若账本已记着 `schema_v8` 而结构对不上，说明结构在升级后被改动过——先按升级前记下的 Time Travel bookmark 还原（或修好不符项）再试。两种情况都是数据与账本一字未动，不猜测式修复、不部分执行。
 - 更早的形态（`users` 还带 `base_currency`/`timezone`/`theme`、正文还在 `content_json`、`pages` 缺失、或删掉唯一索引冒充 v8）**一律拒绝**：错误信息列出不符项并指路，一个表都不动。
 - `schema_v1`–`schema_v8` 的增量定义已清除（含旧 `schema_v6` 的 UUID→整数全表重建路径）；升级时账本坍缩为单行 `schema_v1`，执行器只认当前列表。
@@ -374,7 +374,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 #### POST /api/setup（公开）
 
 - 请求头：`X-Setup-Secret: <SETUP_SECRET>`（**只认请求头**，URL 参数无效；`GET /api/setup` 及 `/api/setup/*` 的其它 GET 返回 405 JSON）。
-- 请求体：无。
+- 请求体（可选）：`{"language":"en"}`。只用于**全新库**播种默认空间的名字：`zh` → 「默认空间」，`en` → `Default Space`。取值口径与界面语言链一致——显式合法值优先（初始化页传当前界面语言），否则看 `Accept-Language` 首个标签（`en` 开头取 `en`，其余 `zh`），再缺省 `zh`；非法值不报错、按后两级回落。不带请求体的老调用先看 `Accept-Language`、再按 `zh`。已有数据的库再调一次不会改名。
 - 200：
 
 ```json
@@ -1641,7 +1641,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版起迁移只有一条 `schema_v1`，`schema_v8` 形态的存量库在同一次 setup 里只做账本手术（账本坍缩为单行 `schema_v1`，结构与数据不动）——形态不被接受时以 409 `MIGRATION_REJECTED` 中止并提示先用上一版升到 `schema_v8`（见「数据模型」）。
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间，名字按 setup 请求语言播种；`POST /api/admin/setup` 不带语言即 `zh`），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间，也不改名。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版起迁移只有一条 `schema_v1`，`schema_v8` 形态的存量库在同一次 setup 里只做账本手术（账本坍缩为单行 `schema_v1`，结构与数据不动）——形态不被接受时以 409 `MIGRATION_REJECTED` 中止并提示先用上一版升到 `schema_v8`（见「数据模型」）。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。

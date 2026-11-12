@@ -52,7 +52,8 @@ describe("初始化页", () => {
     await user.type(await screen.findByLabelText("SETUP_SECRET"), "s3cret")
     await user.click(screen.getByRole("button", { name: "初始化数据库" }))
 
-    expect(setupApi.run).toHaveBeenCalledWith("s3cret")
+    // 当前界面语言（默认 zh）随提交带上：全新库的默认空间名按它播种。
+    expect(setupApi.run).toHaveBeenCalledWith("s3cret", "zh")
     expect(await screen.findByText("初始化完成")).toBeInTheDocument()
     expect(screen.getByText("ciki_")).toBeInTheDocument()
     expect(screen.getByText("已应用")).toBeInTheDocument()
@@ -138,5 +139,15 @@ describe("初始化页：英文界面", () => {
 
     expect(await screen.findByText(/other_/)).toBeInTheDocument()
     expect(screen.getAllByText(/setup was aborted/).length).toBeGreaterThan(0)
+  })
+
+  it("英文界面提交时把 en 作为建库语言带上", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    renderSetup()
+    await user.type(await screen.findByLabelText("SETUP_SECRET"), "s3cret")
+    await user.click(screen.getByRole("button", { name: "Set up database" }))
+
+    expect(setupApi.run).toHaveBeenCalledWith("s3cret", "en")
   })
 })

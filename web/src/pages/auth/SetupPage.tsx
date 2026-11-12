@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { currentLanguage } from "@/i18n"
 import {
   ApiError,
   describeApiError,
@@ -46,7 +47,8 @@ export function SetupPage() {
     setError("")
     setConflict(null)
     try {
-      const value = await setupApi.run(secret.trim())
+      // 当前界面语言（localStorage > 浏览器语言，§2.3）：全新库的默认空间名按它播种。
+      const value = await setupApi.run(secret.trim(), currentLanguage())
       setResult(value)
       // 让根门拿到服务端真实状态（initialized: true / enabled: false），
       // 否则下面的「注册首个管理员」会被重定向回 /setup

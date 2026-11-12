@@ -149,9 +149,12 @@ Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) =>
 
 ```bash
 read -rs SETUP_SECRET
-curl -X POST https://<你的站点域名>/api/setup -H "X-Setup-Secret: $SETUP_SECRET"
+curl -X POST https://<你的站点域名>/api/setup -H "X-Setup-Secret: $SETUP_SECRET" \
+  -H "Content-Type: application/json" -d '{"language":"zh"}'
 unset SETUP_SECRET
 ```
+
+可选的 `language` 决定新库播种的默认空间名：`zh` → 「默认空间」，`en` → `Default Space`。不传时服务端先看 `Accept-Language` 首个标签（只有 `en` 开头才算英文），再回退 `zh`；浏览器的初始化页会自动带上当前界面语言。只对全新库生效，已有的空间名永不被改。
 
 每次升级部署后，管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」即可补跑迁移（`POST /api/admin/setup`，登录管理员会话即可，不需要 `SETUP_SECRET`）。已执行的迁移显示为 `skipped`；界面不提供删表 / 清库入口。
 

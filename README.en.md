@@ -149,9 +149,12 @@ A successful deploy only means the Worker is live; the tables do not exist yet. 
 
 ```bash
 read -rs SETUP_SECRET
-curl -X POST https://<your-site-domain>/api/setup -H "X-Setup-Secret: $SETUP_SECRET"
+curl -X POST https://<your-site-domain>/api/setup -H "X-Setup-Secret: $SETUP_SECRET" \
+  -H "Content-Type: application/json" -d '{"language":"en"}'
 unset SETUP_SECRET
 ```
+
+The optional `language` tells the new database which language to name the seeded default space in: `en` → "Default Space", `zh` → 「默认空间」. Omit it and the server falls back to `Accept-Language` (English only when the first tag starts with `en`), then to `zh`. The browser setup page sends the current interface language for you. It only applies to a brand-new database: existing spaces are never renamed.
 
 After each upgrade deployment, an admin clicks "Check and upgrade database" under Admin → Database Maintenance (系统管理 → 数据库维护) to apply pending migrations (`POST /api/admin/setup` with an admin session; no `SETUP_SECRET` needed). Already-applied migrations show as `skipped`, and the UI offers no drop-table or wipe-database action.
 

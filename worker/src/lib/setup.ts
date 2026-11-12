@@ -19,7 +19,8 @@ import {
 import {
   runLedgerMigrations,
   LedgerConflictError,
-  type LedgerMigrationResult
+  type LedgerMigrationResult,
+  type MigrationRunOptions
 } from "./migrations-runner"
 import { MigrationRejectedError } from "./schema-shape"
 import { DEFAULT_SITE_NAME } from "../core/identity"
@@ -202,8 +203,16 @@ function prefixConflict(conflict: SetupConflict): SetupResult {
   }
 }
 
-/** 初始化或升级当前前缀下的数据库。 */
-export async function runSetup(env: Env): Promise<SetupResult> {
+/**
+ * 初始化或升级当前前缀下的数据库。
+ *
+ * `options.language` 只影响**全新库**播种默认空间的那个名字（英文实例于是不会
+ * 开箱就看到中文）；存量库升级带上它也不会改名——双守卫使那条 INSERT 空转。
+ */
+export async function runSetup(
+  env: Env,
+  options: MigrationRunOptions = {}
+): Promise<SetupResult> {
   const prefix = getTablePrefix(env)
   const db = env.DB
 
@@ -214,7 +223,7 @@ export async function runSetup(env: Env): Promise<SetupResult> {
 
   let migrations: LedgerMigrationResult[]
   try {
-    migrations = await runLedgerMigrations(env)
+    migrations = await runLedgerMigrations(env, options)
   } catch (err) {
     // 规格 §4.4：新旧账本同存（或旧账本结构不符）属异常，中止并汇报，
     // 不合并、不删除、也不继续播种默认设置；一个表都不动。
