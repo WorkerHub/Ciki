@@ -1,6 +1,5 @@
 import { Database, KeyRound } from "lucide-react"
 import { useEffect, useState } from "react"
-import { currentLanguage } from "@/i18n"
 import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
@@ -8,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { currentLanguage } from "@/i18n"
 import {
   ApiError,
   describeApiError,
@@ -47,6 +47,7 @@ export function SetupPage() {
     setError("")
     setConflict(null)
     try {
+      // 当前界面语言（localStorage > 浏览器语言，§2.3）：全新库的默认空间名按它播种。
       const value = await setupApi.run(secret.trim(), currentLanguage())
       setResult(value)
       // 让根门拿到服务端真实状态（initialized: true / enabled: false），

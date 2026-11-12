@@ -12,6 +12,7 @@
  */
 import { getMigrations } from "./migrations"
 import type { Migration, MigrationContext } from "./migrations"
+import { DEFAULT_LANGUAGE, type Language } from "../core/language"
 import { MigrationRejectedError } from "./schema-shape"
 import { getTablePrefix } from "./table-prefix"
 import { legacyMigrationsTable, migrationsTable } from "./tables"
@@ -156,18 +157,28 @@ async function recordMigration(
   ])
 }
 
+/** 执行选项：目前只有建库语言（只影响全新库播种的默认空间名）。 */
+export interface MigrationRunOptions {
+  /** 播种默认空间用的语言；缺省 `zh`（与 §2.3 末级回退一致）。 */
+  language?: Language
+}
+
 /**
  * 执行所有未记账的迁移。每条迁移按「prepare → sql → 记账」执行，三阶段全部成功
  * 才记账；失败立即抛出，不记录该迁移、也不继续后续迁移（下次 setup 会重跑它，
  * 各阶段都是幂等的）。
  *
  * 入参是整个 Env：迁移可能要用内容桶、加密钥等绑定，只给 `db + prefix` 表达不了。
+ * 语言只进 `getMigrations`（播种的 name 值），不入账本——同一库的账本与结构不因
+ * 语言不同而不同。
  */
 export async function runLedgerMigrations(
-  env: Env
+  env: Env,
+  options: MigrationRunOptions = {}
 ): Promise<LedgerMigrationResult[]> {
   const db = env.DB
   const prefix = getTablePrefix(env)
+  const language = options.language ?? DEFAULT_LANGUAGE
   const ledger = await ensureLedgerTable(db, prefix)
 
   const recorded = await db
@@ -176,7 +187,7 @@ export async function runLedgerMigrations(
   const applied = new Set(recorded.results.map((row) => row.name))
 
   const results: LedgerMigrationResult[] = []
-  for (const migration of getMigrations(prefix)) {
+  for (const migration of getMigrations(prefix, language)) {
     const context: MigrationContext = { db, prefix, env, applied }
     // 缺省按账本行判定；`schema_v1` 还要看账本是否收敛、结构是否真是基线。
     const done = migration.isApplied

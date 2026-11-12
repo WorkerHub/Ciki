@@ -7,11 +7,9 @@ import {
   runSetup
 } from "../lib/setup"
 import { safeEqual } from "../core/auth"
-import { normalizeLanguage } from "../core/language"
+import { resolveRequestLanguage } from "../core/language"
 import { consumeCounter, ensureCountersTable } from "../core/counters"
-import { renameUnusedDefaultSpace } from "../db/queries/spaces"
 import { clientIp, readJsonBody } from "../lib/http"
-import { DEFAULT_SPACE_NAME, DEFAULT_SPACE_NAME_EN } from "../lib/migrations"
 import type { HonoEnv } from "../types"
 
 export const setupRoutes = new Hono<HonoEnv>()
@@ -37,10 +35,19 @@ setupRoutes.get("/state", async (c) => {
 /**
  * 只跑迁移（纯升级，与建账号端点分离）。密钥只认 X-Setup-Secret 请求头，
  * 常量时间比较；按 IP 限流 3 次/10 分钟（D1 计数表为权威）。
+ *
+ * 可选请求体 `{"language":"en"}`：只用于**全新库**播种默认空间的名字（规格 §2.3、
+ * §2.10）。取值口径：显式合法值 > `Accept-Language` 首标签 > `zh`；不带 body 的
+ * 老调用行为不变。
  */
 setupRoutes.post("/", async (c) => {
   const prefix = getTablePrefix(c.env)
   const ip = clientIp(c)
+  const body = await readJsonBody<{ language?: unknown }>(c)
+  const language = resolveRequestLanguage(
+    body?.language,
+    c.req.header("Accept-Language")
+  )
 
   // 前缀冲突先做只读探测：冲突时一个表都不写（限流计数表会建表，必须排在后面）。
   // 冲突细节只在密钥正确时返回，避免未授权探测共享库里其他项目的前缀。
@@ -53,7 +60,7 @@ setupRoutes.post("/", async (c) => {
     ) {
       return c.json({ error: "Invalid setup secret" }, 403)
     }
-    const result = await runSetup(c.env)
+    const result = await runSetup(c.env, { language })
     return c.json(result, 409)
   }
 
@@ -87,24 +94,9 @@ setupRoutes.post("/", async (c) => {
     return c.json({ error: "Invalid setup secret" }, 403)
   }
 
-  // 初始化页随当前界面语言发送；缺省/非法一律回退 zh（与 §3 语言链一致）。
-  const body = await readJsonBody<{ language?: unknown }>(c)
-  const language = normalizeLanguage(body?.language)
-
   try {
-    const result = await runSetup(c.env)
+    const result = await runSetup(c.env, { language })
     if (!result.success) return c.json(result, 409)
-    // 全新英文安装：默认空间名仍是播种名、且尚无用户时改成英文。存量库因
-    // 「已有用户」守卫不改名；用户改过名的空间因名字不符也不会被覆盖。
-    if (language === "en") {
-      await renameUnusedDefaultSpace(
-        c.env.DB,
-        prefix,
-        DEFAULT_SPACE_NAME,
-        DEFAULT_SPACE_NAME_EN,
-        new Date().toISOString()
-      )
-    }
     return c.json(result)
   } catch (err) {
     console.error("Setup failed:", err instanceof Error ? err.message : err)

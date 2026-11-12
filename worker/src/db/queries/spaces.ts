@@ -109,31 +109,6 @@ export async function listEditableSpaces(
   return rows.results
 }
 
-/**
- * 全新安装的默认空间改名：只在「默认空间仍是播种名」且「还没有任何用户」时生效。
- *
- * 两个守卫保证存量库永不被改：有用户的空间（存量安装）不动；用户改过名的空间
- * 也不动。setup 重试时若上次改名失败，条件仍成立，可以安全重跑。
- */
-export async function renameUnusedDefaultSpace(
-  db: D1Database,
-  prefix: string,
-  fromName: string,
-  toName: string,
-  now: string
-): Promise<boolean> {
-  const result = await db
-    .prepare(
-      `UPDATE ${spacesTable(prefix)}
-          SET name = ?, updated_at = ?
-        WHERE is_default = 1 AND name = ?
-          AND NOT EXISTS (SELECT 1 FROM ${usersTable(prefix)})`
-    )
-    .bind(toName, now, fromName)
-    .run()
-  return (result.meta.changes ?? 0) > 0
-}
-
 export async function findSpaceById(
   db: D1Database,
   prefix: string,

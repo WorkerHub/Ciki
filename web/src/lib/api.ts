@@ -685,6 +685,10 @@ export interface AdminStorage {
 
 export const setupApi = {
   state: () => api.get<SetupState>("/setup/state"),
+  /**
+   * 初始化数据库。`language` 决定全新库播种的默认空间名（规格 §2.10）：
+   * 初始化页传当前界面语言，缺省时后端看 `Accept-Language` 再回退 `zh`。
+   */
   run: (secret: string, language?: Language) =>
     api.post<SetupResult>("/setup", language ? { language } : undefined, {
       headers: { "X-Setup-Secret": secret },

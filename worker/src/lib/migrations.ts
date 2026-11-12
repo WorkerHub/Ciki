@@ -2,7 +2,7 @@
  * 数据库结构的唯一真源：单一迁移 `schema_v1`（基线），结构即 `schema.ts` 的定版 DDL。
  *
  * - 全新库：`sql` 按 `schema.ts` 的定版 DDL 一次建出全部表/索引（`users.username`
- *   的唯一索引就在基线里）并播种默认空间；重复执行无副作用（全部
+ *   的唯一索引就在基线里）并播种默认空间（名称按建库语言）；重复执行无副作用（全部
  *   `CREATE … IF NOT EXISTS`，唯一一条播种带「spaces 为空」守卫）。
  * - 存量库：唯一支持的升级源是**当前生产形态**（`schema_v8`）。`prepare` 只做只读
  *   校验（见 `schema-shape.ts`），通过后 `sql` 全是幂等空转、结构与数据一字不动，
@@ -19,6 +19,7 @@
  * tables.ts / schema.ts 拼装，本文件只写 `{prefix}` 占位。
  */
 import type { Env } from "../types"
+import { DEFAULT_LANGUAGE, type Language } from "../core/language"
 import {
   SCHEMA_INDEXES,
   SCHEMA_TABLES,
@@ -76,15 +77,19 @@ export const RETIRED_MIGRATIONS = [
   "schema_v8"
 ] as const
 
-export const DEFAULT_SPACE_NAME = "默认空间"
-
 /**
- * 全新英文安装的默认空间名（i18n 验证 #102 修复）。
- *
- * `schema_v1` 的种子仍写中文基线（冻结迁移不改）；setup 在全新库、尚无用户时
- * 按 setup 请求语言把它改成这里的英文名。存量空间不改名。
+ * 默认空间名（规格 §2.10）：按**建库那一刻的语言**播种，中文文案逐字不变。
+ * 这是系统在 setup 里写入的产品文案，不是用户内容；只有全新安装会用到它——
+ * 存量库与用户改过名的空间永远不被改名（见 `seedDefaultSpace` 的双守卫）。
  */
-export const DEFAULT_SPACE_NAME_EN = "Default Space"
+export const DEFAULT_SPACE_NAMES: Record<Language, string> = {
+  zh: "默认空间",
+  en: "Default Space"
+}
+
+export function defaultSpaceName(language: Language): string {
+  return DEFAULT_SPACE_NAMES[language]
+}
 
 /**
  * 默认空间的固定 id 与 slug（全新库播种用）。
@@ -119,12 +124,17 @@ export const AUTH_COUNTERS_INDEX_DDL = `CREATE INDEX IF NOT EXISTS {prefix}auth_
  *
  * 旧版 v6→v7 重建用的页面空间回填与成员播种也一并删掉了——全新库上它们本来就是
  * 空转，而升级路径上它们会写数据。
+ *
+ * 只有 name 这一个值随建库语言变（`DEFAULT_SPACE_NAMES`）；谓词、id、slug、
+ * created_by 与基线冻结时逐字相同。
  */
-function seedDefaultSpace(prefix: string): string {
+function seedDefaultSpace(prefix: string, language: Language): string {
   const ledger = migrationsTable(prefix)
+  // 文案本身是固定表里的常量；转义只为以后加语言时带引号也安全。
+  const name = defaultSpaceName(language).replace(/'/g, "''")
   return `INSERT INTO ${prefix}spaces
   (id, slug, name, description, is_default, created_by, created_at, updated_at)
-SELECT ${DEFAULT_SPACE_ID}, '${DEFAULT_SPACE_SLUG}', '${DEFAULT_SPACE_NAME}', '', 1,
+SELECT ${DEFAULT_SPACE_ID}, '${DEFAULT_SPACE_SLUG}', '${name}', '', 1,
   COALESCE((SELECT id FROM ${prefix}users WHERE role = 'admin' ORDER BY id LIMIT 1), 0),
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
@@ -133,9 +143,9 @@ WHERE NOT EXISTS (SELECT 1 FROM ${prefix}spaces)
 }
 
 /** `schema_v1` 的完整语句序列（表 + 索引 + 默认空间），`;` 分隔、按顺序执行。 */
-function schemaV1(prefix: string): string {
+function schemaV1(prefix: string, language: Language): string {
   const statements = baselineStatements(prefix)
-  statements.push(seedDefaultSpace(prefix))
+  statements.push(seedDefaultSpace(prefix, language))
   return statements.join(";\n\n")
 }
 
@@ -187,7 +197,8 @@ async function baselineApplied(ctx: MigrationContext): Promise<boolean> {
 
 /**
  * `schema_v1` —— 唯一的版本标记，即冻结的基线结构（定版 DDL + username 唯一索引 +
- * 默认空间种子）。结构变化从 `schema_v2` 往后追加，本条不得改名、改内容或调序。
+ * 默认空间种子）。结构变化从 `schema_v2` 往后追加，本条不得改名、改内容或调序；
+ * 建库语言只影响种子那一行的 name，不构成结构或谓词变更。
  */
 const SCHEMA_V1: Migration = {
   name: BASELINE_MIGRATION_NAME,
@@ -197,8 +208,11 @@ const SCHEMA_V1: Migration = {
   isApplied: baselineApplied
 }
 
-export function getMigrations(prefix: string): Migration[] {
-  const sql = schemaV1(prefix)
+export function getMigrations(
+  prefix: string,
+  language: Language = DEFAULT_LANGUAGE
+): Migration[] {
+  const sql = schemaV1(prefix, language)
 
   // 表名统一由 tables.ts 的 helper 提供；这里断言 schema.ts 与它用的是同一套名字
   // （改一处就会在这里暴露）。

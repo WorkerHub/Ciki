@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   DEFAULT_SPACE_ID,
-  DEFAULT_SPACE_NAME,
-  DEFAULT_SPACE_NAME_EN,
+  DEFAULT_SPACE_NAMES,
   getMigrations
 } from "../src/lib/migrations"
 import { splitStatements } from "../src/lib/migrations-runner"
@@ -32,16 +31,40 @@ function migrationList(status: "applied" | "skipped") {
 function setupRequest(
   env: Parameters<typeof request>[0],
   secret: string,
-  body?: Record<string, unknown>
+  init: RequestInit = {}
 ) {
   return request(env, "/api/setup", {
+    ...init,
     method: "POST",
     headers: {
       "x-setup-secret": secret,
-      ...(body ? { "content-type": "application/json" } : {})
-    },
-    ...(body ? { body: JSON.stringify(body) } : {})
+      ...((init.headers ?? {}) as Record<string, string>)
+    }
   })
+}
+
+/** 请求体为 JSON 的 setup 调用（语言来源的用例用）。 */
+function setupRequestWithLanguage(
+  env: Parameters<typeof request>[0],
+  secret: string,
+  language: unknown,
+  acceptLanguage?: string
+) {
+  return setupRequest(env, secret, {
+    headers: {
+      "content-type": "application/json",
+      ...(acceptLanguage ? { "accept-language": acceptLanguage } : {})
+    },
+    body: JSON.stringify({ language })
+  })
+}
+
+/** 库里默认空间的名字（播种结果）。 */
+function defaultSpaceNameOf(db: SqliteD1): string {
+  const row = db.db
+    .prepare("SELECT name FROM ciki_spaces WHERE is_default = 1")
+    .get() as { name: string }
+  return row.name
 }
 
 describe("setup：初始化、幂等与密钥卫生", () => {
@@ -292,7 +315,7 @@ describe("初始化迁移：默认空间与播种", () => {
     expect(spaces).toEqual([
       {
         id: DEFAULT_SPACE_ID,
-        name: DEFAULT_SPACE_NAME,
+        name: DEFAULT_SPACE_NAMES.zh,
         is_default: 1,
         created_by: 0
       }
@@ -325,50 +348,6 @@ describe("初始化迁移：默认空间与播种", () => {
       }>
     ).map((column) => column.name)
     expect(pageColumns).toContain("space_id")
-  })
-
-  it("全新英文 setup：默认空间播种为 Default Space", async () => {
-    const { env, db } = makeContext()
-
-    const res = await setupRequest(env, TEST_SETUP_SECRET, { language: "en" })
-    expect(res.status).toBe(200)
-
-    const space = db.db
-      .prepare("SELECT name FROM ciki_spaces WHERE is_default = 1")
-      .get() as { name: string }
-    expect(space.name).toBe(DEFAULT_SPACE_NAME_EN)
-  })
-
-  it("已有用户的库重复 setup（en）不改默认空间名", async () => {
-    const { env, db } = makeContext()
-    await setupRequest(env, TEST_SETUP_SECRET)
-    await adminSession(env)
-
-    const res = await setupRequest(env, TEST_SETUP_SECRET, { language: "en" })
-    expect(res.status).toBe(200)
-
-    const space = db.db
-      .prepare("SELECT name FROM ciki_spaces WHERE is_default = 1")
-      .get() as { name: string }
-    expect(space.name).toBe(DEFAULT_SPACE_NAME)
-  })
-
-  it("用户改过名的空间：无用户时 setup（en）也不覆盖", async () => {
-    const { env, db } = makeContext()
-    await setupRequest(env, TEST_SETUP_SECRET)
-    db.db
-      .prepare(
-        "UPDATE ciki_spaces SET name = 'Custom Space' WHERE is_default = 1"
-      )
-      .run()
-
-    const res = await setupRequest(env, TEST_SETUP_SECRET, { language: "en" })
-    expect(res.status).toBe(200)
-
-    const space = db.db
-      .prepare("SELECT name FROM ciki_spaces WHERE is_default = 1")
-      .get() as { name: string }
-    expect(space.name).toBe("Custom Space")
   })
 
   it("首个注册用户以 admin 进默认空间，新建页面缺省落默认空间", async () => {
@@ -415,6 +394,104 @@ describe("初始化迁移：默认空间与播种", () => {
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
       .get() as { count: number }
     expect(count.count).toBe(1)
+  })
+})
+
+/**
+ * 默认空间名按建库语言播种（规格 §2.10）：英文实例不该开箱就看到中文。
+ * 语言链（§2.3）在服务端只能看到后两级：显式入参 > Accept-Language > zh。
+ */
+describe("默认空间名：按建库语言播种", () => {
+  it("请求体 language=en 播种为 Default Space，中文仍逐字不变", async () => {
+    const english = makeContext()
+    const enRes = await setupRequestWithLanguage(
+      english.env,
+      TEST_SETUP_SECRET,
+      "en"
+    )
+    expect(enRes.status).toBe(200)
+    expect(defaultSpaceNameOf(english.db)).toBe(DEFAULT_SPACE_NAMES.en)
+    expect(DEFAULT_SPACE_NAMES.en).toBe("Default Space")
+
+    // 中文库（不带语言）与显式 zh 都得到原样的「默认空间」。
+    const zh = makeContext()
+    await setupRequest(zh.env, TEST_SETUP_SECRET)
+    expect(defaultSpaceNameOf(zh.db)).toBe("默认空间")
+    expect(DEFAULT_SPACE_NAMES.zh).toBe("默认空间")
+  })
+
+  it("无请求体时按 Accept-Language 首个标签定语言", async () => {
+    const english = makeContext()
+    await setupRequest(english.env, TEST_SETUP_SECRET, {
+      headers: { "accept-language": "en-US,en;q=0.9" }
+    })
+    expect(defaultSpaceNameOf(english.db)).toBe("Default Space")
+
+    const chinese = makeContext()
+    await setupRequest(chinese.env, TEST_SETUP_SECRET, {
+      headers: { "accept-language": "zh-CN,zh;q=0.9,en;q=0.8" }
+    })
+    expect(defaultSpaceNameOf(chinese.db)).toBe("默认空间")
+  })
+
+  it("显式语言压过 Accept-Language：language=zh + en-US 仍是中文", async () => {
+    const { env, db } = makeContext()
+    await setupRequestWithLanguage(
+      env,
+      TEST_SETUP_SECRET,
+      "zh",
+      "en-US,en;q=0.9"
+    )
+    expect(defaultSpaceNameOf(db)).toBe("默认空间")
+  })
+
+  it("非法 language 不拦请求，回落到 Accept-Language", async () => {
+    const { env, db } = makeContext()
+    const res = await setupRequestWithLanguage(
+      env,
+      TEST_SETUP_SECRET,
+      "fr",
+      "en-US"
+    )
+    expect(res.status).toBe(200)
+    expect(defaultSpaceNameOf(db)).toBe("Default Space")
+  })
+
+  it("中文建库后再带 en 跑一次 setup：全部 skipped，名字不改", async () => {
+    const { env, db } = makeContext()
+    await setupRequest(env, TEST_SETUP_SECRET)
+    expect(defaultSpaceNameOf(db)).toBe("默认空间")
+
+    const again = await setupRequestWithLanguage(env, TEST_SETUP_SECRET, "en")
+    expect(again.status).toBe(200)
+    const body = (await again.json()) as {
+      migrations: Array<{ name: string; status: string }>
+    }
+    expect(body.migrations).toEqual(migrationList("skipped"))
+    expect(defaultSpaceNameOf(db)).toBe("默认空间")
+  })
+
+  it("用户改过名的空间：之后再跑 setup（en）也不覆盖", async () => {
+    const { env, db } = makeContext()
+    await setupRequest(env, TEST_SETUP_SECRET)
+    db.db
+      .prepare(
+        "UPDATE ciki_spaces SET name = 'Custom Space' WHERE is_default = 1"
+      )
+      .run()
+
+    const again = await setupRequestWithLanguage(env, TEST_SETUP_SECRET, "en")
+    expect(again.status).toBe(200)
+    expect(defaultSpaceNameOf(db)).toBe("Custom Space")
+  })
+
+  it("候选文案里没有分号（执行器按 `;` 切分语句）", () => {
+    for (const name of Object.values(DEFAULT_SPACE_NAMES)) {
+      expect(name).not.toContain(";")
+    }
+    // 英文播种 SQL 里是英文名，中文播种 SQL 里是中文名。
+    expect(getMigrations("ciki_", "en")[0].sql).toContain("'Default Space'")
+    expect(getMigrations("ciki_", "zh")[0].sql).toContain("'默认空间'")
   })
 })
 
