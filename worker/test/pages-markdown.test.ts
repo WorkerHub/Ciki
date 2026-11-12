@@ -8,6 +8,8 @@
 import { describe, expect, it } from "vitest"
 import {
   adminSession,
+  createApiToken,
+  createImportToken,
   initializedContext,
   jsonRequest,
   request
@@ -328,15 +330,7 @@ describe("保存路径：content_md 与正文同批落库", () => {
     const admin = await adminSession(env)
     const page = await createRichPage(env, admin)
 
-    const issued = await jsonRequest(
-      env,
-      "POST",
-      "/api/me/import-token",
-      {},
-      admin
-    )
-    expect(issued.status).toBe(200)
-    const { token } = (await issued.json()) as { token: string }
+    const { token } = await createImportToken(env, admin)
 
     const imported = await request(env, "/api/import/pages", {
       method: "POST",
@@ -378,15 +372,7 @@ describe("保存路径：content_md 与正文同批落库", () => {
     const admin = await adminSession(env)
     const page = await createRichPage(env, admin)
 
-    const issued = await jsonRequest(
-      env,
-      "POST",
-      "/api/me/read-token",
-      {},
-      admin
-    )
-    expect(issued.status).toBe(200)
-    const { token } = (await issued.json()) as { token: string }
+    const { token } = await createApiToken(env, admin, "read")
 
     const read = await request(env, `/api/read/pages/${page.id}`, {
       headers: { authorization: `Bearer ${token}` }

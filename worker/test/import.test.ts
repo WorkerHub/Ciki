@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   adminSession,
+  createImportToken,
   initializedContext,
   jsonRequest,
   request,
@@ -16,15 +17,7 @@ async function issueToken(
   env: Parameters<typeof adminSession>[0],
   cookie: string
 ): Promise<string> {
-  const res = await jsonRequest(
-    env,
-    "POST",
-    "/api/me/import-token",
-    undefined,
-    cookie
-  )
-  expect(res.status).toBe(200)
-  return ((await res.json()) as { token: string }).token
+  return (await createImportToken(env, cookie)).token
 }
 
 async function importRequest(

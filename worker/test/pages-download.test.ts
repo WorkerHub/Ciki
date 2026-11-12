@@ -20,6 +20,7 @@ import {
 } from "../src/lib/markdown-download"
 import {
   adminSession,
+  createApiToken,
   initializedContext,
   jsonRequest,
   request,
@@ -598,9 +599,7 @@ describe("权限与隔离", () => {
     expect((await download(env, page.id)).status).toBe(401)
 
     // 只读令牌（Bearer）进不了这个会话端点。
-    const issued = (await (
-      await jsonRequest(env, "POST", "/api/me/read-token", {}, admin)
-    ).json()) as { token: string }
+    const issued = await createApiToken(env, admin, "read")
     const readonlyRes = await request(env, `/api/pages/${page.id}/download`, {
       headers: { authorization: `Bearer ${issued.token}` }
     })

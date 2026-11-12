@@ -139,6 +139,65 @@ export function cookieOf(res: Response): string | null {
   return cookies[0].split(";")[0]
 }
 
+export type ApiTokenKind = "read" | "write"
+
+export interface IssuedApiToken {
+  id: number
+  name: string
+  kind: ApiTokenKind
+  spaceIds: number[] | null
+  token: string
+}
+
+/**
+ * 建一枚接口令牌（`POST /api/me/tokens`）：返回行 id 与明文。
+ * `name` 缺省不带键（服务端自动命名）；`spaceIds` 缺省不带键（= 不限范围）。
+ */
+export async function createApiToken(
+  env: Env,
+  cookie: string,
+  kind: ApiTokenKind,
+  options: { name?: string; spaceIds?: number[] | null } = {}
+): Promise<IssuedApiToken> {
+  const body: Record<string, unknown> = { kind }
+  if (options.name !== undefined) body.name = options.name
+  if (options.spaceIds !== undefined) body.spaceIds = options.spaceIds
+  const res = await jsonRequest(env, "POST", "/api/me/tokens", body, cookie)
+  if (res.status !== 201) {
+    throw new Error(
+      `create api token failed: ${res.status} ${await res.text()}`
+    )
+  }
+  return (await res.json()) as IssuedApiToken
+}
+
+export interface IssuedImportToken {
+  id: number
+  name: string
+  token: string
+}
+
+/** 建一枚浏览器插件凭证（`POST /api/me/import-tokens`）。 */
+export async function createImportToken(
+  env: Env,
+  cookie: string,
+  name?: string
+): Promise<IssuedImportToken> {
+  const res = await jsonRequest(
+    env,
+    "POST",
+    "/api/me/import-tokens",
+    name === undefined ? {} : { name },
+    cookie
+  )
+  if (res.status !== 201) {
+    throw new Error(
+      `create import token failed: ${res.status} ${await res.text()}`
+    )
+  }
+  return (await res.json()) as IssuedImportToken
+}
+
 /**
  * 测试替身：写入一份「非密字段合法」的 SMTP 配置。
  *

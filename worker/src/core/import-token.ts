@@ -32,25 +32,6 @@ export interface ImportTokenIdentity {
   role: string
 }
 
-/** 对外状态（永不包含 token_hash 或明文；形状与旧单令牌端点一致）。 */
-export interface ImportTokenStatus {
-  active: boolean
-  createdAt: string | null
-  lastUsedAt: string | null
-  revokedAt: string | null
-}
-
-export function toImportTokenStatus(
-  row: ImportTokenRow | null
-): ImportTokenStatus {
-  return {
-    active: Boolean(row && !row.revoked_at),
-    createdAt: row?.created_at ?? null,
-    lastUsedAt: row?.last_used_at ?? null,
-    revokedAt: row?.revoked_at ?? null
-  }
-}
-
 /** 解析名称：缺省 / 空白 → 默认名；非字符串或超 40 码点 → 失败。 */
 export function parseImportTokenName(raw: unknown): TokenNameResult {
   if (raw === undefined || raw === null) {
@@ -66,7 +47,7 @@ export function parseImportTokenName(raw: unknown): TokenNameResult {
   return { ok: true, name }
 }
 
-/** 某用户的全部有效导入凭证（B 单列表端点用），按创建时间升序。 */
+/** 某用户的全部有效导入凭证（`GET /api/me/import-tokens` 用），按创建时间升序。 */
 export async function listActiveImportTokens(
   db: D1Database,
   prefix: string,
@@ -83,43 +64,9 @@ export async function listActiveImportTokens(
   return rows.results
 }
 
-/** 按 id 取本人一行（含已吊销；B 单判 404 用）。 */
-export async function getImportTokenById(
-  db: D1Database,
-  prefix: string,
-  userId: number,
-  tokenId: number
-): Promise<ImportTokenRow | null> {
-  return db
-    .prepare(
-      `SELECT * FROM ${importTokensTable(prefix)}
-        WHERE id = ? AND user_id = ?`
-    )
-    .bind(tokenId, userId)
-    .first<ImportTokenRow>()
-}
-
-/** 某用户最新一枚导入凭证（含已吊销）：旧单令牌端点的兼容读。 */
-export async function getImportTokenRow(
-  db: D1Database,
-  prefix: string,
-  userId: number
-): Promise<ImportTokenRow | null> {
-  return db
-    .prepare(
-      `SELECT * FROM ${importTokensTable(prefix)}
-        WHERE user_id = ?
-        ORDER BY id DESC LIMIT 1`
-    )
-    .bind(userId)
-    .first<ImportTokenRow>()
-}
-
 export interface IssueImportTokenOptions {
   /** 已归一化的名称（走 parseImportTokenName）；缺省用默认名。 */
   name?: string
-  /** 旧单令牌端点的「重置即覆盖」：先吊销该用户全部有效导入凭证再建新行。 */
-  replaceExisting?: boolean
 }
 
 /** 新建一枚导入令牌，返回明文（只此一次）。 */
@@ -133,16 +80,6 @@ export async function issueImportToken(
   const tokenHash = await sha256Hex(token)
   const now = new Date().toISOString()
   const statements: D1PreparedStatement[] = []
-  if (options.replaceExisting) {
-    statements.push(
-      db
-        .prepare(
-          `UPDATE ${importTokensTable(prefix)} SET revoked_at = ?
-            WHERE user_id = ? AND revoked_at IS NULL`
-        )
-        .bind(now, userId)
-    )
-  }
   statements.push(
     db
       .prepare(
@@ -175,32 +112,6 @@ export async function revokeImportTokenById(
     .bind(new Date().toISOString(), tokenId, userId)
     .run()
   return result.meta.changes > 0
-}
-
-/**
- * 旧单令牌端点兼容：吊销该用户全部有效导入凭证。
- * 返回「该用户是否曾经有过导入凭证」——从未有过才是 404，重复删除保持幂等成功。
- */
-export async function revokeImportToken(
-  db: D1Database,
-  prefix: string,
-  userId: number
-): Promise<boolean> {
-  await db
-    .prepare(
-      `UPDATE ${importTokensTable(prefix)} SET revoked_at = ?
-        WHERE user_id = ? AND revoked_at IS NULL`
-    )
-    .bind(new Date().toISOString(), userId)
-    .run()
-  const row = await db
-    .prepare(
-      `SELECT 1 AS present FROM ${importTokensTable(prefix)}
-        WHERE user_id = ? LIMIT 1`
-    )
-    .bind(userId)
-    .first<{ present: number }>()
-  return row !== null
 }
 
 /** 校验令牌：哈希回表 + 连 users 校验激活/审批；已吊销或用户不可用一律 null。 */

@@ -171,13 +171,13 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | password_reset_submit | 有效 token 的 userId（无效时为空） | 5 次 / 5 分钟    | 设新密码接口（找回密码第三步）                                          |
 | smtp_config           | 管理员 userId                      | 10 次 / 5 分钟   | `PUT /api/admin/system/smtp`                                            |
 | smtp_test             | 管理员 userId                      | 5 次 / 5 分钟    | `POST /api/admin/system/smtp/test`                                      |
-| import_token          | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/import-token`                                             |
+| import_token          | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/import-tokens`                                            |
 | import_auth_fail      | 空                                 | 20 次 / 5 分钟   | 每 IP；导入令牌校验失败（先拒后验）                                     |
 | import                | 用户 id                            | 3000 次 / 5 分钟 | 导入接口调用配额                                                        |
-| read_token            | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/read-token`                                               |
+| read_token            | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/tokens`（`kind=read`）                                    |
 | read_auth_fail        | 空                                 | 20 次 / 5 分钟   | 每 IP；读接口令牌校验失败（先拒后验）                                   |
 | read                  | 用户 id                            | 3000 次 / 5 分钟 | 读接口调用配额（读写令牌调读接口也计入）                                |
-| write_token           | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/write-token`                                              |
+| write_token           | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/tokens`（`kind=write`）                                   |
 | write_auth_fail       | 空                                 | 20 次 / 5 分钟   | 每 IP；写接口令牌校验失败（先拒后验）                                   |
 | write                 | 用户 id                            | 600 次 / 5 分钟  | 写接口调用配额                                                          |
 
@@ -261,7 +261,6 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | revoked_at   | TEXT NULL                | 非空即吊销                                       |
 
 - 每个浏览器插件凭证一行：新建追加、吊销按行，互不影响；`schema_v3` 把存量单行搬成多行并自动命名「浏览器插件」。
-- 旧单令牌端点（`POST /api/me/import-token`）的「重置」按新模型实现：把当前有效行标记吊销后追加一行，同一时刻只有一枚有效凭证；吊销行保留作历史。响应形状与生效语义不变。
 - 明文只存于生成响应一次，库内只有哈希；不设过期列。
 - 失效条件：吊销、用户被停用或未批准。校验每次回表并连 `users` 查激活/审批状态，所以停用立即生效。
 - 令牌只用于 `/api/import/*`，权限等同本人；令牌管理本身仍要会话 Cookie。
@@ -276,7 +275,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | space_id | INTEGER | 空间 id；已删除的空间留行无妨，交集自然排除        |
 
 - **两列联合主键** `(token_id, space_id)`；无行 = 不限制。
-- 语义与端点见「令牌空间范围」；范围只能收窄、不能放大，每次令牌校验都回表。
+- 语义与端点见「接口令牌管理与空间范围」；范围只能收窄、不能放大，每次令牌校验都回表。
 
 ### spaces
 
@@ -1411,7 +1410,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 ### 文件
 
-上传的 key 形如 `<类别>/<UUID>.<ext>`，类别按来源分三类：`avatars/`（用户头像，只经 `POST /api/me/avatar` 产生）、`pages/`（编辑器上传、粘贴带入、编辑页手动上传替换）、`imports/`（剪贴板插件经 `POST /api/import/files` 上传）。**存量平铺 key（`<uuid>.<ext>`）及其一切引用不迁移、不改写**，读接口两种形状都认。
+上传的 key 形如 `<类别>/<UUID>.<ext>`，类别按来源分三类：`avatars/`（用户头像，只经 `POST /api/me/avatar` 产生）、`pages/`（正文图：编辑器上传、粘贴带入、编辑页手动上传替换，以及写接口经 `POST /api/write/files` 上传）、`imports/`（剪贴板插件经 `POST /api/import/files` 上传）。**存量平铺 key（`<uuid>.<ext>`）及其一切引用不迁移、不改写**，读接口两种形状都认。
 
 #### POST /api/files
 
@@ -1438,34 +1437,42 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 ### 导入（个人令牌）
 
-Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，用 `Authorization: Bearer <token>` 调用，不共享登录 Cookie。
+Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里新建凭证（可以有多枚），用 `Authorization: Bearer <token>` 调用，不共享登录 Cookie。
 
-#### GET /api/me/import-token（需会话）
+#### GET /api/me/import-tokens（需会话）
+
+本人的全部**未吊销**浏览器插件凭证，按 `created_at` 升序。无 `spaceIds`（这类凭证没有空间范围），永不返回哈希或明文：
 
 ```json
 {
-  "active": true,
-  "createdAt": "2026-11-07T12:00:00.000Z",
-  "lastUsedAt": null,
-  "revokedAt": null
+  "tokens": [
+    {
+      "id": 2,
+      "name": "浏览器插件",
+      "createdAt": "2026-11-07T12:00:00.000Z",
+      "lastUsedAt": null
+    }
+  ]
 }
 ```
 
-从未生成过时三个时间字段均为 `null`、`active` 为 `false`。永不返回哈希或明文。
+从未建过时是 `{"tokens": []}`。
 
-#### POST /api/me/import-token（需会话）
+#### POST /api/me/import-tokens（需会话）
 
-生成或重置当前用户的令牌（旧行标记吊销、新行追加；旧令牌立即失效，同一时刻只有一枚有效凭证），200：
+新建一枚凭证（**追加**，不覆盖旧凭证），201：
 
 ```json
-{ "token": "…", "createdAt": "2026-11-07T12:00:00.000Z" }
+{ "id": 2, "name": "浏览器插件", "token": "…" }
 ```
 
-**明文只在此响应出现一次**。限流 10 次 / 5 分钟（按用户），超出 429 `code:"RATE_LIMITED"`。
+- `name` 可选：trim 后 ≤40 码点，留空用默认名「浏览器插件」；非字符串或超限 400 `{"error":"Invalid token name"}`。
+- **明文只在此响应出现一次**。限流 10 次 / 5 分钟（按用户，桶 `import_token`），超出 429 `code:"RATE_LIMITED"`。
+- 多枚凭证并存、互不影响：吊销一枚只断那一枚。
 
-#### DELETE /api/me/import-token（需会话）
+#### DELETE /api/me/import-tokens/:id（需会话）
 
-吊销当前用户的令牌：200 `{"success":true}`。从未生成过 404；已吊销再调用仍 200（幂等）。
+吊销指定的本人凭证：200 `{"success":true}`。非本人 / 不存在 / **已吊销**一律 404 `{"error":"Import token not found"}`。
 
 #### 导入接口通用约定
 
@@ -1560,9 +1567,9 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 - 错误：400 参数非法（标题、`parentId` / `space_id` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；403 `code:"SPACE_FORBIDDEN"`；404 `code:"SPACE_NOT_FOUND"`；409 `code:"DEFAULT_SPACE_MISSING"` / `code:"PARENT_DELETED"`（父页不存在或已软删）/ `code:"SPACE_MISMATCH"`；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、四件套含派生 MD 合计 ≤1,900,000 B）；401；429。
 
-### 令牌空间范围（只读 / 读写共用）
+### 接口令牌管理与空间范围（均需会话 Cookie）
 
-每枚接口令牌都带一份**空间范围**，用来把令牌能碰到的空间再收窄一层；只读与读写令牌共用同一套语义与端点形状，但范围**按令牌行各存各的**（`token_space_scopes.token_id`），同一用户的两枚令牌互不影响。
+一个接口令牌一行（`kind` 为 `read` 或 `write`），管理端点见下面各小节；每枚令牌都带一份**空间范围**，用来把令牌能碰到的空间再收窄一层。范围**按令牌行各存各的**（`token_space_scopes.token_id`），同一用户的两枚令牌互不影响。浏览器插件凭证走 `/api/me/import-tokens`（没有空间范围，见「导入（个人令牌）」）。
 
 - **有效可见范围 = 令牌主人凭自身权限能看的空间 ∩ 范围集合**。范围为空集（没有任何行）= 不限制 = 令牌主人能看的全部空间，**存量令牌行为零变化**。
 - **范围只能收窄、不能放大**：主人不是成员的空间即使被写进范围也不生效（写入时就被 400 拒掉）；主人退出某空间后令牌立即看不见，重新加入后范围自动恢复生效。
@@ -1570,39 +1577,72 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 已删除的空间在范围里留行无妨，交集自然排除；删除空间不清范围行。
 - 范围每次令牌校验都回表，**改动立即生效**，不需要重新生成令牌。
 
-#### GET /api/me/read-token、GET /api/me/write-token（需会话）
+#### GET /api/me/tokens（需会话）
 
-状态响应在原有时间线之外多一个 `spaceIds`：`null` = 不限制；数组 = 当前范围（升序、已去重）。
+本人的全部**未吊销**接口令牌，按 `created_at` 升序（同一毫秒再按行 id）。`spaceIds` 取该令牌行自己的范围：`null` = 不限制，数组 = 升序去重后的空间 id。永不返回哈希或明文。
 
 ```json
 {
-  "active": true,
-  "createdAt": "2026-11-10T12:00:00.000Z",
-  "lastUsedAt": null,
-  "revokedAt": null,
-  "spaceIds": [1, 3]
+  "tokens": [
+    {
+      "id": 3,
+      "name": "只读 Token",
+      "kind": "read",
+      "spaceIds": null,
+      "createdAt": "2026-11-10T12:00:00.000Z",
+      "lastUsedAt": null
+    }
+  ]
 }
 ```
 
-#### POST /api/me/read-token、POST /api/me/write-token（需会话）
+从未建过时是 `{"tokens": []}`。
 
-生成/重置令牌的请求体可带 `{"spaceIds": [2, 1] | null}`：
+#### POST /api/me/tokens（需会话）
 
-- 带数组 = 校验通过后设为该范围（去重、升序存储）；`null` = 清除范围（不限制）。
-- **不带 = 保留现有范围**（重置密钥不会悄悄放大范围）；首次生成不带 = 不限制。
-- 空数组回 400（否则等于把范围设成「什么都看不见」）。
-- 响应仍是 `{"token": "…", "createdAt": "…"}`，明文只出现一次。
+新建一枚接口令牌，201：
 
-#### PUT /api/me/read-token/spaces、PUT /api/me/write-token/spaces（需会话）
+```json
+{
+  "id": 3,
+  "name": "只读 Token",
+  "kind": "read",
+  "spaceIds": [1, 3],
+  "token": "…"
+}
+```
 
-只改范围、不换令牌。请求体 `{"spaceIds": [2, 1] | null}`（`spaceIds` 必填）：`null` = 清除范围（不限制）；非空数组 = 设为该范围；空数组 400。成功回 `{"spaceIds": [...] | null}`（写入后的范围）。范围挂在具体令牌行上：该用户还没有对应 kind 的令牌时回 404 `{"error":"Token not found"}`。
+- `kind` 必填，只收 `"read"` / `"write"`，缺失或其它值 400 `{"error":"kind must be read or write"}`。建行后不可变更（**没有**改 kind 的端点）。
+- `name` 可选：trim 后 ≤40 码点，留空用默认名（`read` → 「只读 Token」、`write` → 「读写 Token」）；非字符串或超限 400 `{"error":"Invalid token name"}`。
+- `spaceIds` 可选：缺省与 `null` 都表示不限制；非空整数数组 = 设为该范围（去重升序存储）；空数组、非数组、非整数元素、含主人不可见空间一律 400 `INVALID_SPACE_SCOPE`，**一行不写**。校验规则见下节。
+- **明文只在此响应出现一次**（库内只有 SHA-256）。限流 10 次 / 5 分钟（按用户）：`kind=read` 计入 `read_token` 桶、`kind=write` 计入 `write_token` 桶，超出 429 `code:"RATE_LIMITED"`。
+- 创建是**追加**：同一用户可以有多枚同类令牌，互不影响（不再「重置即覆盖」）。
+
+#### PUT /api/me/tokens/:id/name（需会话）
+
+请求体 `{"name": "…"}`：
+
+- `name` 必须是字符串，trim 后 1–40 码点；空白、缺键、超限、非字符串一律 400 `{"error":"Token name must be 1-40 characters"}`（改名**不会**恢复默认名）。
+- 非本人 / 不存在 / 已吊销 / id 形态非法（非规范正整数）一律 404 `{"error":"Token not found"}`。
+- 成功 200 `{"success":true}`，`kind` 不变。
+
+#### PUT /api/me/tokens/:id/spaces（需会话）
+
+只改空间范围、不换令牌（明文继续有效）。请求体 `{"spaceIds": [...] | null}`，`spaceIds` 必填：`null` = 清除范围（不限制）；非空数组 = 设为该范围；空数组与不可见空间一律 400 `INVALID_SPACE_SCOPE`（不做部分写入）。成功 200 `{"spaceIds": [...] | null}`（写入后的范围）。
+
+非本人 / 不存在 / 已吊销 404 `{"error":"Token not found"}`：吊销行不可再管理，与改名/吊销同一口径。
+
+#### DELETE /api/me/tokens/:id（需会话）
+
+吊销指定的本人令牌：200 `{"success":true}`，该令牌立即失效。非本人 / 不存在 / **已吊销**一律 404 `{"error":"Token not found"}`（不是幂等成功）。吊销不清空间范围行（行保留作历史）。
 
 #### 范围校验与错误
 
 - `spaceIds` 必须是整数数组（JSON number、正整数）；重复项去重后按升序存储。
 - 每个 id 必须是**令牌主人当前可见**的空间：有任一空间角色，或主人是站点管理员且该空间存在；任一不满足则整单 400 `{"error":"Invalid space scope","code":"INVALID_SPACE_SCOPE"}`，不做部分写入。
-- 缺 `spaceIds`（PUT）、空数组、非数组、非整数元素同样 400 `INVALID_SPACE_SCOPE`；请求体不是合法 JSON（或不是 JSON 对象）回 400 `{"error":"Invalid request body"}`。
-- 范围端点自身不设限流桶（会话接口，每次最多 1 + 空间数 条写入）；`POST` 生成/重置沿用各自的令牌桶（`read_token` / `write_token`，均 10 次 / 5 分钟）。
+- 改范围（PUT）缺 `spaceIds`、空数组、非数组、非整数元素同样 400 `INVALID_SPACE_SCOPE`；请求体不是合法 JSON（或不是 JSON 对象）回 400 `{"error":"Invalid request body"}`。建令牌时 `spaceIds` 缺省是合法的（= 不限制）。
+- 范围校验先于令牌存在性：给他人 / 不存在的 id 配非法范围会先回 400，不泄露该 id 是否存在。
+- 范围端点自身不设限流桶（会话接口，每次最多 1 + 空间数 条写入）；`POST /api/me/tokens` 按 kind 计入 `read_token` / `write_token` 桶（均 10 次 / 5 分钟）。
 
 ### 只读接口（只读令牌）
 
@@ -1610,42 +1650,12 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 #### 令牌管理（均需会话 Cookie）
 
-##### GET /api/me/read-token
-
-```json
-{
-  "active": true,
-  "createdAt": "2026-11-10T12:00:00.000Z",
-  "lastUsedAt": null,
-  "revokedAt": null,
-  "spaceIds": null
-}
-```
-
-从未生成过时时间字段均为 `null`、`active` 为 `false`；`spaceIds` 是当前空间范围（`null` = 不限制），口径见「令牌空间范围」。永不返回哈希或明文。
-
-##### POST /api/me/read-token
-
-生成或重置当前用户的只读令牌（覆盖既有令牌，旧令牌立即失效），200：
-
-```json
-{ "token": "…", "createdAt": "2026-11-10T12:00:00.000Z" }
-```
-
-**明文只在此响应出现一次**。请求体可带 `spaceIds`（见「令牌空间范围」：带了就换范围，不带则保留现有范围）。限流 10 次 / 5 分钟（按用户，桶 `read_token`），超出 429 `code:"RATE_LIMITED"`。
-
-##### PUT /api/me/read-token/spaces
-
-只改空间范围、不换令牌：请求体 `{"spaceIds": [...] | null}`，响应 `{"spaceIds": [...] | null}`；空数组与不可见空间一律 400 `INVALID_SPACE_SCOPE`。完整口径见「令牌空间范围」。
-
-##### DELETE /api/me/read-token
-
-吊销当前用户的只读令牌：200 `{"success":true}`。从未生成过 404；已吊销再调用仍 200（幂等）。吊销不清空间范围行：之后重新生成但不带 `spaceIds` 时沿用。
+`GET/POST /api/me/tokens`、`PUT /api/me/tokens/:id/name`、`PUT /api/me/tokens/:id/spaces`、`DELETE /api/me/tokens/:id`，以及空间范围的语义与校验，见「接口令牌管理与空间范围」。`kind` 由令牌行固定：读接口接受 `read` 与 `write` 两种。
 
 #### 读接口通用约定
 
 - 鉴权：只认 `Authorization: Bearer <接口令牌>`（`kind` 为 `read` 或 `write` 都行）。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。**会话 Cookie 与查询参数都不认**；导入令牌在这里同样 401（表隔离）。
-- 权限 = 令牌所属用户本人的读权限 **∩ 令牌空间范围**：站点管理员可见全部空间，其余人只见自己是成员的空间；再按范围收窄（见「令牌空间范围」）。非成员或范围外的空间在 SQL 层就被过滤（与站内页面树/搜索同一口径）。
+- 权限 = 令牌所属用户本人的读权限 **∩ 令牌空间范围**：站点管理员可见全部空间，其余人只见自己是成员的空间；再按范围收窄（见「接口令牌管理与空间范围」）。非成员或范围外的空间在 SQL 层就被过滤（与站内页面树/搜索同一口径）。
 - **范围外一律按不存在处理**：`tree` / `search` 直接不返回该空间的任何行，`pages/:id` 回 404——与非成员同一口径，不泄露存在性。
 - 限流沿用 `auth_counters`：失败按 IP（`read_auth_fail` 20 次 / 5 分钟，先拒后验，两种令牌共用），调用按用户（`read` 3000 次 / 5 分钟；读写令牌调读接口也计入这个桶）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
 - **软删页面**（`deleted_at` 非空）在三处一律排除。
@@ -1741,31 +1751,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 #### 令牌管理（均需会话 Cookie）
 
-##### GET /api/me/write-token
-
-```json
-{
-  "active": true,
-  "createdAt": "2026-11-10T12:00:00.000Z",
-  "lastUsedAt": null,
-  "revokedAt": null,
-  "spaceIds": null
-}
-```
-
-从未生成过时时间字段均为 `null`、`active` 为 `false`；永不返回哈希或明文。`spaceIds` 口径见「令牌空间范围」。
-
-##### POST /api/me/write-token
-
-生成或重置（覆盖既有令牌，旧令牌立即失效），200 `{"token": "…", "createdAt": "…"}`；**明文只出现一次**。请求体可带 `spaceIds`（不带 = 保留现有范围）。限流 10 次 / 5 分钟（按用户，桶 `write_token`），超出 429 `code:"RATE_LIMITED"`。
-
-##### PUT /api/me/write-token/spaces
-
-只改空间范围、不换令牌：请求体 `{"spaceIds": [...] | null}`，响应 `{"spaceIds": [...] | null}`；空数组与不可见空间一律 400 `INVALID_SPACE_SCOPE`。完整口径见「令牌空间范围」。
-
-##### DELETE /api/me/write-token
-
-吊销：200 `{"success":true}`；从未生成过 404；已吊销再调用仍 200（幂等）。吊销不清空间范围行。
+`GET/POST /api/me/tokens`、`PUT /api/me/tokens/:id/name`、`PUT /api/me/tokens/:id/spaces`、`DELETE /api/me/tokens/:id`，以及空间范围的语义与校验，见「接口令牌管理与空间范围」。**只有 `kind = write` 的令牌能调 `/api/write/*`**。
 
 #### 写接口通用约定
 
@@ -1796,6 +1782,25 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 软删（进回收站、可恢复），与站内删除完全同一语义（子树处理一致）。成功回 `{"success":true}`；页面不存在或已软删 404。
 
+#### POST /api/write/files
+
+图片上传（写接口第五个端点，2026-11-12 追加）。`multipart/form-data`，字段名 `file`，单文件。校验与落盘复用 `POST /api/import/files` 的同一份实现（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），响应完全同形状，落 `pages/<uuid>.<ext>`（正文图目录，与插件导入的 `imports/` 分开）：
+
+```json
+{
+  "key": "pages/0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b.png",
+  "url": "/api/files/pages/0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b.png",
+  "contentType": "image/png",
+  "size": 12345
+}
+```
+
+- 鉴权同其它写端点：只认 `kind = write` 的接口令牌；`kind = read` 的令牌、导入令牌、会话 Cookie 一律 401。
+- **上传没有空间维度**：不受令牌空间范围限制（文件本身不属于任何空间）；把 `url` 引用进页面时仍走页面级范围与角色校验——范围外空间建页/改页照样 404。
+- 调用计入现有 `write` 限流桶（600 次 / 5 分钟），不新开桶。
+- 400 非图片 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`。
+- 图片的读取仍走 `GET /api/files/:key`（需会话 Cookie）：接口令牌读不到图片字节，已登录的页面读者正常渲染。
+
 ### 服务端消毒规则（content_html）
 
 保存/回滚时执行：保留结构性标签与下列属性，其余一律剥除。
@@ -1818,9 +1823,10 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 受限会话（`needs2faSetup`）：只能进 2FA 设置，配置成功后受限标记自动清零，无需重新登录。
 - 页面读态渲染 `contentHtml`；编辑态使用 `contentJson`。外链图片以 `data-original-src` + `data-confluence-img` 呈现「未转存」。文字颜色/高亮/单元格底色在 `contentHtml` 里是 data 载具（见「服务端消毒规则」），由读态扩展还原成内联样式，前端不要另外拼颜色样式。
 - 代码块折叠：`content_html` 里三态由 `pre[data-collapsed]` 承载（`"true"` / `"false"` / 无此属性），读态由编辑器扩展还原成节点属性 `collapsed`。无属性时的初始状态由前端按代码行数自动决定（>20 行折叠、≤20 行展开）——这是前端行为，服务端不参与、也不在 `content_html` 里预判。折叠只影响显示：MD 派生仍是围栏代码块、`collapsed` 丢弃，属已知降级。
-- 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
+- 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；外部连接器走写接口的 `POST /api/write/files`（同样落 `pages/`，四键响应与导入口一致）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
 - 「数据库维护」页的体积行：一行 `数据库体积 X · 图片体积 Y · 正文体积 Z · 页面 N`，体积一律用 `formatBytes` 渲染（不另写格式化）。`databaseSizeBytes` 为 `null` 时写「不可得」；`assetsSizeBytes` / `contentSizeBytes` 为 `null` 时**整项不渲染**（与 D1 同一降级思路，不显示 0 或估算数），空桶的真 0 照实显示 `0 B`；`*ObjectCount` 本期不显示。
+- 设置页的两张卡：`API Token` 卡用 `GET/POST /api/me/tokens`、`PUT /api/me/tokens/:id/name`、`PUT /api/me/tokens/:id/spaces`、`DELETE /api/me/tokens/:id`（列表只回未吊销，创建 201 回明文一次、成功后面板一律重拉列表，不本地拼行）；「浏览器插件」卡用 `GET/POST /api/me/import-tokens` 与 `DELETE /api/me/import-tokens/:id`。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
 - 注册后按 `emailVerificationRequired` 分流：`true` → 跳「验证邮箱」页（输入 6 位码调 `POST /api/auth/email/verify`，页面提供重发按钮调 `POST /api/auth/email/resend`）；`false`（首个管理员、管理员后台建号）→ 直接去登录。该字段缺失视为 `false`。
 - 登录拿到 403 `EMAIL_NOT_VERIFIED` → 登录页给出「重新发送验证码」入口（`resend`，按钮按响应的 `cooldownSeconds` 倒计时），不要提示密码错误。403 `ACCOUNT_PENDING_APPROVAL` 是另一件事：等管理员批准。

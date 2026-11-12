@@ -6,23 +6,21 @@
  *   一致（默认空间在前 → 名称大小写不敏感 → 创建时间），每项**只有** id / name / slug；
  * - 范围是叠在现行成员过滤之外的一层（不替代它），范围外一律按不存在处理：
  *   tree / search 不返回该空间的行，pages/:id 与范围外空间一律 404，不泄露存在性；
- * - 读写令牌可调四个读接口，范围取它自己那一份（`token_kind='write'`），
- *   调用计入现行 `read` 桶（不新开桶），`last_used_at` 只更新命中那张表。
+ * - 读写令牌可调四个读接口，范围取它自己那一份（`kind='write'` 的令牌行），
+ *   调用计入现行 `read` 桶（不新开桶），`last_used_at` 只刷新命中的那一行。
  *
  * 这里断言的是**精确键集合**与「同一条规则在四个接口一致」，多一个键少一个键都算破坏契约。
  */
 import { describe, expect, it } from "vitest"
 import {
   adminSession,
+  createApiToken,
   initializedContext,
   jsonRequest,
   request,
   userSession
 } from "./support/app"
 import type { Env } from "../src/types"
-
-const READ_TOKEN_PATH = "/api/me/read-token"
-const WRITE_TOKEN_PATH = "/api/me/write-token"
 
 interface SpaceBrief {
   id: number
@@ -38,12 +36,10 @@ interface PageBrief {
 async function issueToken(
   env: Env,
   cookie: string,
-  path: string,
-  body: unknown = {}
-): Promise<string> {
-  const res = await jsonRequest(env, "POST", path, body, cookie)
-  expect(res.status).toBe(200)
-  return ((await res.json()) as { token: string }).token
+  kind: "read" | "write",
+  options: { spaceIds?: number[] | null } = {}
+): Promise<{ id: number; token: string }> {
+  return createApiToken(env, cookie, kind, options)
 }
 
 function readGet(env: Env, token: string, path: string): Promise<Response> {
@@ -152,7 +148,7 @@ describe("只读接口：GET /api/read/spaces", () => {
   it("每项只有 id/name/slug 三键；默认空间在前，其余按名称大小写不敏感再按创建时间", async () => {
     const { env, db } = await initializedContext()
     const admin = await adminSession(env)
-    const token = await issueToken(env, admin, READ_TOKEN_PATH)
+    const { token } = await issueToken(env, admin, "read")
     // 故意先建 beta 再建 Alpha：名称序（NOCASE）优先于创建时间。
     await createSpace(env, admin, "beta")
     await createSpace(env, admin, "Alpha")
@@ -181,24 +177,26 @@ describe("只读接口：GET /api/read/spaces", () => {
     const admin = await adminSession(env)
     const alpha = await createSpace(env, admin, "Alpha")
     const beta = await createSpace(env, admin, "Beta")
-    const token = await issueToken(env, admin, READ_TOKEN_PATH, {
+    const scoped = await issueToken(env, admin, "read", {
       spaceIds: [beta.id]
     })
 
-    expect((await spaces(env, token)).map((item) => item.id)).toEqual([beta.id])
+    expect((await spaces(env, scoped.token)).map((item) => item.id)).toEqual([
+      beta.id
+    ])
 
     // 只改范围、不换令牌：下一次调用就按新范围算（每次校验回表）。
     const cleared = await jsonRequest(
       env,
       "PUT",
-      `${READ_TOKEN_PATH}/spaces`,
+      `/api/me/tokens/${scoped.id}/spaces`,
       { spaceIds: null },
       admin
     )
     expect(cleared.status).toBe(200)
     expect(await cleared.json()).toEqual({ spaceIds: null })
 
-    const restored = (await spaces(env, token)).map((item) => item.id)
+    const restored = (await spaces(env, scoped.token)).map((item) => item.id)
     expect(restored).toContain(alpha.id)
     expect(restored).toContain(beta.id)
   })
@@ -222,7 +220,7 @@ describe("只读接口：范围叠在成员过滤之外（§2.5）", () => {
     })
 
     // 未设范围的令牌：管理员的读权限 = 全部空间（对照组）。
-    const unscoped = await issueToken(env, admin, READ_TOKEN_PATH)
+    const { token: unscoped } = await issueToken(env, admin, "read")
     expect(await treeIds(env, unscoped)).toEqual(
       expect.arrayContaining([alphaPage.id, betaPage.id])
     )
@@ -231,9 +229,11 @@ describe("只读接口：范围叠在成员过滤之外（§2.5）", () => {
     )
 
     // 设了范围 [A] 的令牌：范围对站点管理员也生效。
-    const scoped = await issueToken(env, admin, READ_TOKEN_PATH, {
-      spaceIds: [alpha.id]
-    })
+    const scoped = (
+      await issueToken(env, admin, "read", {
+        spaceIds: [alpha.id]
+      })
+    ).token
     const tree = await treeIds(env, scoped)
     expect(tree).toContain(alphaPage.id)
     expect(tree).not.toContain(betaPage.id)
@@ -279,7 +279,7 @@ describe("只读接口：范围叠在成员过滤之外（§2.5）", () => {
 
     // 两层过滤各用自己的绑定值：成员过滤按 userId、范围过滤按空间 id，值不能串位。
     // （范围只能收窄：非成员即使把空间写进范围也在写入时被 400 拒掉，这里不重复那一层。）
-    const token = await issueToken(env, user, READ_TOKEN_PATH, {
+    const { token } = await issueToken(env, user, "read", {
       spaceIds: [alpha.id]
     })
     expect(await treeIds(env, token)).toEqual([alphaPage.id])
@@ -310,12 +310,16 @@ describe("只读接口：读写令牌可调读接口（§3.1）", () => {
       spaceId: beta.id
     })
 
-    const read = await issueToken(env, admin, READ_TOKEN_PATH, {
-      spaceIds: [alpha.id]
-    })
-    const write = await issueToken(env, admin, WRITE_TOKEN_PATH, {
-      spaceIds: [beta.id]
-    })
+    const read = (
+      await issueToken(env, admin, "read", {
+        spaceIds: [alpha.id]
+      })
+    ).token
+    const write = (
+      await issueToken(env, admin, "write", {
+        spaceIds: [beta.id]
+      })
+    ).token
 
     // 读写令牌：四个读接口都放行，范围是它自己的 [B]。
     expect((await spaces(env, write)).map((item) => item.id)).toEqual([beta.id])
@@ -347,8 +351,8 @@ describe("只读接口：读写令牌可调读接口（§3.1）", () => {
     })
 
     // 只读令牌先生成但一次都不用：它的 last_used_at 必须保持 null。
-    await issueToken(env, admin, READ_TOKEN_PATH)
-    const write = await issueToken(env, admin, WRITE_TOKEN_PATH)
+    await issueToken(env, admin, "read")
+    const { token: write } = await issueToken(env, admin, "write")
 
     expect((await readGet(env, write, "/api/read/spaces")).status).toBe(200)
     expect(await treeIds(env, write)).toContain(page.id)

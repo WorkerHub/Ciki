@@ -45,8 +45,8 @@ export type TokenNameResult =
   | { ok: false; reason: "INVALID_TOKEN_NAME" }
 
 /**
- * 解析请求里的名称：缺省 / 空白 → 默认名；非字符串或超 40 码点 → 失败。
- * B 单的建令牌 / 改名端点直接复用这一份，避免两处口径漂移。
+ * 解析建令牌时的名称：缺省 / 空白 → 默认名；非字符串或超 40 码点 → 失败。
+ * 改名走 `parseTokenNameUpdate`（那里空白是拒绝，不是默认名）。
  */
 export function parseTokenName(raw: unknown, kind: TokenKind): TokenNameResult {
   if (raw === undefined || raw === null) {
@@ -56,6 +56,23 @@ export function parseTokenName(raw: unknown, kind: TokenKind): TokenNameResult {
     return { ok: false, reason: "INVALID_TOKEN_NAME" }
   const name = raw.trim()
   if (name === "") return { ok: true, name: defaultTokenName(kind) }
+  if (Array.from(name).length > API_TOKEN_NAME_MAX) {
+    return { ok: false, reason: "INVALID_TOKEN_NAME" }
+  }
+  return { ok: true, name }
+}
+
+/**
+ * 解析改名请求里的名称：trim 后必须是 1–40 码点。
+ *
+ * 与建令牌不同，空白**不是**「用默认名」——改名把名字清空会让列表里出现一行
+ * 没有标识的令牌，所以这里直接拒绝，由路由回 400。
+ */
+export function parseTokenNameUpdate(raw: unknown): TokenNameResult {
+  if (typeof raw !== "string")
+    return { ok: false, reason: "INVALID_TOKEN_NAME" }
+  const name = raw.trim()
+  if (name === "") return { ok: false, reason: "INVALID_TOKEN_NAME" }
   if (Array.from(name).length > API_TOKEN_NAME_MAX) {
     return { ok: false, reason: "INVALID_TOKEN_NAME" }
   }
@@ -140,7 +157,7 @@ export async function touchApiToken(
     .run()
 }
 
-/** 按 id 取一行（含已吊销；范围与状态回读都要）。 */
+/** 按 id 取本人一行（含已吊销；改范围时的 404 判定要用）。 */
 export async function getTokenRowById(
   db: D1Database,
   prefix: string,
@@ -155,24 +172,7 @@ export async function getTokenRowById(
     .first<ApiTokenRow>()
 }
 
-/** 某用户某类令牌的最新一行（含已吊销）：旧单令牌端点的兼容读。 */
-export async function getLatestTokenRow(
-  db: D1Database,
-  prefix: string,
-  userId: number,
-  kind: TokenKind
-): Promise<ApiTokenRow | null> {
-  return db
-    .prepare(
-      `SELECT * FROM ${apiTokensTable(prefix)}
-        WHERE user_id = ? AND kind = ?
-        ORDER BY id DESC LIMIT 1`
-    )
-    .bind(userId, kind)
-    .first<ApiTokenRow>()
-}
-
-/** 某用户的全部有效令牌（B 单的列表端点用），按创建时间升序。 */
+/** 某用户的全部有效令牌（`GET /api/me/tokens` 用），按创建时间升序。 */
 export async function listActiveTokens(
   db: D1Database,
   prefix: string,
@@ -195,8 +195,6 @@ export interface IssueApiTokenOptions {
   name?: string
   /** 省略 = 不写范围（不限）；`null` 同义；数组 = 设成该范围。 */
   scope?: TokenScope
-  /** 旧单令牌端点的「重置即覆盖」：先吊销该用户同类全部有效行再建新行。 */
-  replaceExistingKind?: boolean
 }
 
 /**
@@ -216,17 +214,6 @@ export async function issueApiToken(
   const tokenHash = await sha256Hex(token)
   const now = new Date().toISOString()
   const statements: D1PreparedStatement[] = []
-
-  if (options.replaceExistingKind) {
-    statements.push(
-      db
-        .prepare(
-          `UPDATE ${apiTokensTable(prefix)} SET revoked_at = ?
-            WHERE user_id = ? AND kind = ? AND revoked_at IS NULL`
-        )
-        .bind(now, userId, options.kind)
-    )
-  }
 
   statements.push(
     db
@@ -282,41 +269,10 @@ export async function revokeTokenById(
   return result.meta.changes > 0
 }
 
-/** 吊销某用户某类全部有效令牌（旧端点的重置 / 删除语义），返回吊销行数。 */
-export async function revokeActiveTokensOfKind(
-  db: D1Database,
-  prefix: string,
-  userId: number,
-  kind: TokenKind
-): Promise<number> {
-  const result = await db
-    .prepare(
-      `UPDATE ${apiTokensTable(prefix)} SET revoked_at = ?
-        WHERE user_id = ? AND kind = ? AND revoked_at IS NULL`
-    )
-    .bind(new Date().toISOString(), userId, kind)
-    .run()
-  return result.meta.changes
-}
-
-/** 该用户是否曾经有过某类令牌（含已吊销）：旧端点区分 404 与幂等成功。 */
-export async function hasTokenOfKind(
-  db: D1Database,
-  prefix: string,
-  userId: number,
-  kind: TokenKind
-): Promise<boolean> {
-  const row = await db
-    .prepare(
-      `SELECT 1 AS present FROM ${apiTokensTable(prefix)}
-        WHERE user_id = ? AND kind = ? LIMIT 1`
-    )
-    .bind(userId, kind)
-    .first<{ present: number }>()
-  return row !== null
-}
-
-/** 改名：只改未吊销、本人的行，返回是否改到。kind 不在可改字段里。 */
+/**
+ * 改名：只改未吊销、本人的行，返回是否改到。kind 不在可改字段里。
+ * 未命中（不存在 / 非本人 / 已吊销）统一返回 false，由路由回 404。
+ */
 export async function renameToken(
   db: D1Database,
   prefix: string,

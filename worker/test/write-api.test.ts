@@ -8,14 +8,14 @@
 import { describe, expect, it } from "vitest"
 import {
   adminSession,
+  createApiToken,
+  createImportToken,
   initializedContext,
   jsonRequest,
   request,
   userSession
 } from "./support/app"
 import type { Env } from "../src/types"
-
-const WRITE_TOKEN_PATH = "/api/me/write-token"
 
 const META_KEYS = [
   "id",
@@ -67,11 +67,9 @@ function docJson(text: string): string {
 async function issueWriteToken(
   env: Env,
   cookie: string,
-  body: unknown = {}
-): Promise<string> {
-  const res = await jsonRequest(env, "POST", WRITE_TOKEN_PATH, body, cookie)
-  expect(res.status).toBe(200)
-  return ((await res.json()) as { token: string }).token
+  options: { spaceIds?: number[] | null } = {}
+): Promise<{ id: number; token: string }> {
+  return createApiToken(env, cookie, "write", options)
 }
 
 function writeRequest(
@@ -280,12 +278,8 @@ describe("写接口：鉴权只认读写令牌", () => {
     )
     expect(sessionOnly.status).toBe(401)
 
-    const readToken = (await (
-      await jsonRequest(env, "POST", "/api/me/read-token", {}, admin)
-    ).json()) as { token: string }
-    const importToken = (await (
-      await jsonRequest(env, "POST", "/api/me/import-token", undefined, admin)
-    ).json()) as { token: string }
+    const readToken = await createApiToken(env, admin, "read")
+    const importToken = await createImportToken(env, admin)
     for (const token of [readToken.token, importToken.token, "not-a-token"]) {
       const res = await writeRequest(env, token, "POST", "/api/write/pages", {
         title: "越界",
@@ -297,22 +291,30 @@ describe("写接口：鉴权只认读写令牌", () => {
     // 有效令牌可用，并在成功后刷新 lastUsedAt。
     const created = await writeRequest(
       env,
-      writeToken,
+      writeToken.token,
       "POST",
       "/api/write/pages",
       { title: "正常", content_json: docJson("正常") }
     )
     expect(created.status).toBe(201)
-    const status = (await (
-      await jsonRequest(env, "GET", WRITE_TOKEN_PATH, undefined, admin)
-    ).json()) as { lastUsedAt: string | null }
-    expect(status.lastUsedAt).not.toBeNull()
+    const list = (await (
+      await jsonRequest(env, "GET", "/api/me/tokens", undefined, admin)
+    ).json()) as { tokens: Array<{ id: number; lastUsedAt: string | null }> }
+    expect(
+      list.tokens.find((row) => row.id === writeToken.id)?.lastUsedAt
+    ).not.toBeNull()
 
     // 吊销后立即 401。
-    await jsonRequest(env, "DELETE", WRITE_TOKEN_PATH, undefined, admin)
+    await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/tokens/${writeToken.id}`,
+      undefined,
+      admin
+    )
     const revoked = await writeRequest(
       env,
-      writeToken,
+      writeToken.token,
       "POST",
       "/api/write/pages",
       {
@@ -326,7 +328,7 @@ describe("写接口：鉴权只认读写令牌", () => {
   it("未知路径鉴权后仍回 JSON 404（不掉进 SPA 回落）", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
 
     const anonymous = await request(env, "/api/write/nope")
     expect(anonymous.status).toBe(401)
@@ -343,7 +345,7 @@ describe("写接口：限流", () => {
     const context = await initializedContext()
     const { env } = context
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
     const userId = await meId(env, admin)
 
     await seedCounter(context, "write", String(userId), 600)
@@ -374,7 +376,7 @@ describe("写接口：限流", () => {
   it("令牌爆破按 IP 20 次 / 5 分钟（先拒后验）", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
 
     for (let attempt = 1; attempt <= 19; attempt += 1) {
       const res = await writeRequest(
@@ -417,7 +419,7 @@ describe("写接口：建页", () => {
     const admin = await adminSession(env)
     const adminId = await meId(env, admin)
     const spaceId = await defaultSpaceId(env, admin)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
 
     const first = await writeRequest(env, token, "POST", "/api/write/pages", {
       title: "<b>第一章</b>",
@@ -472,7 +474,7 @@ describe("写接口：建页", () => {
   it("指定空间建页；父页已删 409、父页不存在/越权/跨空间矩阵", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
     const otherSpace = await createSpace(env, admin, "第二空间")
     const defaultId = await defaultSpaceId(env, admin)
 
@@ -580,7 +582,7 @@ describe("写接口：建页", () => {
   it("入参错误：标题/正文/父空间 id 与体积上限", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
 
     const invalidJson = await writeRequest(
       env,
@@ -697,7 +699,7 @@ describe("写接口：改页", () => {
     const { env } = context
     const admin = await adminSession(env)
     const adminId = await meId(env, admin)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
 
     const created = await writeRequest(env, token, "POST", "/api/write/pages", {
       title: "原标题",
@@ -767,7 +769,7 @@ describe("写接口：改页", () => {
   it("至少给一个字段；页面不存在/已删/坏 id 一律 404；正文错误码", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
 
     const page = (await (
       await writeRequest(env, token, "POST", "/api/write/pages", {
@@ -833,7 +835,7 @@ describe("写接口：移动", () => {
     const context = await initializedContext()
     const { env } = context
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
 
     const a = (await (
       await writeRequest(env, token, "POST", "/api/write/pages", {
@@ -940,7 +942,7 @@ describe("写接口：移动", () => {
     const context = await initializedContext()
     const { env } = context
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
     const defaultId = await defaultSpaceId(env, admin)
     const otherSpace = await createSpace(env, admin, "目标空间")
 
@@ -981,7 +983,7 @@ describe("写接口：删除", () => {
     const context = await initializedContext()
     const { env } = context
     const admin = await adminSession(env)
-    const token = await issueWriteToken(env, admin)
+    const { token } = await issueWriteToken(env, admin)
     const spaceId = await defaultSpaceId(env, admin)
 
     const parent = (await (
@@ -1060,7 +1062,9 @@ describe("写接口：空间范围与角色", () => {
       spaceId: otherSpace
     })
     // 令牌范围只给默认空间（站点管理员同样受范围收窄）。
-    const token = await issueWriteToken(env, admin, { spaceIds: [defaultId] })
+    const { token } = await issueWriteToken(env, admin, {
+      spaceIds: [defaultId]
+    })
 
     const cases: Array<[string, string, unknown]> = [
       ["PUT", `/api/write/pages/${hidden.id}`, { title: "改名" }],
@@ -1111,7 +1115,7 @@ describe("写接口：空间范围与角色", () => {
       title: "只读页",
       spaceId: space
     })
-    const token = await issueWriteToken(env, viewer)
+    const { token } = await issueWriteToken(env, viewer)
 
     const create = await writeRequest(env, token, "POST", "/api/write/pages", {
       space_id: space,
@@ -1161,5 +1165,203 @@ describe("写接口：空间范围与角色", () => {
       { title: "越权" }
     )
     expect(outsider.status).toBe(404)
+  })
+})
+
+const PNG = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
+  0x48, 0x44, 0x52
+])
+
+function formWith(bytes: Uint8Array, type: string): FormData {
+  const form = new FormData()
+  form.append("file", new File([bytes], "upload.bin", { type }))
+  return form
+}
+
+function writeUpload(
+  env: Env,
+  token: string,
+  form: FormData
+): Promise<Response> {
+  return request(env, "/api/write/files", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` },
+    body: form
+  })
+}
+
+/** 上传成功后的四键响应（与 `/api/import/files` 完全同形状）。 */
+interface UploadedImage {
+  key: string
+  url: string
+  contentType: string
+  size: number
+}
+
+describe("写接口：图片上传（第五端点）", () => {
+  it("write 令牌上传 PNG：201 四键、落 pages/、对象进图片桶", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    const { token } = await issueWriteToken(env, admin)
+
+    const res = await writeUpload(env, token, formWith(PNG, "image/png"))
+    expect(res.status).toBe(201)
+    const image = (await res.json()) as UploadedImage
+    // 精确四键：与 /api/import/files 同一份 handleImageUpload，不多不少。
+    expect(Object.keys(image).sort()).toEqual([
+      "contentType",
+      "key",
+      "size",
+      "url"
+    ])
+    // 落正文图目录 pages/（与插件导入的 imports/ 分开）。
+    expect(image.key).toMatch(/^pages\/[0-9a-f-]{36}\.png$/)
+    expect(image.url).toBe(`/api/files/${image.key}`)
+    expect(image.contentType).toBe("image/png")
+    expect(image.size).toBe(PNG.length)
+    expect(r2.store.has(image.key)).toBe(true)
+  })
+
+  it("只认 write 令牌：read 令牌、已吊销 write 令牌、导入令牌与会话 Cookie 全 401", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const readToken = await createApiToken(env, admin, "read")
+    const importToken = await createImportToken(env, admin)
+    const doomed = await issueWriteToken(env, admin)
+    await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/tokens/${doomed.id}`,
+      undefined,
+      admin
+    )
+
+    for (const token of [
+      readToken.token,
+      importToken.token,
+      doomed.token,
+      "not-a-token"
+    ]) {
+      const res = await writeUpload(env, token, formWith(PNG, "image/png"))
+      expect(res.status).toBe(401)
+      expect(res.headers.get("cache-control")).toContain("no-store")
+    }
+
+    const sessionOnly = await request(env, "/api/write/files", {
+      method: "POST",
+      headers: { cookie: admin },
+      body: formWith(PNG, "image/png")
+    })
+    expect(sessionOnly.status).toBe(401)
+  })
+
+  it("上传不受令牌空间范围限制；非图片 400、超 10MB 413", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const defaultId = await defaultSpaceId(env, admin)
+    const otherSpace = await createSpace(env, admin, "范围外空间")
+    // 范围只给默认空间：上传仍然放行（文件没有空间维度）。
+    const { token } = await issueWriteToken(env, admin, {
+      spaceIds: [defaultId]
+    })
+
+    const ok = await writeUpload(env, token, formWith(PNG, "image/png"))
+    expect(ok.status).toBe(201)
+
+    const notImage = await writeUpload(
+      env,
+      token,
+      formWith(
+        new TextEncoder().encode("<svg onload=alert(1)></svg>"),
+        "image/svg+xml"
+      )
+    )
+    expect(notImage.status).toBe(400)
+
+    const big = new Uint8Array(10 * 1024 * 1024 + 1)
+    big.set(PNG)
+    const tooLarge = await writeUpload(env, token, formWith(big, "image/png"))
+    expect(tooLarge.status).toBe(413)
+    expect(await tooLarge.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+
+    // 但把这个文件引用到范围外空间建页仍按页面级权限 404。
+    const image = (await ok.json()) as UploadedImage
+    const outOfScope = await writeRequest(
+      env,
+      token,
+      "POST",
+      "/api/write/pages",
+      {
+        space_id: otherSpace,
+        title: "范围外带图页",
+        content_json: JSON.stringify({
+          type: "doc",
+          content: [{ type: "image", attrs: { src: image.url, alt: "图" } }]
+        })
+      }
+    )
+    expect(outOfScope.status).toBe(404)
+    expect(await outOfScope.json()).toMatchObject({ code: "SPACE_NOT_FOUND" })
+  })
+
+  it("上传计入现有 write 桶（不新开桶）", async () => {
+    const context = await initializedContext()
+    const { env } = context
+    const admin = await adminSession(env)
+    const userId = await meId(env, admin)
+    const { token } = await issueWriteToken(env, admin)
+
+    const created = await writeUpload(env, token, formWith(PNG, "image/png"))
+    expect(created.status).toBe(201)
+    const counter = context.db.db
+      .prepare(
+        "SELECT count FROM ciki_auth_counters WHERE action = 'write' AND account = ?"
+      )
+      .get(String(userId)) as { count: number } | undefined
+    expect(counter?.count).toBe(1)
+
+    // 桶满后上传同样 429（与四个写端点共用一份额度）。
+    context.db.db
+      .prepare(
+        "UPDATE ciki_auth_counters SET count = 600 WHERE action = 'write' AND account = ?"
+      )
+      .run(String(userId))
+    const limited = await writeUpload(env, token, formWith(PNG, "image/png"))
+    expect(limited.status).toBe(429)
+    expect(await limited.json()).toMatchObject({ code: "RATE_LIMITED" })
+  })
+
+  it("端到端：上传的地址写进 content_json 建页，读回 contentHtml 仍保留文件地址", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const { token } = await issueWriteToken(env, admin)
+
+    const uploaded = (await (
+      await writeUpload(env, token, formWith(PNG, "image/png"))
+    ).json()) as UploadedImage
+
+    const created = await writeRequest(env, token, "POST", "/api/write/pages", {
+      title: "带图页",
+      content_json: JSON.stringify({
+        type: "doc",
+        content: [{ type: "image", attrs: { src: uploaded.url, alt: "图" } }]
+      })
+    })
+    expect(created.status).toBe(201)
+    const page = (await created.json()) as PageMeta
+
+    const detail = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}`,
+      undefined,
+      admin
+    )
+    expect(detail.status).toBe(200)
+    const body = (await detail.json()) as { contentHtml: string }
+    // 消毒白名单认 pages/ 前缀：地址原样保留，不会降级成「未转存」占位。
+    expect(body.contentHtml).toContain(uploaded.url)
+    expect(body.contentHtml).not.toContain("data-original-src")
   })
 })

@@ -6,6 +6,7 @@
  */
 import { describe, expect, it } from "vitest"
 import {
+  createImportToken,
   initializedContext,
   jsonRequest,
   request,
@@ -182,15 +183,7 @@ describe("保留数：写入时修剪", () => {
     const { env, admin } = await adminWithPage(context)
     await putSettings(env, admin, { revisionRetentionLimit: 2 })
 
-    const tokenRes = await jsonRequest(
-      env,
-      "POST",
-      "/api/me/import-token",
-      undefined,
-      admin
-    )
-    expect(tokenRes.status).toBe(200)
-    const { token } = (await tokenRes.json()) as { token: string }
+    const { token } = await createImportToken(env, admin)
 
     let pageId = ""
     for (let index = 0; index < 4; index += 1) {
