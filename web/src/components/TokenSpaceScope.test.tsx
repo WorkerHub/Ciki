@@ -1,8 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { i18n } from "@/i18n"
 import { TokenSpaceScope } from "@/components/TokenSpaceScope"
+import { i18n } from "@/i18n"
 import { ApiError, type Space, type TokenSpaceIds } from "@/lib/api"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -166,5 +166,53 @@ describe("令牌空间范围", () => {
       screen.getByRole("checkbox", { name: "默认空间" })
     ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Save scope" })).toBeDisabled()
+  })
+})
+
+/**
+ * 草稿态：新建面（三期 §5）先把范围编辑好、随创建请求一起发，
+ * 所以没有「保存范围」这一步，也不显示保存成功 / 失败行。
+ */
+function renderDraft(spaceIds: TokenSpaceIds = null) {
+  const onChange = vi.fn()
+  const view = render(
+    <TokenSpaceScope spaceIds={spaceIds} onChange={onChange} />
+  )
+  return { ...view, onChange }
+}
+
+describe("令牌空间范围（草稿态）", () => {
+  it("切换与勾选都直接交回范围，不出现保存行", async () => {
+    seedSpaces()
+    const user = userEvent.setup()
+    const { onChange } = renderDraft(null)
+
+    expect(screen.queryByRole("button", { name: "保存范围" })).toBeNull()
+
+    await user.click(screen.getByRole("radio", { name: "指定空间" }))
+    expect(onChange).toHaveBeenLastCalledWith([])
+
+    await user.click(screen.getByRole("checkbox", { name: "研发空间" }))
+    expect(onChange).toHaveBeenLastCalledWith([2])
+
+    await user.click(screen.getByRole("checkbox", { name: "默认空间" }))
+    expect(onChange).toHaveBeenLastCalledWith([1, 2])
+
+    await user.click(screen.getByRole("radio", { name: "全部空间" }))
+    expect(onChange).toHaveBeenLastCalledWith(null)
+    expect(screen.queryByRole("button", { name: "保存范围" })).toBeNull()
+    expect(screen.queryByRole("alert")).toBeNull()
+  })
+
+  it("草稿不写库：没有任何保存动作与成功提示", async () => {
+    seedSpaces()
+    const user = userEvent.setup()
+    renderDraft(null)
+
+    await user.click(screen.getByRole("radio", { name: "指定空间" }))
+    await user.click(screen.getByRole("checkbox", { name: "默认空间" }))
+
+    expect(screen.queryByRole("button", { name: "保存范围" })).toBeNull()
+    expect(screen.queryByText("空间范围已保存。")).toBeNull()
   })
 })

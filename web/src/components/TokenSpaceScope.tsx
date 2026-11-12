@@ -13,12 +13,17 @@ import { useSpacesStore } from "@/stores/spaces"
 type ScopeMode = "all" | "selected"
 
 interface TokenSpaceScopeProps {
-  /** 服务端当前范围：`null` = 不限制。 */
+  /** 当前（或草稿初始）范围：`null` = 不限制。 */
   spaceIds: TokenSpaceIds
-  /** `PUT /me/{read,write}-token/spaces`：只改范围，不换令牌。 */
-  save: (spaceIds: TokenSpaceIds) => Promise<ApiTokenSpaces>
-  /** 保存成功后把新范围交回卡片，后续生成 / 重置沿用这个范围。 */
-  onSaved: (spaceIds: TokenSpaceIds) => void
+  /**
+   * `PUT /me/tokens/:id/spaces`：只改范围，不换令牌。
+   * 不传即为「草稿态」——新建面的编辑，范围由 `onChange` 交回调用方。
+   */
+  save?: (spaceIds: TokenSpaceIds) => Promise<ApiTokenSpaces>
+  /** 保存成功后把写入的范围交回卡片，后续操作沿用这个范围。 */
+  onSaved?: (spaceIds: TokenSpaceIds) => void
+  /** 草稿态专用：范围每变一次交回 `null | 升序数组`（可能为空数组）。 */
+  onChange?: (spaceIds: TokenSpaceIds) => void
   disabled?: boolean
 }
 
@@ -37,20 +42,29 @@ function keepVisible(
   return ids.filter((id) => visible.has(id))
 }
 
+/** 勾选项的规范形态：去重后升序（契约里的范围数组就是这么排的）。 */
+function normalize(picked: number[]): number[] {
+  return [...new Set(picked)].sort((a, b) => a - b)
+}
+
 /**
- * 令牌的空间范围编辑（二期规格 §4）：全部空间 / 指定空间两态 + 勾选列表。
+ * 令牌的空间范围编辑（二期规格 §4，三期 §5 复用）：全部空间 / 指定空间两态 + 勾选列表。
  *
- * 只改范围、不换令牌，所以它和生成 / 重置 / 吊销各自独立；范围行在令牌还没生成
- * 时也能存（服务端允许，生成时沿用）。空间列表复用 `useSpacesStore`（即会话接口
- * `GET /api/spaces`，站内已按成员资格过滤），不新开接口。
+ * 两种用法共用同一套控件，不另造一份：
+ * - 保存态（传 `save`）：只改范围、不换令牌，自带「保存范围」行；新令牌还没建时
+ *   也能存（服务端允许，生成时沿用）。
+ * - 草稿态（不传 `save`，用 `onChange`）：新建面里先把范围编辑好，随创建请求一起发，
+ *   此时没有「保存」这一步，也不显示成功/失败行。
  *
- * 勾选与基线都按「当前可见空间」归一：主人退出或删除过的空间即使还留在范围里
- * （服务端留行是既有口径），也不会显示成幽灵勾选、更不会让保存被整单 400 拒掉。
+ * 空间列表复用 `useSpacesStore`（即会话接口 `GET /api/spaces`，站内已按成员资格过滤），
+ * 不新开接口。勾选与基线都按「当前可见空间」归一：主人退出或删除过的空间即使还留在
+ * 范围里（服务端留行是既有口径），也不会显示成幽灵勾选、更不会让保存被整单 400 拒掉。
  */
 export function TokenSpaceScope({
   spaceIds,
   save,
   onSaved,
+  onChange,
   disabled = false
 }: TokenSpaceScopeProps) {
   const { t } = useTranslation()
@@ -67,6 +81,8 @@ export function TokenSpaceScope({
   const [error, setError] = useState("")
   const [saved, setSaved] = useState(false)
 
+  const draft = save === undefined
+
   // 外壳进入应用时已拉过空间列表；只有那次失败才在这里补一次，别发重复请求。
   useEffect(() => {
     if (spacesStatus === "error") void loadSpaces()
@@ -76,17 +92,33 @@ export function TokenSpaceScope({
   useEffect(() => {
     if (spacesStatus !== "ready") return
     const visible = new Set(spaces.map((space) => space.id))
-    setPicked((prev) => prev.filter((id) => visible.has(id)))
-    setBaseline((prev) => keepVisible(prev, visible))
-  }, [spacesStatus, spaces])
+    const kept = picked.filter((id) => visible.has(id))
+    if (kept.length !== picked.length) {
+      setPicked(kept)
+      // 草稿态没有「保存」那一步，归一结果要立刻交回调用方
+      if (draft) onChange?.(mode === "all" ? null : normalize(kept))
+    }
+    if (baseline?.some((id) => !visible.has(id))) {
+      setBaseline(keepVisible(baseline, visible))
+    }
+  }, [spacesStatus, spaces, picked, baseline, mode, draft, onChange])
 
-  const next: TokenSpaceIds =
-    mode === "all" ? null : [...picked].sort((a, b) => a - b)
+  const next: TokenSpaceIds = mode === "all" ? null : normalize(picked)
   const dirty = !sameScope(next, baseline)
   const emptySelection = mode === "selected" && picked.length === 0
   const saveDisabled = saving || disabled || !dirty || emptySelection
 
+  /** 草稿态的范围每次都交回调用方；保存态交给「保存范围」按钮。 */
+  const change = (nextMode: ScopeMode, nextPicked: number[]) => {
+    setSaved(false)
+    setError("")
+    setMode(nextMode)
+    setPicked(nextPicked)
+    if (draft) onChange?.(nextMode === "all" ? null : normalize(nextPicked))
+  }
+
   const submit = useCallback(async () => {
+    if (!save) return
     setError("")
     setSaved(false)
     setSaving(true)
@@ -96,7 +128,7 @@ export function TokenSpaceScope({
       setBaseline(written)
       setMode(written === null ? "all" : "selected")
       setPicked(written ?? [])
-      onSaved(written)
+      onSaved?.(written)
       setSaved(true)
     } catch (saveError) {
       setError(describeApiError(saveError))
@@ -120,9 +152,7 @@ export function TokenSpaceScope({
           aria-label={t("settings.tokens.scope.label")}
           onValueChange={(value) => {
             if (value !== "all" && value !== "selected") return
-            setSaved(false)
-            setError("")
-            setMode(value)
+            change(value, picked)
           }}
         >
           <ToggleGroupItem value="all">
@@ -150,15 +180,14 @@ export function TokenSpaceScope({
                   <Checkbox
                     checked={picked.includes(space.id)}
                     disabled={saving || disabled}
-                    onCheckedChange={(checked) => {
-                      setSaved(false)
-                      setError("")
-                      setPicked((prev) =>
+                    onCheckedChange={(checked) =>
+                      change(
+                        mode,
                         checked === true
-                          ? [...prev, space.id]
-                          : prev.filter((id) => id !== space.id)
+                          ? [...picked, space.id]
+                          : picked.filter((id) => id !== space.id)
                       )
-                    }}
+                    }
                   />
                   <span className="min-w-0 truncate">{space.name}</span>
                 </label>
@@ -170,7 +199,7 @@ export function TokenSpaceScope({
         )
       ) : null}
 
-      {mode === "selected" || dirty ? (
+      {!draft && (mode === "selected" || dirty) ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -194,7 +223,7 @@ export function TokenSpaceScope({
         </div>
       ) : null}
 
-      {error ? (
+      {!draft && error ? (
         <p role="alert" className="text-xs text-destructive">
           {error}
         </p>

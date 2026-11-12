@@ -12,11 +12,10 @@ import QRCode from "qrcode"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
-import { ImportTokenCard } from "@/components/ImportTokenCard"
+import { ApiTokensCard } from "@/components/ApiTokensCard"
+import { ImportTokensCard } from "@/components/ImportTokensCard"
 import { LanguageSegmented } from "@/components/LanguageToggle"
-import { ReadTokenCard } from "@/components/ReadTokenCard"
 import { ThemeSegmented } from "@/components/ThemeToggle"
-import { WriteTokenCard } from "@/components/WriteTokenCard"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -801,11 +800,9 @@ export function SettingsPage() {
         </CardContent>
       </Card>
 
-      <ImportTokenCard />
+      <ApiTokensCard />
 
-      <ReadTokenCard />
-
-      <WriteTokenCard />
+      <ImportTokensCard />
 
       <Card>
         <CardHeader>

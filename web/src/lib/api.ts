@@ -393,27 +393,58 @@ export interface PasswordResetGrant {
 export type TokenSpaceIds = number[] | null
 
 /**
- * 个人 API 令牌状态：只回状态与时间，从不回哈希与明文。
- * 导入令牌 / 只读接口令牌 / 读写接口令牌同形（三张卡共用一套展示）。
+ * 个人 API 令牌（接口三期 §3）：类型创建后固定，只回状态与时间，从不回哈希。
+ * `read` 只能调读接口，`write` 读接口与写接口都认。
  */
-export interface ApiTokenStatus {
-  active: boolean
-  createdAt: string | null
+export type ApiTokenKind = "read" | "write"
+
+/** `GET /api/me/tokens` 的一行：只含未吊销令牌，按 created_at 升序返回。 */
+export interface ApiTokenSummary {
+  id: number
+  name: string
+  kind: ApiTokenKind
+  /** `null` = 不限范围；否则是升序空间 id 数组。 */
+  spaceIds: TokenSpaceIds
+  createdAt: string
   lastUsedAt: string | null
-  revokedAt: string | null
-  /** 当前空间范围；导入令牌没有范围，那条接口不回这个字段。 */
-  spaceIds?: TokenSpaceIds
 }
 
-/** `PUT /me/{read,write}-token/spaces` 的回执：写入后的范围。 */
+/** `GET /api/me/tokens` 的回执：列表包在 `tokens` 里，不裸数组。 */
+export interface ApiTokenList {
+  tokens: ApiTokenSummary[]
+}
+
+/** `POST /api/me/tokens` 的 201 回执：明文只在这一条响应里出现。 */
+export interface ApiTokenCreated {
+  id: number
+  name: string
+  kind: ApiTokenKind
+  spaceIds: TokenSpaceIds
+  token: string
+}
+
+/** `PUT /me/tokens/:id/spaces` 的回执：写入后的范围。 */
 export interface ApiTokenSpaces {
   spaceIds: TokenSpaceIds
 }
 
-/** 生成 / 重置时唯一的明文返回，展示一次后即不可再取。 */
-export interface ApiTokenIssued {
-  token: string
+/** 浏览器插件凭证（多条、互不影响）；这类凭证没有空间范围。 */
+export interface ImportTokenSummary {
+  id: number
+  name: string
   createdAt: string
+  lastUsedAt: string | null
+}
+
+export interface ImportTokenList {
+  tokens: ImportTokenSummary[]
+}
+
+/** `POST /api/me/import-tokens` 的 201 回执：明文只在这条响应里出现。 */
+export interface ImportTokenCreated {
+  id: number
+  name: string
+  token: string
 }
 
 export interface PageNode {
@@ -865,26 +896,34 @@ export const meApi = {
   sessions: () => api.get<SessionInfo[]>("/me/sessions"),
   revokeSession: (id: string) =>
     api.del<{ success: true }>(`/me/sessions/${id}`),
-  importToken: () => api.get<ApiTokenStatus>("/me/import-token"),
-  // POST 已有令牌时覆盖（即「重置」），明文只在这一个响应里出现
-  createImportToken: () => api.post<ApiTokenIssued>("/me/import-token", {}),
-  revokeImportToken: () => api.del<{ success: true }>("/me/import-token"),
-  /** 只读接口令牌：与导入令牌同一套契约形状，互相独立、各管各的。 */
-  readToken: () => api.get<ApiTokenStatus>("/me/read-token"),
-  createReadToken: () => api.post<ApiTokenIssued>("/me/read-token", {}),
-  revokeReadToken: () => api.del<{ success: true }>("/me/read-token"),
-  /** 读写接口令牌：与只读令牌逐列一致，存另一张表（写接口只认它）。 */
-  writeToken: () => api.get<ApiTokenStatus>("/me/write-token"),
-  createWriteToken: () => api.post<ApiTokenIssued>("/me/write-token", {}),
-  revokeWriteToken: () => api.del<{ success: true }>("/me/write-token"),
+  /** 个人 API Token（接口三期 §3）：列表只回未吊销，按 created_at 升序。 */
+  tokens: () => api.get<ApiTokenList>("/me/tokens"),
   /**
-   * 只改空间范围、不换令牌（规格 §2.3）：`null` = 清除范围（不限制）。
+   * 新建：名称留空时**不带 `name` 键**，交给服务端自动命名；`spaceIds` 恒传，
+   * `null` = 不限范围（缺省与 null 同义，这里显式表达「全部空间」）。
+   * 明文只在 201 回执里出现一次。
+   */
+  createToken: (input: {
+    kind: ApiTokenKind
+    name?: string
+    spaceIds: TokenSpaceIds
+  }) => api.post<ApiTokenCreated>("/me/tokens", input),
+  /** 改名：回执形状 §3 未规定，调用方成功后重拉列表，不复用回执。 */
+  renameToken: (id: number, name: string) =>
+    api.put<unknown>(`/me/tokens/${id}/name`, { name }),
+  /**
+   * 只改范围、不换令牌：`null` = 清除范围（不限制）。
    * 空数组服务端回 400 `INVALID_SPACE_SCOPE`，前端按「一个没勾就禁用保存」拦住。
    */
-  setReadTokenSpaces: (spaceIds: TokenSpaceIds) =>
-    api.put<ApiTokenSpaces>("/me/read-token/spaces", { spaceIds }),
-  setWriteTokenSpaces: (spaceIds: TokenSpaceIds) =>
-    api.put<ApiTokenSpaces>("/me/write-token/spaces", { spaceIds })
+  setTokenSpaces: (id: number, spaceIds: TokenSpaceIds) =>
+    api.put<unknown>(`/me/tokens/${id}/spaces`, { spaceIds }),
+  revokeToken: (id: number) => api.del<{ success: true }>(`/me/tokens/${id}`),
+  /** 浏览器插件凭证：多条、互不影响，没有空间范围。 */
+  importTokens: () => api.get<ImportTokenList>("/me/import-tokens"),
+  createImportToken: (name?: string) =>
+    api.post<ImportTokenCreated>("/me/import-tokens", name ? { name } : {}),
+  revokeImportToken: (id: number) =>
+    api.del<{ success: true }>(`/me/import-tokens/${id}`)
 }
 
 /**
