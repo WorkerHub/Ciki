@@ -1,12 +1,10 @@
 /**
- * 用户名唯一性：新建号取名（注册 / 管理员建号）与存量重名消解（迁移）。
+ * 用户名唯一性：新建号取名（注册 / 管理员建号）。
  *
- * 唯一权威是 `users.username` 上的唯一索引（大小写不敏感、空串除外）。下面两条
- * 路径都只是「尽量一次写对」的辅助：
- * - 新建号先查重拿空位，写入仍撞键就换下一个后缀重试——查重与写入之间的竞态由
- *   索引兜底，不会 500；
- * - 迁移在建索引之前先把存量重名消解掉（id 最小者保留原名、其余 -2/-3），否则
- *   唯一索引建不上。
+ * 唯一权威是 `users.username` 上的唯一索引（大小写不敏感、空串除外），它自 `schema_v1`
+ * 基线起就在（全新库一步建全），所以不存在「先消重再建索引」的存量升级步骤。下面这条
+ * 路径只是「尽量一次写对」的辅助：先查重拿空位，写入仍撞键就换下一个后缀重试——查重与
+ * 写入之间的竞态由索引兜底，不会 500。
  *
  * 后缀口径与 `usernameWithSuffix` 同一份实现：后缀算在 40 码点之内。
  */
@@ -19,87 +17,6 @@ import { usernameTaken } from "../db/queries/users"
 
 /** 撞名重试上限：留足余量，正常一次就中。超过说明基础名被占得离谱，直接报错。 */
 export const MAX_USERNAME_ATTEMPTS = 50
-
-/**
- * 唯一性比较口径与索引的 `COLLATE NOCASE` 完全一致：只折 ASCII 大写字母。
- * 不能用 `toLowerCase()`——它会把 `é`/`É` 也当成重名（索引认为两者不同），
- * 白白改掉一个本来不重名的用户名。
- */
-function usernameKey(name: string): string {
-  return name.replace(/[A-Z]/g, (char) => char.toLowerCase())
-}
-
-/**
- * 消解一张 users 表（正式表或重建用的 `v7_users` 临时表）里的重名，返回改名条数。
- *
- * 只做一件事：给真正的重名（大小写不敏感）补 `-2`、`-3` 后缀（后缀算在 40 码点内，
- * 基础名太长时截短腾位），同一名字里 id 最小者保留原名。**其余用户名一字不改**：
- * 不 trim、不截断、空串也不改写（索引的 `WHERE username <> ''` 已把空串排除在唯一
- * 约束之外，它不会造成撞键）。补出来的后缀也不会去抢未处理行的原名字。
- *
- * 只对真的变了的行发 UPDATE，全部改动在一次 `db.batch()`（D1 的事务单位）里提交：
- * 要么全改、要么一条都不改（升级失败时旧库的用户名原样保留）；`updated_at` 不动。
- * 幂等：干净的表上一条 UPDATE 都不会发。
- */
-export async function resolveDuplicateUsernames(
-  db: D1Database,
-  table: string
-): Promise<number> {
-  const rows = await db
-    .prepare(`SELECT id, username FROM ${table} ORDER BY id`)
-    .all<{ id: number; username: string }>()
-
-  // 还没轮到的行的原名。补后缀时不能占它们的位置：`carol` / `carol` / `carol-2`
-  // 里第二行若直接拿 `carol-2`，第三行（本来不重名）就会被追着改成 `carol-2-2`。
-  // 先登记全表原名，轮到某行时先把它自己那一份退掉（同名还有别的行时仍占着）。
-  const pending = new Map<string, number>()
-  for (const row of rows.results) {
-    if (row.username === "") continue
-    const key = usernameKey(row.username)
-    pending.set(key, (pending.get(key) ?? 0) + 1)
-  }
-
-  const taken = new Set<string>()
-  const updates: Array<{ id: number; username: string }> = []
-
-  for (const row of rows.results) {
-    // 空串不参与唯一约束，也不占用任何名字：原样留着，多个空串可以共存。
-    if (row.username === "") continue
-
-    const ownKey = usernameKey(row.username)
-    const remaining = (pending.get(ownKey) ?? 1) - 1
-    if (remaining > 0) pending.set(ownKey, remaining)
-    else pending.delete(ownKey)
-
-    let candidate = row.username
-    if (taken.has(ownKey)) {
-      let n = 2
-      do {
-        candidate = usernameWithSuffix(row.username, n)
-        n += 1
-      } while (
-        taken.has(usernameKey(candidate)) ||
-        pending.has(usernameKey(candidate))
-      )
-    }
-    taken.add(usernameKey(candidate))
-    if (candidate !== row.username) {
-      updates.push({ id: row.id, username: candidate })
-    }
-  }
-
-  if (updates.length > 0) {
-    await db.batch(
-      updates.map((entry) =>
-        db
-          .prepare(`UPDATE ${table} SET username = ? WHERE id = ?`)
-          .bind(entry.username, entry.id)
-      )
-    )
-  }
-
-  return updates.length
-}
 
 /**
  * 以 `base` 为起点取一个没被占用的用户名并写入。

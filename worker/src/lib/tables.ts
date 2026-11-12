@@ -32,7 +32,7 @@ export const settingsTable = (prefix: string) =>
  */
 export const emailCodesTable = (prefix: string) =>
   tableName(prefix, "email_codes")
-/** 空间（规格「Ciki Space」）：默认空间由唯一迁移 schema_v7 播种，`is_default=1`。 */
+/** 空间（规格「Ciki Space」）：默认空间由唯一迁移 schema_v1 播种，`is_default=1`。 */
 export const spacesTable = (prefix: string) => tableName(prefix, "spaces")
 /** 空间成员与角色（admin / editor / viewer），(space_id, user_id) 唯一。 */
 export const spaceMembersTable = (prefix: string) =>

@@ -4,8 +4,15 @@
  * 表名一律经 tables.ts 的 migrationsTable() 解析；账本本身也属于本项目
  * （带 TABLE_PREFIX），换前缀即换一套账本。账本名自规格 §4.4 起带前导下划线
  * （`_<前缀>schema_migrations`），旧版无下划线的账本由 ensureLedgerTable() 改名承接。
+ *
+ * 一条迁移的执行口径固定为「prepare → sql → 记账」：三阶段全部成功才记账，失败立
+ * 即抛出、不记账也不继续后续迁移（下次 setup 重跑，各阶段都必须幂等）。迁移可以用
+ * `supersedes` 声明自己取代的旧账本记录，此时记账是「删旧行 + 写本行」的单次
+ * `db.batch()`（D1 的事务单位）：要么账本整体收敛，要么一行不动，重跑结果一致。
  */
-import { getMigrations, type MigrationContext } from "./migrations"
+import { getMigrations } from "./migrations"
+import type { Migration, MigrationContext } from "./migrations"
+import { MigrationRejectedError } from "./schema-shape"
 import { getTablePrefix } from "./table-prefix"
 import { legacyMigrationsTable, migrationsTable } from "./tables"
 import type { Env } from "../types"
@@ -121,12 +128,40 @@ function migrationError(name: string, err: unknown): Error {
 }
 
 /**
+ * 记账：`supersedes` 非空时把「本条自己的旧同名行 + 被取代的旧行」与本条记账放进
+ * 同一个 `db.batch()`（D1 的事务单位）——账本只会整体收敛，中断后重跑不会留下
+ * 半截记录。没有 `supersedes` 就是一条普通 INSERT（本条此前没记过账）。
+ */
+async function recordMigration(
+  db: D1Database,
+  ledger: string,
+  migration: Migration
+): Promise<void> {
+  const supersedes = migration.supersedes ?? []
+  const insert = db
+    .prepare(`INSERT INTO ${ledger} (name) VALUES (?)`)
+    .bind(migration.name)
+  if (supersedes.length === 0) {
+    await insert.run()
+    return
+  }
+  // 旧版增量链时代的账本里本来就有同名 `schema_v1` 行，删掉再写，账本才只剩一行。
+  const retired = [migration.name, ...supersedes]
+  const placeholders = retired.map(() => "?").join(", ")
+  await db.batch([
+    db
+      .prepare(`DELETE FROM ${ledger} WHERE name IN (${placeholders})`)
+      .bind(...retired),
+    insert
+  ])
+}
+
+/**
  * 执行所有未记账的迁移。每条迁移按「prepare → sql → 记账」执行，三阶段全部成功
  * 才记账；失败立即抛出，不记录该迁移、也不继续后续迁移（下次 setup 会重跑它，
  * 各阶段都是幂等的）。
  *
- * 入参是整个 Env：重建迁移要写 `ciki-content` 内容桶、要用加密钥重加密 TOTP 密文，
- * 只给 `db + prefix` 表达不了这些能力。
+ * 入参是整个 Env：迁移可能要用内容桶、加密钥等绑定，只给 `db + prefix` 表达不了。
  */
 export async function runLedgerMigrations(
   env: Env
@@ -142,21 +177,24 @@ export async function runLedgerMigrations(
 
   const results: LedgerMigrationResult[] = []
   for (const migration of getMigrations(prefix)) {
-    if (applied.has(migration.name)) {
+    const context: MigrationContext = { db, prefix, env, applied }
+    // 缺省按账本行判定；`schema_v1` 还要看账本是否收敛、结构是否真是基线。
+    const done = migration.isApplied
+      ? await migration.isApplied(context)
+      : applied.has(migration.name)
+    if (done) {
       results.push({ name: migration.name, status: "skipped" })
       continue
     }
     try {
-      const context: MigrationContext = { db, prefix, env }
       if (migration.prepare) await migration.prepare(context)
       for (const statement of splitStatements(migration.sql)) {
         await db.prepare(statement).run()
       }
-      await db
-        .prepare(`INSERT INTO ${ledger} (name) VALUES (?)`)
-        .bind(migration.name)
-        .run()
+      await recordMigration(db, ledger, migration)
     } catch (err) {
+      // 形态/账本不被接受是可预期的操作错误：信息本身就是操作指引，原样上抛。
+      if (err instanceof MigrationRejectedError) throw err
       throw migrationError(migration.name, err)
     }
     results.push({ name: migration.name, status: "applied" })

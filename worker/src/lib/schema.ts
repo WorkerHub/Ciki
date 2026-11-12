@@ -1,17 +1,17 @@
 /**
- * 新基线表结构的唯一真源（ID 整数化 + 正文上 R2 之后的定版结构）。
+ * 基线表结构的唯一真源（ID 整数化 + 正文上 R2 之后的定版结构）。
  *
- * 为什么单独成文件：同一份 DDL 有两个使用者——
- * - 唯一迁移 `schema_v7` 的建表语句（`migrations.ts`，表名带生效前缀）；
- * - 存量库的一次性重建（`rebuild.ts`，先建 `v7_*` 临时表、校验通过后改名）。
- * 两处各写一份 DDL 迟早会漂移，所以这里只写一份，表名用 `{table}` 占位。
+ * 这份 DDL 只属于唯一迁移 `schema_v1`：全新库按它一次建出全部表/索引（表名带生效
+ * 前缀，见 `migrations.ts` 的 `baselineStatements` 用法）。
  *
  * 约定：
  * - 每个 DDL 是一条完整语句，内部不得出现 `;`（迁移执行器按 `;` 切分）。
- * - 索引只作用于**正式表名**，所以用 `{prefix}` 占位、切换完成后再建；`v7_*` 临时表
- *   不带索引，改名之后才补，避免索引名冲突。
+ * - 索引用 `{prefix}` 占位、在表建好后建；唯一约束一律用唯一索引表达。
  * - 主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`：id 永不复用，删掉的用户/页面不会
  *   被后来的新行「继承」掉旧的引用（`created_by` 等没有外键约束）。
+ *
+ * 基线已冻结：`schema_v1` 不得改名、改内容或调序，今后结构变化从 `schema_v2` 往后
+ * 追加（新表/新索引写进本条迁移自己的 sql，不改这里的历史定义）。
  */
 import { tableName } from "./tables"
 
@@ -23,7 +23,7 @@ export interface SchemaTable {
 }
 
 /**
- * 全部表（含 FTS5 虚拟表）。顺序即重建迁移建临时表的顺序，父子无外键、互不依赖。
+ * 全部表（含 FTS5 虚拟表）。顺序即 `schema_v1` 建表语句的顺序，父子无外键、互不依赖。
  */
 export const SCHEMA_TABLES: SchemaTable[] = [
   {
@@ -251,7 +251,7 @@ export const SCHEMA_TABLES: SchemaTable[] = [
 ]
 
 /**
- * 索引（只在正式表名上建，`{prefix}` 占位）。
+ * 索引（`{prefix}` 占位，表建好后建）。
  *
  * 唯一约束一律用唯一索引表达：部分唯一索引（`is_default`、`username` 空串除外）
  * SQLite 只在 CREATE INDEX 里支持带 WHERE，表内联 UNIQUE 做不到。
@@ -261,8 +261,9 @@ export const SCHEMA_TABLES: SchemaTable[] = [
  * `users.username` 的唯一性最终防线（契约「username 有唯一索引、空串除外」）。
  *
  * 大小写不敏感（`COLLATE NOCASE`）：`alice` 与 `Alice` 视为重名——username 是
- * 唯一对外的用户身份，只差大小写的两个名字会在评论等处混淆。`schema_v8` 的
- * 建索引语句与重建补索引共用这一份模板，避免两处 DDL 漂移。
+ * 唯一对外的用户身份，只差大小写的两个名字会在评论等处混淆。这条索引就在 `schema_v1`
+ * 基线里（全新库一步建全），形态校验（`schema-shape.ts`）也按它比对：必须是
+ * 「唯一 + 部分索引」。
  */
 export const USERS_USERNAME_UNIQUE_INDEX = `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}users_username
   ON {prefix}users(username COLLATE NOCASE) WHERE username <> ''`

@@ -2,9 +2,9 @@
 
 本文件由后端实现单在计划确认后冻结，是前端实现单的接口依据。实现期如需变更，先上报 Chief 裁决，**不得单方面改动**；改动必须同步更新本文件。
 
-## 零、本版变更（迁移坍缩为 schema_v7 + 注册必须验证邮箱 + username 唯一）
+## 零、本版变更（迁移版本号重置为 schema_v1 + 注册必须验证邮箱 + username 唯一）
 
-本版三件事：**迁移链坍缩为单一 `schema_v7`**（结构不变）、**自助注册后必须验证邮箱才能登录**、**`users.username` 加上唯一索引（`schema_v8`，大小写不敏感、空串除外）**。下表是上一版完成、本版不变的现行结构（整数 id + 内容上 R2），仍需按它对接：
+本版三件事：**迁移版本号重置为单一条 `schema_v1`**（结构不变）、**自助注册后必须验证邮箱才能登录**、**`users.username` 有唯一索引（大小写不敏感、空串除外，就在 `schema_v1` 基线里）**。下表是上一版完成、本版不变的现行结构（整数 id + 内容上 R2），仍需按它对接：
 
 | 位置                   | 旧                                    | 新                                                                |
 | ---------------------- | ------------------------------------- | ----------------------------------------------------------------- |
@@ -16,7 +16,7 @@
 | 用户对外身份           | `id` + `publicId`                     | 只剩 `username`（`publicId` 字段已删除，别读它）                  |
 | 页面正文存储           | D1 的 `content_json` 列               | 内容桶里的 `content/<sha256>` 对象（D1 只留 `content_hash` 指针） |
 
-- **一次升级、不可回退**：升级前必须用 `wrangler d1 time-travel info <库名>` 记下当前 bookmark 作为回退点（`wrangler d1 export` 因库里的 FTS5 虚拟表不可用）；迁移失败不会改动任何旧数据（详见「schema_v7」）。
+- **一次升级、不可回退**：升级前必须用 `wrangler d1 time-travel info <库名>` 记下当前 bookmark 作为回退点（`wrangler d1 export` 因库里的 FTS5 虚拟表不可用）；迁移失败不会改动任何旧数据（详见「schema_v1」）。
 - **正文只在三种情况下读 R2**：`GET /api/pages/:id?format=json`（编辑器）、`GET /api/pages/:id/revisions/:versionNo`（版本查看）、回滚/导入覆盖（服务端读旧内容比对）。阅读页只读 D1 的 `contentHtml` / `contentText` / `contentMd`，不碰 R2。
 - **写路径顺序固定「先 R2 再 D1」**：先上传正文对象拿到哈希，再在同一个 `db.batch()` 里写页面行 + 版本行 + FTS。上传成功而 D1 失败只会留一个无引用的孤儿对象，由月度内容 GC 在 30 天后收走（绝不出现「指针指向不存在的对象」）。
 - **内容不重复存**：同一份正文（sha256 相同）全站只存一个对象；无改动保存既不上传也不写库。
@@ -57,17 +57,17 @@
 
 迁移清单见下，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
-- `schema_v7`（基线迁移：结构坍缩后的定版结构与默认空间种子）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`）并把已有用户并入默认空间。全部 `CREATE … IF NOT EXISTS` / `INSERT OR IGNORE`，重复执行无副作用。
-- 存量库（**唯一支持的升级源 = 当前生产形态**：整数 id、正文在 R2、`users` 仍带 `base_currency`/`timezone`/`theme`）：同一条迁移先做一次全表重建——①按定版 DDL 建 `v7_*` 临时表；②按「定版列 ∩ 旧表列」整表拷贝，`users` 丢掉三列、`email_verified` 一律置 1（存量用户不锁任何人），正文不重传、`content_hash` 原样搬；③三道校验：逐表行数相等、`pages` 与 `page_revisions` 按 id 逐行 `content_hash` 相等、两表里每个内容对象全量回读并复核哈希；④单个 `db.batch()` 逐表 DROP + RENAME 完成切换，再补索引。任一校验不过就抛错：**不切表、不记账、旧数据一字未动**，修好重跑即可（重跑开头先清 `v7_*`）。已是定版结构的库命中幂等空转，只补索引。
-- 更早的开发期形态（uuid id、正文在 `content_json`）**不提供升级路径**：命中即报 `Unsupported legacy database shape` 并中止，一个表都不动；请先用上一版升级到 v6 形态，或重置开发库。`users` 还带三列但 `pages` 缺失的残缺现场同样明确报错，不做猜测性修复。
-- `schema_v1`–`schema_v6`（含 `schema_v6` 的 UUID→整数、正文上 R2 重建）的增量定义已清除；旧账本里的这些已应用行保留不动，执行器只认当前列表。
-- `schema_v8`（`users.username` 唯一索引）：`prepare` 先在存量库里消解重名——**仅对大小写不敏感的撞名加后缀**：同一名字里 `id` 最小者保留原名，其余按 `-2`、`-3`…递增（后缀算在 40 码点内，并跳过其他用户正在用的名字——不抢别人原本就叫 `xxx-2` 的名字）；**其它用户名一字不改**（不 trim、不截断，空串也不改写——唯一索引本身带 `WHERE username <> ''`，空串不参与约束、不会撞键）。随后 `sql` 建 `{prefix}users_username`（`username COLLATE NOCASE` 唯一，`WHERE username <> ''`）。重建路径（`schema_v7` 的 prepare）同样在**建索引之前、临时表上**先消解，校验不过时旧库连用户名都一字未动。重复执行无副作用：干净的库一条 UPDATE 都不发，索引已存在时建索引语句是空操作。存量升级到本版会因此改写重名账号的 `username`（其余列不动、`updated_at` 不动）。
+- `schema_v1`（基线迁移，也是系统里唯一的版本标记）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引（含 `{prefix}users_username`：`username COLLATE NOCASE` 唯一、`WHERE username <> ''` 空串除外）。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一条迁移末尾播种默认空间（id `1`、slug `space-1`、名称「默认空间」、`is_default=1`），**只在新库播种**：账本里已有任何记录就不写——即使默认空间已被删空，升级也不补行（升级只改账本、不动数据）。全部 `CREATE … IF NOT EXISTS`，重复执行无副作用。
+- 存量库（**唯一支持的升级源 = 当前生产形态**，即 `schema_v8` 形态：整数 id、正文在 R2、`users` 三列已删、`username` 唯一索引在位）：`prepare` 只做**只读形态校验**，通过后结构与数据一字不动，唯一的动作是**账本手术**——把残留的 `schema_v1`–`schema_v8` 八行在同一个 `db.batch()`（事务）里清掉并写回一行 `schema_v1`。校验不过、或账本有 `schema_v7` 却没有 `schema_v8`（停在 username 唯一索引那一步）：setup 以 409 `MIGRATION_REJECTED` 中止并把指路信息回显给管理员——**先用上一版（支持 v7 → v8 的发布）升到 `schema_v8`，再换本版升级**；若账本已记着 `schema_v8` 而结构对不上，说明结构在升级后被改动过——先按升级前记下的 Time Travel bookmark 还原（或修好不符项）再试。两种情况都是数据与账本一字未动，不猜测式修复、不部分执行。
+- 更早的形态（`users` 还带 `base_currency`/`timezone`/`theme`、正文还在 `content_json`、`pages` 缺失、或删掉唯一索引冒充 v8）**一律拒绝**：错误信息列出不符项并指路，一个表都不动。
+- `schema_v1`–`schema_v8` 的增量定义已清除（含旧 `schema_v6` 的 UUID→整数全表重建路径）；升级时账本坍缩为单行 `schema_v1`，执行器只认当前列表。
+- 已是 `schema_v1` 的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本只有一次原子改写）。
 
-今后结构变化只在末尾追加 `schema_v9`、`schema_v10`…，`schema_v7` / `schema_v8` 不得改名、改内容或调序。
+今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，`schema_v1` 不得改名、改内容或调序。
 
 **升级前必须记下回退点**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先跑一次 `wrangler d1 time-travel info <库名>`，把输出的 bookmark 留档（Time Travel 始终开启，回溯窗口为最近 30 天，Workers Free 套餐 7 天；`wrangler d1 info <库名>` 需显示 `version: production`，wrangler v3.4.0+）。不要再试 `wrangler d1 export`：库里有 FTS5 虚拟表，Cloudflare 会拒绝（`cannot export databases with virtual tables (fts5)`）。回退只能按这个 bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`，原地覆盖整库）；Time Travel 只管 D1，R2 里的正文对象不可变、不参与回退。
 
-回滚方式（整库重置）：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态；生产库执行前必须经用户批准，UI 不提供删表/清库入口。**跑过 `schema_v7` 的库不能靠删表回到旧结构**——要回到升级前只能按升级前记下的 Time Travel bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`）。
+回滚方式（整库重置）：删掉该前缀下的全部业务表与索引，并从账本删掉对应行（`DELETE FROM _{prefix}schema_migrations`），即回到未初始化状态；生产库执行前必须经用户批准，UI 不提供删表/清库入口。**跑过 `schema_v1` 的库不能靠删表回到旧结构**——要回到升级前只能按升级前记下的 Time Travel bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`）。
 
 账本表名带前导下划线、排在业务表之前（如默认前缀下为 `_ciki_schema_migrations`，无前缀时为 `_schema_migrations`）。旧版部署用的账本名是 `{prefix}schema_migrations`（无前导下划线）：setup 在跑迁移之前先探旧账本，旧在/新不在则 `ALTER TABLE … RENAME TO …` 改名承接（已应用记录原样保留，迁移全显示 `skipped`，重复执行不会重复改名）；新旧都不在则按现行 DDL 新建。新旧账本同时存在（或旧账本表结构不符、不是 ciki 的账本）属异常，setup 以 409 `LEDGER_CONFLICT` 中止并回报，不自行合并或删除任何一边。
 
@@ -83,11 +83,11 @@
 | role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                                                                                       |
 | is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                                                                                    |
 | approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                    |
-| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在 `schema_v7` 重建时一律置 1                                                           |
+| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在结构坍缩（`schema_v1` 之前那版）时已一律置 1                                          |
 | language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。主题等纯前端偏好不进数据库 |
 | created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                                                               |
 
-索引：`username` 上有唯一索引 `{prefix}users_username`（`COLLATE NOCASE`：`alice` 与 `Alice` 视为重名；`WHERE username <> ''`：空串不参与），并发改重名由数据库兜底。存量库升级时由 `schema_v8` 先消重（仅对撞名：id 最小者留原名，其余 `-2/-3`；其它用户名不改、空串不处理）再建索引。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
+索引：`username` 上有唯一索引 `{prefix}users_username`（`COLLATE NOCASE`：`alice` 与 `Alice` 视为重名；`WHERE username <> ''`：空串不参与），并发改重名由数据库兜底。撞名只在建号时按 `-2`/`-3` 规避（`insertWithUniqueUsername`），存量重名已在 `schema_v1` 之前那版消解完毕。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
 
 ### user_2fa（TOTP + 邮箱验证码开关）
 
@@ -96,7 +96,7 @@
 | user_id           | TEXT PK                    |                                                                           |
 | totp_secret       | TEXT NULL                  | AES-GCM 密文，格式 `v1.<ivB64url>.<ctB64url>`，AAD = `ciki:totp:<userId>` |
 | totp_enabled      | INTEGER NOT NULL DEFAULT 0 |                                                                           |
-| email_otp_enabled | INTEGER NOT NULL DEFAULT 0 | `schema_v3` 补列；邮箱验证码作为第二因子的开关（端点见「2FA 管理」）      |
+| email_otp_enabled | INTEGER NOT NULL DEFAULT 0 | `schema_v1` 基线内；邮箱验证码作为第二因子的开关（端点见「2FA 管理」）    |
 | updated_at        | TEXT NOT NULL              |                                                                           |
 
 ### passkey_credentials
@@ -230,7 +230,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 - 失效条件：吊销、重置、用户被停用或未批准。校验每次回表并连 `users` 查激活/审批状态，所以停用立即生效。
 - 令牌只用于 `/api/import/*`，权限等同本人；令牌管理本身仍要会话 Cookie。
 
-### read_tokens（只读接口令牌，schema_v4）
+### read_tokens（只读接口令牌）
 
 与 `import_tokens` **形状相同、表独立**，两套令牌互不通用：
 
@@ -322,7 +322,7 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 
 **同步方式**（不做触发器）：新建/有实际改动的保存/回滚时在同一个 `db.batch()` 事务里写 pages → 插 revision → `DELETE FROM pages_fts WHERE page_id=?` → 插入新索引行；无改动的保存不写 pages、不插 revision，也不重建索引；软删/彻底删同批删除索引行；恢复同批重建。索引与查询都做 CJK 逐字空格化（`团队` → `团 队`）：CJK 词按短语 `"团 队"`、拉丁词按前缀 `"ciki"*`，多词 AND；排序 `bm25(fts, 0, 10, 1)`。
 
-### comments（页尾评论，schema_v5）
+### comments（页尾评论）
 
 | 列         | 类型                     | 说明                                                           |
 | ---------- | ------------------------ | -------------------------------------------------------------- |
@@ -381,7 +381,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 {
   "success": true,
   "tablePrefix": "ciki_",
-  "migrations": [{ "name": "schema_v7", "status": "applied" }]
+  "migrations": [{ "name": "schema_v1", "status": "applied" }]
 }
 ```
 
@@ -1641,7 +1641,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版起迁移只有一个 `schema_v7`，存量库在同一次 setup 里完成重建（见「数据模型」）。
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版起迁移只有一条 `schema_v1`，`schema_v8` 形态的存量库在同一次 setup 里只做账本手术（账本坍缩为单行 `schema_v1`，结构与数据不动）——形态不被接受时以 409 `MIGRATION_REJECTED` 中止并提示先用上一版升到 `schema_v8`（见「数据模型」）。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。

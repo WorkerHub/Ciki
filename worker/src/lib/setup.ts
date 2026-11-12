@@ -21,6 +21,7 @@ import {
   LedgerConflictError,
   type LedgerMigrationResult
 } from "./migrations-runner"
+import { MigrationRejectedError } from "./schema-shape"
 import { DEFAULT_SITE_NAME } from "../core/identity"
 import type { Env } from "../types"
 
@@ -43,6 +44,13 @@ export type SetupResult =
       error: string
       resolvedPrefix: string
       ledgers: string[]
+    }
+  | {
+      /** 升级源不被接受（形态或账本停在中间版本）：信息自带下一步，原样给管理员。 */
+      success: false
+      code: "MIGRATION_REJECTED"
+      error: string
+      resolvedPrefix: string
     }
 
 /** 初始化完成后写入的站点设置默认值（INSERT OR IGNORE，不覆盖已有值）。 */
@@ -217,6 +225,16 @@ export async function runSetup(env: Env): Promise<SetupResult> {
         error: err.message,
         resolvedPrefix: prefix,
         ledgers: err.ledgers
+      }
+    }
+    // 升级源不被接受（旧形态、账本停在 v7）：可预期的操作错误，信息本身是操作
+    // 指路，原样回显；数据与账本一字未动，管理员换上一版升级后重试即可。
+    if (err instanceof MigrationRejectedError) {
+      return {
+        success: false,
+        code: "MIGRATION_REJECTED",
+        error: err.message,
+        resolvedPrefix: prefix
       }
     }
     throw err

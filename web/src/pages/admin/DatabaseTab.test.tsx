@@ -227,6 +227,26 @@ describe("系统管理 · 数据库升级", () => {
     expect(screen.queryByText("当前表前缀")).toBeNull()
   })
 
+  it("升级源被拒（409 MIGRATION_REJECTED）时回显指路文案，不显示升级结果", async () => {
+    const user = userEvent.setup()
+    const { ApiError } = await import("@/lib/api")
+    vi.mocked(adminApi.runAsAdmin).mockRejectedValue(
+      new ApiError(
+        409,
+        "Unsupported database shape for schema_v1: table ciki_users is missing",
+        "MIGRATION_REJECTED"
+      )
+    )
+    render(<DatabaseTab />)
+
+    await user.click(screen.getByRole("button", { name: "检查并升级数据库" }))
+
+    expect(
+      await screen.findByText(/请先用上一版（支持升到 schema_v8 的发布）/)
+    ).toBeInTheDocument()
+    expect(screen.queryByText("当前表前缀")).toBeNull()
+  })
+
   it("页面加载即按 GET 的 running 判定「进行中」，锁释放后自动解禁", async () => {
     vi.useFakeTimers()
     try {
