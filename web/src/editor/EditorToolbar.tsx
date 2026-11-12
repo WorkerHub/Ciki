@@ -19,6 +19,7 @@ import {
   Undo2
 } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -64,6 +65,7 @@ export function EditorToolbar({
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkValue, setLinkValue] = useState("")
   const imageInput = useRef<HTMLInputElement>(null)
+  const { t } = useTranslation()
 
   const openLinkDialog = () => {
     setLinkValue(
@@ -103,7 +105,7 @@ export function EditorToolbar({
   return (
     <div
       role="toolbar"
-      aria-label="编辑器工具条"
+      aria-label={t("editor.toolbar.label")}
       className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-card p-1"
     >
       <ParagraphStyleMenu editor={editor} />
@@ -112,8 +114,8 @@ export function EditorToolbar({
 
       <Toggle
         size="sm"
-        aria-label="粗体"
-        title="粗体（Ctrl/⌘ + B）"
+        aria-label={t("editor.toolbar.bold.label")}
+        title={t("editor.toolbar.bold.hint")}
         pressed={editor.isActive("bold")}
         onPressedChange={() => editor.chain().focus().toggleBold().run()}
       >
@@ -121,8 +123,8 @@ export function EditorToolbar({
       </Toggle>
       <Toggle
         size="sm"
-        aria-label="斜体"
-        title="斜体（Ctrl/⌘ + I）"
+        aria-label={t("editor.toolbar.italic.label")}
+        title={t("editor.toolbar.italic.hint")}
         pressed={editor.isActive("italic")}
         onPressedChange={() => editor.chain().focus().toggleItalic().run()}
       >
@@ -130,8 +132,8 @@ export function EditorToolbar({
       </Toggle>
       <Toggle
         size="sm"
-        aria-label="下划线"
-        title="下划线（Ctrl/⌘ + U）"
+        aria-label={t("editor.toolbar.underline.label")}
+        title={t("editor.toolbar.underline.hint")}
         pressed={editor.isActive("underline")}
         onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
       >
@@ -139,22 +141,22 @@ export function EditorToolbar({
       </Toggle>
       <Toggle
         size="sm"
-        aria-label="删除线"
-        title="删除线"
+        aria-label={t("editor.toolbar.strike")}
+        title={t("editor.toolbar.strike")}
         pressed={editor.isActive("strike")}
         onPressedChange={() => editor.chain().focus().toggleStrike().run()}
       >
         <Strikethrough aria-hidden="true" />
       </Toggle>
       <ColorMenu
-        label="文字颜色"
+        label={t("editor.toolbar.textColor")}
         icon={Baseline}
         colors={TEXT_COLORS}
         activeColor={currentTextColor(editor)}
         onPick={(color) => setTextColor(editor, color)}
       />
       <ColorMenu
-        label="高亮"
+        label={t("editor.toolbar.highlight")}
         icon={Highlighter}
         colors={HIGHLIGHT_COLORS}
         activeColor={currentHighlight(editor)}
@@ -165,8 +167,8 @@ export function EditorToolbar({
 
       <Toggle
         size="sm"
-        aria-label="无序列表"
-        title="无序列表"
+        aria-label={t("editor.toolbar.bulletList")}
+        title={t("editor.toolbar.bulletList")}
         pressed={editor.isActive("bulletList")}
         onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
       >
@@ -174,8 +176,8 @@ export function EditorToolbar({
       </Toggle>
       <Toggle
         size="sm"
-        aria-label="有序列表"
-        title="有序列表"
+        aria-label={t("editor.toolbar.orderedList")}
+        title={t("editor.toolbar.orderedList")}
         pressed={editor.isActive("orderedList")}
         onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
       >
@@ -183,8 +185,8 @@ export function EditorToolbar({
       </Toggle>
       <Toggle
         size="sm"
-        aria-label="任务列表"
-        title="任务列表"
+        aria-label={t("editor.toolbar.taskList")}
+        title={t("editor.toolbar.taskList")}
         pressed={editor.isActive("taskList")}
         onPressedChange={() => editor.chain().focus().toggleTaskList().run()}
       >
@@ -192,8 +194,8 @@ export function EditorToolbar({
       </Toggle>
       <Toggle
         size="sm"
-        aria-label="引用"
-        title="引用"
+        aria-label={t("editor.toolbar.blockquote")}
+        title={t("editor.toolbar.blockquote")}
         pressed={editor.isActive("blockquote")}
         onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
       >
@@ -201,8 +203,8 @@ export function EditorToolbar({
       </Toggle>
       <Toggle
         size="sm"
-        aria-label="代码块"
-        title="代码块"
+        aria-label={t("editor.toolbar.codeBlock")}
+        title={t("editor.toolbar.codeBlock")}
         pressed={editor.isActive("codeBlock")}
         onPressedChange={() => editor.chain().focus().toggleCodeBlock().run()}
       >
@@ -212,8 +214,8 @@ export function EditorToolbar({
         type="button"
         size="icon-sm"
         variant="ghost"
-        aria-label="分割线"
-        title="分割线"
+        aria-label={t("editor.toolbar.divider")}
+        title={t("editor.toolbar.divider")}
         onClick={() => editor.chain().focus().setHorizontalRule().run()}
       >
         <Minus aria-hidden="true" />
@@ -225,7 +227,7 @@ export function EditorToolbar({
 
       {editor.isActive("table") ? (
         <ColorMenu
-          label="单元格背景"
+          label={t("editor.toolbar.cellBackground")}
           icon={PaintBucket}
           colors={CELL_COLORS}
           activeColor={currentCellBackground(editor)}
@@ -237,8 +239,8 @@ export function EditorToolbar({
         type="button"
         size="icon-sm"
         variant={editor.isActive("link") ? "secondary" : "ghost"}
-        aria-label="插入链接"
-        title="插入链接"
+        aria-label={t("editor.toolbar.link")}
+        title={t("editor.toolbar.link")}
         onClick={openLinkDialog}
       >
         <Link2 aria-hidden="true" />
@@ -247,8 +249,8 @@ export function EditorToolbar({
         type="button"
         size="icon-sm"
         variant="ghost"
-        aria-label="上传图片"
-        title="上传图片"
+        aria-label={t("editor.toolbar.image")}
+        title={t("editor.toolbar.image")}
         onClick={() => imageInput.current?.click()}
       >
         <ImagePlus aria-hidden="true" />
@@ -267,8 +269,8 @@ export function EditorToolbar({
         type="button"
         size="icon-sm"
         variant="ghost"
-        aria-label="撤销"
-        title="撤销（Ctrl/⌘ + Z）"
+        aria-label={t("editor.toolbar.undo.label")}
+        title={t("editor.toolbar.undo.hint")}
         disabled={!editor.can().chain().focus().undo().run()}
         onClick={() => editor.chain().focus().undo().run()}
       >
@@ -278,8 +280,8 @@ export function EditorToolbar({
         type="button"
         size="icon-sm"
         variant="ghost"
-        aria-label="重做"
-        title="重做（Ctrl/⌘ + Shift + Z）"
+        aria-label={t("editor.toolbar.redo.label")}
+        title={t("editor.toolbar.redo.hint")}
         disabled={!editor.can().chain().focus().redo().run()}
         onClick={() => editor.chain().focus().redo().run()}
       >
@@ -293,9 +295,9 @@ export function EditorToolbar({
       <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>插入链接</DialogTitle>
+            <DialogTitle>{t("editor.toolbar.linkDialog.title")}</DialogTitle>
             <DialogDescription>
-              留空并保存可移除当前文字的链接。
+              {t("editor.toolbar.linkDialog.description")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -310,12 +312,12 @@ export function EditorToolbar({
               value={linkValue}
               onChange={(event) => setLinkValue(event.target.value)}
               placeholder="https://example.com"
-              aria-label="链接地址"
+              aria-label={t("editor.toolbar.linkDialog.urlLabel")}
               name="link-href"
             />
             <DialogFooter>
               <Button type="submit" size="sm">
-                应用
+                {t("editor.toolbar.linkDialog.apply")}
               </Button>
             </DialogFooter>
           </form>

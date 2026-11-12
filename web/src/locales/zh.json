@@ -251,6 +251,217 @@
       "disabled": "初始化页已经在系统设置里关闭，说明数据库已就绪。"
     }
   },
+  "page": {
+    "untitled": "未命名页面",
+    "loading": "页面加载中",
+    "loadFailed": "页面加载失败",
+    "backHome": "回到首页",
+    "toc": {
+      "label": "本页索引"
+    },
+    "view": {
+      "notFound": {
+        "title": "页面不存在或已删除",
+        "description": "它可能被移进了回收站，或者链接里的页面 id 不对。"
+      },
+      "home": "首页",
+      "updatedAt": "更新于 {{time}}",
+      "readOnlyMember": "只读成员",
+      "refresh": "刷新",
+      "edit": "编辑",
+      "newChild": "子页面",
+      "moveToSpace": "移动到空间",
+      "download": "下载 .md",
+      "history": "历史",
+      "delete": "删除",
+      "empty": {
+        "body": "这个页面还是空的。点「编辑」，把 Confluence 里的内容直接粘进来。",
+        "start": "开始编辑"
+      },
+      "deleteDialog": {
+        "title": "删除「{{title}}」？",
+        "description": "页面与全部子页面会移入回收站，之后可以在回收站里恢复。",
+        "confirm": "移入回收站"
+      }
+    },
+    "edit": {
+      "notFound": "页面不存在或已删除。",
+      "loadGuard": "为了不覆盖已有内容，加载完成前不会打开编辑器。",
+      "reload": "重新加载",
+      "readOnly": "你是这个空间的只读成员，不能编辑页面。",
+      "backToRead": "返回阅读",
+      "titleLabel": "页面标题",
+      "titlePlaceholder": "页面标题",
+      "styleHint": "编辑态与阅读态使用同一套渲染样式；每次保存都会生成一条可回滚的版本记录。",
+      "saving": "保存中…",
+      "unsaved": "有未保存的更改",
+      "savedAt": "已保存 {{time}}",
+      "leaveDialog": {
+        "title": "还有未保存的修改",
+        "description": "离开后这些修改会丢失。要先保存再走吗？",
+        "stay": "留在此页",
+        "saveAndLeave": "保存并离开",
+        "discard": "放弃修改"
+      },
+      "cancelDialog": {
+        "title": "放弃未保存的修改？",
+        "keepEditing": "继续编辑",
+        "discard": "放弃修改"
+      }
+    },
+    "revisions": {
+      "title": "版本历史",
+      "listLabel": "版本列表",
+      "loading": "加载中…",
+      "count_other": "{{count}} 个版本",
+      "keepLatest": "只保留最新一条",
+      "empty": "还没有版本记录。",
+      "versionNo": "第 {{no}} 版",
+      "latest": "最新",
+      "deleteOneLabel": "删除这个版本",
+      "previewLabel": "版本预览",
+      "previewVersion": "第 {{no}} 版 · {{time}}",
+      "restoring": "回滚中…",
+      "restore": "回滚到这个版本",
+      "selectHint": "选择左侧任一版本查看内容",
+      "deleted": "版本已删除。",
+      "deletedCount_other": "已删除 {{count}} 条版本。",
+      "nothingToDelete": "没有可删除的版本。",
+      "delete": "删除",
+      "deleteDialog": {
+        "title": "删除这个版本？",
+        "target": "第 {{no}} 版（{{time}}）",
+        "targetFallback": "这个版本",
+        "description": "{{target}}将被永久删除，无法恢复。页面当前内容与其他版本不受影响。"
+      },
+      "pruneDialog": {
+        "title": "只保留最新的一条版本？",
+        "description_other": "将删除其余 {{count}} 条版本，删除后无法恢复。页面当前内容与最新的一条版本不受影响。",
+        "confirm_other": "删除 {{count}} 条"
+      }
+    },
+    "create": {
+      "title": "新建页面",
+      "targetUnder": "将创建在「{{title}}」下面。",
+      "targetTop": "将创建在页面树的顶层。",
+      "titleLabel": "页面标题",
+      "titlePlaceholder": "例如：支付服务部署手册",
+      "titleRequired": "请填写页面标题",
+      "creating": "创建中…",
+      "submit": "创建并编辑"
+    },
+    "move": {
+      "title": "移动「{{title}}」",
+      "description": "页面连同它的子页面会一起移到目标空间的顶层；之后在原空间里就看不到它们了。",
+      "noTargets": "没有可移动到的其他空间。你需要在另一个空间里拥有编辑权限。",
+      "targetSpace": "目标空间",
+      "targetPlaceholder": "选择空间",
+      "targetRequired": "请选择目标空间",
+      "moving": "移动中…",
+      "submit": "移动到空间"
+    }
+  },
+  "editor": {
+    "placeholder": "开始输入，或直接粘贴内容…",
+    "surface": {
+      "label": "页面正文"
+    },
+    "toolbar": {
+      "label": "编辑器工具条",
+      "bold": {
+        "label": "粗体",
+        "hint": "粗体（Ctrl/⌘ + B）"
+      },
+      "italic": {
+        "label": "斜体",
+        "hint": "斜体（Ctrl/⌘ + I）"
+      },
+      "underline": {
+        "label": "下划线",
+        "hint": "下划线（Ctrl/⌘ + U）"
+      },
+      "strike": "删除线",
+      "textColor": "文字颜色",
+      "highlight": "高亮",
+      "bulletList": "无序列表",
+      "orderedList": "有序列表",
+      "taskList": "任务列表",
+      "blockquote": "引用",
+      "codeBlock": "代码块",
+      "divider": "分割线",
+      "cellBackground": "单元格背景",
+      "link": "插入链接",
+      "image": "上传图片",
+      "undo": {
+        "label": "撤销",
+        "hint": "撤销（Ctrl/⌘ + Z）"
+      },
+      "redo": {
+        "label": "重做",
+        "hint": "重做（Ctrl/⌘ + Shift + Z）"
+      },
+      "linkDialog": {
+        "title": "插入链接",
+        "description": "留空并保存可移除当前文字的链接。",
+        "urlLabel": "链接地址",
+        "apply": "应用"
+      }
+    },
+    "paragraph": {
+      "label": "段落样式",
+      "body": "正文",
+      "heading": "标题 {{level}}"
+    },
+    "codeBlock": {
+      "show": "展开代码",
+      "hide": "收起代码",
+      "collapseByDefault": "默认折叠",
+      "language": "代码语言",
+      "languagePlaceholder": "选择语言",
+      "copy": "复制代码",
+      "copied": "已复制"
+    },
+    "languages": {
+      "plaintext": "纯文本"
+    },
+    "colors": {
+      "black": "黑色",
+      "gray": "灰色",
+      "red": "红色",
+      "orange": "橙色",
+      "yellow": "黄色",
+      "green": "绿色",
+      "blue": "蓝色",
+      "purple": "紫色",
+      "cyan": "青色",
+      "clearText": "清除颜色",
+      "clearHighlight": "清除高亮",
+      "clearCell": "清除底色"
+    },
+    "table": {
+      "label": "表格",
+      "current": "当前表格",
+      "insertRowBelow": "在下方插入行",
+      "insertColumnRight": "在右侧插入列",
+      "deleteRow": "删除当前行",
+      "deleteColumn": "删除当前列",
+      "deleteTable": "删除表格",
+      "cell": "{{cols}} 列 × {{rows}} 行"
+    },
+    "image": {
+      "untransferred": "未转存的图片",
+      "originalSrc": "原地址：{{src}}",
+      "originalSrcLink": "原地址：<url>{{src}}</url>",
+      "capturing": "补抓中…",
+      "retryCapture": "重试自动转存",
+      "uploading": "上传中…",
+      "uploadReplace": "上传替换",
+      "editHint": "点右上角「编辑」进入编辑页即可上传替换。",
+      "captureTimeout": "没等到 Ciki 插件补抓，请手动上传替换。",
+      "captureInvalid": "插件给的图片没有解码成功",
+      "captureEmpty": "插件给的图片是空的"
+    }
+  },
   "settings": {
     "language": {
       "title": "语言",

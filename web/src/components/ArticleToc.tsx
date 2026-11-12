@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
 import { ACTIVE_LINE, findScrollParent } from "@/lib/scroll-anchor"
 import { TOC_MIN_ITEMS, type TocItem } from "@/lib/toc"
@@ -19,6 +20,7 @@ interface ArticleTocProps {
  * IntersectionObserver 触发高亮。轨本身与正文同处一行，宽度变化与正文同帧。
  */
 export function ArticleToc({ items, contentRoot }: ArticleTocProps) {
+  const { t } = useTranslation()
   const wide = useMediaQuery(TOC_BREAKPOINT)
   const [activeId, setActiveId] = useState("")
   const navRef = useRef<HTMLElement>(null)
@@ -107,7 +109,7 @@ export function ArticleToc({ items, contentRoot }: ArticleTocProps) {
     <aside className="ml-8 w-56 shrink-0">
       <nav
         ref={navRef}
-        aria-label="本页索引"
+        aria-label={t("page.toc.label")}
         className="sticky top-6 max-h-[calc(100dvh-8rem)] overflow-y-auto overscroll-contain"
       >
         <ul className="space-y-0.5 text-xs leading-5">

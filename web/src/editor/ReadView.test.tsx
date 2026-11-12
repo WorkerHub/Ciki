@@ -45,7 +45,8 @@ describe("阅读态渲染（与编辑态共用同一套扩展）", () => {
     )
     expect(await screen.findByText("未转存的图片")).toBeInTheDocument()
     expect(screen.queryByRole("link")).toBeNull()
-    expect(screen.getByText("javascript:alert(1)")).toBeInTheDocument()
+    // 前缀与地址同在一个文本节点里（原地址：{{src}}），按子串断言即可
+    expect(screen.getByText(/javascript:alert\(1\)/)).toBeInTheDocument()
   })
 
   it("本站图片直接显示", async () => {

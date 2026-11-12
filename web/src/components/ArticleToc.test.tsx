@@ -1,6 +1,7 @@
 import { act, render, screen, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ArticleToc } from "@/components/ArticleToc"
+import { i18n } from "@/i18n"
 import type { TocItem } from "@/lib/toc"
 
 const items: TocItem[] = [
@@ -209,5 +210,18 @@ describe("阅读页右侧索引轨", () => {
     act(() => observer?.trigger())
 
     expect(nav.scrollTop).toBe(180)
+  })
+})
+
+/** 英文界面：导航的无障碍名走 locale，标题本身（用户内容）不动。 */
+describe("阅读页右侧索引轨：英文界面", () => {
+  it("导航名是英文，条目仍是原文标题", async () => {
+    await i18n.changeLanguage("en")
+    render(<ArticleToc items={items} contentRoot={null} />)
+
+    const nav = screen.getByRole("navigation", { name: "On this page" })
+    expect(nav).toBeInTheDocument()
+    expect(within(nav).getAllByRole("link")[0]).toHaveAttribute("title", "部署")
+    expect(screen.queryByRole("navigation", { name: "本页索引" })).toBeNull()
   })
 })

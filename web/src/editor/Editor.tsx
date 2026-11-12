@@ -5,6 +5,7 @@ import { UntransferredImageBridge } from "@/editor/bridge/extension"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
 import { ConfluencePaste } from "@/editor/paste/paste-plugin"
+import i18n from "@/i18n"
 import { stripSingleColumnColwidths } from "@/lib/table-columns"
 
 export interface EditorPayload {
@@ -58,7 +59,8 @@ export function useWikiEditor({
   onErrorRef.current = onError
   const extensions = useMemo(
     () => [
-      ...createExtensions("edit"),
+      // 占位文案只在创建时取一次：编辑页内不热切换语言（切语言要离开编辑页、重新挂载）
+      ...createExtensions("edit", i18n.t("editor.placeholder")),
       ConfluencePaste.configure({
         onError: (message) => onErrorRef.current(message)
       }),
@@ -76,7 +78,7 @@ export function useWikiEditor({
         attributes: {
           class: "wiki-content",
           spellcheck: "false",
-          "aria-label": "页面正文"
+          "aria-label": i18n.t("editor.surface.label")
         }
       },
       onUpdate: () => onUpdate()

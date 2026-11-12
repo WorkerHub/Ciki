@@ -1,5 +1,6 @@
 import { ArrowLeft, Save, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useBlocker, useNavigate, useParams } from "react-router"
 import {
   AlertDialog,
@@ -36,6 +37,7 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 编辑页：标题 + 正文，Ctrl/⌘+S 保存，未保存离开要确认（规格 §2）。 */
 export function PageEdit() {
+  const { t } = useTranslation()
   const params = useParams<{ pageId: string }>()
   const pageId = parseIdParam(params.pageId)
   const navigate = useNavigate()
@@ -158,7 +160,7 @@ export function PageEdit() {
     try {
       const payload = editorPayload(editor)
       const updated = await pagesApi.update(pageId, {
-        title: title.trim() || "未命名页面",
+        title: title.trim() || t("page.untitled"),
         ...payload
       })
       setDirty(false)
@@ -171,7 +173,7 @@ export function PageEdit() {
     } finally {
       setSaving(false)
     }
-  }, [editor, page, pageId, loading, saving, title, loadTree])
+  }, [editor, page, pageId, loading, saving, title, loadTree, t])
 
   /** 取消编辑：没改动就直接回阅读态；有未保存改动先问一句，不自己丢内容。 */
   const cancelEdit = useCallback(() => {
@@ -224,7 +226,7 @@ export function PageEdit() {
   // 空间列表还在路上时角色未知，先别判只读：否则直链/刷新会闪一下「只读成员」
   if (loading || spacesStatus === "loading") {
     return (
-      <div className="space-y-4" role="status" aria-label="页面加载中">
+      <div className="space-y-4" role="status" aria-label={t("page.loading")}>
         <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
         <div className="h-64 animate-pulse rounded-xl bg-muted/60" />
       </div>
@@ -234,14 +236,16 @@ export function PageEdit() {
   if (notFound) {
     return (
       <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
-        <p className="text-sm text-muted-foreground">页面不存在或已删除。</p>
+        <p className="text-sm text-muted-foreground">
+          {t("page.edit.notFound")}
+        </p>
         <Button
           className="mt-3"
           size="sm"
           variant="outline"
           onClick={() => navigate("/")}
         >
-          回到首页
+          {t("page.backHome")}
         </Button>
       </div>
     )
@@ -252,20 +256,20 @@ export function PageEdit() {
     return (
       <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
         <p role="alert" className="text-sm text-destructive">
-          {loadError || "页面加载失败"}
+          {loadError || t("page.loadFailed")}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">
-          为了不覆盖已有内容，加载完成前不会打开编辑器。
+          {t("page.edit.loadGuard")}
         </p>
         <div className="mt-3 flex justify-center gap-2">
           <Button
             size="sm"
             onClick={() => setReloadToken((value) => value + 1)}
           >
-            重新加载
+            {t("page.edit.reload")}
           </Button>
           <Button size="sm" variant="outline" onClick={() => navigate("/")}>
-            回到首页
+            {t("page.backHome")}
           </Button>
         </div>
       </div>
@@ -277,7 +281,7 @@ export function PageEdit() {
     return (
       <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
         <p className="text-sm text-muted-foreground">
-          你是这个空间的只读成员，不能编辑页面。
+          {t("page.edit.readOnly")}
         </p>
         <Button
           className="mt-3"
@@ -285,7 +289,7 @@ export function PageEdit() {
           variant="outline"
           onClick={() => navigate(pagePath(page.id))}
         >
-          返回阅读
+          {t("page.edit.backToRead")}
         </Button>
       </div>
     )
@@ -302,7 +306,7 @@ export function PageEdit() {
           className="text-muted-foreground"
         >
           <ArrowLeft aria-hidden="true" />
-          返回阅读
+          {t("page.edit.backToRead")}
         </Button>
         <Input
           value={title}
@@ -310,15 +314,15 @@ export function PageEdit() {
             setTitle(event.target.value)
             setDirty(true)
           }}
-          aria-label="页面标题"
+          aria-label={t("page.edit.titleLabel")}
           name="page-title"
           maxLength={255}
-          placeholder="页面标题"
+          placeholder={t("page.edit.titlePlaceholder")}
           className="h-auto border-0 bg-transparent px-0 font-heading text-[1.75rem] font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-[1.75rem] dark:bg-transparent"
         />
         <Separator />
         <p className="text-[11px] text-muted-foreground">
-          编辑态与阅读态使用同一套渲染样式；每次保存都会生成一条可回滚的版本记录。
+          {t("page.edit.styleHint")}
         </p>
       </header>
 
@@ -334,11 +338,11 @@ export function PageEdit() {
               aria-live="polite"
             >
               {saving
-                ? "保存中…"
+                ? t("page.edit.saving")
                 : dirty
-                  ? "有未保存的更改"
+                  ? t("page.edit.unsaved")
                   : savedAt
-                    ? `已保存 ${formatTime(savedAt)}`
+                    ? t("page.edit.savedAt", { time: formatTime(savedAt) })
                     : ""}
             </span>
             <Button
@@ -349,7 +353,7 @@ export function PageEdit() {
               disabled={saving}
             >
               <X aria-hidden="true" />
-              取消
+              {t("common.cancel")}
             </Button>
             <Button
               type="button"
@@ -358,7 +362,7 @@ export function PageEdit() {
               disabled={saving || !ready}
             >
               <Save aria-hidden="true" />
-              保存
+              {t("common.save")}
             </Button>
           </>
         }
@@ -367,9 +371,11 @@ export function PageEdit() {
       <AlertDialog open={blocker.state === "blocked"}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>还有未保存的修改</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("page.edit.leaveDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              离开后这些修改会丢失。要先保存再走吗？
+              {t("page.edit.leaveDialog.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {saveError ? (
@@ -379,7 +385,7 @@ export function PageEdit() {
           ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => blocker.reset?.()}>
-              留在此页
+              {t("page.edit.leaveDialog.stay")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={async (event) => {
@@ -392,13 +398,13 @@ export function PageEdit() {
                 blocker.proceed?.()
               }}
             >
-              保存并离开
+              {t("page.edit.leaveDialog.saveAndLeave")}
             </AlertDialogAction>
             <AlertDialogAction
               className="bg-destructive text-white hover:bg-destructive/90"
               onClick={() => blocker.proceed?.()}
             >
-              放弃修改
+              {t("page.edit.leaveDialog.discard")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -408,12 +414,16 @@ export function PageEdit() {
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent aria-describedby={undefined}>
           <AlertDialogHeader>
-            <AlertDialogTitle>放弃未保存的修改？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("page.edit.cancelDialog.title")}
+            </AlertDialogTitle>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>继续编辑</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("page.edit.cancelDialog.keepEditing")}
+            </AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={discardChanges}>
-              放弃修改
+              {t("page.edit.cancelDialog.discard")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

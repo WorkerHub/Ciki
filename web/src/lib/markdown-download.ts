@@ -6,6 +6,7 @@
  * Content-Disposition 里，取不到时退回本地按标题拼的名字；正文绝不在这里拼装。
  */
 import { type PageDetail, pagesApi } from "@/lib/api"
+import i18n from "@/i18n"
 
 /** 文件名里不能出现的字符：换成 `-`，避免下载失败或被截断。 */
 const ILLEGAL_FILENAME = /[\\/:*?"<>|]/g
@@ -23,7 +24,7 @@ export function markdownFilename(title: string): string {
     .replace(ILLEGAL_FILENAME, "-")
     .replace(/-{2,}/g, "-")
     .replace(/^[-.\s]+|[-.\s]+$/g, "")
-  return `${cleaned || "未命名页面"}.md`
+  return `${cleaned || i18n.t("page.untitled")}.md`
 }
 
 /**

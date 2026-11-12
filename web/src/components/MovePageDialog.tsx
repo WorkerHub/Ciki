@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -42,6 +43,7 @@ export function MovePageDialog({
   onMoved: (targetSpaceId: number) => void
 }) {
   const spaces = useSpacesStore((state) => state.spaces)
+  const { t } = useTranslation()
   const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
   const movePageToSpace = usePagesStore((state) => state.movePageToSpace)
   const targets = useMemo(
@@ -62,7 +64,7 @@ export function MovePageDialog({
   const submit = async () => {
     const target = Number(targetId)
     if (!targetId || !Number.isSafeInteger(target) || target <= 0) {
-      setError("请选择目标空间")
+      setError(t("page.move.targetRequired"))
       return
     }
     setBusy(true)
@@ -82,14 +84,14 @@ export function MovePageDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>移动「{pageTitle}」</DialogTitle>
-          <DialogDescription>
-            页面连同它的子页面会一起移到目标空间的顶层；之后在原空间里就看不到它们了。
-          </DialogDescription>
+          <DialogTitle>
+            {t("page.move.title", { title: pageTitle })}
+          </DialogTitle>
+          <DialogDescription>{t("page.move.description")}</DialogDescription>
         </DialogHeader>
         {targets.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            没有可移动到的其他空间。你需要在另一个空间里拥有编辑权限。
+            {t("page.move.noTargets")}
           </p>
         ) : (
           <form
@@ -100,10 +102,12 @@ export function MovePageDialog({
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="move-page-target">目标空间</Label>
+              <Label htmlFor="move-page-target">
+                {t("page.move.targetSpace")}
+              </Label>
               <Select value={targetId} onValueChange={setTargetId}>
                 <SelectTrigger id="move-page-target" className="w-full">
-                  <SelectValue placeholder="选择空间" />
+                  <SelectValue placeholder={t("page.move.targetPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {targets.map((space) => (
@@ -125,10 +129,10 @@ export function MovePageDialog({
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
               >
-                取消
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={busy || !targetId}>
-                {busy ? "移动中…" : "移动到空间"}
+                {busy ? t("page.move.moving") : t("page.move.submit")}
               </Button>
             </DialogFooter>
           </form>

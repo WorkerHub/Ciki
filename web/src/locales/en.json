@@ -251,6 +251,221 @@
       "disabled": "The setup page is disabled in the admin settings, which means the database is ready."
     }
   },
+  "page": {
+    "untitled": "Untitled page",
+    "loading": "Loading page",
+    "loadFailed": "Failed to load the page",
+    "backHome": "Back to home",
+    "toc": {
+      "label": "On this page"
+    },
+    "view": {
+      "notFound": {
+        "title": "Page not found or deleted",
+        "description": "It may have been moved to the trash, or the page id in the link is wrong."
+      },
+      "home": "Home",
+      "updatedAt": "Updated {{time}}",
+      "readOnlyMember": "Read-only member",
+      "refresh": "Refresh",
+      "edit": "Edit",
+      "newChild": "Subpage",
+      "moveToSpace": "Move to space",
+      "download": "Download .md",
+      "history": "History",
+      "delete": "Delete",
+      "empty": {
+        "body": "This page is still empty. Click “Edit” and paste your Confluence content straight in.",
+        "start": "Start editing"
+      },
+      "deleteDialog": {
+        "title": "Delete “{{title}}”?",
+        "description": "The page and all of its subpages will be moved to the trash, where you can restore them.",
+        "confirm": "Move to trash"
+      }
+    },
+    "edit": {
+      "notFound": "Page not found or deleted.",
+      "loadGuard": "The editor stays closed until the page has loaded, so existing content is never overwritten.",
+      "reload": "Reload",
+      "readOnly": "You are a read-only member of this space, so you cannot edit pages.",
+      "backToRead": "Back to reading",
+      "titleLabel": "Page title",
+      "titlePlaceholder": "Page title",
+      "styleHint": "The editor and the reading view share one set of styles; every save creates a version you can roll back to.",
+      "saving": "Saving…",
+      "unsaved": "Unsaved changes",
+      "savedAt": "Saved {{time}}",
+      "leaveDialog": {
+        "title": "You have unsaved changes",
+        "description": "These changes will be lost if you leave. Save them first?",
+        "stay": "Stay on this page",
+        "saveAndLeave": "Save and leave",
+        "discard": "Discard changes"
+      },
+      "cancelDialog": {
+        "title": "Discard unsaved changes?",
+        "keepEditing": "Keep editing",
+        "discard": "Discard changes"
+      }
+    },
+    "revisions": {
+      "title": "Version history",
+      "listLabel": "Version list",
+      "loading": "Loading…",
+      "count_one": "{{count}} version",
+      "count_other": "{{count}} versions",
+      "keepLatest": "Keep only the latest",
+      "empty": "No versions yet.",
+      "versionNo": "Version {{no}}",
+      "latest": "Latest",
+      "deleteOneLabel": "Delete this version",
+      "previewLabel": "Version preview",
+      "previewVersion": "Version {{no}} · {{time}}",
+      "restoring": "Rolling back…",
+      "restore": "Roll back to this version",
+      "selectHint": "Pick a version on the left to preview it",
+      "deleted": "Version deleted.",
+      "deletedCount_one": "Deleted {{count}} version.",
+      "deletedCount_other": "Deleted {{count}} versions.",
+      "nothingToDelete": "No versions to delete.",
+      "delete": "Delete",
+      "deleteDialog": {
+        "title": "Delete this version?",
+        "target": "Version {{no}} ({{time}})",
+        "targetFallback": "This version",
+        "description": "{{target}} will be permanently deleted and cannot be recovered. The page’s current content and other versions are unaffected."
+      },
+      "pruneDialog": {
+        "title": "Keep only the latest version?",
+        "description_one": "The other version will be deleted and cannot be recovered. The page’s current content and the latest version are unaffected.",
+        "description_other": "The other {{count}} versions will be deleted and cannot be recovered. The page’s current content and the latest version are unaffected.",
+        "confirm_one": "Delete {{count}} version",
+        "confirm_other": "Delete {{count}} versions"
+      }
+    },
+    "create": {
+      "title": "New page",
+      "targetUnder": "It will be created under “{{title}}”.",
+      "targetTop": "It will be created at the top level of the page tree.",
+      "titleLabel": "Page title",
+      "titlePlaceholder": "e.g. Payment service deployment guide",
+      "titleRequired": "Enter a page title",
+      "creating": "Creating…",
+      "submit": "Create and edit"
+    },
+    "move": {
+      "title": "Move “{{title}}”",
+      "description": "The page moves to the top level of the target space together with its subpages; they no longer show up in this space.",
+      "noTargets": "There is no other space you can move pages to. You need edit permission in another space.",
+      "targetSpace": "Target space",
+      "targetPlaceholder": "Select a space",
+      "targetRequired": "Choose a target space",
+      "moving": "Moving…",
+      "submit": "Move to space"
+    }
+  },
+  "editor": {
+    "placeholder": "Start typing, or paste your content straight in…",
+    "surface": {
+      "label": "Page body"
+    },
+    "toolbar": {
+      "label": "Editor toolbar",
+      "bold": {
+        "label": "Bold",
+        "hint": "Bold (Ctrl/⌘ + B)"
+      },
+      "italic": {
+        "label": "Italic",
+        "hint": "Italic (Ctrl/⌘ + I)"
+      },
+      "underline": {
+        "label": "Underline",
+        "hint": "Underline (Ctrl/⌘ + U)"
+      },
+      "strike": "Strikethrough",
+      "textColor": "Text color",
+      "highlight": "Highlight",
+      "bulletList": "Bulleted list",
+      "orderedList": "Numbered list",
+      "taskList": "Task list",
+      "blockquote": "Quote",
+      "codeBlock": "Code block",
+      "divider": "Divider",
+      "cellBackground": "Cell background",
+      "link": "Insert link",
+      "image": "Upload image",
+      "undo": {
+        "label": "Undo",
+        "hint": "Undo (Ctrl/⌘ + Z)"
+      },
+      "redo": {
+        "label": "Redo",
+        "hint": "Redo (Ctrl/⌘ + Shift + Z)"
+      },
+      "linkDialog": {
+        "title": "Insert link",
+        "description": "Leave it empty and save to remove the link from the current text.",
+        "urlLabel": "Link URL",
+        "apply": "Apply"
+      }
+    },
+    "paragraph": {
+      "label": "Paragraph style",
+      "body": "Body",
+      "heading": "Heading {{level}}"
+    },
+    "codeBlock": {
+      "show": "Show code",
+      "hide": "Hide code",
+      "collapseByDefault": "Collapsed by default",
+      "language": "Code language",
+      "languagePlaceholder": "Select language",
+      "copy": "Copy code",
+      "copied": "Copied"
+    },
+    "languages": {
+      "plaintext": "Plain text"
+    },
+    "colors": {
+      "black": "Black",
+      "gray": "Gray",
+      "red": "Red",
+      "orange": "Orange",
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "purple": "Purple",
+      "cyan": "Cyan",
+      "clearText": "Clear color",
+      "clearHighlight": "Clear highlight",
+      "clearCell": "Clear cell background"
+    },
+    "table": {
+      "label": "Table",
+      "current": "Current table",
+      "insertRowBelow": "Insert row below",
+      "insertColumnRight": "Insert column right",
+      "deleteRow": "Delete row",
+      "deleteColumn": "Delete column",
+      "deleteTable": "Delete table",
+      "cell": "Column {{cols}}, row {{rows}}"
+    },
+    "image": {
+      "untransferred": "Image not copied",
+      "originalSrc": "Original URL: {{src}}",
+      "originalSrcLink": "Original URL: <url>{{src}}</url>",
+      "capturing": "Copying…",
+      "retryCapture": "Retry automatic copy",
+      "uploading": "Uploading…",
+      "uploadReplace": "Upload replacement",
+      "editHint": "Open the editor with “Edit” at the top right to upload a replacement.",
+      "captureTimeout": "The Ciki plugin did not respond; upload a replacement manually.",
+      "captureInvalid": "The plugin’s image could not be decoded.",
+      "captureEmpty": "The plugin sent an empty image."
+    }
+  },
   "settings": {
     "language": {
       "title": "Language",

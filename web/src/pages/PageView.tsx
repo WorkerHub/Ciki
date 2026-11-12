@@ -9,6 +9,7 @@ import {
   Trash2
 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 import { ArticleToc } from "@/components/ArticleToc"
@@ -72,6 +73,7 @@ import { useSpacesStore } from "@/stores/spaces"
 const AUTO_REFRESH_THROTTLE_MS = 10_000
 
 export function PageView() {
+  const { t } = useTranslation()
   const params = useParams<{ pageId: string }>()
   // 地址里的 id 只认十进制正整数：旧 UUID 地址一律按「页面不存在」处理
   const pageId = parseIdParam(params.pageId)
@@ -265,7 +267,7 @@ export function PageView() {
 
   if (loading) {
     return (
-      <div className="space-y-4" role="status" aria-label="页面加载中">
+      <div className="space-y-4" role="status" aria-label={t("page.loading")}>
         <div className="h-7 w-2/5 animate-pulse rounded bg-muted" />
         <div className="h-4 w-1/4 animate-pulse rounded bg-muted" />
         <div className="h-64 animate-pulse rounded-xl bg-muted/60" />
@@ -276,11 +278,11 @@ export function PageView() {
   if (notFound) {
     return (
       <Empty
-        title="页面不存在或已删除"
-        description="它可能被移进了回收站，或者链接里的页面 id 不对。"
+        title={t("page.view.notFound.title")}
+        description={t("page.view.notFound.description")}
         contents={
           <Button asChild size="sm" variant="outline">
-            <Link to="/">回到首页</Link>
+            <Link to="/">{t("page.backHome")}</Link>
           </Button>
         }
       />
@@ -293,7 +295,7 @@ export function PageView() {
         role="alert"
         className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
       >
-        {error || "页面加载失败"}
+        {error || t("page.loadFailed")}
       </p>
     )
   }
@@ -304,7 +306,7 @@ export function PageView() {
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link to="/">首页</Link>
+              <Link to="/">{t("page.view.home")}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           {path.map((node, index) => (
@@ -336,10 +338,12 @@ export function PageView() {
               {page.title}
             </h1>
             <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
-              更新于 {formatRelative(page.updatedAt)}
+              {t("page.view.updatedAt", {
+                time: formatRelative(page.updatedAt)
+              })}
               {role === "viewer" ? (
                 <Badge variant="secondary" className="text-[10px]">
-                  只读成员
+                  {t("page.view.readOnlyMember")}
                 </Badge>
               ) : null}
             </p>
@@ -352,7 +356,7 @@ export function PageView() {
                     type="button"
                     size="icon-sm"
                     variant="outline"
-                    aria-label="刷新"
+                    aria-label={t("page.view.refresh")}
                     aria-busy={refreshing}
                     disabled={refreshing}
                     onClick={() => void refresh()}
@@ -363,7 +367,7 @@ export function PageView() {
                     />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>刷新</TooltipContent>
+                <TooltipContent>{t("page.view.refresh")}</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             {canWrite ? (
@@ -380,7 +384,7 @@ export function PageView() {
                     }
                   >
                     <Pencil aria-hidden="true" />
-                    编辑
+                    {t("page.view.edit")}
                   </Link>
                 </Button>
                 <Button
@@ -390,7 +394,7 @@ export function PageView() {
                   onClick={() => setCreateChildOpen(true)}
                 >
                   <Plus aria-hidden="true" />
-                  子页面
+                  {t("page.view.newChild")}
                 </Button>
                 {canMoveToSpace ? (
                   <Button
@@ -400,7 +404,7 @@ export function PageView() {
                     onClick={() => setMoveOpen(true)}
                   >
                     <ArrowRightLeft aria-hidden="true" />
-                    移动到空间
+                    {t("page.view.moveToSpace")}
                   </Button>
                 ) : null}
               </>
@@ -417,7 +421,7 @@ export function PageView() {
               }}
             >
               <Download aria-hidden="true" />
-              下载 .md
+              {t("page.view.download")}
             </Button>
             <Button
               type="button"
@@ -426,7 +430,7 @@ export function PageView() {
               onClick={() => setHistoryOpen(true)}
             >
               <History aria-hidden="true" />
-              历史
+              {t("page.view.history")}
             </Button>
             {canWrite ? (
               <Button
@@ -436,7 +440,7 @@ export function PageView() {
                 onClick={() => setDeleteOpen(true)}
               >
                 <Trash2 aria-hidden="true" />
-                删除
+                {t("page.view.delete")}
               </Button>
             ) : null}
           </div>
@@ -468,10 +472,10 @@ export function PageView() {
       ) : (
         <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
           <p className="text-sm text-muted-foreground">
-            这个页面还是空的。点「编辑」，把 Confluence 里的内容直接粘进来。
+            {t("page.view.empty.body")}
           </p>
           <Button asChild size="sm" variant="outline" className="mt-3">
-            <Link to={pageEditPath(page.id)}>开始编辑</Link>
+            <Link to={pageEditPath(page.id)}>{t("page.view.empty.start")}</Link>
           </Button>
         </div>
       )}
@@ -511,13 +515,15 @@ export function PageView() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除「{page.title}」？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("page.view.deleteDialog.title", { title: page.title })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              页面与全部子页面会移入回收站，之后可以在回收站里恢复。
+              {t("page.view.deleteDialog.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 setBusy(true)
@@ -532,7 +538,7 @@ export function PageView() {
               }}
               disabled={busy}
             >
-              移入回收站
+              {t("page.view.deleteDialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

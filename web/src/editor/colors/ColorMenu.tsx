@@ -1,5 +1,6 @@
 import { cn } from "cn"
 import { Check, type LucideIcon } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -29,6 +30,7 @@ export function ColorMenu({
 }) {
   const swatches = colors.filter((option) => option.value)
   const clearOption = colors.find((option) => !option.value)
+  const { t } = useTranslation()
 
   return (
     <DropdownMenu>
@@ -53,9 +55,9 @@ export function ColorMenu({
         <div className="grid grid-cols-4 gap-1">
           {swatches.map((option) => (
             <DropdownMenuItem
-              key={option.name}
-              aria-label={option.name}
-              title={option.name}
+              key={option.value}
+              aria-label={t(option.labelKey)}
+              title={t(option.labelKey)}
               onSelect={() => onPick(option.value)}
               className={cn(
                 "relative size-6 items-center justify-center rounded-md border border-border p-0",
@@ -80,10 +82,10 @@ export function ColorMenu({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              aria-label={clearOption.name}
+              aria-label={t(clearOption.labelKey)}
               onSelect={() => onPick(null)}
             >
-              {clearOption.name}
+              {t(clearOption.labelKey)}
             </DropdownMenuItem>
           </>
         ) : null}

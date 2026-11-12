@@ -10,7 +10,12 @@ import { dispatchCaptureRequest } from "@/editor/bridge/contract"
 /** 点了「重试自动转存」后等插件回话的上限。 */
 export const CAPTURE_TIMEOUT_MS = 15_000
 
-export const CAPTURE_TIMEOUT_MESSAGE = "没等到 Ciki 插件补抓，请手动上传替换。"
+/**
+ * 补抓超时的哨兵值：store 只存这个标记，不存译好的文案。
+ * 具体句子由 ImageBlock 渲染时用 t("editor.image.captureTimeout") 给出，
+ * 这样切语言不会把上一门语言的句子留在 state 里。
+ */
+export const CAPTURE_TIMEOUT = "capture-timeout"
 
 /** 计时器不进 state，避免参与渲染比较。 */
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -79,7 +84,7 @@ export const useImageBridgeStore = create<ImageBridgeState>((set, get) => ({
       src,
       setTimeout(() => {
         timers.delete(src)
-        get().fail(src, CAPTURE_TIMEOUT_MESSAGE)
+        get().fail(src, CAPTURE_TIMEOUT)
       }, CAPTURE_TIMEOUT_MS)
     )
     dispatchCaptureRequest(src)

@@ -5,6 +5,7 @@ import {
 } from "@tiptap/react"
 import { Check, ChevronDown, ChevronRight, Code2, Copy } from "lucide-react"
 import { useId, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -43,6 +44,7 @@ export function CodeBlockView({
   updateAttributes
 }: NodeViewProps) {
   const language = (node.attrs.language as string | null) || ""
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
   // 只有「初始折叠」的块给展开/收起入口；初始展开的块不加控件（UI 极简）
   const collapsible =
@@ -77,7 +79,7 @@ export function CodeBlockView({
           {language ? (
             <span className="truncate">{languageLabel(language)}</span>
           ) : null}
-          <span className="truncate">展开代码</span>
+          <span className="truncate">{t("editor.codeBlock.show")}</span>
         </button>
       ) : (
         <div
@@ -88,7 +90,7 @@ export function CodeBlockView({
           <div className="flex min-w-0 items-center gap-1.5 text-[11px] font-medium text-[#57606a]">
             <Code2 className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate" data-code-language="">
-              {languageLabel(language)}
+              {languageLabel(language) ?? t("editor.languages.plaintext")}
             </span>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -101,13 +103,13 @@ export function CodeBlockView({
                 className={COLLAPSE_ENTRY}
               >
                 <ChevronDown aria-hidden="true" />
-                收起代码
+                {t("editor.codeBlock.hide")}
               </button>
             ) : null}
             {editor.isEditable ? (
               <>
                 <span id={toggleLabelId} className="text-[11px] text-[#57606a]">
-                  默认折叠
+                  {t("editor.codeBlock.collapseByDefault")}
                 </span>
                 <Switch
                   size="sm"
@@ -127,13 +129,17 @@ export function CodeBlockView({
                 >
                   <SelectTrigger
                     size="sm"
-                    aria-label="代码语言"
+                    aria-label={t("editor.codeBlock.language")}
                     className="h-6 w-[7.5rem] border-transparent bg-transparent px-1.5 text-[11px] text-[#57606a] hover:bg-black/5"
                   >
-                    <SelectValue placeholder="选择语言" />
+                    <SelectValue
+                      placeholder={t("editor.codeBlock.languagePlaceholder")}
+                    />
                   </SelectTrigger>
                   <SelectContent className="max-h-72">
-                    <SelectItem value={NO_LANGUAGE}>纯文本</SelectItem>
+                    <SelectItem value={NO_LANGUAGE}>
+                      {t("editor.languages.plaintext")}
+                    </SelectItem>
                     {COMMON_LANGUAGES.map((item) => (
                       <SelectItem key={item.value} value={item.value}>
                         {item.label}
@@ -148,8 +154,16 @@ export function CodeBlockView({
               size="icon-xs"
               variant="ghost"
               onClick={copy}
-              aria-label={copied ? "已复制" : "复制代码"}
-              title={copied ? "已复制" : "复制代码"}
+              aria-label={
+                copied
+                  ? t("editor.codeBlock.copied")
+                  : t("editor.codeBlock.copy")
+              }
+              title={
+                copied
+                  ? t("editor.codeBlock.copied")
+                  : t("editor.codeBlock.copy")
+              }
               className="text-[#57606a] hover:bg-black/5"
             >
               {copied ? (

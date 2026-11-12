@@ -120,8 +120,9 @@ export const WikiImage = Image.extend({
 /**
  * 一套扩展供编辑态与阅读态共用（规格 §4：编辑态阅读态一致）。
  * 差异只有三处：只读时不挂 Placeholder、链接可点、表格不给列宽拖拽手柄。
+ * 空文档占位文案只在创建时取一次（编辑页内不热切换：切语言必离开编辑页、重新挂载）。
  */
-export function createExtensions(mode: EditorMode) {
+export function createExtensions(mode: EditorMode, placeholder?: string) {
   const isEdit = mode === "edit"
   return [
     StarterKit.configure({
@@ -159,7 +160,7 @@ export function createExtensions(mode: EditorMode) {
     ...(isEdit
       ? [
           Placeholder.configure({
-            placeholder: "开始输入，或直接粘贴内容…",
+            placeholder: placeholder ?? "",
             showOnlyWhenEditable: true
           })
         ]

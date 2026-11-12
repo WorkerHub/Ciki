@@ -17,6 +17,7 @@ import {
   type RevisionDetail,
   type RevisionSummary
 } from "@/lib/api"
+import { i18n } from "@/i18n"
 import { RevisionsDialog } from "@/pages/RevisionsDialog"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
@@ -401,5 +402,72 @@ describe("版本历史：布局与动作归位", () => {
       "每页最新的一条版本不能删除。"
     )
     await waitFor(() => expect(pagesApi.revisions).toHaveBeenCalledTimes(2))
+  })
+})
+
+/** 英文界面：标题、计数、最新标记、预览与删除确认全走 locale。 */
+describe("版本历史：英文界面", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  beforeEach(() => {
+    toast.dismiss()
+    vi.mocked(pagesApi.revisions).mockReset().mockResolvedValue(revisions)
+    vi.mocked(pagesApi.revision)
+      .mockReset()
+      .mockImplementation(async (_pageId, versionNo) => {
+        const found = revisions.find((item) => item.versionNo === versionNo)
+        if (!found) throw new Error("missing revision fixture")
+        return detail(found)
+      })
+    vi.mocked(pagesApi.deleteRevision)
+      .mockReset()
+      .mockResolvedValue({ success: true })
+    vi.mocked(pagesApi.pruneRevisions)
+      .mockReset()
+      .mockResolvedValue({ deleted: 2 })
+  })
+
+  afterEach(() => {
+    toast.dismiss()
+  })
+
+  it("标题、计数、最新标记与预览提示都是英文", async () => {
+    await i18n.changeLanguage("en")
+    renderDialog()
+
+    expect(await screen.findByText("Version history")).toBeInTheDocument()
+    expect(await screen.findByText("3 versions")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: /^Version 1/ })
+    ).toBeInTheDocument()
+    expect(screen.getByText("Latest")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Keep only the latest" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("Pick a version on the left to preview it")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("版本历史")).toBeNull()
+  })
+
+  it("删除单条版本：确认框与成功后的话都是英文", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    renderDialog()
+    await screen.findByText("Version history")
+
+    const [firstDelete] = await screen.findAllByRole("button", {
+      name: "Delete this version"
+    })
+    await user.click(firstDelete)
+
+    const confirm = await screen.findByRole("alertdialog")
+    expect(confirm).toHaveTextContent("Delete this version?")
+    expect(confirm).toHaveTextContent(/Version \d+ \(/)
+    await user.click(within(confirm).getByRole("button", { name: "Delete" }))
+
+    expect(await screen.findByText("Version deleted.")).toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { IMAGE_BRIDGE_CAPTURE } from "@/editor/bridge/contract"
 import {
-  CAPTURE_TIMEOUT_MESSAGE,
+  CAPTURE_TIMEOUT,
   CAPTURE_TIMEOUT_MS,
   useImageBridgeStore
 } from "@/stores/image-bridge"
@@ -42,7 +42,7 @@ describe("补抓状态（按原图地址记）", () => {
     vi.advanceTimersByTime(1)
     const state = useImageBridgeStore.getState()
     expect(state.pending[SRC]).toBeUndefined()
-    expect(state.errors[SRC]).toBe(CAPTURE_TIMEOUT_MESSAGE)
+    expect(state.errors[SRC]).toBe(CAPTURE_TIMEOUT)
   })
 
   it("成功或失败都会收掉 pending，成功同时清错误", () => {
