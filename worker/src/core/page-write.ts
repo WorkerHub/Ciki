@@ -137,6 +137,42 @@ export async function createPage(
 }
 
 /**
+ * 只改标题（页级元数据）：不产新版本、不新增/不改 R2 对象，只把标题与 FTS 同批改写。
+ * 标题相同是空操作（不写库、不涨 `updated_at`），与「无改动保存」同一口径。
+ *
+ * 抽出来给 `/api/write/pages/:id` 的 title-only 更新用：那条入口没有正文可重算，
+ * 不能为了复用 `savePageContent` 去 R2 取一遍 JSON。
+ */
+export async function renamePage(
+  env: Env,
+  prefix: string,
+  existing: PageRow,
+  options: { title: string; userId: number; now: string }
+): Promise<PageRow> {
+  if (existing.title === options.title) return existing
+  const db = env.DB
+  await db.batch([
+    updatePageTitle(db, prefix, {
+      id: existing.id,
+      title: options.title,
+      updated_by: options.userId,
+      updated_at: options.now
+    }),
+    ...indexPageStatements(db, prefix, {
+      id: existing.id,
+      title: options.title,
+      contentText: existing.content_text
+    })
+  ])
+  return {
+    ...existing,
+    title: options.title,
+    updated_by: options.userId,
+    updated_at: options.now
+  }
+}
+
+/**
  * 覆盖既有页面的内容（保存/回滚/导入更新共用）。
  *
  * 正文全等（哈希 + HTML + 纯文本）即不产新版本、不上传对象：
@@ -158,25 +194,11 @@ export async function savePageContent(
   if (bodyUnchanged(existing, content, hash)) {
     if (existing.title === content.title) return existing
     // 改名：不产新版本、不新增 R2 对象，只把标题当元数据改写（搜索索引跟着换标题）。
-    await db.batch([
-      updatePageTitle(db, prefix, {
-        id: existing.id,
-        title: content.title,
-        updated_by: userId,
-        updated_at: now
-      }),
-      ...indexPageStatements(db, prefix, {
-        id: existing.id,
-        title: content.title,
-        contentText: existing.content_text
-      })
-    ])
-    return {
-      ...existing,
+    return renamePage(env, prefix, existing, {
       title: content.title,
-      updated_by: userId,
-      updated_at: now
-    }
+      userId,
+      now
+    })
   }
 
   // 先 R2 后 D1：对象写成功才动库，指针永不悬空。

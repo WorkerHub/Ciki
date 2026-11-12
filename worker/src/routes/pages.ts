@@ -20,17 +20,12 @@ import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import {
   getPageRow,
-  listChildren,
   listPageRows,
   listSubtreeDeletedRows,
-  listSubtreeIds,
   listTrashRoots,
   permanentDeleteSubtree,
   restoreSubtree,
   softDeleteSubtree,
-  updatePagePlacement,
-  updatePageSortOrder,
-  updateSubtreeSpace,
   type PageRow,
   type PageSummaryRow
 } from "../db/queries/pages"
@@ -63,6 +58,7 @@ import {
 import { normalizePageInput, type PageContentResult } from "../lib/page-input"
 import { zipStream } from "../lib/zip-stream"
 import { createPage, savePageContent } from "../core/page-write"
+import { applyPageMove } from "../core/page-move"
 import {
   revisionContent,
   type RevisionContentResult
@@ -493,91 +489,47 @@ pageRoutes.post("/:id/move", async (c) => {
   if (!parent.ok) {
     return c.json({ error: "parentId must be an integer or null" }, 400)
   }
-  const parentId = parent.value
-  if (parentId !== null) {
-    const parentRow = await getPageRow(db, prefix, parentId)
-    if (!parentRow) {
-      return c.json(
-        { error: "Parent page is deleted", code: "PARENT_DELETED" },
-        409
-      )
-    }
-    // 同一条口径：看不见的父页按不存在处理，不泄露它属于哪个空间。
-    const parentRole = await pageSpaceRole(c, parentRow)
-    if (!parentRole) return pageNotFound(c)
-    if (parentRow.deleted_at) {
-      return c.json(
-        { error: "Parent page is deleted", code: "PARENT_DELETED" },
-        409
-      )
-    }
-    if (parentRow.space_id !== targetSpaceId) {
-      return c.json(
-        { error: "Parent page is in another space", code: "SPACE_MISMATCH" },
-        409
-      )
-    }
-    const subtree = await listSubtreeIds(db, prefix, page.id)
-    if (subtree.includes(parentId)) {
-      return c.json(
-        {
-          error: "Cannot move a page into its own subtree",
-          code: "PAGE_MOVE_CYCLE"
-        },
-        409
-      )
-    }
-  }
 
-  const siblings = (
-    await listChildren(db, prefix, targetSpaceId, parentId)
-  ).filter((row) => row.id !== page.id)
   const requested =
     typeof body?.sortOrder === "number" && Number.isFinite(body.sortOrder)
       ? Math.trunc(body.sortOrder)
-      : siblings.length
-  const index = Math.min(Math.max(requested, 0), siblings.length)
-  const ordered = siblings.map((row) => ({ id: row.id, order: row.sort_order }))
-  ordered.splice(index, 0, { id: page.id, order: index })
+      : null
 
-  const now = new Date().toISOString()
-  const statements = []
-  // 跨空间移动必须连同整棵后代子树一起改 space_id，否则父子会跨空间。
-  if (page.space_id !== targetSpaceId) {
-    statements.push(updateSubtreeSpace(db, prefix, page.id, targetSpaceId))
-  }
-  statements.push(
-    updatePagePlacement(
-      db,
-      prefix,
-      page.id,
-      targetSpaceId,
-      parentId,
-      index,
-      now
-    )
-  )
-  ordered.forEach((row, order) => {
-    if (row.order !== order) {
-      statements.push(updatePageSortOrder(db, prefix, row.id, order))
-    }
+  const outcome = await applyPageMove(c.env, prefix, page, {
+    targetSpaceId,
+    parentId: parent.value,
+    index: requested,
+    now: new Date().toISOString(),
+    actor: { userId: c.get("userId"), siteAdmin: isSiteAdmin(c) }
   })
-  if (page.parent_id !== parentId || page.space_id !== targetSpaceId) {
-    const oldSiblings = await listChildren(
-      db,
-      prefix,
-      page.space_id,
-      page.parent_id
-    )
-    oldSiblings
-      .filter((row) => row.id !== page.id)
-      .forEach((row, order) => {
-        if (row.sort_order !== order) {
-          statements.push(updatePageSortOrder(db, prefix, row.id, order))
-        }
-      })
+  if (!outcome.ok) {
+    switch (outcome.error) {
+      case "parent_not_visible":
+        return pageNotFound(c)
+      case "parent_not_found":
+      case "parent_deleted":
+        return c.json(
+          { error: "Parent page is deleted", code: "PARENT_DELETED" },
+          409
+        )
+      case "parent_in_other_space":
+        return c.json(
+          {
+            error: "Parent page is in another space",
+            code: "SPACE_MISMATCH"
+          },
+          409
+        )
+      case "page_move_cycle":
+        return c.json(
+          {
+            error: "Cannot move a page into its own subtree",
+            code: "PAGE_MOVE_CYCLE"
+          },
+          409
+        )
+    }
   }
-  await db.batch(statements)
 
   return c.json({ success: true })
 })
