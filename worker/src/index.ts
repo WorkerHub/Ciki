@@ -16,6 +16,7 @@ import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
 import { importRoutes } from "./routes/import"
 import { readRoutes } from "./routes/read"
+import { writeRoutes } from "./routes/write"
 import { wakerRoutes } from "./routes/waker"
 import { CALLBACK_MOUNT_PATH } from "./waker"
 import type { Env, HonoEnv } from "./types"
@@ -84,6 +85,8 @@ function isPublicRoute(method: string, path: string): boolean {
   // 只读接口同理，但认的是只读令牌（另一张表，另一套令牌）：会话 Cookie 在这里无效，
   // 导入令牌也进不来（见 middleware/read-token.ts 的双向隔离说明）。
   if (path === "/api/read" || path.startsWith("/api/read/")) return true
+  // 写接口只认读写令牌（第三张表）：会话 Cookie 与另两种令牌都在它的中间件里被拒。
+  if (path === "/api/write" || path.startsWith("/api/write/")) return true
   return PUBLIC_ROUTES.some(([m, p]) => m === method && p === path)
 }
 
@@ -109,6 +112,7 @@ app.route("/api/search", searchRoutes)
 app.route("/api/files", fileRoutes)
 app.route("/api/import", importRoutes)
 app.route("/api/read", readRoutes)
+app.route("/api/write", writeRoutes)
 
 // 存活探针。生效前缀不在这里暴露——它只经 setup / 管理面的接口回显。
 app.get("/api/health", (c) => c.json({ status: "ok" }))

@@ -396,8 +396,9 @@ describe("双向令牌隔离（服务端校验，不靠前端）", () => {
     ).json()) as { token: string }
     const token = await readToken(env, admin)
 
-    // 导入令牌 → 读接口：按说被只读令牌中间件拒。
+    // 导入令牌 → 读接口：按说被读接口中间件拒（两张表都不含它的哈希）。
     for (const path of [
+      "/api/read/spaces",
       "/api/read/tree",
       "/api/read/search?q=x",
       "/api/read/pages/whatever"
