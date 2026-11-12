@@ -35,6 +35,13 @@
       "admin": "Admin",
       "editor": "Editor",
       "viewer": "Viewer"
+    },
+    "table": {
+      "actions": "Actions"
+    },
+    "image": {
+      "unsupported": "Only PNG / JPG / GIF / WebP images are supported (no SVG)",
+      "tooLarge": "The image is over 10MB; compress it and upload again"
     }
   },
   "shell": {
@@ -467,9 +474,463 @@
     }
   },
   "settings": {
+    "title": "Settings",
     "language": {
       "title": "Language",
       "label": "Language"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "account": "Signed in as {{email}}"
+    },
+    "password": {
+      "title": "Change password",
+      "current": "Current password",
+      "new": "New password (at least 8 characters)",
+      "repeat": "Repeat new password",
+      "submit": "Update password",
+      "submitting": "Updating…",
+      "tooShort": "The new password must be at least 8 characters",
+      "mismatch": "The new passwords do not match",
+      "accountLabel": "Account password",
+      "busy": "Working…"
+    },
+    "twofa": {
+      "title": "Two-factor authentication",
+      "enable": "Enable",
+      "disable": "Disable",
+      "totp": {
+        "label": "Authenticator app (TOTP)",
+        "enabled": "Enabled: enter the 6-digit code at the second sign-in step.",
+        "disabled": "Not enabled.",
+        "preparing": "Preparing…",
+        "start": "Set up",
+        "qrAlt": "TOTP setup QR code",
+        "scanHint": "Scan the QR code with Bitwarden / 1Password or enter the secret manually:",
+        "codeLabel": "6-digit code"
+      },
+      "passkey": {
+        "registered_one": "{{count}} passkey registered (fingerprint / face / security key).",
+        "registered_other": "{{count}} passkeys registered (fingerprint / face / security key).",
+        "none": "None registered.",
+        "add": "Add passkey",
+        "waiting": "Waiting for verification…",
+        "removeAll": "Remove all",
+        "unsupported": "This browser does not support WebAuthn"
+      },
+      "email": {
+        "label": "Email code",
+        "hintEnabledConfigured": "Enabled: the second sign-in step can send a 6-digit code to {{email}}.",
+        "hintEnabledUnconfigured": "Enabled, but email delivery is not configured, so this method will not appear at sign-in; you can disable it anytime.",
+        "hintNotEnabled": "Not enabled: receive one code by email first to confirm the address is reachable.",
+        "hintUnavailable": "Email delivery is not configured, so email codes are unavailable. Ask an admin to fill in SMTP under Admin → Email delivery.",
+        "enable": "Enable email code",
+        "sending": "Sending…",
+        "resendIn": "Resend ({{seconds}}s)",
+        "resend": "Resend",
+        "disableLabel": "Disable email code"
+      }
+    },
+    "dialogs": {
+      "disableTotp": {
+        "title": "Disable two-factor authentication",
+        "description": "After disabling, signing in only needs the password."
+      },
+      "reauth": {
+        "title": "Verify your identity",
+        "description": "This account already has a two-factor method, so adding another one requires the current password.",
+        "confirm": "Continue"
+      },
+      "disableEmail": {
+        "title": "Disable email code",
+        "description": "After disabling, the second sign-in step no longer sends an email code; other methods are unaffected.",
+        "confirm": "Disable"
+      },
+      "removePasskey": {
+        "title": "Remove all passkeys",
+        "description": "After removing, you can only sign in with a TOTP code or your password."
+      }
+    },
+    "sessions": {
+      "title": "Signed-in devices",
+      "description": "Revoked devices must sign in again.",
+      "empty": "No other sessions.",
+      "unknownDevice": "Unknown device",
+      "current": "Current",
+      "meta": "{{ip}} · last active {{relative}} · created {{time}}",
+      "revoke": "Revoke"
+    },
+    "notices": {
+      "passwordUpdated": "Password updated. Sign-in sessions on other devices have been invalidated.",
+      "totpEnabled": "Two-factor authentication enabled. The next sign-in will ask for a TOTP code.",
+      "totpDisabled": "Two-factor authentication disabled.",
+      "passkeyAdded": "Passkey added.",
+      "passkeyRemoved": "All passkeys removed.",
+      "emailOtpEnabled": "Email code enabled. The next sign-in can use an emailed code.",
+      "emailOtpDisabled": "Email code disabled."
+    },
+    "tokens": {
+      "import": {
+        "title": "Import token",
+        "empty": "No import token yet",
+        "revoked": "Token revoked. The old token in the extension no longer works.",
+        "rotateTitle": "Reset the import token?",
+        "rotateDescription": "The old token stops working immediately and must be replaced in the extension. The new token is also shown only once.",
+        "revokeTitle": "Revoke the import token?",
+        "revokeDescription": "After revoking, the extension cannot import pages until you generate a new token."
+      },
+      "read": {
+        "title": "Read-only API token",
+        "empty": "No read-only API token yet",
+        "revoked": "Token revoked. The old token in external apps no longer works.",
+        "rotateTitle": "Reset the read-only API token?",
+        "rotateDescription": "The old token stops working immediately and read-only clients must use the new one. The new token is also shown only once.",
+        "revokeTitle": "Revoke the read-only API token?",
+        "revokeDescription": "After revoking, external apps cannot read pages until you generate a new token."
+      },
+      "notices": {
+        "generated": "Token generated.",
+        "rotated": "Token reset. The old token no longer works.",
+        "regenerated": "Token regenerated.",
+        "missing": "The token no longer exists; status refreshed."
+      },
+      "common": {
+        "loading": "Loading…",
+        "copyFailed": "Copy failed. Select the token text and copy it manually.",
+        "active": "Active",
+        "revoked": "Revoked",
+        "createdAt": "Created {{time}}",
+        "lastUsed": "Last used {{time}}",
+        "neverUsed": "Never used",
+        "revokedAt": "Revoked {{time}}",
+        "originalCreatedAt": "Original token created {{time}}",
+        "emptyHint": "The plaintext is shown only once after generation; it is gone when you leave this page.",
+        "generating": "Generating…",
+        "generate": "Generate token",
+        "rotate": "Reset",
+        "revoke": "Revoke",
+        "regenerate": "Regenerate",
+        "plaintextHint": "This token is shown only once and cannot be viewed again after you leave Settings. Copy and store it now.",
+        "copy": "Copy",
+        "copyLabel": "Copy token",
+        "copied": "Copied",
+        "saved": "I saved it",
+        "rotateConfirm": "Reset token",
+        "revokeConfirm": "Revoke token"
+      }
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "emptyUsername": "The username cannot be empty.",
+    "saved": "Profile saved.",
+    "avatar": {
+      "title": "Avatar",
+      "description": "PNG / JPG / GIF / WebP, up to 10MB each; applied after saving.",
+      "change": "Change avatar",
+      "select": "Choose an avatar"
+    },
+    "info": {
+      "title": "Displayed information",
+      "username": "Username",
+      "email": "Email"
+    },
+    "saving": "Saving…"
+  },
+  "admin": {
+    "title": "Admin",
+    "tabs": {
+      "users": "Users",
+      "spaces": "Space overview",
+      "settings": "Site settings",
+      "security": "Access & security",
+      "email": "Email delivery",
+      "database": "Database maintenance"
+    },
+    "common": {
+      "loading": "Loading…",
+      "refresh": "Refresh",
+      "saving": "Saving…"
+    },
+    "roles": {
+      "admin": "Admin",
+      "user": "Regular user"
+    },
+    "users": {
+      "filterLabel": "Filter users",
+      "filterAll": "All users",
+      "create": "New user",
+      "table": {
+        "email": "Email",
+        "role": "Role",
+        "status": "Status",
+        "createdAt": "Registered"
+      },
+      "emptyPending": "No pending sign-up requests.",
+      "empty": "No users yet.",
+      "you": "(you)",
+      "actionsLabel": "Actions for {{email}}",
+      "menuLabel": "Account actions",
+      "approve": "Approve and activate",
+      "reject": "Reject request",
+      "setUser": "Make regular user",
+      "setAdmin": "Make admin",
+      "deactivate": "Deactivate account",
+      "activate": "Activate account",
+      "resetPassword": "Reset password",
+      "delete": "Delete user",
+      "createDescription": "New accounts are approved and activated directly, skipping the request flow.",
+      "initialPassword": "Initial password (at least 8 characters)",
+      "creating": "Creating…",
+      "createSubmit": "Create user",
+      "resetDescription": "{{email}} · resetting revokes all of this user's sessions.",
+      "resetPasswordLabel": "New password (at least 8 characters)",
+      "deleteTitle": "Delete user “{{email}}”?",
+      "deleteDescription": "The account, its two-factor settings and all sessions will be deleted. This cannot be undone.",
+      "deleteConfirm": "Delete",
+      "status": {
+        "pending": "Pending",
+        "rejected": "Rejected",
+        "inactive": "Deactivated",
+        "active": "Active"
+      }
+    },
+    "spaces": {
+      "title": "Space overview",
+      "description": "Member and page counts for all spaces; page counts exclude deleted pages, the trash is counted separately.",
+      "loadingLabel": "Loading space overview",
+      "emptyTitle": "No spaces yet",
+      "emptyDescription": "A default space is created automatically once the database upgrade finishes.",
+      "table": {
+        "space": "Space",
+        "description": "Description",
+        "members": "Members",
+        "pages": "Pages",
+        "trashed": "Trash",
+        "createdAt": "Created"
+      },
+      "default": "Default"
+    },
+    "settings": {
+      "siteName": {
+        "label": "Site name",
+        "description": "Shown in the browser tab, the sidebar brand area and the sign-in page; saving applies site-wide immediately, no redeploy needed.",
+        "tooLong": "The site name must be 1–32 characters.",
+        "notSaved": "The site name was not saved. Refresh and try again.",
+        "saved": "Site name saved and applied site-wide."
+      },
+      "setupPage": {
+        "label": "Show setup page",
+        "description": "Usually turn this off once setup is complete, so the setup entry is not exposed on the sign-in page."
+      },
+      "mailConfigured": "Email delivery is configured: email-code two-factor and password recovery are available; edit it under Email delivery.",
+      "mailMissing": "Email delivery is not configured: email-code two-factor and password recovery are unavailable; fill in SMTP under Email delivery."
+    },
+    "security": {
+      "require2fa": {
+        "label": "Require two-factor authentication",
+        "description": "When on, accounts without TOTP or a passkey are sent to Settings → Two-factor authentication after signing in and can only reach security settings until setup is complete."
+      },
+      "registration": {
+        "label": "Open registration",
+        "description": "When off, new accounts can only be created by an admin under Users."
+      },
+      "approval": {
+        "label": "Registration requires admin approval",
+        "description": "When on, self-registered accounts stay pending until an admin approves them."
+      },
+      "model": {
+        "title": "Permission model",
+        "roles": "Two roles: admin and regular user; the admin panel is only visible to and callable by admins.",
+        "wiki": "Wiki semantics: any signed-in user can read and edit any page.",
+        "delete": "Deleting pages and restoring versions is limited to the page author and admins; permanent deletion only applies to pages in the trash.",
+        "admin": "Self-registration and the approval requirement are in the switches above; approving pending users, deactivating accounts and resetting passwords happen under Users."
+      }
+    },
+    "smtp": {
+      "title": "SMTP server",
+      "configured": "Configured",
+      "unconfigured": "Not configured",
+      "hintConfigured": "Email-code two-factor and password recovery both use this configuration.",
+      "hintUnconfigured": "Email-code two-factor and password recovery only work after you fill this in and save.",
+      "host": {
+        "label": "Server address"
+      },
+      "port": {
+        "label": "Port",
+        "hint": "TLS usually uses 465, STARTTLS usually uses 587."
+      },
+      "encryption": {
+        "label": "Encryption",
+        "tls": "TLS (port 465, encrypted end to end)",
+        "starttls": "STARTTLS (port 587, connect then upgrade)",
+        "none": "None (internal self-hosted servers only)"
+      },
+      "username": {
+        "label": "Username",
+        "hint": "Most providers want the full email address; leave empty for anonymous sign-in."
+      },
+      "password": {
+        "label": "Password",
+        "hintSaved": "A password is saved; leaving this empty keeps it, retyping replaces it.",
+        "hintEmpty": "Use what your provider requires; some need an app password instead of your sign-in password.",
+        "maskHint": "•••••••• saved, leave empty to keep",
+        "unset": "Not set"
+      },
+      "from": {
+        "label": "From address"
+      },
+      "fromName": {
+        "label": "From name",
+        "hint": "The display name recipients see; leave empty to show only the address."
+      },
+      "save": "Save configuration",
+      "test": "Send test email",
+      "testing": "Sending…",
+      "testDisabled": "Save a working configuration first",
+      "testNote": "Test emails only go to the current admin inbox{{email}} using the saved configuration.",
+      "testNoteEmail": " ({{email}})",
+      "testNoteDisabled": "Save the configuration first to enable the button.",
+      "errors": {
+        "host": "Enter the SMTP server address.",
+        "port": "The port must be an integer between 1 and 65535.",
+        "from": "Enter the from address.",
+        "fromFormat": "The from address is not a valid email address.",
+        "usernameRequired": "A username is required when a password is set or saved.",
+        "passwordRequired": "A password is required when a username is set; leave the username empty for anonymous relay."
+      },
+      "notices": {
+        "saved": "SMTP configuration saved.",
+        "savedIncomplete": "SMTP configuration saved, but email still cannot be sent; complete the server address, port, encryption and from address.",
+        "testSent": "Test email sent to {{email}}; check your inbox (and spam folder).",
+        "testSentUnknown": "Test email sent; check the current admin inbox."
+      }
+    },
+    "database": {
+      "title": "Database upgrade",
+      "checking": "Checking…",
+      "check": "Check and upgrade database",
+      "prefix": "Effective table prefix",
+      "noPrefix": "(no prefix)",
+      "applied": "Applied",
+      "current": "Up to date",
+      "storage": {
+        "database": "Database size {{size}}",
+        "databaseUnavailable": "Database size unavailable",
+        "assets": "Image size {{size}}",
+        "content": "Content size {{size}}",
+        "pages": "Pages {{pages}}"
+      },
+      "lastRun": "Last cleanup {{time}} · scanned {{scanned}} · referenced {{referenced}} · deleted {{deleted}} · skipped under 30 days {{youngSkipped}} · failed {{failed}}"
+    },
+    "orphan": {
+      "title": "Orphaned image cleanup",
+      "missingCounts": "The scan result lacks the prunable count or total size; check the backend version and try again.",
+      "waitMinutes_one": "{{count}} minute",
+      "waitMinutes_other": "{{count}} minutes",
+      "waitSeconds_one": "{{count}} second",
+      "waitSeconds_other": "{{count}} seconds",
+      "running": "Cleanup in progress; try again in about {{wait}}.",
+      "scanning": "Scanning…",
+      "scan": "Scan for orphaned images",
+      "cleaning": "Cleaning…",
+      "clean": "Clean now",
+      "scanResult": "Scanned {{scanned}} · referenced {{referenced}} · prunable {{prunable}} ({{bytes}}) · skipped under 30 days {{skipped}}",
+      "runResult": "Deleted {{deleted}} · failed {{failed}}",
+      "runRemaining": ", more remain; scan again for another round",
+      "confirmTitle": "Clean up orphaned images now?",
+      "confirmDescription_one": "{{count}} object ({{bytes}}) will be deleted permanently; this cannot be undone.",
+      "confirmDescription_other": "{{count}} objects ({{bytes}}) will be deleted permanently; this cannot be undone.",
+      "confirm_one": "Delete {{count}} object",
+      "confirm_other": "Delete {{count}} objects"
+    },
+    "retention": {
+      "invalid": "The retention count must be an integer of at least 1; leave empty for unlimited.",
+      "notSaved": "The retention count was not saved. Refresh and try again.",
+      "savedUnlimited": "Retention set to unlimited.",
+      "saved_one": "Retention set to {{count}} revision.",
+      "saved_other": "Retention set to {{count}} revisions.",
+      "deleted_one": "Deleted {{count}} revision.",
+      "deleted_other": "Deleted {{count}} revisions.",
+      "nothingToDelete": "Nothing to delete.",
+      "previewing": "Counting the revisions to delete…",
+      "unlimited": "The current setting is unlimited, so there is nothing to prune.",
+      "nothingToPrune": "No revisions exceed the retention count; nothing to prune.",
+      "preview_one": "{{count}} old revision (keeping the latest {{limit}} per page) will be deleted permanently. The current page content and the latest revision are unaffected.",
+      "preview_other": "{{count}} old revisions (keeping the latest {{limit}} per page) will be deleted permanently. The current page content and the latest revision are unaffected.",
+      "limit": {
+        "label": "Revisions kept per page",
+        "description": "Leave empty for unlimited. Once set, every save deletes that page's older revisions automatically; existing revisions are not pruned automatically, use the button below to prune by the current setting.",
+        "placeholder": "Unlimited"
+      },
+      "pruneDescription": "Prune all pages by the current setting: only version history records are deleted, page content is untouched. The number of revisions to delete is shown before running.",
+      "prune": "Prune all pages by current setting",
+      "pruneTitle": "Prune all pages by the current setting?",
+      "pruneConfirm_one": "Delete {{count}}",
+      "pruneConfirm_other": "Delete {{count}}"
+    }
+  },
+  "space": {
+    "settings": {
+      "loadingLabel": "Loading space settings",
+      "notFound": {
+        "title": "The space does not exist or you are no longer a member",
+        "description": "It may have been deleted, or your membership was removed."
+      },
+      "back": "Back to pages",
+      "loadFailed": "Could not load space settings",
+      "reload": "Reload",
+      "forbidden": {
+        "title": "Only space admins can open space settings",
+        "description": "You are an editor or viewer in this space; changing the name, members or deleting the space requires space admin."
+      },
+      "defaultBadge": "Default space",
+      "subtitle": "Space settings are only visible to space admins. The name and description show up in the sidebar switcher immediately.",
+      "info": {
+        "title": "Space information",
+        "description": "The name is 1–64 characters, the description up to 500.",
+        "name": "Name",
+        "descriptionLabel": "Description",
+        "saved": "Saved; the switcher shows the new name too."
+      },
+      "saving": "Saving…",
+      "members": {
+        "title": "Members",
+        "description": "Members come from registered users; every space keeps at least one admin.",
+        "loadingLabel": "Loading members",
+        "column": "Member",
+        "roleColumn": "Role",
+        "joinedAt": "Joined",
+        "roleLabel": "Role of {{name}}",
+        "lastAdmin": "Last admin",
+        "remove": "Remove",
+        "add": "Add member",
+        "searchPlaceholder": "Search by username, email or user ID",
+        "newRoleLabel": "Role of the new member",
+        "searching": "Searching…",
+        "search": "Search",
+        "adding": "Adding…",
+        "addSubmit": "Add",
+        "removeTitle": "Remove “{{name}}” from the space?",
+        "removeDescription": "They immediately lose access to the pages in this space; you can add them back later.",
+        "removeConfirm": "Remove member"
+      },
+      "danger": {
+        "title": "Danger zone",
+        "description": "Deleting a space cannot be undone; the default space and spaces that still have pages cannot be deleted.",
+        "default": "The default space cannot be deleted.",
+        "countsFailed": "Could not count pages, so the space cannot be deleted for now; refresh and try again.",
+        "counting": "Counting the pages in this space…",
+        "hasPages_one": "The space still has {{count}} page{{trash}}. Move pages to another space with “Move to space”, or permanently delete the pages in the trash, then come back to delete the space.",
+        "hasPages_other": "The space still has {{count}} pages{{trash}}. Move pages to another space with “Move to space”, or permanently delete the pages in the trash, then come back to delete the space.",
+        "trashSuffix_one": ", and {{count}} more in the trash",
+        "trashSuffix_other": ", and {{count}} more in the trash",
+        "empty": "The space has no pages and can be deleted.",
+        "delete": "Delete space",
+        "deleteTitle": "Delete space “{{name}}”?",
+        "deleteDescription": "The space and its memberships will be deleted. Pages must be moved or permanently deleted first. This cannot be undone.",
+        "deleting": "Deleting…"
+      }
     }
   },
   "time": {
@@ -482,6 +943,11 @@
     "daysAgo_other": "{{count}} days ago"
   },
   "errors": {
-    "INVALID_LANGUAGE": "Unsupported language. Choose Chinese or English."
+    "INVALID_LANGUAGE": "Unsupported language. Choose Chinese or English.",
+    "webauthn": {
+      "missingChallenge": "The server returned incomplete WebAuthn parameters (missing challenge)",
+      "cancelled": "Passkey operation cancelled",
+      "failed": "The passkey operation failed; try again"
+    }
   }
 }

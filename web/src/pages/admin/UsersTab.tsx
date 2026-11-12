@@ -7,6 +7,7 @@ import {
   UserX
 } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +66,7 @@ import { useAuthStore } from "@/stores/auth"
 type Filter = "all" | "pending"
 
 function StatusBadges({ user }: { user: AdminUser }) {
+  const { t } = useTranslation()
   return (
     <div className="flex flex-wrap items-center gap-1">
       {user.approvalStatus === "pending" ? (
@@ -72,15 +74,17 @@ function StatusBadges({ user }: { user: AdminUser }) {
           variant="outline"
           className="border-amber-500/60 text-amber-700 dark:text-amber-300"
         >
-          待批准
+          {t("admin.users.status.pending")}
         </Badge>
       ) : null}
       {user.approvalStatus === "rejected" ? (
-        <Badge variant="secondary">已拒绝</Badge>
+        <Badge variant="secondary">{t("admin.users.status.rejected")}</Badge>
       ) : null}
-      {!user.isActive ? <Badge variant="destructive">已停用</Badge> : null}
+      {!user.isActive ? (
+        <Badge variant="destructive">{t("admin.users.status.inactive")}</Badge>
+      ) : null}
       {user.isActive && user.approvalStatus === "approved" ? (
-        <Badge variant="secondary">正常</Badge>
+        <Badge variant="secondary">{t("admin.users.status.active")}</Badge>
       ) : null}
     </div>
   )
@@ -88,6 +92,7 @@ function StatusBadges({ user }: { user: AdminUser }) {
 
 export function UsersTab() {
   const me = useAuthStore((state) => state.user)
+  const { t } = useTranslation()
   const [filter, setFilter] = useState<Filter>("all")
   const [users, setUsers] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -141,14 +146,18 @@ export function UsersTab() {
           onValueChange={(value) => {
             if (value) setFilter(value as Filter)
           }}
-          aria-label="用户筛选"
+          aria-label={t("admin.users.filterLabel")}
         >
-          <ToggleGroupItem value="all">全部用户</ToggleGroupItem>
-          <ToggleGroupItem value="pending">待批准</ToggleGroupItem>
+          <ToggleGroupItem value="all">
+            {t("admin.users.filterAll")}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="pending">
+            {t("admin.users.status.pending")}
+          </ToggleGroupItem>
         </ToggleGroup>
         <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
           <Plus aria-hidden="true" />
-          新建用户
+          {t("admin.users.create")}
         </Button>
       </div>
 
@@ -165,11 +174,13 @@ export function UsersTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>邮箱</TableHead>
-              <TableHead>角色</TableHead>
-              <TableHead>状态</TableHead>
-              <TableHead>注册于</TableHead>
-              <TableHead className="w-12 text-right">操作</TableHead>
+              <TableHead>{t("admin.users.table.email")}</TableHead>
+              <TableHead>{t("admin.users.table.role")}</TableHead>
+              <TableHead>{t("admin.users.table.status")}</TableHead>
+              <TableHead>{t("admin.users.table.createdAt")}</TableHead>
+              <TableHead className="w-12 text-right">
+                {t("common.table.actions")}
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -179,7 +190,7 @@ export function UsersTab() {
                   colSpan={5}
                   className="py-6 text-center text-sm text-muted-foreground"
                 >
-                  加载中…
+                  {t("admin.common.loading")}
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
@@ -189,8 +200,8 @@ export function UsersTab() {
                   className="py-6 text-center text-sm text-muted-foreground"
                 >
                   {filter === "pending"
-                    ? "没有待批准的注册申请。"
-                    : "还没有用户。"}
+                    ? t("admin.users.emptyPending")
+                    : t("admin.users.empty")}
                 </TableCell>
               </TableRow>
             ) : (
@@ -202,16 +213,18 @@ export function UsersTab() {
                       {user.email}
                       {isSelf ? (
                         <span className="ml-1.5 text-[11px] text-muted-foreground">
-                          （你）
+                          {t("admin.users.you")}
                         </span>
                       ) : null}
                     </TableCell>
                     <TableCell>
                       {user.role === "admin" ? (
-                        <Badge variant="secondary">管理员</Badge>
+                        <Badge variant="secondary">
+                          {t("admin.roles.admin")}
+                        </Badge>
                       ) : (
                         <span className="text-sm text-muted-foreground">
-                          普通用户
+                          {t("admin.roles.user")}
                         </span>
                       )}
                     </TableCell>
@@ -228,13 +241,17 @@ export function UsersTab() {
                             type="button"
                             size="icon-xs"
                             variant="ghost"
-                            aria-label={`${user.email} 的操作`}
+                            aria-label={t("admin.users.actionsLabel", {
+                              email: user.email
+                            })}
                           >
                             <MoreHorizontal aria-hidden="true" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuLabel>账号操作</DropdownMenuLabel>
+                          <DropdownMenuLabel>
+                            {t("admin.users.menuLabel")}
+                          </DropdownMenuLabel>
                           {user.approvalStatus === "pending" ? (
                             <>
                               <DropdownMenuItem
@@ -244,7 +261,7 @@ export function UsersTab() {
                                 }
                               >
                                 <CircleCheck aria-hidden="true" />
-                                批准并激活
+                                {t("admin.users.approve")}
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 variant="destructive"
@@ -254,7 +271,7 @@ export function UsersTab() {
                                 }
                               >
                                 <CircleX aria-hidden="true" />
-                                拒绝申请
+                                {t("admin.users.reject")}
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                             </>
@@ -271,8 +288,8 @@ export function UsersTab() {
                           >
                             <UserCog aria-hidden="true" />
                             {user.role === "admin"
-                              ? "设为普通用户"
-                              : "设为管理员"}
+                              ? t("admin.users.setUser")
+                              : t("admin.users.setAdmin")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             disabled={busy || isSelf}
@@ -285,12 +302,14 @@ export function UsersTab() {
                             }
                           >
                             <UserX aria-hidden="true" />
-                            {user.isActive ? "停用账号" : "启用账号"}
+                            {user.isActive
+                              ? t("admin.users.deactivate")
+                              : t("admin.users.activate")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => setPasswordTarget(user)}
                           >
-                            重置密码
+                            {t("admin.users.resetPassword")}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -298,7 +317,7 @@ export function UsersTab() {
                             disabled={busy || isSelf}
                             onSelect={() => setDeleteTarget(user)}
                           >
-                            删除用户
+                            {t("admin.users.delete")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -314,9 +333,9 @@ export function UsersTab() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>新建用户</DialogTitle>
+            <DialogTitle>{t("admin.users.create")}</DialogTitle>
             <DialogDescription>
-              新建的账号直接批准并激活，无需再走审批。
+              {t("admin.users.createDescription")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -340,7 +359,9 @@ export function UsersTab() {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="admin-new-email">邮箱</Label>
+              <Label htmlFor="admin-new-email">
+                {t("admin.users.table.email")}
+              </Label>
               <Input
                 id="admin-new-email"
                 name="email"
@@ -352,7 +373,9 @@ export function UsersTab() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-new-password">初始密码（至少 8 位）</Label>
+              <Label htmlFor="admin-new-password">
+                {t("admin.users.initialPassword")}
+              </Label>
               <Input
                 id="admin-new-password"
                 name="new-password"
@@ -364,7 +387,9 @@ export function UsersTab() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-new-role">角色</Label>
+              <Label htmlFor="admin-new-role">
+                {t("admin.users.table.role")}
+              </Label>
               <Select
                 value={newRole}
                 onValueChange={(value) => setNewRole(value as Role)}
@@ -373,14 +398,18 @@ export function UsersTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">普通用户</SelectItem>
-                  <SelectItem value="admin">管理员</SelectItem>
+                  <SelectItem value="user">{t("admin.roles.user")}</SelectItem>
+                  <SelectItem value="admin">
+                    {t("admin.roles.admin")}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <DialogFooter>
               <Button type="submit" size="sm" disabled={busy}>
-                {busy ? "创建中…" : "创建用户"}
+                {busy
+                  ? t("admin.users.creating")
+                  : t("admin.users.createSubmit")}
               </Button>
             </DialogFooter>
           </form>
@@ -395,9 +424,11 @@ export function UsersTab() {
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>重置密码</DialogTitle>
+            <DialogTitle>{t("admin.users.resetPassword")}</DialogTitle>
             <DialogDescription>
-              {passwordTarget?.email} · 重置后该用户的全部会话会被吊销。
+              {t("admin.users.resetDescription", {
+                email: passwordTarget?.email
+              })}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -422,7 +453,9 @@ export function UsersTab() {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="admin-reset-password">新密码（至少 8 位）</Label>
+              <Label htmlFor="admin-reset-password">
+                {t("admin.users.resetPasswordLabel")}
+              </Label>
               <Input
                 id="admin-reset-password"
                 name="new-password"
@@ -435,7 +468,7 @@ export function UsersTab() {
             </div>
             <DialogFooter>
               <Button type="submit" size="sm" disabled={busy}>
-                保存
+                {t("common.save")}
               </Button>
             </DialogFooter>
           </form>
@@ -451,14 +484,14 @@ export function UsersTab() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              删除用户「{deleteTarget?.email}」？
+              {t("admin.users.deleteTitle", { email: deleteTarget?.email })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              该账号、它的两步验证与全部会话都会被删除。这个操作不可恢复。
+              {t("admin.users.deleteDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (!deleteTarget) return
@@ -467,7 +500,7 @@ export function UsersTab() {
                 )
               }}
             >
-              删除
+              {t("admin.users.deleteConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

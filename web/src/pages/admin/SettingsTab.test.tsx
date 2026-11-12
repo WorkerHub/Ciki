@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import type { SiteSettings } from "@/lib/api"
 import { SettingsTab } from "@/pages/admin/SettingsTab"
 import { DEFAULT_SITE_NAME, useSiteStore } from "@/stores/site"
@@ -108,5 +109,21 @@ describe("系统管理 · 站点名称", () => {
 
     expect(adminApi.saveSettings).not.toHaveBeenCalled()
     expect(input).toHaveValue("Ciki")
+  })
+})
+
+describe("系统管理 · 应用设置 · 英文界面", () => {
+  beforeEach(() => {
+    useSiteStore.setState({ name: DEFAULT_SITE_NAME, loaded: true })
+    vi.mocked(adminApi.settings).mockResolvedValue(settings)
+  })
+
+  it("站点名与初始化页开关用英文渲染", async () => {
+    await i18n.changeLanguage("en")
+    render(<SettingsTab />)
+
+    expect(await screen.findByLabelText("Site name")).toHaveValue("Ciki")
+    expect(screen.getByLabelText("Show setup page")).toBeInTheDocument()
+    expect(screen.getByText(/Email delivery is configured/)).toBeInTheDocument()
   })
 })

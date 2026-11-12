@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { adminApi, describeApiError, type SiteSettings } from "@/lib/api"
 import { SettingRow } from "@/pages/admin/SettingRow"
 
@@ -8,6 +9,7 @@ export function SecurityTab() {
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
+  const { t } = useTranslation()
 
   useEffect(() => {
     let alive = true
@@ -55,15 +57,15 @@ export function SecurityTab() {
         {settings ? (
           <>
             <SettingRow
-              label="强制两步验证"
-              description="开启后，未配置 TOTP 或 Passkey 的账号登录后会先被引导到「设置 → 两步验证」，配置完成前只能访问安全设置。"
+              label={t("admin.security.require2fa.label")}
+              description={t("admin.security.require2fa.description")}
               checked={settings.require2fa}
               disabled={saving}
               onChange={(checked) => void update({ require2fa: checked })}
             />
             <SettingRow
-              label="开放注册"
-              description="关闭后新账号只能由管理员在「用户管理」里创建。"
+              label={t("admin.security.registration.label")}
+              description={t("admin.security.registration.description")}
               checked={settings.registrationEnabled}
               disabled={saving}
               onChange={(checked) =>
@@ -71,8 +73,8 @@ export function SecurityTab() {
               }
             />
             <SettingRow
-              label="注册需要管理员批准"
-              description="开启时，自助注册的账号先进入待批准状态，批准后才能登录。"
+              label={t("admin.security.approval.label")}
+              description={t("admin.security.approval.description")}
               checked={settings.registrationApprovalRequired}
               disabled={saving || !settings.registrationEnabled}
               onChange={(checked) =>
@@ -91,19 +93,13 @@ export function SecurityTab() {
             className="size-4 text-muted-foreground"
             aria-hidden="true"
           />
-          权限模型
+          {t("admin.security.model.title")}
         </h3>
         <ul className="mt-2 space-y-1.5 text-xs text-muted-foreground">
-          <li>
-            两级角色：管理员（admin）与普通用户（user），系统管理仅管理员可见、可调用。
-          </li>
-          <li>wiki 语义：登录用户可以阅读与编辑任何页面。</li>
-          <li>
-            删除页面、回滚版本限页面作者本人与管理员；彻底删除只对回收站里的页面生效。
-          </li>
-          <li>
-            自助注册与「注册需要管理员批准」在上面的开关里；待批准用户的处理、账号停用与密码重置都在「用户管理」里操作。
-          </li>
+          <li>{t("admin.security.model.roles")}</li>
+          <li>{t("admin.security.model.wiki")}</li>
+          <li>{t("admin.security.model.delete")}</li>
+          <li>{t("admin.security.model.admin")}</li>
         </ul>
       </section>
     </div>

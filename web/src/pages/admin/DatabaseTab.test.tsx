@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import type { AdminStorage, R2CleanupSummary, SetupResult } from "@/lib/api"
 import { DatabaseTab } from "@/pages/admin/DatabaseTab"
 
@@ -339,5 +340,28 @@ describe("系统管理 · 数据库升级", () => {
       )
     ).toBeInTheDocument()
     expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("系统管理 · 数据库升级 · 英文界面", () => {
+  beforeEach(() => {
+    vi.mocked(adminApi.r2Cleanup).mockReset().mockResolvedValue({
+      lastRun: null,
+      running: null
+    })
+    vi.mocked(adminApi.storage).mockReset().mockResolvedValue(storage)
+  })
+
+  it("升级区与体积行都是英文", async () => {
+    await i18n.changeLanguage("en")
+    render(<DatabaseTab />)
+
+    expect(screen.getByText("Database upgrade")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Check and upgrade database" })
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByText(/^Database size 3\.4 MB · Image size 2\.0 MB/)
+    ).toBeInTheDocument()
   })
 })

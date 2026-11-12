@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ImportTokenCard } from "@/components/ImportTokenCard"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -247,5 +248,18 @@ describe("导入令牌卡", () => {
       await screen.findByRole("button", { name: "生成令牌" })
     ).toBeInTheDocument()
     expect(meApi.importToken).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe("导入令牌卡 · 英文界面", () => {
+  it("标题、空态与生成按钮都是英文", async () => {
+    await i18n.changeLanguage("en")
+    render(<ImportTokenCard />)
+
+    expect(await screen.findByText("Import token")).toBeInTheDocument()
+    expect(screen.getByText("No import token yet")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Generate token" })
+    ).toBeInTheDocument()
   })
 })

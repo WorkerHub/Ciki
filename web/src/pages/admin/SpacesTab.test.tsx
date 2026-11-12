@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import type { AdminSpace } from "@/lib/api"
 import { SpacesTab } from "@/pages/admin/SpacesTab"
 
@@ -106,5 +107,24 @@ describe("系统管理 · 空间总览", () => {
     )
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
+  })
+})
+
+describe("系统管理 · 空间总览 · 英文界面", () => {
+  it("表头、默认标记与空间设置链接都是英文", async () => {
+    await i18n.changeLanguage("en")
+    vi.mocked(adminApi.spaces).mockResolvedValue([defaultSpace, teamSpace])
+    render(
+      <MemoryRouter>
+        <SpacesTab />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText("Space overview")).toBeInTheDocument()
+    expect(
+      screen.getByRole("columnheader", { name: "Members" })
+    ).toBeInTheDocument()
+    expect(screen.getByText("Default")).toBeInTheDocument()
+    expect(screen.getAllByText("Space settings").length).toBeGreaterThan(0)
   })
 })

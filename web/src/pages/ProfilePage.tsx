@@ -1,5 +1,6 @@
 import { UserRound } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { displayUsername, UserAvatar } from "@/components/UserAvatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +28,7 @@ import { useAuthStore } from "@/stores/auth"
 export function ProfilePage() {
   const user = useAuthStore((state) => state.user)
   const setUser = useAuthStore((state) => state.setUser)
+  const { t } = useTranslation()
   const [username, setUsername] = useState(user ? displayUsername(user) : "")
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -69,7 +71,7 @@ export function ProfilePage() {
   const save = async () => {
     const trimmed = username.trim()
     if (!trimmed) {
-      setError("用户名不能为空。")
+      setError(t("profile.emptyUsername"))
       return
     }
     if (!canSave) return
@@ -88,7 +90,7 @@ export function ProfilePage() {
         setUser(await uploadAvatar(file))
         setFile(null)
       }
-      setNotice("个人资料已保存。")
+      setNotice(t("profile.saved"))
     } catch (saveError) {
       setError(describeApiError(saveError))
     } finally {
@@ -104,7 +106,7 @@ export function ProfilePage() {
             className="size-4 text-muted-foreground"
             aria-hidden="true"
           />
-          个人资料
+          {t("profile.title")}
         </h1>
       </header>
 
@@ -134,10 +136,10 @@ export function ProfilePage() {
       >
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">头像</CardTitle>
-            <CardDescription>
-              PNG / JPG / GIF / WebP，单张不超过 10MB；保存后生效。
-            </CardDescription>
+            <CardTitle className="text-base">
+              {t("profile.avatar.title")}
+            </CardTitle>
+            <CardDescription>{t("profile.avatar.description")}</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center gap-4">
             <UserAvatar
@@ -152,13 +154,13 @@ export function ProfilePage() {
                 disabled={saving}
                 onClick={() => fileInput.current?.click()}
               >
-                更换头像
+                {t("profile.avatar.change")}
               </Button>
               <input
                 ref={fileInput}
                 type="file"
                 accept={ACCEPT_IMAGE_ATTR}
-                aria-label="选择头像"
+                aria-label={t("profile.avatar.select")}
                 className="sr-only"
                 onChange={pickFile}
               />
@@ -168,11 +170,15 @@ export function ProfilePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">显示信息</CardTitle>
+            <CardTitle className="text-base">
+              {t("profile.info.title")}
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="profile-username">用户名</Label>
+              <Label htmlFor="profile-username">
+                {t("profile.info.username")}
+              </Label>
               <Input
                 id="profile-username"
                 name="username"
@@ -183,7 +189,7 @@ export function ProfilePage() {
             </div>
             <dl className="grid gap-3 text-sm sm:grid-cols-[6rem_1fr] sm:gap-3">
               <dt className="text-xs font-medium text-muted-foreground">
-                邮箱
+                {t("profile.info.email")}
               </dt>
               <dd className="break-all">{user.email}</dd>
             </dl>
@@ -192,7 +198,7 @@ export function ProfilePage() {
 
         <div className="flex justify-end">
           <Button type="submit" size="sm" disabled={!canSave}>
-            {saving ? "保存中…" : "保存"}
+            {saving ? t("profile.saving") : t("common.save")}
           </Button>
         </div>
       </form>

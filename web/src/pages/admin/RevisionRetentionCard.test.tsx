@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError, type SiteSettings } from "@/lib/api"
 import { RevisionRetentionCard } from "@/pages/admin/RevisionRetentionCard"
 
@@ -236,5 +237,17 @@ describe("历史版本保留数", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "当前设置为不限，没有可修剪的版本。"
     )
+  })
+})
+
+describe("历史版本保留数 · 英文界面", () => {
+  it("标签、按钮与修剪确认都是英文", async () => {
+    await i18n.changeLanguage("en")
+    render(<RevisionRetentionCard limit={2} onSaved={vi.fn()} />)
+
+    expect(screen.getByLabelText("Revisions kept per page")).toHaveValue(2)
+    expect(
+      screen.getByRole("button", { name: "Prune all pages by current setting" })
+    ).toBeInTheDocument()
   })
 })

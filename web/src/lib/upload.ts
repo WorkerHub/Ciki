@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n"
 import { ApiError, api, meApi, type Me, type UploadedFile } from "@/lib/api"
 
 /** 规格 §2.4：仅收图片，png/jpg/jpeg/gif/webp，单张上限 10MB。 */
@@ -11,17 +12,17 @@ export const ACCEPTED_IMAGE_TYPES = [
 export const ACCEPT_IMAGE_ATTR = ACCEPTED_IMAGE_TYPES.join(",")
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
-/** 返回给用户看的错误文案；通过校验返回 null。 */
+/** 返回给用户看的错误文案（按当前界面语言取）；通过校验返回 null。 */
 export function validateImageFile(file: File): string | null {
   if (
     !ACCEPTED_IMAGE_TYPES.includes(
       file.type as (typeof ACCEPTED_IMAGE_TYPES)[number]
     )
   ) {
-    return "只支持 PNG / JPG / GIF / WebP 图片（SVG 不收）"
+    return i18n.t("common.image.unsupported")
   }
   if (file.size > MAX_IMAGE_BYTES) {
-    return "图片超过 10MB，请压缩后再上传"
+    return i18n.t("common.image.tooLarge")
   }
   return null
 }

@@ -1,5 +1,7 @@
+import type { TFunction } from "i18next"
 import { ScanSearch, Trash2 } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,12 +21,13 @@ import {
 } from "@/lib/api"
 import { formatBytes } from "@/lib/format"
 
-const MISSING_COUNTS_HINT =
-  "扫描结果缺少可清理数与总大小，请确认后端版本后重试。"
+const MISSING_COUNTS_HINT_KEY = "admin.orphan.missingCounts"
 
 /** 锁剩余时长的口语表达：一分钟以上按分钟圆整，不摆 1800 秒这种数。 */
-function waitLabel(seconds: number): string {
-  return seconds >= 60 ? `${Math.ceil(seconds / 60)} 分钟` : `${seconds} 秒`
+function waitLabel(seconds: number, t: TFunction): string {
+  return seconds >= 60
+    ? t("admin.orphan.waitMinutes", { count: Math.ceil(seconds / 60) })
+    : t("admin.orphan.waitSeconds", { count: seconds })
 }
 
 /**
@@ -49,6 +52,7 @@ export function OrphanCleanupCard({
   const [run, setRun] = useState<R2CleanupRunResult | null>(null)
   const [error, setError] = useState("")
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const { t } = useTranslation()
 
   const locked = runningSeconds !== null
   const busy = scanning || cleaning
@@ -67,7 +71,7 @@ export function OrphanCleanupCard({
         typeof result.prunableBytes !== "number"
       ) {
         setScan(null)
-        setError(MISSING_COUNTS_HINT)
+        setError(t(MISSING_COUNTS_HINT_KEY))
         return
       }
       setScan(result)
@@ -113,7 +117,7 @@ export function OrphanCleanupCard({
 
   return (
     <section className="rounded-xl border border-border p-4">
-      <h3 className="text-sm font-medium">孤儿图片清理</h3>
+      <h3 className="text-sm font-medium">{t("admin.orphan.title")}</h3>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button
@@ -124,7 +128,7 @@ export function OrphanCleanupCard({
           onClick={() => void scanNow()}
         >
           <ScanSearch aria-hidden="true" />
-          {scanning ? "扫描中…" : "扫描孤儿图片"}
+          {scanning ? t("admin.orphan.scanning") : t("admin.orphan.scan")}
         </Button>
         {prunable > 0 ? (
           <Button
@@ -134,14 +138,14 @@ export function OrphanCleanupCard({
             onClick={() => setConfirmOpen(true)}
           >
             <Trash2 aria-hidden="true" />
-            {cleaning ? "清理中…" : "立即清理"}
+            {cleaning ? t("admin.orphan.cleaning") : t("admin.orphan.clean")}
           </Button>
         ) : null}
       </div>
 
       {runningSeconds !== null ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          {`清理进行中，约 ${waitLabel(runningSeconds)}后可再试`}
+          {t("admin.orphan.running", { wait: waitLabel(runningSeconds, t) })}
         </p>
       ) : null}
 
@@ -156,34 +160,49 @@ export function OrphanCleanupCard({
 
       {scan ? (
         <p role="status" className="mt-3 text-xs text-muted-foreground">
-          {`扫描 ${scan.scanned} · 引用 ${scan.referenced} · 可清理 ${prunable}（${formatBytes(prunableBytes)}） · 未满 30 天跳过 ${scan.youngSkipped}`}
+          {t("admin.orphan.scanResult", {
+            scanned: scan.scanned,
+            referenced: scan.referenced,
+            prunable,
+            bytes: formatBytes(prunableBytes),
+            skipped: scan.youngSkipped
+          })}
         </p>
       ) : null}
 
       {run ? (
         <p role="status" className="mt-3 text-xs text-muted-foreground">
-          {`本轮已删除 ${run.deleted} · 失败 ${run.failed}${
-            run.truncated ? "，仍有剩余，可再扫描一轮" : ""
-          }`}
+          {t("admin.orphan.runResult", {
+            deleted: run.deleted,
+            failed: run.failed
+          })}
+          {run.truncated ? t("admin.orphan.runRemaining") : ""}
         </p>
       ) : null}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>立即清理孤儿图片？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("admin.orphan.confirmTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {`将永久删除 ${prunable} 个对象（${formatBytes(prunableBytes)}），删除后无法恢复。`}
+              {t("admin.orphan.confirmDescription", {
+                count: prunable,
+                bytes: formatBytes(prunableBytes)
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={cleaning}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={cleaning}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={cleaning || locked}
               onClick={() => void cleanNow()}
             >
-              {`删除 ${prunable} 个`}
+              {t("admin.orphan.confirm", { count: prunable })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

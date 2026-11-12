@@ -1,5 +1,7 @@
+import type { TFunction } from "i18next"
 import { DatabaseZap } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -20,19 +22,29 @@ const RUNNING_POLL_MS = 10_000
  * 统计失败（null / 未下发）时整项不渲染——与 D1 的「不可得」同一降级思路，
  * 不拿 0 或估算数顶替。
  */
-function storageLine(storage: AdminStorage): string {
+function storageLine(storage: AdminStorage, t: TFunction): string {
   const parts = [
     storage.databaseSizeBytes === null
-      ? "数据库体积 不可得"
-      : `数据库体积 ${formatBytes(storage.databaseSizeBytes)}`
+      ? t("admin.database.storage.databaseUnavailable")
+      : t("admin.database.storage.database", {
+          size: formatBytes(storage.databaseSizeBytes)
+        })
   ]
   if (typeof storage.assetsSizeBytes === "number") {
-    parts.push(`图片体积 ${formatBytes(storage.assetsSizeBytes)}`)
+    parts.push(
+      t("admin.database.storage.assets", {
+        size: formatBytes(storage.assetsSizeBytes)
+      })
+    )
   }
   if (typeof storage.contentSizeBytes === "number") {
-    parts.push(`正文体积 ${formatBytes(storage.contentSizeBytes)}`)
+    parts.push(
+      t("admin.database.storage.content", {
+        size: formatBytes(storage.contentSizeBytes)
+      })
+    )
   }
-  parts.push(`页面 ${storage.pageCount}`)
+  parts.push(t("admin.database.storage.pages", { pages: storage.pageCount }))
   return parts.join(" · ")
 }
 
@@ -49,6 +61,7 @@ export function DatabaseTab() {
   const [runningSeconds, setRunningSeconds] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const { t } = useTranslation()
 
   // 摘要只做展示：升级前 schema 还没到 v5 时接口会失败，静默留空即可。
   // 运行态与摘要同源，一次 GET 拿两样，页面加载时就能判定「是否在跑」。
@@ -109,7 +122,7 @@ export function DatabaseTab() {
   return (
     <div className="space-y-4">
       <section className="rounded-xl border border-border p-4">
-        <h3 className="text-sm font-medium">数据库升级</h3>
+        <h3 className="text-sm font-medium">{t("admin.database.title")}</h3>
         <Button
           type="button"
           size="sm"
@@ -118,7 +131,7 @@ export function DatabaseTab() {
           disabled={busy}
         >
           <DatabaseZap aria-hidden="true" />
-          {busy ? "检查中…" : "检查并升级数据库"}
+          {busy ? t("admin.database.checking") : t("admin.database.check")}
         </Button>
 
         {error ? (
@@ -132,9 +145,11 @@ export function DatabaseTab() {
 
         {result ? (
           <div className="mt-3 space-y-2 rounded-lg bg-muted/50 p-3">
-            <p className="text-xs text-muted-foreground">当前表前缀</p>
+            <p className="text-xs text-muted-foreground">
+              {t("admin.database.prefix")}
+            </p>
             <p className="font-mono text-sm">
-              {result.tablePrefix || "（无前缀）"}
+              {result.tablePrefix || t("admin.database.noPrefix")}
             </p>
             <Separator />
             <ul className="space-y-1 text-xs">
@@ -151,7 +166,9 @@ export function DatabaseTab() {
                         : "text-muted-foreground"
                     }
                   >
-                    {migration.status === "applied" ? "已应用" : "已是最新"}
+                    {migration.status === "applied"
+                      ? t("admin.database.applied")
+                      : t("admin.database.current")}
                   </span>
                 </li>
               ))}
@@ -167,14 +184,21 @@ export function DatabaseTab() {
       />
 
       {storage ? (
-        <p className="text-xs text-muted-foreground">{storageLine(storage)}</p>
+        <p className="text-xs text-muted-foreground">
+          {storageLine(storage, t)}
+        </p>
       ) : null}
 
       {lastRun ? (
         <p className="text-xs text-muted-foreground">
-          最近清理 {formatDateTime(lastRun.startedAt)} · 扫描 {lastRun.scanned}{" "}
-          · 引用 {lastRun.referenced} · 删除 {lastRun.deleted} · 未满 30 天跳过{" "}
-          {lastRun.youngSkipped} · 失败 {lastRun.failed}
+          {t("admin.database.lastRun", {
+            time: formatDateTime(lastRun.startedAt),
+            scanned: lastRun.scanned,
+            referenced: lastRun.referenced,
+            deleted: lastRun.deleted,
+            youngSkipped: lastRun.youngSkipped,
+            failed: lastRun.failed
+          })}
         </p>
       ) : null}
     </div>

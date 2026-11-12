@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import type { Me } from "@/lib/api"
 import { ProfilePage } from "@/pages/ProfilePage"
 import { useAuthStore } from "@/stores/auth"
@@ -150,5 +151,20 @@ describe("个人资料页", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent(/只支持 PNG/)
     expect(meApi.uploadAvatar).not.toHaveBeenCalled()
+  })
+})
+
+describe("个人资料页 · 英文界面", () => {
+  beforeEach(() => setUser())
+
+  it("标题、头像卡与字段标签都是英文", async () => {
+    await i18n.changeLanguage("en")
+    render(<ProfilePage />)
+
+    expect(screen.getByText("Profile")).toBeInTheDocument()
+    expect(screen.getByText("Avatar")).toBeInTheDocument()
+    expect(screen.getByLabelText("Choose an avatar")).toBeInTheDocument()
+    expect(screen.getByLabelText("Username")).toHaveValue("小明")
+    expect(screen.getByText("Email")).toBeInTheDocument()
   })
 })

@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ReadTokenCard } from "@/components/ReadTokenCard"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -194,5 +195,15 @@ describe("只读接口令牌卡", () => {
     expect(revokeImport).not.toHaveBeenCalled()
     createImport.mockRestore()
     revokeImport.mockRestore()
+  })
+})
+
+describe("只读接口令牌卡 · 英文界面", () => {
+  it("标题与空态用只读接口令牌的英文名词", async () => {
+    await i18n.changeLanguage("en")
+    render(<ReadTokenCard />)
+
+    expect(await screen.findByText("Read-only API token")).toBeInTheDocument()
+    expect(screen.getByText("No read-only API token yet")).toBeInTheDocument()
   })
 })

@@ -6,8 +6,7 @@ import {
   editableSpaces,
   effectiveRole,
   pickInitialSpace,
-  roleForSpace,
-  SPACE_ROLE_LABELS
+  roleForSpace
 } from "@/lib/space"
 
 function space(overrides: Partial<Space>): Space {
@@ -45,14 +44,6 @@ describe("空间角色口径", () => {
     expect(roleForSpace(spaces, 99, false)).toBeNull()
     expect(roleForSpace(spaces, null, false)).toBeNull()
     expect(roleForSpace(spaces, 1, true)).toBe("admin")
-  })
-
-  it("角色徽章文案固定", () => {
-    expect(SPACE_ROLE_LABELS).toEqual({
-      admin: "管理员",
-      editor: "编辑",
-      viewer: "只读"
-    })
   })
 })
 
