@@ -374,7 +374,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 #### POST /api/setup（公开）
 
 - 请求头：`X-Setup-Secret: <SETUP_SECRET>`（**只认请求头**，URL 参数无效；`GET /api/setup` 及 `/api/setup/*` 的其它 GET 返回 405 JSON）。
-- 请求体：无。
+- 请求体：可选 `{"language":"zh"|"en"}`；缺省或非法值回退 `zh`。全新安装按它决定默认空间名（`en` → `Default Space`，`zh` → `默认空间`）；已有用户的空间与用户改过名的空间一律不改名。
 - 200：
 
 ```json

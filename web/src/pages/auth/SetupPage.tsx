@@ -1,5 +1,6 @@
 import { Database, KeyRound } from "lucide-react"
 import { useEffect, useState } from "react"
+import { currentLanguage } from "@/i18n"
 import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
@@ -46,7 +47,7 @@ export function SetupPage() {
     setError("")
     setConflict(null)
     try {
-      const value = await setupApi.run(secret.trim())
+      const value = await setupApi.run(secret.trim(), currentLanguage())
       setResult(value)
       // 让根门拿到服务端真实状态（initialized: true / enabled: false），
       // 否则下面的「注册首个管理员」会被重定向回 /setup

@@ -685,8 +685,8 @@ export interface AdminStorage {
 
 export const setupApi = {
   state: () => api.get<SetupState>("/setup/state"),
-  run: (secret: string) =>
-    api.post<SetupResult>("/setup", undefined, {
+  run: (secret: string, language?: Language) =>
+    api.post<SetupResult>("/setup", language ? { language } : undefined, {
       headers: { "X-Setup-Secret": secret },
       skipRefresh: true
     }),

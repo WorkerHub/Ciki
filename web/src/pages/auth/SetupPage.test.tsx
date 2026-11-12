@@ -52,7 +52,7 @@ describe("初始化页", () => {
     await user.type(await screen.findByLabelText("SETUP_SECRET"), "s3cret")
     await user.click(screen.getByRole("button", { name: "初始化数据库" }))
 
-    expect(setupApi.run).toHaveBeenCalledWith("s3cret")
+    expect(setupApi.run).toHaveBeenCalledWith("s3cret", "zh")
     expect(await screen.findByText("初始化完成")).toBeInTheDocument()
     expect(screen.getByText("ciki_")).toBeInTheDocument()
     expect(screen.getByText("已应用")).toBeInTheDocument()

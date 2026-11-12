@@ -79,6 +79,14 @@ export const RETIRED_MIGRATIONS = [
 export const DEFAULT_SPACE_NAME = "默认空间"
 
 /**
+ * 全新英文安装的默认空间名（i18n 验证 #102 修复）。
+ *
+ * `schema_v1` 的种子仍写中文基线（冻结迁移不改）；setup 在全新库、尚无用户时
+ * 按 setup 请求语言把它改成这里的英文名。存量空间不改名。
+ */
+export const DEFAULT_SPACE_NAME_EN = "Default Space"
+
+/**
  * 默认空间的固定 id 与 slug（全新库播种用）。
  * 存量库升级时 id 原样保留，默认空间通常仍是 1；代码只按 `is_default` 判定默认空间，
  * 不假设它一定是 1。
