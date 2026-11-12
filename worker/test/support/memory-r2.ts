@@ -22,8 +22,15 @@ export class MemoryR2 {
   /** 这些 key 的 delete 会抛错（模拟 R2 偶发失败）。 */
   readonly failDeleteKeys = new Set<string>()
 
-  /** 单页最多返回几条（故意小于 1000，强制走分页）。 */
-  readonly pageSize = 2
+  /**
+   * 单页最多返回几条。默认 2（故意小于 1000，强制调用方走分页）；
+   * 体积统计的「>1000 对象多页」场景用 `new MemoryR2(1000)` 还原真实页大小。
+   */
+  readonly pageSize: number
+
+  constructor(pageSize = 2) {
+    this.pageSize = pageSize
+  }
 
   async put(
     key: string,

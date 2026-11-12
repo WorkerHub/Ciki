@@ -604,6 +604,10 @@ describe("整数 id 与新增端点的 URL", () => {
           trashedPageCount: 3,
           revisionCount: 40,
           databaseSizeBytes: 1024,
+          assetsSizeBytes: 2048,
+          contentSizeBytes: null,
+          assetsObjectCount: 3,
+          contentObjectCount: null,
           sizeScope: "own-database",
           measure: "cloudflare-d1-api"
         }),
@@ -616,6 +620,9 @@ describe("整数 id 与新增端点的 URL", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/storage")
     expect(storage.pageCount).toBe(12)
     expect(storage.databaseSizeBytes).toBe(1024)
+    expect(storage.assetsSizeBytes).toBe(2048)
+    // 某一桶失败时该项为 null（前端据此不渲染），不补 0
+    expect(storage.contentSizeBytes).toBeNull()
   })
 })
 

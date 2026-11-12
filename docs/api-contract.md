@@ -51,6 +51,7 @@
 - **内容上限**：标题 1–255 字符；`contentJson` ≤ 800,000 字节（这一份存 R2，不占 D1）；`contentHtml` 以**服务端消毒后**的字节数计 ≤ 800,000 字节；`contentText` 规范化后 ≤ 300,000 字节；D1 里的三列派生值（HTML + 纯文本 + MD）合计 ≤ 1,900,000 字节（页面行仍在 2 MB 上限内）。超限 `413 {"error":"Payload too large","code":"PAYLOAD_TOO_LARGE"}`。
 - **纯文本字段**：`title` 与 `contentText` 保存时剥除 HTML 标签并折叠空白，入库与搜索片段都不含 HTML 语法。
 - **脱敏**：任何 DTO 都不返回 `password_hash`、TOTP 密文、passkey `public_key`、会话令牌或挑战原值。
+- **界面语言与邮件语言**：支持集 `zh` / `en`（ISO 639-1）。`users.language` 是账号偏好，`GET /api/me` 输出（历史脏值读作 `zh`）；注册入参、更新接口的校验口径见各端点。4 类验证码邮件（`register_verify` / `2fa_login` / `password_reset` / `2fa_enable`）按同一语言出文案：已注册用户按账号语言，注册首封按注册入参语言；中文文案逐字不变，英文为新增译文。
 
 ## 二、数据模型
 
@@ -72,19 +73,19 @@
 
 ### users
 
-| 列                     | 类型                             | 说明                                                                                                                                                  |
-| ---------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                     | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                                                           |
-| email                  | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                                                    |
-| username               | TEXT NOT NULL DEFAULT ''         | 大小写不敏感唯一（空串除外）、1–40 码点；注册/建号时取邮箱前缀，重名自动加 `-2`/`-3` 后缀（后缀算在 40 码点内），之后可改；这是**唯一对外的用户身份** |
-| avatar_key             | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像                               |
-| password_hash          | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                                                      |
-| role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                                                      |
-| is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                                                   |
-| approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                   |
-| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在 `schema_v7` 重建时一律置 1                          |
-| language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言（照 eNotify 保留；主题等纯前端偏好不进数据库）                                                                                               |
-| created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                              |
+| 列                     | 类型                             | 说明                                                                                                                                                                                   |
+| ---------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                     | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                                                                                            |
+| email                  | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                                                                                     |
+| username               | TEXT NOT NULL DEFAULT ''         | 大小写不敏感唯一（空串除外）、1–40 码点；注册/建号时取邮箱前缀，重名自动加 `-2`/`-3` 后缀（后缀算在 40 码点内），之后可改；这是**唯一对外的用户身份**                                  |
+| avatar_key             | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像                                                                |
+| password_hash          | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                                                                                       |
+| role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                                                                                       |
+| is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                                                                                    |
+| approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                    |
+| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在 `schema_v7` 重建时一律置 1                                                           |
+| language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。主题等纯前端偏好不进数据库 |
+| created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                                                               |
 
 索引：`username` 上有唯一索引 `{prefix}users_username`（`COLLATE NOCASE`：`alice` 与 `Alice` 视为重名；`WHERE username <> ''`：空串不参与），并发改重名由数据库兜底。存量库升级时由 `schema_v8` 先消重（仅对撞名：id 最小者留原名，其余 `-2/-3`；其它用户名不改、空串不处理）再建索引。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
 
@@ -519,15 +520,22 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "spaceCount": 3,
   "userCount": 9,
   "databaseSizeBytes": 10485760,
+  "assetsSizeBytes": 5242880,
+  "contentSizeBytes": 2097152,
+  "assetsObjectCount": 64,
+  "contentObjectCount": 342,
   "sizeScope": "own-database",
   "measure": "cloudflare-d1-api"
 }
 ```
 
 - `databaseSizeBytes` = Cloudflare D1 REST API 的 `result.file_size`（`GET /accounts/{account_id}/d1/database/{database_id}?fields=file_size`，服务端调用，令牌复用组织级共用的 `CLOUDFLARE_API_TOKEN`）。D1 运行时拒绝 `PRAGMA page_count`（`SQLITE_AUTH`），所以不再用页计数。
+- `assetsSizeBytes` / `contentSizeBytes` = 两个 R2 桶（图片 `ciki-assets` 绑定 `R2`、正文 `ciki-content` 绑定 `CONTENT`）各自的字节总量：服务端用绑定分页 `list()`（每页 1000，循环到 `truncated: false`）累加对象 `size`，**每次打开管理页现算、不加缓存**，两桶分别统计、不合并。走绑定而非 Cloudflare 分析 API：`list()` 就是桶内真实对象的权威口径。
+- `assetsObjectCount` / `contentObjectCount` = 与体积同一次遍历得到的对象数，**本期前端不显示**，随接口备用。
+- 某一桶统计失败时该项为 `null`（另一桶照常给数）：`list()` 抛错、截断页不给游标、游标原地踏步或回到见过的值（防死循环）都算失败；**不返回扫了一半的求和**，也不用 0 顶替。前端对 `null` 一律不渲染该项（空桶的真 0 正常显示 `0 B`）。
 - **`sizeScope` 恒为 `"own-database"`**：Ciki 的 D1 是本项目独占库（裸表名、无前缀），这个数字就是**本站整库**体积，前端照此标注即可（不要写成「共享库」）。
 - 取不到时 `databaseSizeBytes: null`、`measure: "unavailable"`——**不用行数估算冒充体积**，前端显示「不可得」。取不到包括：令牌/账号/库 ID 未配置或仍是占位值（这时连请求都不发）、HTTP 失败（含令牌缺 D1 读的 401/403）、超时、响应里没有可用的 `file_size`。
-- 服务端缓存：成功 5 分钟、失败 60 秒（isolate 内），避免管理页刷新反复调 API。
+- 服务端缓存：成功 5 分钟、失败 60 秒（isolate 内），避免管理页刷新反复调 API。**只缓存 D1 体积**，两个 R2 桶体积不缓存。
 - 页数等计数都从 D1 现算，不含正文对象（正文在 R2，不占库体积）。
 
 ### waker 回调（`POST /_waker/execute`，不走会话）
@@ -576,8 +584,10 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 #### POST /api/auth/register
 
 ```json
-{ "email": "a@b.c", "password": "至少 8 位" }
+{ "email": "a@b.c", "password": "至少 8 位", "language": "en" }
 ```
+
+`language` 可选（注册页当前显示语言），只认 `zh` / `en`：缺失、非字符串或不支持的值一律回退 `zh`，**不阻断注册**。
 
 - 201 `{"success":true,"approvalRequired":false,"emailVerificationRequired":false}`。
 - 用户表为空时：首个用户为 `admin`、直接批准并激活、邮箱直接视为已验证（`emailVerificationRequired:false`）。其余用户按 `registration_approval_required` 落 `pending`（`approvalRequired:true`）或直接批准，邮箱一律未验证（`emailVerificationRequired:true`）：注册成功后在后台发一封 `register_verify` 验证码邮件（6 位、10 分钟、单次消费），响应不等发信。
@@ -749,6 +759,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "email": "…",
   "role": "admin",
   "avatarUrl": "/api/files/avatars/<uuid>.png",
+  "language": "zh",
   "approvalStatus": "approved",
   "createdAt": "2026-11-07T12:00:00.000Z",
   "twofa": {
@@ -760,18 +771,19 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 }
 ```
 
-`id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
+`id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。`language` 是界面语言（`zh` / `en`），登录后前端以它为准。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
 
 #### PUT /api/me/profile
 
 ```json
-{ "username": "观察者", "avatarKey": "<uuid>.png" }
+{ "username": "观察者", "avatarKey": "<uuid>.png", "language": "en" }
 ```
 
-- 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。
+- 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。三个字段互不影响、可单独提交，写入是一次 `UPDATE`：任一字段校验失败整单 400、一行都不写。
 - `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；**必须唯一（大小写不敏感，`Alice` 与 `alice` 算重名；改成自己当前名字含只改大小写不算撞名）**，撞名 409 `code:"USERNAME_TAKEN"`（并发下由库内唯一索引兜底，同样 409 而非 500）；不自动加后缀。
 - `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key——平铺 `<uuid>.<ext>` 或带已知前缀（`avatars/` / `pages/` / `imports/`）都收；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
-- `id` / `email` 只读：传了也不生效（只认上面两个字段）。
+- `language`：只认精确的 `zh` / `en`（不 trim、不做大小写归一），其它值（含 `null`、数字）400 `{"error":"language must be zh or en","code":"INVALID_LANGUAGE"}`。只带语言不影响 username 与头像。
+- `id` / `email` 只读：传了也不生效（只认上面三个字段）。
 
 #### POST /api/me/avatar（需会话）
 
@@ -786,6 +798,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "email": "…",
   "role": "admin",
   "avatarUrl": "/api/files/avatars/<uuid>.png",
+  "language": "zh",
   "approvalStatus": "approved",
   "createdAt": "…",
   "twofa": {
@@ -1637,6 +1650,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 代码块折叠：`content_html` 里三态由 `pre[data-collapsed]` 承载（`"true"` / `"false"` / 无此属性），读态由编辑器扩展还原成节点属性 `collapsed`。无属性时的初始状态由前端按代码行数自动决定（>20 行折叠、≤20 行展开）——这是前端行为，服务端不参与、也不在 `content_html` 里预判。折叠只影响显示：MD 派生仍是围栏代码块、`collapsed` 丢弃，属已知降级。
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
+- 「数据库维护」页的体积行：一行 `数据库体积 X · 图片体积 Y · 正文体积 Z · 页面 N`，体积一律用 `formatBytes` 渲染（不另写格式化）。`databaseSizeBytes` 为 `null` 时写「不可得」；`assetsSizeBytes` / `contentSizeBytes` 为 `null` 时**整项不渲染**（与 D1 同一降级思路，不显示 0 或估算数），空桶的真 0 照实显示 `0 B`；`*ObjectCount` 本期不显示。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
 - 注册后按 `emailVerificationRequired` 分流：`true` → 跳「验证邮箱」页（输入 6 位码调 `POST /api/auth/email/verify`，页面提供重发按钮调 `POST /api/auth/email/resend`）；`false`（首个管理员、管理员后台建号）→ 直接去登录。该字段缺失视为 `false`。
 - 登录拿到 403 `EMAIL_NOT_VERIFIED` → 登录页给出「重新发送验证码」入口（`resend`，按钮按响应的 `cooldownSeconds` 倒计时），不要提示密码错误。403 `ACCOUNT_PENDING_APPROVAL` 是另一件事：等管理员批准。

@@ -16,8 +16,30 @@ import { OrphanCleanupCard } from "@/pages/admin/OrphanCleanupCard"
 const RUNNING_POLL_MS = 10_000
 
 /**
+ * 体积行：数据库体积恒显示（取不到写「不可得」）；两个 R2 桶按桶各一项，
+ * 统计失败（null / 未下发）时整项不渲染——与 D1 的「不可得」同一降级思路，
+ * 不拿 0 或估算数顶替。
+ */
+function storageLine(storage: AdminStorage): string {
+  const parts = [
+    storage.databaseSizeBytes === null
+      ? "数据库体积 不可得"
+      : `数据库体积 ${formatBytes(storage.databaseSizeBytes)}`
+  ]
+  if (typeof storage.assetsSizeBytes === "number") {
+    parts.push(`图片体积 ${formatBytes(storage.assetsSizeBytes)}`)
+  }
+  if (typeof storage.contentSizeBytes === "number") {
+    parts.push(`正文体积 ${formatBytes(storage.contentSizeBytes)}`)
+  }
+  parts.push(`页面 ${storage.pageCount}`)
+  return parts.join(" · ")
+}
+
+/**
  * 数据库维护：检查并升级、孤儿图片两步清理；有数据时附两行状态——
- * 一行库体积与页数（服务端按 Cloudflare D1 REST API 口径给，D1 是 Ciki 独占库，不写 scope 字样），
+ * 一行库体积（D1 + 两个 R2 桶）与页数（服务端按 Cloudflare D1 REST API 与
+ * R2 `list()` 口径给，D1 是 Ciki 独占库，不写 scope 字样），
  * 一行最近一轮清理摘要。清理入口只调既有手动触发接口，可清理数与删除量全部由服务端给。
  */
 export function DatabaseTab() {
@@ -145,13 +167,7 @@ export function DatabaseTab() {
       />
 
       {storage ? (
-        <p className="text-xs text-muted-foreground">
-          数据库体积{" "}
-          {storage.databaseSizeBytes === null
-            ? "不可得"
-            : formatBytes(storage.databaseSizeBytes)}{" "}
-          · 页面 {storage.pageCount}
-        </p>
+        <p className="text-xs text-muted-foreground">{storageLine(storage)}</p>
       ) : null}
 
       {lastRun ? (

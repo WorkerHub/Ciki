@@ -4,6 +4,7 @@
  */
 import { Hono } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
+import { readBucketSize } from "../core/bucket-size"
 import { readDatabaseSize } from "../core/d1-size"
 import {
   pagesTable,
@@ -642,33 +643,43 @@ adminRoutes.get("/r2-cleanup", async (c) => {
 /**
  * 「系统管理 → 数据库维护」的体积与页数数据源（展示归前端单 B）。
  *
- * 页数、回收站页数、版本数、空间数、用户数都从 D1 现算；体积改走 Cloudflare
+ * 页数、回收站页数、版本数、空间数、用户数都从 D1 现算；D1 体积走 Cloudflare
  * D1 REST API 的 `file_size`（见 src/core/d1-size.ts）——D1 运行时拒绝
- * `PRAGMA page_count`，页计数在线上拿不到。取不到时 `databaseSizeBytes` 为
- * `null`、`measure` 为 `unavailable`，前端显示「不可得」，绝不估算。
+ * `PRAGMA page_count`，页计数在线上拿不到。两个 R2 桶（图片 `ciki-assets` /
+ * 正文 `ciki-content`）的体积走各自绑定的分页 `list()`（见 src/core/bucket-size.ts），
+ * 每次打开管理页现算、不加缓存。
+ *
+ * 降级：D1 取不到时 `databaseSizeBytes` 为 `null`、`measure` 为 `unavailable`；
+ * 某一桶统计失败时对应的 `*SizeBytes` 为 `null`（另一桶照常给数）。前端对 `null`
+ * 一律不渲染该项，绝不估算。
  */
 adminRoutes.get("/storage", async (c) => {
   const prefix = getTablePrefix(c.env)
   const db = c.env.DB
-  const row = await db
-    .prepare(
-      `SELECT
-         (SELECT COUNT(*) FROM ${pagesTable(prefix)}
-           WHERE deleted_at IS NULL) AS page_count,
-         (SELECT COUNT(*) FROM ${pagesTable(prefix)}
-           WHERE deleted_at IS NOT NULL) AS trashed_page_count,
-         (SELECT COUNT(*) FROM ${revisionsTable(prefix)}) AS revision_count,
-         (SELECT COUNT(*) FROM ${spacesTable(prefix)}) AS space_count,
-         (SELECT COUNT(*) FROM ${usersTable(prefix)}) AS user_count`
-    )
-    .first<{
-      page_count: number
-      trashed_page_count: number
-      revision_count: number
-      space_count: number
-      user_count: number
-    }>()
-  const size = await readDatabaseSize(c.env)
+  const [row, size, assets, content] = await Promise.all([
+    db
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM ${pagesTable(prefix)}
+             WHERE deleted_at IS NULL) AS page_count,
+           (SELECT COUNT(*) FROM ${pagesTable(prefix)}
+             WHERE deleted_at IS NOT NULL) AS trashed_page_count,
+           (SELECT COUNT(*) FROM ${revisionsTable(prefix)}) AS revision_count,
+           (SELECT COUNT(*) FROM ${spacesTable(prefix)}) AS space_count,
+           (SELECT COUNT(*) FROM ${usersTable(prefix)}) AS user_count`
+      )
+      .first<{
+        page_count: number
+        trashed_page_count: number
+        revision_count: number
+        space_count: number
+        user_count: number
+      }>(),
+    readDatabaseSize(c.env),
+    // 两桶各自独立统计，不合并：某项失败只影响它自己。
+    readBucketSize(c.env.R2),
+    readBucketSize(c.env.CONTENT)
+  ])
   return c.json({
     pageCount: row?.page_count ?? 0,
     trashedPageCount: row?.trashed_page_count ?? 0,
@@ -676,6 +687,11 @@ adminRoutes.get("/storage", async (c) => {
     spaceCount: row?.space_count ?? 0,
     userCount: row?.user_count ?? 0,
     databaseSizeBytes: size.bytes,
+    assetsSizeBytes: assets.bytes,
+    contentSizeBytes: content.bytes,
+    // 对象数本期前端不显示，随接口备用（下一期要展示不必再改一次这里）。
+    assetsObjectCount: assets.objectCount,
+    contentObjectCount: content.objectCount,
     sizeScope: "own-database",
     measure: size.measure
   })

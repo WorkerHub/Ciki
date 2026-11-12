@@ -47,6 +47,7 @@ import {
   isEmailConflict
 } from "../core/identity"
 import { insertWithUniqueUsername } from "../core/username"
+import { normalizeLanguage } from "../core/language"
 import { isEmailConfigured, sendEmailCodeMessage } from "../services/email"
 import {
   armEmailCodeCooldown,
@@ -135,10 +136,16 @@ authRoutes.get("/config", async (c) => {
 })
 
 authRoutes.post("/register", async (c) => {
-  const body = await readJsonBody<{ email?: unknown; password?: unknown }>(c)
+  const body = await readJsonBody<{
+    email?: unknown
+    password?: unknown
+    language?: unknown
+  }>(c)
   const email =
     typeof body?.email === "string" ? body.email.trim().toLowerCase() : ""
   const password = typeof body?.password === "string" ? body.password : ""
+  // 界面语言（i18n 规格 §2.6）：非法/缺失一律回退 zh，绝不因为语言值拦下注册。
+  const language = normalizeLanguage(body?.language)
 
   if (!email || !password) {
     return c.json({ error: "Email and password required" }, 400)
@@ -213,7 +220,8 @@ authRoutes.post("/register", async (c) => {
             email,
             username,
             password_hash: passwordHash,
-            approvalStatus: approvalRequired ? "pending" : "approved"
+            approvalStatus: approvalRequired ? "pending" : "approved",
+            language
           },
           { requireEmptyTable: !emailConfigured }
         )
@@ -262,7 +270,9 @@ authRoutes.post("/register", async (c) => {
       const sent = await sendEmailCodeMessage(c.env, {
         to: user.email,
         code: issued.code,
-        purpose: "register_verify"
+        purpose: "register_verify",
+        // 注册首封按注册入参语言（以落库值再归一一次为准，与账号设置同源）。
+        language: normalizeLanguage(user.language)
       })
       if (!sent.success) {
         // 失败只记脱敏原因；不回显、不记收件人。
@@ -559,7 +569,9 @@ authRoutes.post("/password/forgot", async (c) => {
     const sent = await sendEmailCodeMessage(c.env, {
       to: user.email,
       code: issued.code,
-      purpose: "password_reset"
+      purpose: "password_reset",
+      // 已注册用户一律按账号语言（i18n 规格 §2.8）。
+      language: normalizeLanguage(user.language)
     })
     if (!sent.success) {
       // 失败只记脱敏原因；不回显、不记收件人（防枚举）。
@@ -778,7 +790,8 @@ authRoutes.post("/email/resend", async (c) => {
     const sent = await sendEmailCodeMessage(c.env, {
       to: user.email,
       code: issued.code,
-      purpose: "register_verify"
+      purpose: "register_verify",
+      language: normalizeLanguage(user.language)
     })
     if (!sent.success) {
       console.error("register verification email failed:", sent.error)
