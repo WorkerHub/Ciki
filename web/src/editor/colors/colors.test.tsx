@@ -17,6 +17,7 @@ import {
   TEXT_COLORS
 } from "@/editor/colors/palette"
 import { createExtensions } from "@/editor/extensions"
+import { i18n } from "@/i18n"
 import { normalizeColor } from "@/lib/color"
 import { docJson } from "@/test/tiptap-json"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
@@ -291,5 +292,61 @@ describe("调色板数据", () => {
         expect(normalizeColor(option.value)).toBe(option.value)
       }
     }
+  })
+})
+
+/** 英文界面：工具条动作的 aria-label/title 与色板里的颜色名全走 locale。 */
+describe("工具条：英文界面", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  afterEach(() => {
+    while (editors.length) editors.pop()?.destroy()
+  })
+
+  it("动作名与快捷键提示都换英文", async () => {
+    await i18n.changeLanguage("en")
+    const editor = makeEditor("<p>正文</p>")
+    render(<EditorToolbar editor={editor} />)
+
+    expect(screen.getByRole("button", { name: "Bold" })).toHaveAttribute(
+      "title",
+      "Bold (Ctrl/⌘ + B)"
+    )
+    expect(
+      screen.getByRole("button", { name: "Strikethrough" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Text color" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Highlight" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Insert link" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Upload image" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "粗体" })).toBeNull()
+  })
+
+  it("色板的颜色名与清除项是英文", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    const editor = makeEditor("<p>文字</p>")
+    editor.commands.selectAll()
+    render(<EditorToolbar editor={editor} />)
+
+    await user.click(screen.getByRole("button", { name: "Text color" }))
+    expect(
+      await screen.findByRole("menuitem", { name: "Blue" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("menuitem", { name: "Clear color" })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: "蓝色" })).toBeNull()
   })
 })

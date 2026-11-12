@@ -6,6 +6,7 @@ import {
   PARAGRAPH_STYLES,
   ParagraphStyleMenu
 } from "@/editor/ParagraphStyleMenu"
+import { i18n } from "@/i18n"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 /**
@@ -46,7 +47,12 @@ describe("段落样式下拉", () => {
       "h5",
       "h6"
     ])
-    expect(PARAGRAPH_STYLES.map((style) => style.label)).toEqual([
+    // 数据里只有 key：文案由 t() 在渲染时给出
+    expect(
+      PARAGRAPH_STYLES.map((style) =>
+        i18n.t(style.labelKey, { level: style.level })
+      )
+    ).toEqual([
       "正文",
       "标题 1",
       "标题 2",
@@ -55,6 +61,24 @@ describe("段落样式下拉", () => {
       "标题 5",
       "标题 6"
     ])
+  })
+
+  it("英文界面：段落样式名换语言，data-style 不受影响", async () => {
+    await i18n.changeLanguage("en")
+    expect(
+      PARAGRAPH_STYLES.map((style) =>
+        i18n.t(style.labelKey, { level: style.level })
+      )
+    ).toEqual([
+      "Body",
+      "Heading 1",
+      "Heading 2",
+      "Heading 3",
+      "Heading 4",
+      "Heading 5",
+      "Heading 6"
+    ])
+    expect(screen.queryByText("正文")).toBeNull()
   })
 
   it("收起态触发器是纯文字当前项（正文）", () => {

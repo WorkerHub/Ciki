@@ -4,45 +4,48 @@
  * 只做预设、不做自定义十六进制输入（主单口径）；色值取 Confluence 标准色，
  * 与用户从 Confluence 粘过来的颜色同一套，肉眼一致。
  * `value: null` 表示「清除」（回到正文默认色 / 无高亮 / 无底色）。
+ *
+ * 颜色名只存 key（editor.colors.*），渲染时由 ColorMenu 用 t() 取文字：
+ * 数据里不留任何语言的文案，切语言即时生效。
  */
 
 export interface ColorOption {
-  name: string
+  labelKey: string
   value: string | null
 }
 
 export const TEXT_COLORS: ColorOption[] = [
-  { name: "黑色", value: "#172b4d" },
-  { name: "灰色", value: "#6b778c" },
-  { name: "红色", value: "#de350b" },
-  { name: "橙色", value: "#d97008" },
-  { name: "黄色", value: "#a16207" },
-  { name: "绿色", value: "#1f845a" },
-  { name: "蓝色", value: "#0052cc" },
-  { name: "紫色", value: "#6f42c1" },
-  { name: "清除颜色", value: null }
+  { labelKey: "editor.colors.black", value: "#172b4d" },
+  { labelKey: "editor.colors.gray", value: "#6b778c" },
+  { labelKey: "editor.colors.red", value: "#de350b" },
+  { labelKey: "editor.colors.orange", value: "#d97008" },
+  { labelKey: "editor.colors.yellow", value: "#a16207" },
+  { labelKey: "editor.colors.green", value: "#1f845a" },
+  { labelKey: "editor.colors.blue", value: "#0052cc" },
+  { labelKey: "editor.colors.purple", value: "#6f42c1" },
+  { labelKey: "editor.colors.clearText", value: null }
 ]
 
 export const HIGHLIGHT_COLORS: ColorOption[] = [
-  { name: "黄色", value: "#ffe58f" },
-  { name: "橙色", value: "#ffd7a8" },
-  { name: "红色", value: "#ffd2cc" },
-  { name: "绿色", value: "#baf5c0" },
-  { name: "蓝色", value: "#cce0ff" },
-  { name: "紫色", value: "#e4d5ff" },
-  { name: "灰色", value: "#e4e6ea" },
-  { name: "青色", value: "#c9f3f5" },
-  { name: "清除高亮", value: null }
+  { labelKey: "editor.colors.yellow", value: "#ffe58f" },
+  { labelKey: "editor.colors.orange", value: "#ffd7a8" },
+  { labelKey: "editor.colors.red", value: "#ffd2cc" },
+  { labelKey: "editor.colors.green", value: "#baf5c0" },
+  { labelKey: "editor.colors.blue", value: "#cce0ff" },
+  { labelKey: "editor.colors.purple", value: "#e4d5ff" },
+  { labelKey: "editor.colors.gray", value: "#e4e6ea" },
+  { labelKey: "editor.colors.cyan", value: "#c9f3f5" },
+  { labelKey: "editor.colors.clearHighlight", value: null }
 ]
 
 export const CELL_COLORS: ColorOption[] = [
-  { name: "灰色", value: "#f4f5f7" },
-  { name: "红色", value: "#ffebe6" },
-  { name: "橙色", value: "#fff0b3" },
-  { name: "黄色", value: "#fffae6" },
-  { name: "绿色", value: "#e3fcef" },
-  { name: "蓝色", value: "#deebff" },
-  { name: "紫色", value: "#eae6ff" },
-  { name: "青色", value: "#e6fcff" },
-  { name: "清除底色", value: null }
+  { labelKey: "editor.colors.gray", value: "#f4f5f7" },
+  { labelKey: "editor.colors.red", value: "#ffebe6" },
+  { labelKey: "editor.colors.orange", value: "#fff0b3" },
+  { labelKey: "editor.colors.yellow", value: "#fffae6" },
+  { labelKey: "editor.colors.green", value: "#e3fcef" },
+  { labelKey: "editor.colors.blue", value: "#deebff" },
+  { labelKey: "editor.colors.purple", value: "#eae6ff" },
+  { labelKey: "editor.colors.cyan", value: "#e6fcff" },
+  { labelKey: "editor.colors.clearCell", value: null }
 ]

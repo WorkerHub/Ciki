@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -28,6 +29,7 @@ export function CreatePageDialog({
   onCreated: (page: PageDetail) => void
 }) {
   const createPage = usePagesStore((state) => state.createPage)
+  const { t } = useTranslation()
   const [title, setTitle] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
@@ -42,7 +44,7 @@ export function CreatePageDialog({
   const submit = async () => {
     const value = title.trim()
     if (!value) {
-      setError("请填写页面标题")
+      setError(t("page.create.titleRequired"))
       return
     }
     setBusy(true)
@@ -62,11 +64,11 @@ export function CreatePageDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>新建页面</DialogTitle>
+          <DialogTitle>{t("page.create.title")}</DialogTitle>
           <DialogDescription>
             {parentTitle
-              ? `将创建在「${parentTitle}」下面。`
-              : "将创建在页面树的顶层。"}
+              ? t("page.create.targetUnder", { title: parentTitle })
+              : t("page.create.targetTop")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -77,7 +79,9 @@ export function CreatePageDialog({
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="new-page-title">页面标题</Label>
+            <Label htmlFor="new-page-title">
+              {t("page.create.titleLabel")}
+            </Label>
             <Input
               id="new-page-title"
               name="page-title"
@@ -85,7 +89,7 @@ export function CreatePageDialog({
               value={title}
               maxLength={255}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="例如：支付服务部署手册"
+              placeholder={t("page.create.titlePlaceholder")}
             />
             {error ? <p className="text-xs text-destructive">{error}</p> : null}
           </div>
@@ -95,10 +99,10 @@ export function CreatePageDialog({
               variant="ghost"
               onClick={() => onOpenChange(false)}
             >
-              取消
+              {t("common.cancel")}
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? "创建中…" : "创建并编辑"}
+              {busy ? t("page.create.creating") : t("page.create.submit")}
             </Button>
           </DialogFooter>
         </form>

@@ -10,8 +10,9 @@ import {
 } from "@/editor/bridge/contract"
 import { UntransferredImageBridge } from "@/editor/bridge/extension"
 import { createExtensions } from "@/editor/extensions"
+import { i18n } from "@/i18n"
 import { uploadImage } from "@/lib/upload"
-import { useImageBridgeStore } from "@/stores/image-bridge"
+import { CAPTURE_TIMEOUT, useImageBridgeStore } from "@/stores/image-bridge"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 vi.mock("@/lib/upload", async (importOriginal) => {
@@ -233,9 +234,7 @@ describe("未转存图片占位的两条出路", () => {
     expect(await screen.findByText("未转存的图片")).toBeInTheDocument()
 
     act(() => {
-      useImageBridgeStore
-        .getState()
-        .fail(SRC, "没等到 Ciki 插件补抓，请手动上传替换。")
+      useImageBridgeStore.getState().fail(SRC, CAPTURE_TIMEOUT)
     })
 
     expect(
@@ -243,5 +242,29 @@ describe("未转存图片占位的两条出路", () => {
     ).toBeInTheDocument()
     expect(screen.getByText("未转存的图片")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "重试自动转存" })).toBeEnabled()
+  })
+
+  it("英文界面：占位与超时文案都走 locale（store 里只有哨兵）", async () => {
+    await i18n.changeLanguage("en")
+    render(<Harness content={UNTRANSFERRED_HTML} />)
+
+    expect(await screen.findByText("Image not copied")).toBeInTheDocument()
+    expect(screen.getByRole("link")).toHaveAttribute("href", SRC)
+    expect(screen.getByText(/^Original URL:/)).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Retry automatic copy" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Upload replacement" })
+    ).toBeInTheDocument()
+
+    act(() => {
+      useImageBridgeStore.getState().fail(SRC, CAPTURE_TIMEOUT)
+    })
+    expect(
+      await screen.findByText(
+        "The Ciki plugin did not respond; upload a replacement manually."
+      )
+    ).toBeInTheDocument()
   })
 })

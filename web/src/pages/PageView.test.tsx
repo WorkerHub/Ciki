@@ -12,6 +12,7 @@ import {
   vi
 } from "vitest"
 import { ApiError, type Me, type PageDetail, type Space } from "@/lib/api"
+import { i18n } from "@/i18n"
 import { readScrollAnchor, rememberScrollAnchor } from "@/lib/scroll-anchor"
 import { PageView } from "@/pages/PageView"
 import { useAuthStore } from "@/stores/auth"
@@ -790,5 +791,120 @@ describe("页面地址只认数字 id", () => {
 
     expect(await screen.findByText("页面不存在或已删除")).toBeInTheDocument()
     expect(pagesApi.get).not.toHaveBeenCalled()
+  })
+})
+
+/** 英文界面：头部动作、空页提示、删除确认与不存在页全走 locale。 */
+describe("阅读页：英文界面", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  beforeEach(() => {
+    useAuthStore.setState({
+      user: memberUser,
+      status: "ready",
+      restricted: false
+    })
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space({ myRole: "editor" })],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.download).mockReset()
+  })
+
+  it("头部动作、更新时间都是英文，中文一个字不留", async () => {
+    await i18n.changeLanguage("en")
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Edit" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Subpage" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Download .md" })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/^Updated /)).toBeInTheDocument()
+    expect(screen.queryByText(/^更新于/)).toBeNull()
+  })
+
+  it("空页提示与删除确认框也是英文", async () => {
+    await i18n.changeLanguage("en")
+    vi.mocked(pagesApi.get).mockResolvedValue({ ...page, contentHtml: "  " })
+    renderView()
+
+    expect(
+      await screen.findByText(/This page is still empty/)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: "Start editing" })
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Delete" }))
+    expect(
+      await screen.findByText("Delete “支付服务部署手册”?")
+    ).toBeInTheDocument()
+    expect(screen.getByText(/will be moved to the trash/)).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Move to trash" })
+    ).toBeInTheDocument()
+  })
+
+  it("新建子页面与移动空间两个对话框也是英文", async () => {
+    await i18n.changeLanguage("en")
+    useSpacesStore.setState({
+      spaces: [
+        space({ myRole: "editor" }),
+        space({ id: 2, slug: "ops", name: "Ops" })
+      ],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    renderView()
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Subpage" })
+    )
+    expect(await screen.findByText("New page")).toBeInTheDocument()
+    expect(
+      screen.getByText("It will be created under “支付服务部署手册”.")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Create and edit" })
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
+
+    await userEvent.click(screen.getByRole("button", { name: "Move to space" }))
+    expect(
+      await screen.findByText("Move “支付服务部署手册”")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/moves to the top level of the target space/)
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Target space")).toBeInTheDocument()
+  })
+
+  it("页面不存在时给英文空态", async () => {
+    await i18n.changeLanguage("en")
+    renderView("/p/0")
+
+    expect(
+      await screen.findByText("Page not found or deleted")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: "Back to home" })
+    ).toBeInTheDocument()
   })
 })

@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/react"
+import { useTranslation } from "react-i18next"
 import {
   Select,
   SelectContent,
@@ -12,12 +13,18 @@ const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const
 /**
  * 下拉项：value 同时是 CSS 的 data-style 钩子（p / h1…h6），
  * index.css 里 .wiki-style-item 按它取对应层级的字号。
+ * 文案只存 key，实际文字在渲染时由 t() 给出（切语言即时生效）。
  */
-export const PARAGRAPH_STYLES: { value: string; label: string }[] = [
-  { value: "p", label: "正文" },
+export const PARAGRAPH_STYLES: {
+  value: string
+  labelKey: string
+  level?: number
+}[] = [
+  { value: "p", labelKey: "editor.paragraph.body" },
   ...HEADING_LEVELS.map((level) => ({
     value: `h${level}`,
-    label: `标题 ${level}`
+    labelKey: "editor.paragraph.heading",
+    level
   }))
 ]
 
@@ -33,6 +40,7 @@ function currentHeading(editor: Editor): string {
  * 触发器收起态仍是纯文字当前项——示范只出现在列表里。
  */
 export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
+  const { t } = useTranslation()
   return (
     <Select
       value={currentHeading(editor)}
@@ -48,7 +56,7 @@ export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
     >
       <SelectTrigger
         size="sm"
-        aria-label="段落样式"
+        aria-label={t("editor.paragraph.label")}
         className="h-7 w-[6.5rem] border-transparent bg-transparent text-xs"
       >
         <SelectValue />
@@ -61,7 +69,7 @@ export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
             data-style={style.value}
             className="wiki-style-item"
           >
-            {style.label}
+            {t(style.labelKey, { level: style.level })}
           </SelectItem>
         ))}
       </SelectContent>

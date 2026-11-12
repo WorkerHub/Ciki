@@ -1,5 +1,6 @@
 import { cn } from "cn"
 import { type KeyboardEvent, useCallback, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 /** 网格选择器的上限：15 列 × 20 行（定版）。 */
 export const MAX_TABLE_COLS = 15
@@ -28,6 +29,7 @@ export function TableSizePicker({
   onPick: (rows: number, cols: number) => void
 }) {
   const [selection, setSelection] = useState<TableSize>(DEFAULT_SIZE)
+  const { t } = useTranslation()
   const gridRef = useRef<HTMLDivElement>(null)
 
   const moveTo = useCallback((next: TableSize) => {
@@ -77,7 +79,7 @@ export function TableSizePicker({
                 type="button"
                 data-cell={`${row}-${col}`}
                 data-selected={selected ? "true" : undefined}
-                aria-label={`${col} 列 × ${row} 行`}
+                aria-label={t("editor.table.cell", { cols: col, rows: row })}
                 tabIndex={active ? 0 : -1}
                 onKeyDown={onKeyDown}
                 onMouseEnter={() => setSelection({ rows: row, cols: col })}

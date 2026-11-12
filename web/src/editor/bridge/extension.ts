@@ -7,6 +7,7 @@ import {
 import { ApiError, describeApiError } from "@/lib/api"
 import { safeExternalUrl } from "@/lib/media"
 import { uploadImage } from "@/lib/upload"
+import i18n from "@/i18n"
 import { useImageBridgeStore } from "@/stores/image-bridge"
 
 /** 正文变化后多久再喊一次清单（粘贴/撤销都走这条路，避免每个按键都发事件）。 */
@@ -64,7 +65,11 @@ export function replaceCapturedImage(
 async function blobFromDataUrl(dataUrl: string): Promise<Blob> {
   const response = await fetch(dataUrl)
   if (!response.ok) {
-    throw new ApiError(400, "插件给的图片没有解码成功", "INVALID_CAPTURE")
+    throw new ApiError(
+      400,
+      i18n.t("editor.image.captureInvalid"),
+      "INVALID_CAPTURE"
+    )
   }
   return response.blob()
 }
@@ -123,7 +128,11 @@ export const UntransferredImageBridge = Extension.create<
         try {
           const blob = await blobFromDataUrl(dataUrl)
           if (!blob.size) {
-            throw new ApiError(400, "插件给的图片是空的", "EMPTY_CAPTURE")
+            throw new ApiError(
+              400,
+              i18n.t("editor.image.captureEmpty"),
+              "EMPTY_CAPTURE"
+            )
           }
           if (editor.isDestroyed) return
           const uploaded = await uploadImage(

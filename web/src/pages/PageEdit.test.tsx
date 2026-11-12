@@ -11,6 +11,7 @@ import {
   vi
 } from "vitest"
 import { ApiError, type PageContentDetail } from "@/lib/api"
+import { i18n } from "@/i18n"
 import { rememberScrollAnchor } from "@/lib/scroll-anchor"
 import { PageEdit } from "@/pages/PageEdit"
 import { usePagesStore } from "@/stores/pages"
@@ -423,5 +424,67 @@ describe("编辑页按记忆锚点定位", () => {
 
     await screen.findByLabelText("页面标题")
     expect(screen.getByTestId("scroller").scrollTop).toBe(0)
+  })
+})
+
+/** 英文界面：标题区、保存状态、工具条动作与两个确认框全走 locale。 */
+describe("编辑页：英文界面", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  beforeEach(() => {
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.update).mockReset()
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
+  })
+
+  it("标题占位、说明与工具条动作都是英文", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    renderEdit()
+
+    expect(await screen.findByLabelText("Page title")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Back to reading" })
+    ).toBeInTheDocument()
+    expect(screen.getByText(/every save creates a version/)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText("Page title"), "!")
+    expect(await screen.findByText("Unsaved changes")).toBeInTheDocument()
+    expect(screen.queryByText("有未保存的更改")).toBeNull()
+  })
+
+  it("未保存离开的确认框是英文", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    renderEdit()
+
+    await user.type(await screen.findByLabelText("Page title"), "!")
+    await user.click(screen.getByRole("button", { name: "Cancel" }))
+
+    expect(
+      await screen.findByText("Discard unsaved changes?")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Keep editing" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Discard changes" })
+    ).toBeInTheDocument()
   })
 })

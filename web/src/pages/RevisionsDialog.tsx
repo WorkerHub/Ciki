@@ -1,5 +1,6 @@
 import { RotateCcw, Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -64,6 +65,7 @@ export function RevisionsDialog({
   const [busy, setBusy] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<RevisionSummary | null>(null)
   const [pruneOpen, setPruneOpen] = useState(false)
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (!open) return
@@ -136,7 +138,7 @@ export function RevisionsDialog({
         prev.filter((revision) => revision.versionNo !== targetVersion)
       )
       setSelected((prev) => (prev?.versionNo === targetVersion ? null : prev))
-      toast.success("版本已删除。", { duration: TOAST_DURATION })
+      toast.success(t("page.revisions.deleted"), { duration: TOAST_DURATION })
     } catch (deleteError: unknown) {
       setError(describeApiError(deleteError))
       // 别处刚保存过（目标不再是最新）或已被删除：重拉列表纠正「最新」的落点
@@ -164,11 +166,13 @@ export function RevisionsDialog({
         prev && kept && prev.versionNo === kept.versionNo ? prev : null
       )
       if (deleted > 0) {
-        toast.success(`已删除 ${deleted} 条版本。`, {
+        toast.success(t("page.revisions.deletedCount", { count: deleted }), {
           duration: TOAST_DURATION
         })
       } else {
-        toast("没有可删除的版本。", { duration: TOAST_DURATION })
+        toast(t("page.revisions.nothingToDelete"), {
+          duration: TOAST_DURATION
+        })
       }
     } catch (pruneError: unknown) {
       setError(describeApiError(pruneError))
@@ -189,7 +193,7 @@ export function RevisionsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[80vh] w-full flex-col gap-3 overflow-hidden p-5 sm:max-w-[900px] sm:p-6">
         <DialogHeader className="shrink-0 pr-8">
-          <DialogTitle>版本历史</DialogTitle>
+          <DialogTitle>{t("page.revisions.title")}</DialogTitle>
         </DialogHeader>
 
         {error ? (
@@ -203,12 +207,14 @@ export function RevisionsDialog({
 
         <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[288px_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)]">
           <section
-            aria-label="版本列表"
+            aria-label={t("page.revisions.listLabel")}
             className="flex max-h-[30vh] min-h-0 flex-col overflow-hidden rounded-lg border border-border md:max-h-none"
           >
             <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border pr-1.5 pl-3">
               <span className="text-xs text-muted-foreground">
-                {loading ? "加载中…" : `${revisions.length} 个版本`}
+                {loading
+                  ? t("page.revisions.loading")
+                  : t("page.revisions.count", { count: revisions.length })}
               </span>
               {!readOnly && prunableCount > 0 ? (
                 <Button
@@ -219,7 +225,7 @@ export function RevisionsDialog({
                   onClick={() => setPruneOpen(true)}
                 >
                   <Trash2 aria-hidden="true" />
-                  只保留最新一条
+                  {t("page.revisions.keepLatest")}
                 </Button>
               ) : null}
             </div>
@@ -227,11 +233,11 @@ export function RevisionsDialog({
               <ul className="divide-y divide-border">
                 {loading ? (
                   <li className="px-3 py-4 text-sm text-muted-foreground">
-                    加载中…
+                    {t("page.revisions.loading")}
                   </li>
                 ) : revisions.length === 0 ? (
                   <li className="px-3 py-4 text-sm text-muted-foreground">
-                    还没有版本记录。
+                    {t("page.revisions.empty")}
                   </li>
                 ) : (
                   revisions.map((revision) => {
@@ -250,14 +256,16 @@ export function RevisionsDialog({
                         >
                           <span className="flex w-full items-center gap-1.5">
                             <span className="truncate text-sm font-medium">
-                              第 {revision.versionNo} 版
+                              {t("page.revisions.versionNo", {
+                                no: revision.versionNo
+                              })}
                             </span>
                             {isLatest ? (
                               <Badge
                                 variant="secondary"
                                 className="h-4 shrink-0 rounded px-1.5 text-[0.65rem]"
                               >
-                                最新
+                                {t("page.revisions.latest")}
                               </Badge>
                             ) : null}
                           </span>
@@ -278,8 +286,8 @@ export function RevisionsDialog({
                             size="icon-xs"
                             variant="ghost"
                             className="absolute top-1/2 right-1 -translate-y-1/2 text-muted-foreground hover:text-destructive"
-                            aria-label="删除这个版本"
-                            title="删除这个版本"
+                            aria-label={t("page.revisions.deleteOneLabel")}
+                            title={t("page.revisions.deleteOneLabel")}
                             disabled={busy}
                             onClick={() => setDeleteTarget(revision)}
                           >
@@ -295,15 +303,17 @@ export function RevisionsDialog({
           </section>
 
           <section
-            aria-label="版本预览"
+            aria-label={t("page.revisions.previewLabel")}
             className="flex max-h-[34vh] min-h-[7rem] flex-col overflow-hidden rounded-lg border border-border md:max-h-none md:min-h-0"
           >
             {selected ? (
               <>
                 <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border pr-1.5 pl-3">
                   <span className="min-w-0 truncate text-xs text-muted-foreground">
-                    第 {selected.versionNo} 版 ·{" "}
-                    {formatDateTime(selected.createdAt)}
+                    {t("page.revisions.previewVersion", {
+                      no: selected.versionNo,
+                      time: formatDateTime(selected.createdAt)
+                    })}
                   </span>
                   {canRestore ? (
                     <Button
@@ -313,7 +323,9 @@ export function RevisionsDialog({
                       onClick={() => void restore()}
                     >
                       <RotateCcw aria-hidden="true" />
-                      {restoring ? "回滚中…" : "回滚到这个版本"}
+                      {restoring
+                        ? t("page.revisions.restoring")
+                        : t("page.revisions.restore")}
                     </Button>
                   ) : null}
                 </div>
@@ -326,7 +338,7 @@ export function RevisionsDialog({
             ) : (
               <div className="flex flex-1 items-center justify-center px-6 py-8">
                 <p className="text-xs text-muted-foreground">
-                  选择左侧任一版本查看内容
+                  {t("page.revisions.selectHint")}
                 </p>
               </div>
             )}
@@ -342,22 +354,30 @@ export function RevisionsDialog({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除这个版本？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("page.revisions.deleteDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteTarget
-                ? `第 ${deleteTarget.versionNo} 版（${formatDateTime(deleteTarget.createdAt)}）`
-                : "这个版本"}
-              将被永久删除，无法恢复。页面当前内容与其他版本不受影响。
+              {t("page.revisions.deleteDialog.description", {
+                target: deleteTarget
+                  ? t("page.revisions.deleteDialog.target", {
+                      no: deleteTarget.versionNo,
+                      time: formatDateTime(deleteTarget.createdAt)
+                    })
+                  : t("page.revisions.deleteDialog.targetFallback")
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={busy}
               onClick={() => void removeRevision()}
             >
-              删除
+              {t("page.revisions.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -366,20 +386,27 @@ export function RevisionsDialog({
       <AlertDialog open={pruneOpen} onOpenChange={setPruneOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>只保留最新的一条版本？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("page.revisions.pruneDialog.title")}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              将删除其余 {prunableCount}{" "}
-              条版本，删除后无法恢复。页面当前内容与最新的一条版本不受影响。
+              {t("page.revisions.pruneDialog.description", {
+                count: prunableCount
+              })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={busy}
               onClick={() => void pruneRest()}
             >
-              删除 {prunableCount} 条
+              {t("page.revisions.pruneDialog.confirm", {
+                count: prunableCount
+              })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

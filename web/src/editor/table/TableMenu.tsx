@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/react"
 import { cn } from "cn"
 import { Rows3, Table2, Trash2 } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -51,6 +52,7 @@ function TableAction({
  */
 export function TableMenu({ editor }: { editor: Editor }) {
   const [open, setOpen] = useState(false)
+  const { t } = useTranslation()
   // 插入完成后阻止 Radix 把焦点抢回触发器，光标留在新表格首格
   const keepFocusInEditor = useRef(false)
 
@@ -69,15 +71,15 @@ export function TableMenu({ editor }: { editor: Editor }) {
           type="button"
           size="icon-sm"
           variant={inTable ? "secondary" : "ghost"}
-          aria-label="表格"
-          title="表格"
+          aria-label={t("editor.table.label")}
+          title={t("editor.table.label")}
         >
           <Table2 aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        aria-label="表格"
+        aria-label={t("editor.table.label")}
         className="w-max p-1"
         onCloseAutoFocus={(event) => {
           if (!keepFocusInEditor.current) return
@@ -102,7 +104,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
           <>
             <Separator className="my-1" />
             <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">
-              当前表格
+              {t("editor.table.current")}
             </div>
             <TableAction
               icon={Rows3}
@@ -111,7 +113,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
                 run(() => editor.chain().focus().addRowAfter().run())
               }
             >
-              在下方插入行
+              {t("editor.table.insertRowBelow")}
             </TableAction>
             <TableAction
               disabled={!editor.can().addColumnAfter()}
@@ -119,7 +121,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
                 run(() => editor.chain().focus().addColumnAfter().run())
               }
             >
-              在右侧插入列
+              {t("editor.table.insertColumnRight")}
             </TableAction>
             <TableAction
               disabled={!editor.isActive("table")}
@@ -127,7 +129,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
                 run(() => editor.chain().focus().deleteRow().run())
               }
             >
-              删除当前行
+              {t("editor.table.deleteRow")}
             </TableAction>
             <TableAction
               disabled={!editor.isActive("table")}
@@ -135,7 +137,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
                 run(() => editor.chain().focus().deleteColumn().run())
               }
             >
-              删除当前列
+              {t("editor.table.deleteColumn")}
             </TableAction>
             <TableAction
               icon={Trash2}
@@ -145,7 +147,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
                 run(() => editor.chain().focus().deleteTable().run())
               }
             >
-              删除表格
+              {t("editor.table.deleteTable")}
             </TableAction>
           </>
         ) : null}
