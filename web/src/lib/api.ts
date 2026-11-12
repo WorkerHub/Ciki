@@ -5,6 +5,8 @@
  * tds/conv-01a1b404-…）：响应一律 camelCase，时间一律 ISO 8601 字符串。
  * 组件与 store 只调用这里的函数，不自己拼 fetch / 不自己编字段。
  */
+import i18n from "@/i18n"
+import type { Language } from "@/lib/language"
 
 const BASE = "/api"
 
@@ -228,6 +230,11 @@ export interface Me extends User {
   avatarUrl: string | null
   approvalStatus: ApprovalStatus
   createdAt: string
+  /**
+   * 界面语言偏好（规格 §2.7）。A1 之前的后端没有这个字段，
+   * 读不到时前端保持本机选择，所以这里按可选处理。
+   */
+  language?: Language
   twofa: {
     totpEnabled: boolean
     passkeyEnabled: boolean
@@ -648,9 +655,11 @@ export interface AdminSpace {
  * 系统管理 → 数据库维护的体积口径（GET /api/admin/storage）。
  * D1 是 Ciki 独占库，`sizeScope` 即本库；前端只展示 `pageCount` 与体积，
  * 不渲染 scope 文案（不出现「共享库」字样）。
- * 体积由 Cloudflare D1 REST API 的 `file_size` 取得（服务端约 5 分钟缓存）；
+ * D1 体积由 Cloudflare D1 REST API 的 `file_size` 取得（服务端约 5 分钟缓存）；
  * 取不到时 `databaseSizeBytes` 为 null、`measure` 为 `unavailable` ——
  * 显示「不可得」，绝不估算。
+ * 两个 R2 桶体积（图片 `ciki-assets` / 正文 `ciki-content`）由服务端分页 `list()`
+ * 现算、不合并；某一桶统计失败时对应字段为 null，前端整项不渲染。
  */
 export interface AdminStorage {
   /** 未删除页面数（不含回收站）。 */
@@ -658,6 +667,13 @@ export interface AdminStorage {
   trashedPageCount: number
   revisionCount: number
   databaseSizeBytes: number | null
+  /** 图片桶总字节；统计失败为 null（该项不渲染）。 */
+  assetsSizeBytes: number | null
+  /** 正文桶总字节；统计失败为 null（该项不渲染）。 */
+  contentSizeBytes: number | null
+  /** 两桶对象数：本期前端不显示，仅随接口备用。 */
+  assetsObjectCount: number | null
+  contentObjectCount: number | null
   sizeScope: string
   /** 体积来源：API 取到为 `cloudflare-d1-api`，取不到为 `unavailable`。 */
   measure: "cloudflare-d1-api" | "unavailable"
@@ -679,10 +695,11 @@ export const setupApi = {
 
 export const authApi = {
   config: () => api.get<AuthConfig>("/auth/config", { skipRefresh: true }),
-  register: (email: string, password: string) =>
+  /** 注册入参可带当前界面语言：验证邮件与新账号都以它为准（规格 §2.6）。 */
+  register: (email: string, password: string, language?: Language) =>
     api.post<RegisterResult>(
       "/auth/register",
-      { email, password },
+      { email, password, language },
       { skipRefresh: true }
     ),
   /**
@@ -813,8 +830,11 @@ export const authApi = {
 
 export const meApi = {
   get: () => api.get<Me>("/me"),
-  updateProfile: (patch: { username?: string; avatarKey?: string | null }) =>
-    api.put<Me>("/me/profile", patch),
+  updateProfile: (patch: {
+    username?: string
+    avatarKey?: string | null
+    language?: Language
+  }) => api.put<Me>("/me/profile", patch),
   /**
    * 头像专用上传口（规格 §1）：落 avatars/，服务端同请求里换掉本人头像并删旧图；
    * 响应是与 GET /api/me 相同的 Me，调用方一次拿到新 avatarUrl。
@@ -1124,6 +1144,9 @@ export function describeApiError(error: unknown): string {
       return "这个用户名已经有人用了，请换一个。"
     case "INVALID_AVATAR":
       return "头像无效，请重新上传。"
+    // 语言只支持集内的代码；其余错误码文案的迁移留给 B4。
+    case "INVALID_LANGUAGE":
+      return i18n.t("errors.INVALID_LANGUAGE")
     case "INVALID_SPACE_NAME":
       return "空间名称需为 1–64 个字符。"
     case "INVALID_SPACE_DESCRIPTION":

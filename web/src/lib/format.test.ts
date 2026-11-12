@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { formatIsoUtc } from "@/lib/format"
+import { i18n } from "@/i18n"
+import {
+  formatDate,
+  formatDateTime,
+  formatIsoUtc,
+  formatRelative,
+  formatTime
+} from "@/lib/format"
 
 /** 构建时间按 ISO 8601 UTC 直出（秒级、`Z` 后缀），不经本地时区换算。 */
 describe("formatIsoUtc", () => {
@@ -30,5 +37,44 @@ describe("formatIsoUtc", () => {
     expect(formatIsoUtc(null)).toBe("—")
     expect(formatIsoUtc("")).toBe("—")
     expect(formatIsoUtc("not-a-date")).toBe("—")
+  })
+})
+
+/** 日期 / 相对时间按当前界面语言展示（规格 §2.11），zh 口径逐字保持现网。 */
+describe("日期与相对时间跟随语言", () => {
+  const CREATED_AT = "2026-11-10T14:10:00.000Z"
+
+  it("zh 保持现网口径：短横线分隔 + 中文相对时间", () => {
+    expect(formatDateTime(CREATED_AT)).toBe("2026-11-10 22:10")
+    expect(formatDate(CREATED_AT)).toBe("2026-11-10")
+    expect(formatTime(CREATED_AT)).toBe("22:10")
+    expect(
+      formatRelative(new Date(Date.now() - 5 * 60_000).toISOString())
+    ).toBe("5 分钟前")
+    // 中文只有 other 一个复数类别：count=1 也走 `_other`，zh.json 无需 `_one`
+    expect(formatRelative(new Date(Date.now() - 60_000).toISOString())).toBe(
+      "1 分钟前"
+    )
+    expect(formatRelative(new Date().toISOString())).toBe("刚刚")
+  })
+
+  it("空值与非法值回退为占位符", () => {
+    expect(formatTime(null)).toBe("—")
+    expect(formatTime("not-a-date")).toBe("—")
+  })
+
+  it("en 用英文文案与 en-US 原生日期格式", async () => {
+    await i18n.changeLanguage("en")
+    expect(formatDateTime(CREATED_AT)).toBe("11/10/2026, 22:10")
+    expect(formatDate(CREATED_AT)).toBe("11/10/2026")
+    // 只取时:分，不能靠整串日期的字符位置切（en 的排布与 zh 不同）
+    expect(formatTime(CREATED_AT)).toBe("22:10")
+    expect(
+      formatRelative(new Date(Date.now() - 5 * 60_000).toISOString())
+    ).toBe("5 minutes ago")
+    expect(formatRelative(new Date(Date.now() - 60_000).toISOString())).toBe(
+      "1 minute ago"
+    )
+    expect(formatRelative(new Date().toISOString())).toBe("Just now")
   })
 })

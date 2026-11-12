@@ -1,5 +1,7 @@
 import { type ReactNode, Suspense, useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { Navigate, Outlet, useLocation } from "react-router"
+import { applyAccountLanguage } from "@/i18n"
 import { setUnauthorizedHandler } from "@/lib/api"
 import { watchSystemTheme } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
@@ -29,7 +31,9 @@ export function FullPageLoader({ label = "加载中…" }: { label?: string }) {
  */
 export function RootGate() {
   const location = useLocation()
+  const { t } = useTranslation()
   const load = useAuthStore((state) => state.load)
+  const accountLanguage = useAuthStore((state) => state.user?.language)
   const setup = useSetupGateStore((state) => state.state)
   const loadSetup = useSetupGateStore((state) => state.load)
   const loadSite = useSiteStore((state) => state.load)
@@ -49,10 +53,17 @@ export function RootGate() {
     }
   }, [load, loadSetup, loadSite])
 
-  // 站点改名后页签标题立即跟着变，不需要重新构建或刷新。
+  // 登录 / 刷新 Me 后以账号语言为准，并同步 localStorage（规格 §2.3）。
+  // 设置页写回同一个语言时本效果会再跑一次：changeLanguage 对同值直接返回，
+  // accountLanguage 也不变，因此不会形成循环。
   useEffect(() => {
-    document.title = siteName
-  }, [siteName])
+    void applyAccountLanguage(accountLanguage)
+  }, [accountLanguage])
+
+  // 站点改名后页签标题立即跟着变；标题文案走 locale，语言变化时一并重放。
+  useEffect(() => {
+    document.title = t("app.title", { siteName })
+  }, [siteName, t])
 
   if (setup === null) return <FullPageLoader />
 

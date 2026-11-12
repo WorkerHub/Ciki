@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { CikiLogo } from "@/components/CikiLogo"
+import { LanguageCycleButton } from "@/components/LanguageToggle"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
 import { useSiteStore } from "@/stores/site"
 
@@ -16,7 +17,8 @@ export function AuthShell({
   const siteName = useSiteStore((state) => state.name)
   return (
     <div className="relative flex min-h-svh flex-col bg-background">
-      <div className="absolute top-3 right-3">
+      <div className="absolute top-3 right-3 flex items-center gap-1">
+        <LanguageCycleButton />
         <ThemeCycleButton />
       </div>
       <main className="flex flex-1 items-center justify-center px-4 py-10">
