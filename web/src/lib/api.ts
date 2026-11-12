@@ -145,7 +145,7 @@ function toApiError(res: Response, body: unknown, path: string): ApiError {
   const error = (body ?? {}) as ApiErrorBody
   return new ApiError(
     res.status,
-    error.error || `请求失败（${res.status}）`,
+    error.error || i18n.t("errors.httpStatus", { status: res.status }),
     error.code,
     error.retryAfter,
     error,
@@ -1024,13 +1024,13 @@ export const adminApi = {
  * 的 `Unauthorized` 才是真的失效；不改契约，前端按冻结文案分流。
  * 键为小写后的原文，两侧空白一并忽略。
  */
-const CREDENTIAL_FAILURE_MESSAGES: Record<string, string> = {
-  "invalid credentials": "邮箱或密码不正确。",
-  "invalid verification code": "验证码不正确，请重新输入。",
+const CREDENTIAL_FAILURE_MESSAGE_KEYS: Record<string, string> = {
+  "invalid credentials": "errors.credentials.invalidCredentials",
+  "invalid verification code": "errors.credentials.invalidVerificationCode",
   // /auth/2fa/totp/enable 输错码回 400 Invalid code，与上面的 401 是同一件事
-  "invalid code": "验证码不正确，请重新输入。",
-  "invalid or expired 2fa session": "两步验证已失效，请返回上一步重新登录。",
-  "verification failed": "Passkey 验证未通过，请重试。"
+  "invalid code": "errors.credentials.invalidMfaCode",
+  "invalid or expired 2fa session": "errors.credentials.twoFactorSession",
+  "verification failed": "errors.credentials.passkeyFailed"
 }
 
 /**
@@ -1075,181 +1075,154 @@ function isEmailVerifyPath(path: string | undefined) {
   return EMAIL_VERIFY_PATHS.includes(path.split("?")[0])
 }
 
+/**
+ * describeApiError 认识的错误码及其文案 key（规格 §2.9）：集合里每个码在
+ * locales 都有 `errors.<CODE>`。需要插值或按 path 分流的几条（ACCOUNT_LOCKED、
+ * INVALID_CODE、两类 SMTP 失败）在查表前先处理。
+ *
+ * 下面的注释说明「为什么这么说」——改文案前先读一遍：运维问题别往用户
+ * 内容坏了上引，机制细节也别摊给用户。
+ */
+export const ERROR_TEXT_CODES = new Set<string>([
+  // 账号与登录
+  "ACCOUNT_PENDING_APPROVAL",
+  "ACCOUNT_REJECTED",
+  "RATE_LIMITED",
+  "ACCOUNT_LOCKED",
+  "REGISTRATION_DISABLED",
+  "EMAIL_TAKEN",
+  "METHOD_NOT_ENABLED",
+  "2FA_METHOD_UNAVAILABLE",
+  // 初始化与升级：两种冲突都讲清「已中止、数据未动」，措辞对齐数据库维护页
+  "PREFIX_CONFLICT",
+  "LEDGER_CONFLICT",
+  "MIGRATION_REJECTED",
+  // 版本
+  "REVISION_IS_LATEST",
+  "RETENTION_UNLIMITED",
+  // 倒计时由数据库维护页的「进行中」提示行按 retryAfter 给出，这里只说状态
+  "CLEANUP_IN_PROGRESS",
+  "REVISION_UNRENDERABLE",
+  // 正文存储（内容桶）取不到对象：是运维问题，别把用户往「内容坏了」上引
+  "CONTENT_MISSING",
+  // 页面
+  "PAGE_MOVE_CYCLE",
+  "PARENT_DELETED",
+  "PAGE_NOT_DELETED",
+  // 页尾评论：软删的评论仍以占位保留，并发删除时再编辑会撞 409；
+  // 只说结果，不讲软删之类的机制
+  "COMMENT_EMPTY",
+  "COMMENT_NOT_FOUND",
+  "COMMENT_DELETED",
+  // 导入专用：contentJson 解析不了、或按当前 schema 渲染不了
+  "INVALID_CONTENT_JSON",
+  "PAYLOAD_TOO_LARGE",
+  "FILE_TOO_LARGE",
+  // 个人资料
+  "INVALID_USERNAME",
+  // username 必须唯一，撞名 409：只说结果，不解释唯一索引之类的实现机制
+  "USERNAME_TAKEN",
+  "INVALID_AVATAR",
+  "INVALID_LANGUAGE",
+  // 空间与成员
+  "INVALID_SPACE_NAME",
+  "INVALID_SPACE_DESCRIPTION",
+  "SPACE_NOT_FOUND",
+  "SPACE_DEFAULT_PROTECTED",
+  "SPACE_NOT_EMPTY",
+  "SPACE_MISMATCH",
+  // 导入是唯一带这个码的入口（页面直链无权时仍走 404 口径）
+  "SPACE_FORBIDDEN",
+  // 导入与建页面都可能在站点缺默认空间时撞上（409）
+  "DEFAULT_SPACE_MISSING",
+  "ALREADY_MEMBER",
+  "USER_NOT_ELIGIBLE",
+  "LAST_SPACE_ADMIN",
+  "MEMBER_NOT_FOUND",
+  "USER_NOT_FOUND",
+  "INVALID_ROLE",
+  // 邮件与验证码
+  "EMAIL_NOT_CONFIGURED",
+  "INVALID_EMAIL",
+  "EMAIL_NOT_VERIFIED",
+  "INVALID_RESET_TOKEN",
+  "WEAK_PASSWORD"
+])
+
 /** 把契约错误码翻成可以直接给用户看的句子（组件只管展示返回值）。 */
 export function describeApiError(error: unknown): string {
-  if (!(error instanceof ApiError)) return "网络异常，请稍后重试"
-  switch (error.code) {
-    case "ACCOUNT_PENDING_APPROVAL":
-      return "账号正在等待管理员批准，批准后即可登录。"
-    case "ACCOUNT_REJECTED":
-      return "该账号的注册申请已被拒绝，请联系管理员。"
-    case "RATE_LIMITED":
-      return "尝试次数过多，请稍后再试。"
-    case "ACCOUNT_LOCKED":
-      return `连续登录失败次数过多，请在 ${error.retryAfter ?? 0} 秒后重试。`
-    case "REGISTRATION_DISABLED":
-      return "站点已关闭注册，请联系管理员开通账号。"
-    case "EMAIL_TAKEN":
-      return "这个邮箱已经注册过，直接登录即可。"
-    case "METHOD_NOT_ENABLED":
-      return "这个账号没有开启邮箱验证码。"
-    case "2FA_METHOD_UNAVAILABLE":
-      return "该账号开启的两步验证方式当前都不可用，请联系管理员。"
-    case "PREFIX_CONFLICT":
-      return "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。"
-    case "LEDGER_CONFLICT":
-      return "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。"
-    case "MIGRATION_REJECTED":
-      // 结构/账本停在中间版本：服务端的详细信息在错误体 error 里，这里只给管理员
-      // 「从上一版升一次」与「结构被改过就还原」两步，并明确数据未被改动。
-      return "这个库的结构不是本版能直接升级的来源：请先用上一版（支持升到 schema_v8 的发布）在「系统管理 → 数据库维护」点一次「检查并升级数据库」，再换回本版重试；本次没有改动任何数据。如果账本已记着 schema_v8，说明结构在升级后被改动过，请先按升级前记下的 Time Travel 回退点恢复。"
-    case "REVISION_IS_LATEST":
-      return "每页最新的一条版本不能删除。"
-    case "RETENTION_UNLIMITED":
-      return "当前设置为不限，没有可修剪的版本。"
-    case "CLEANUP_IN_PROGRESS":
-      // 倒计时由数据库维护页的「进行中」提示行按 retryAfter 给出，这里只说状态
-      return "清理正在进行，请稍后再试。"
-    case "REVISION_UNRENDERABLE":
-      return "这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。"
-    case "CONTENT_MISSING":
-      // 正文存储（内容桶）取不到对象：是运维问题，别把用户往「内容坏了」上引。
-      return "页面正文暂时取不到（内容存储不可用或对象缺失），请稍后重试；持续失败请让管理员检查内容存储（ciki-content）。"
-    case "PAGE_MOVE_CYCLE":
-      return "不能把页面移动到它自己的子页面下。"
-    case "PARENT_DELETED":
-      return "目标父页面还在回收站里，请先恢复父页面。"
-    case "PAGE_NOT_DELETED":
-      return "只有已删除的页面才能彻底删除。"
-    // 页尾评论（契约「页尾评论」）：软删的评论仍以占位保留，
-    // 并发删除时再编辑会撞 409；只说结果，不讲软删之类的机制。
-    case "COMMENT_EMPTY":
-      return "评论内容不能为空。"
-    case "COMMENT_NOT_FOUND":
-      return "找不到这条评论，可能已被删除。"
-    case "COMMENT_DELETED":
-      return "这条评论已被删除，不能再修改。"
-    // 导入专用：contentJson 解析不了、或按当前 schema 渲染不了。
-    case "INVALID_CONTENT_JSON":
-      return "页面内容的格式不正确，无法保存。"
-    case "PAYLOAD_TOO_LARGE":
-      return "内容或图片超过了单次保存上限，请精简后重试。"
-    case "FILE_TOO_LARGE":
-      return "图片超过 10MB，请压缩后再上传。"
-    case "INVALID_USERNAME":
-      return "用户名不合法，请检查后重试。"
-    case "USERNAME_TAKEN":
-      // 契约「PUT /api/me/profile」：username 必须唯一，撞名 409。只说结果，
-      // 不解释唯一索引之类的实现机制。
-      return "这个用户名已经有人用了，请换一个。"
-    case "INVALID_AVATAR":
-      return "头像无效，请重新上传。"
-    // 语言只支持集内的代码；其余错误码文案的迁移留给 B4。
-    case "INVALID_LANGUAGE":
-      return i18n.t("errors.INVALID_LANGUAGE")
-    case "INVALID_SPACE_NAME":
-      return "空间名称需为 1–64 个字符。"
-    case "INVALID_SPACE_DESCRIPTION":
-      return "空间描述最多 500 个字符。"
-    case "SPACE_NOT_FOUND":
-      return "空间不存在，或你已不是它的成员。"
-    case "SPACE_DEFAULT_PROTECTED":
-      return "默认空间不能删除。"
-    case "SPACE_NOT_EMPTY":
-      return "空间里还有页面，请先把页面移动到其他空间，或彻底删除回收站里的页面。"
-    case "SPACE_MISMATCH":
-      return "目标父页面不在这个空间里。"
-    // 导入是唯一带这个码的入口（页面直链无权时仍走 404 口径）。
-    case "SPACE_FORBIDDEN":
-      return "你在这个空间里没有导入页面的权限。"
-    // 导入与建页面都可能在站点缺默认空间时撞上（409）。
-    case "DEFAULT_SPACE_MISSING":
-      return "站点还没有可用的默认空间，请联系管理员。"
-    case "ALREADY_MEMBER":
-      return "该用户已经是这个空间的成员。"
-    case "USER_NOT_ELIGIBLE":
-      return "该用户当前不可加入空间（需处于启用且已批准状态）。"
-    case "LAST_SPACE_ADMIN":
-      return "空间至少需要保留一名管理员。"
-    case "MEMBER_NOT_FOUND":
-      return "这个成员已经不在空间里了。"
-    case "USER_NOT_FOUND":
-      return "找不到这个用户。"
-    case "INVALID_ROLE":
-      return "成员角色不合法。"
-    case "EMAIL_NOT_CONFIGURED":
-      return "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
-    case "INVALID_EMAIL":
-      return "邮箱格式不正确，请检查后重试。"
-    case "INVALID_CODE":
-      // 找回密码的验码（auth.ts）与邮箱 2FA 的启用验码（auth-2fa.ts）共用这个码：
-      // 前者失败即作废、必须重新拿码，后者只是输错、可以就地重输。
-      // 注册邮箱验证（#85）同时可能是「未知邮箱」，只说到已验证码这一层。
-      if (isEmailVerifyPath(error.path)) return "验证码不正确或已过期。"
-      return isPasswordResetPath(error.path)
-        ? "验证码不正确或已过期，请重新获取。"
-        : "验证码不正确，请重新输入。"
-    case "EMAIL_NOT_VERIFIED":
-      // 登录门禁（#85）：登录页会给「去验证 / 重新发送验证码」两个入口，
-      // 这里只兜其它 surfaces 上的裸展示。
-      return "邮箱还没有验证，请先完成邮箱验证。"
-    case "INVALID_RESET_TOKEN":
-      return "这次重置已失效（验证码换来的凭证过期或已被使用），请重新获取验证码。"
-    case "WEAK_PASSWORD":
-      return "密码至少 8 位。"
-    case "SMTP_SEND_FAILED": {
-      // 服务端已脱敏（密码与 base64 换 ***），这里原样带出真实原因便于排障
-      const reason = error.message.replace(/^smtp send failed:\s*/i, "").trim()
-      return reason ? `发信失败：${reason}` : "发信失败，请检查 SMTP 配置。"
-    }
-    case "INVALID_SMTP_CONFIG": {
-      const reason = error.message
-        .replace(/^invalid smtp config:\s*/i, "")
-        .trim()
-      return reason
-        ? `SMTP 配置不合法：${reason}`
-        : "SMTP 配置不合法，请检查后重试。"
-    }
-    default:
-      break
+  if (!(error instanceof ApiError)) return i18n.t("errors.network")
+  const code = error.code
+  if (code === "ACCOUNT_LOCKED") {
+    return i18n.t("errors.ACCOUNT_LOCKED", {
+      seconds: error.retryAfter ?? 0
+    })
   }
+  // 找回密码的验码（auth.ts）与邮箱 2FA 的启用验码（auth-2fa.ts）共用这个码：
+  // 前者失败即作废、必须重新拿码，后者只是输错、可以就地重输。
+  // 注册邮箱验证（#85）同时可能是「未知邮箱」，只说到已验证码这一层。
+  if (code === "INVALID_CODE") {
+    if (isEmailVerifyPath(error.path))
+      return i18n.t("errors.INVALID_CODE_VERIFY")
+    if (isPasswordResetPath(error.path))
+      return i18n.t("errors.INVALID_CODE_RESET")
+    return i18n.t("errors.INVALID_CODE")
+  }
+  // 服务端已脱敏（密码与 base64 换 ***），原文照带出真实原因便于排障
+  if (code === "SMTP_SEND_FAILED") {
+    const reason = error.message.replace(/^smtp send failed:\s*/i, "").trim()
+    return reason
+      ? i18n.t("errors.SMTP_SEND_FAILED_REASON", { reason })
+      : i18n.t("errors.SMTP_SEND_FAILED")
+  }
+  if (code === "INVALID_SMTP_CONFIG") {
+    const reason = error.message.replace(/^invalid smtp config:\s*/i, "").trim()
+    return reason
+      ? i18n.t("errors.INVALID_SMTP_CONFIG_REASON", { reason })
+      : i18n.t("errors.INVALID_SMTP_CONFIG")
+  }
+  if (code && ERROR_TEXT_CODES.has(code)) return i18n.t(`errors.${code}`)
+
   const credentialFailure =
-    CREDENTIAL_FAILURE_MESSAGES[error.message.trim().toLowerCase()]
-  if (credentialFailure) return credentialFailure
+    CREDENTIAL_FAILURE_MESSAGE_KEYS[error.message.trim().toLowerCase()]
+  if (credentialFailure) return i18n.t(credentialFailure)
   if (error.status === 400 && /password required/i.test(error.message)) {
-    return "这个操作需要输入账号密码确认身份。"
+    return i18n.t("errors.passwordRequired")
   }
   if (error.status === 403 && /password is incorrect/i.test(error.message)) {
-    return "密码不正确，请重试。"
+    return i18n.t("errors.passwordIncorrect")
   }
   if (error.status === 401) {
     // 登录 / 两步表单的 401 即使文案没命中上表（例如后端改词）也不能说成
     // 「会话过期」，否则用户会被引导去重新走一遍整个登录。
-    if (isAuthFormPath(error.path)) return "验证未通过，请重试。"
-    return "登录状态已失效，请重新登录。"
+    if (isAuthFormPath(error.path)) return i18n.t("errors.authFailed")
+    return i18n.t("errors.sessionExpired")
   }
-  if (error.status === 403) return error.message || "没有权限执行这个操作。"
-  if (error.status === 404) return "对象不存在，或已被删除。"
-  if (error.status === 409)
-    return error.message || "当前状态冲突，请刷新后重试。"
+  if (error.status === 403) {
+    return error.message || i18n.t("errors.forbidden")
+  }
+  if (error.status === 404) return i18n.t("errors.notFound")
+  if (error.status === 409) {
+    return error.message || i18n.t("errors.conflict")
+  }
   if (error.status === 400 && /site ?name/i.test(error.message)) {
-    return "站点名称需为 1–32 个字符。"
+    return i18n.t("errors.siteNameLength")
   }
   if (error.status === 400 && /revisionRetentionLimit/i.test(error.message)) {
-    return "保留数需为不小于 1 的整数，留空表示不限。"
+    return i18n.t("errors.retentionLimit")
   }
   if (error.status === 400 && /invalid username/i.test(error.message)) {
-    return "用户名不合法，请检查后重试。"
+    return i18n.t("errors.INVALID_USERNAME")
   }
   if (error.status === 400 && /invalid avatar/i.test(error.message)) {
-    return "头像无效，请重新上传。"
+    return i18n.t("errors.INVALID_AVATAR")
   }
-  if (error.status === 413) return "内容太大，服务器拒绝了这次请求。"
-  if (error.status === 429) return "操作太频繁，请稍后再试。"
+  if (error.status === 413) return i18n.t("errors.tooLarge")
+  if (error.status === 429) return i18n.t("errors.tooFrequent")
   // 清理接口扫描期异常回 500 {"error":"Cleanup failed"}；与同文件其余按原文匹配的
   // 规则一致，这里认的是文案而不是端点，别把英文原文直接摆给管理员
   if (error.status === 500 && /^cleanup failed$/i.test(error.message)) {
-    return "清理失败，请稍后重试。"
+    return i18n.t("errors.cleanupFailed")
   }
-  return error.message || "请求失败，请稍后重试。"
+  return error.message || i18n.t("errors.requestFailed")
 }

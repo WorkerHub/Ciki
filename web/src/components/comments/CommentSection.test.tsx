@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CommentSection } from "@/components/comments/CommentSection"
+import { i18n } from "@/i18n"
 import { ApiError, type CommentDto, type CommentThread } from "@/lib/api"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -427,5 +428,44 @@ describe("页尾评论区", () => {
       screen.getByRole("textbox", { name: "发表评论" })
     ).toBeInTheDocument()
     expect(screen.queryByRole("alert")).toBeNull()
+  })
+})
+
+/** 输入框的文案与提交标签是 props：父组件传 t()，切语言后整块跟着变。 */
+describe("页尾评论区英文界面", () => {
+  beforeEach(async () => {
+    vi.mocked(commentsApi.list).mockReset()
+    vi.mocked(commentsApi.create).mockReset()
+    vi.mocked(commentsApi.update).mockReset()
+    vi.mocked(commentsApi.remove).mockReset()
+    vi.mocked(commentsApi.preview).mockReset()
+    vi.mocked(commentsApi.remove).mockResolvedValue({ success: true })
+    vi.mocked(commentsApi.preview).mockResolvedValue({ html: "<p>Preview</p>" })
+    await i18n.changeLanguage("en")
+  })
+
+  it("标题、发表框、预览与删除确认都按英文渲染", async () => {
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [thread({ editedAt: "2026-11-11T03:00:00.000Z" })]
+    })
+    renderSection()
+
+    expect(
+      await screen.findByRole("heading", { name: /^Comments/ })
+    ).toBeInTheDocument()
+    await screen.findByRole("textbox", { name: "Post a comment" })
+    expect(screen.getByText("Edited")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Reply" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Post" })).toBeInTheDocument()
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Delete" }))
+
+    expect(await screen.findByText("Delete this comment?")).toBeInTheDocument()
+    expect(screen.getByText("This cannot be undone.")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
   })
 })

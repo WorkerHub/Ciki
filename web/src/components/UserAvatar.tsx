@@ -1,5 +1,6 @@
-import type { Me } from "@/lib/api"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import i18n from "@/i18n"
+import type { Me } from "@/lib/api"
 
 type AvatarUser = Pick<Me, "username" | "email" | "avatarUrl">
 
@@ -8,7 +9,7 @@ export function displayUsername(user: AvatarUser | null | undefined): string {
   const username = user?.username?.trim()
   if (username) return username
   const email = user?.email ?? ""
-  return email.split("@")[0] || "用户"
+  return email.split("@")[0] || i18n.t("common.userFallback")
 }
 
 /** 头像：有图显示图，没有（或加载失败）回退到显示名首字母圆。 */
@@ -24,7 +25,7 @@ export function UserAvatar({
     <Avatar className={className}>
       {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
       <AvatarFallback className="bg-primary font-semibold text-primary-foreground">
-        {Array.from(name)[0]?.toUpperCase() || "用"}
+        {Array.from(name)[0]?.toUpperCase() ?? ""}
       </AvatarFallback>
     </Avatar>
   )

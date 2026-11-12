@@ -1,5 +1,6 @@
 import { Eye, EyeOff } from "lucide-react"
 import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { CommentBody } from "@/components/comments/CommentBody"
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,7 @@ export function CommentComposer({
   pending,
   autoFocus
 }: CommentComposerProps) {
+  const { t } = useTranslation()
   const [previewHtml, setPreviewHtml] = useState<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
   // 快速开合时丢弃过期响应：关掉预览后被回来的 HTML 不能把它又弹开
@@ -84,12 +86,12 @@ export function CommentComposer({
         <Toggle
           size="sm"
           pressed={open}
-          aria-label="预览"
+          aria-label={t("comments.preview")}
           disabled={empty || pending || previewing}
           onPressedChange={() => void togglePreview()}
         >
           {open ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-          预览
+          {t("comments.preview")}
         </Toggle>
         <div className="flex items-center gap-1">
           {onCancel ? (
@@ -100,7 +102,7 @@ export function CommentComposer({
               disabled={pending}
               onClick={onCancel}
             >
-              取消
+              {t("common.cancel")}
             </Button>
           ) : null}
           <Button

@@ -42,7 +42,10 @@
     "image": {
       "unsupported": "只支持 PNG / JPG / GIF / WebP 图片（SVG 不收）",
       "tooLarge": "图片超过 10MB，请压缩后再上传"
-    }
+    },
+    "loading": "加载中…",
+    "close": "关闭",
+    "userFallback": "用户"
   },
   "shell": {
     "sidebar": {
@@ -916,16 +919,243 @@
         "deleteDescription": "空间本身与成员关系会被删除。页面必须先迁走或彻底删除，这个操作不可恢复。",
         "deleting": "删除中…"
       }
+    },
+    "loading": "空间加载中"
+  },
+  "search": {
+    "title": "搜索",
+    "subtitleWithQuery": "关键词「{{query}}」· 标题与正文都能命中",
+    "subtitle": "在顶栏输入关键词，回车开始搜索",
+    "loadingLabel": "搜索中",
+    "empty": {
+      "title": "输入关键词开始搜索",
+      "description": "支持多关键词（空格分隔），标题与正文命中都会出现在结果里。"
+    },
+    "noResults": {
+      "title": "没有找到匹配的页面",
+      "description": "换个关键词试试，或者确认页面没有被删除。"
     }
+  },
+  "trash": {
+    "title": "回收站",
+    "currentSpace": "当前空间：{{name}}。",
+    "description": "软删除的页面会连同子页面一起停在这里；彻底删除会连版本历史一起清掉，无法恢复。",
+    "readOnly": "你是只读成员，只能查看。",
+    "loadingLabel": "回收站加载中",
+    "empty": {
+      "title": "回收站是空的",
+      "description": "被删除的页面会先到这里，可以恢复或彻底删除。",
+      "action": "回到页面"
+    },
+    "deletedAt": "删除于 {{relative}}（{{absolute}}）",
+    "restore": "恢复",
+    "purge": "彻底删除",
+    "purgeDialog": {
+      "title": "彻底删除「{{title}}」？",
+      "description": "页面与它的全部版本记录会被永久删除，无法恢复。"
+    }
+  },
+  "comments": {
+    "title": "评论",
+    "loadingLabel": "评论加载中",
+    "post": "发表",
+    "postLabel": "发表评论",
+    "reply": "回复",
+    "replyLabel": "回复内容",
+    "edit": "编辑",
+    "editLabel": "编辑评论",
+    "delete": "删除",
+    "preview": "预览",
+    "edited": "已编辑",
+    "deleted": "该评论已删除",
+    "deleteDialog": {
+      "title": "删除这条评论？",
+      "description": "删除后无法恢复。"
+    }
+  },
+  "help": {
+    "title": "粘贴与编辑说明",
+    "description": "直接把 Confluence 页面里的内容选中复制，粘到编辑器里即可。结构会尽量保真，少数源侧限制无法恢复。",
+    "supported": {
+      "title": "支持的结构",
+      "rows": {
+        "headings": {
+          "item": "标题 H1–H6、引用、分割线",
+          "detail": "完整保留"
+        },
+        "codeBlock": {
+          "item": "代码块",
+          "detail": "含阅读页行号列形态；浅色高亮 + 语言角标 + 复制按钮"
+        },
+        "table": {
+          "item": "表格",
+          "detail": "保留表头、合并单元格（colspan/rowspan）与源列宽比例，超宽可横向滚动"
+        },
+        "list": {
+          "item": "列表",
+          "detail": "嵌套层级保留；Confluence 任务列表保留勾选状态"
+        },
+        "inline": {
+          "item": "链接、行内代码、粗体/斜体/下划线/删除线",
+          "detail": "完整保留"
+        },
+        "image": {
+          "item": "图片（剪贴板里带着图片文件）",
+          "detail": "自动上传到图床并插入"
+        },
+        "attachment": {
+          "item": "Confluence 附件图片（只有链接）",
+          "detail": "保留原链接并标黄「未转存」，在编辑页手动上传替换"
+        }
+      }
+    },
+    "limits": {
+      "title": "已知限制",
+      "tableHeader": "某些 Confluence 插件表格的表头在页面上无法选中、根本不会进剪贴板，粘贴后表头会是空的 —— 这是源侧限制，wiki 这边无法恢复，需要手动补。",
+      "colors": "文字颜色与表格背景色不保留（列宽比例保留）。",
+      "panels": "Info / Note / Warning / Success 面板会降级成带标签的引用块。"
+    },
+    "shortcuts": {
+      "save": "快捷键：Ctrl/⌘ + S 保存页面；工具条里可以插表格、链接，也可以单独上传图片。",
+      "versions": "每次保存都会生成一条版本记录，可以在阅读页的「历史」里查看与回滚。"
+    }
+  },
+  "about": {
+    "title": "关于 ciki",
+    "intro": {
+      "title": "这是什么",
+      "body": "ciki 是团队内部使用的 wiki。页面按树组织，编辑器支持标题、代码块、表格、任务列表与图片；每次保存都会留下版本记录，可随时回滚，正文支持全文检索。成员按空间协作，登录支持 Passkey 与两步验证，也可用浏览器插件把外部页面剪藏进来。"
+    },
+    "stack": {
+      "title": "技术栈",
+      "rows": {
+        "frontend": {
+          "label": "前端",
+          "detail": "React 19 + Vite + TypeScript，Tailwind CSS v4，shadcn/ui（Nova 风格）+ Radix UI + Kumo"
+        },
+        "editor": {
+          "label": "编辑器",
+          "detail": "TipTap 3（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）"
+        },
+        "backend": {
+          "label": "后端",
+          "detail": "Cloudflare Workers + Hono，D1（SQLite）+ FTS5 全文检索"
+        },
+        "image": {
+          "label": "图片",
+          "detail": "Cloudflare R2，经 /api/files 会话校验后回源"
+        },
+        "interaction": {
+          "label": "交互基础",
+          "detail": "react-resizable-panels（分栏）、dnd-kit（页面树拖拽）、Zustand（状态）、Lucide（图标）、Motion（动效）"
+        }
+      }
+    },
+    "build": {
+      "title": "构建信息",
+      "version": "版本号",
+      "time": "构建时间"
+    },
+    "repo": "开源地址：{{url}}"
+  },
+  "home": {
+    "empty": {
+      "title": "还没有页面",
+      "write": "新建一个页面，或者直接把 Confluence 里的内容粘贴进编辑器。",
+      "readOnly": "你在这个空间是只读成员，可以让空间管理员添加页面。"
+    }
+  },
+  "notFound": {
+    "title": "页面不存在",
+    "description": "链接可能已经失效，或者页面被移进了回收站。"
   },
   "time": {
     "justNow": "刚刚",
     "minutesAgo_other": "{{count}} 分钟前",
     "hoursAgo_other": "{{count}} 小时前",
-    "daysAgo_other": "{{count}} 天前"
+    "daysAgo_other": "{{count}} 天前",
+    "waitSeconds_other": "{{count}} 秒",
+    "waitMinutes_other": "{{count}} 分钟"
   },
   "errors": {
+    "ACCOUNT_PENDING_APPROVAL": "账号正在等待管理员批准，批准后即可登录。",
+    "ACCOUNT_REJECTED": "该账号的注册申请已被拒绝，请联系管理员。",
+    "RATE_LIMITED": "尝试次数过多，请稍后再试。",
+    "ACCOUNT_LOCKED": "连续登录失败次数过多，请在 {{seconds}} 秒后重试。",
+    "REGISTRATION_DISABLED": "站点已关闭注册，请联系管理员开通账号。",
+    "EMAIL_TAKEN": "这个邮箱已经注册过，直接登录即可。",
+    "METHOD_NOT_ENABLED": "这个账号没有开启邮箱验证码。",
+    "2FA_METHOD_UNAVAILABLE": "该账号开启的两步验证方式当前都不可用，请联系管理员。",
+    "PREFIX_CONFLICT": "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。",
+    "LEDGER_CONFLICT": "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。",
+    "MIGRATION_REJECTED": "这个库的结构不是本版能直接升级的来源：请先用上一版（支持升到 schema_v8 的发布）在「系统管理 → 数据库维护」点一次「检查并升级数据库」，再换回本版重试；本次没有改动任何数据。如果账本已记着 schema_v8，说明结构在升级后被改动过，请先按升级前记下的 Time Travel 回退点恢复。",
+    "REVISION_IS_LATEST": "每页最新的一条版本不能删除。",
+    "RETENTION_UNLIMITED": "当前设置为不限，没有可修剪的版本。",
+    "CLEANUP_IN_PROGRESS": "清理正在进行，请稍后再试。",
+    "REVISION_UNRENDERABLE": "这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。",
+    "CONTENT_MISSING": "页面正文暂时取不到（内容存储不可用或对象缺失），请稍后重试；持续失败请让管理员检查内容存储（ciki-content）。",
+    "PAGE_MOVE_CYCLE": "不能把页面移动到它自己的子页面下。",
+    "PARENT_DELETED": "目标父页面还在回收站里，请先恢复父页面。",
+    "PAGE_NOT_DELETED": "只有已删除的页面才能彻底删除。",
+    "COMMENT_EMPTY": "评论内容不能为空。",
+    "COMMENT_NOT_FOUND": "找不到这条评论，可能已被删除。",
+    "COMMENT_DELETED": "这条评论已被删除，不能再修改。",
+    "INVALID_CONTENT_JSON": "页面内容的格式不正确，无法保存。",
+    "PAYLOAD_TOO_LARGE": "内容或图片超过了单次保存上限，请精简后重试。",
+    "FILE_TOO_LARGE": "图片超过 10MB，请压缩后再上传。",
+    "INVALID_USERNAME": "用户名不合法，请检查后重试。",
+    "USERNAME_TAKEN": "这个用户名已经有人用了，请换一个。",
+    "INVALID_AVATAR": "头像无效，请重新上传。",
     "INVALID_LANGUAGE": "语言不受支持，只支持中文和英文。",
+    "INVALID_SPACE_NAME": "空间名称需为 1–64 个字符。",
+    "INVALID_SPACE_DESCRIPTION": "空间描述最多 500 个字符。",
+    "SPACE_NOT_FOUND": "空间不存在，或你已不是它的成员。",
+    "SPACE_DEFAULT_PROTECTED": "默认空间不能删除。",
+    "SPACE_NOT_EMPTY": "空间里还有页面，请先把页面移动到其他空间，或彻底删除回收站里的页面。",
+    "SPACE_MISMATCH": "目标父页面不在这个空间里。",
+    "SPACE_FORBIDDEN": "你在这个空间里没有导入页面的权限。",
+    "DEFAULT_SPACE_MISSING": "站点还没有可用的默认空间，请联系管理员。",
+    "ALREADY_MEMBER": "该用户已经是这个空间的成员。",
+    "USER_NOT_ELIGIBLE": "该用户当前不可加入空间（需处于启用且已批准状态）。",
+    "LAST_SPACE_ADMIN": "空间至少需要保留一名管理员。",
+    "MEMBER_NOT_FOUND": "这个成员已经不在空间里了。",
+    "USER_NOT_FOUND": "找不到这个用户。",
+    "INVALID_ROLE": "成员角色不合法。",
+    "EMAIL_NOT_CONFIGURED": "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。",
+    "INVALID_EMAIL": "邮箱格式不正确，请检查后重试。",
+    "INVALID_CODE": "验证码不正确，请重新输入。",
+    "INVALID_CODE_RESET": "验证码不正确或已过期，请重新获取。",
+    "INVALID_CODE_VERIFY": "验证码不正确或已过期。",
+    "EMAIL_NOT_VERIFIED": "邮箱还没有验证，请先完成邮箱验证。",
+    "INVALID_RESET_TOKEN": "这次重置已失效（验证码换来的凭证过期或已被使用），请重新获取验证码。",
+    "WEAK_PASSWORD": "密码至少 8 位。",
+    "SMTP_SEND_FAILED": "发信失败，请检查 SMTP 配置。",
+    "SMTP_SEND_FAILED_REASON": "发信失败：{{reason}}",
+    "INVALID_SMTP_CONFIG": "SMTP 配置不合法，请检查后重试。",
+    "INVALID_SMTP_CONFIG_REASON": "SMTP 配置不合法：{{reason}}",
+    "network": "网络异常，请稍后重试",
+    "httpStatus": "请求失败（{{status}}）",
+    "rateLimitedWait": "操作过于频繁，请在 {{wait}}后重试。",
+    "passwordRequired": "这个操作需要输入账号密码确认身份。",
+    "passwordIncorrect": "密码不正确，请重试。",
+    "authFailed": "验证未通过，请重试。",
+    "sessionExpired": "登录状态已失效，请重新登录。",
+    "forbidden": "没有权限执行这个操作。",
+    "notFound": "对象不存在，或已被删除。",
+    "conflict": "当前状态冲突，请刷新后重试。",
+    "siteNameLength": "站点名称需为 1–32 个字符。",
+    "retentionLimit": "保留数需为不小于 1 的整数，留空表示不限。",
+    "tooLarge": "内容太大，服务器拒绝了这次请求。",
+    "tooFrequent": "操作太频繁，请稍后再试。",
+    "cleanupFailed": "清理失败，请稍后重试。",
+    "requestFailed": "请求失败，请稍后重试。",
+    "credentials": {
+      "invalidCredentials": "邮箱或密码不正确。",
+      "invalidVerificationCode": "验证码不正确，请重新输入。",
+      "invalidMfaCode": "验证码不正确，请重新输入。",
+      "twoFactorSession": "两步验证已失效，请返回上一步重新登录。",
+      "passkeyFailed": "Passkey 验证未通过，请重试。"
+    },
     "webauthn": {
       "missingChallenge": "服务器返回的 WebAuthn 参数不完整（缺少 challenge）",
       "cancelled": "已取消 Passkey 操作",

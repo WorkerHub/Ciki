@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useTranslation } from "react-i18next"
 import { Outlet, useParams } from "react-router"
 import { Button } from "@/components/ui/button"
 import { spaceBySlug } from "@/lib/space"
@@ -7,8 +8,9 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 空间列表还没到 / 正在切空间时的骨架：内容页在此之前一律不渲染。 */
 function SpaceSkeleton() {
+  const { t } = useTranslation()
   return (
-    <div className="space-y-3" role="status" aria-label="空间加载中">
+    <div className="space-y-3" role="status" aria-label={t("space.loading")}>
       <div className="h-7 w-2/5 animate-pulse rounded bg-muted" />
       <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
     </div>
@@ -24,6 +26,7 @@ function SpaceSkeleton() {
  * 对齐由下面的 effect 完成、下一次渲染才放行。
  */
 export function SpaceRoute() {
+  const { t } = useTranslation()
   const { slug } = useParams<{ slug: string }>()
   const spaces = useSpacesStore((state) => state.spaces)
   const status = useSpacesStore((state) => state.status)
@@ -42,14 +45,14 @@ export function SpaceRoute() {
     if (status === "error") {
       return (
         <div className="space-y-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          <p role="alert">{error ?? "空间列表加载失败"}</p>
+          <p role="alert">{error ?? t("shell.spaces.loadFailed")}</p>
           <Button
             type="button"
             size="sm"
             variant="outline"
             onClick={() => void load()}
           >
-            重试
+            {t("common.retry")}
           </Button>
         </div>
       )

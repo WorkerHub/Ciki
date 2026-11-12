@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest"
+import { i18n } from "@/i18n"
+import { ERROR_TEXT_CODES } from "@/lib/api"
 import en from "@/locales/en.json"
 import zh from "@/locales/zh.json"
 
@@ -55,5 +57,69 @@ describe("语言资源", () => {
       .filter(([, value]) => /[\u4e00-\u9fff]/.test(value))
       .map(([key]) => key)
     expect(leftovers).toEqual([])
+  })
+})
+
+/**
+ * 错误码文案的守卫（规格 §2.9）：`describeApiError` 按 code 查 `errors.<CODE>`。
+ * 查表之外的显式分支（按 path 分流的 INVALID_CODE 变体、两类 SMTP 失败的带原因
+ * 版本）与几条兜底文案单列，漏翻时这里直接报 missing 的 key。
+ */
+describe("错误码文案", () => {
+  const SPECIAL_KEYS = [
+    "errors.INVALID_CODE",
+    "errors.INVALID_CODE_RESET",
+    "errors.INVALID_CODE_VERIFY",
+    "errors.SMTP_SEND_FAILED",
+    "errors.SMTP_SEND_FAILED_REASON",
+    "errors.INVALID_SMTP_CONFIG",
+    "errors.INVALID_SMTP_CONFIG_REASON"
+  ]
+
+  const CREDENTIAL_KEYS = [
+    "errors.credentials.invalidCredentials",
+    "errors.credentials.invalidVerificationCode",
+    "errors.credentials.invalidMfaCode",
+    "errors.credentials.twoFactorSession",
+    "errors.credentials.passkeyFailed"
+  ]
+
+  const FALLBACK_KEYS = [
+    "errors.network",
+    "errors.httpStatus",
+    "errors.rateLimitedWait",
+    "errors.passwordRequired",
+    "errors.passwordIncorrect",
+    "errors.authFailed",
+    "errors.sessionExpired",
+    "errors.forbidden",
+    "errors.notFound",
+    "errors.conflict",
+    "errors.siteNameLength",
+    "errors.retentionLimit",
+    "errors.tooLarge",
+    "errors.tooFrequent",
+    "errors.cleanupFailed",
+    "errors.requestFailed"
+  ]
+
+  function missing(keys: string[]) {
+    return keys.flatMap((key) =>
+      ["zh", "en"].flatMap((lng) =>
+        i18n.exists(key, { lng }) ? [] : [`${lng}:${key}`]
+      )
+    )
+  }
+
+  it("describeApiError 查表的每个错误码都有中英两份文案", () => {
+    expect(
+      missing([...ERROR_TEXT_CODES].map((code) => `errors.${code}`))
+    ).toEqual([])
+  })
+
+  it("查表之外的变体、凭据与兜底文案也都在", () => {
+    expect(
+      missing([...SPECIAL_KEYS, ...CREDENTIAL_KEYS, ...FALLBACK_KEYS])
+    ).toEqual([])
   })
 })
