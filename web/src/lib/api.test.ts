@@ -206,7 +206,7 @@ describe("describeApiError：空间相关错误码", () => {
     const error = apiError(
       400,
       "Invalid space scope",
-      "/me/read-token/spaces",
+      "/me/tokens/7/spaces",
       "INVALID_SPACE_SCOPE"
     )
     expect(describeApiError(error)).toBe("空间范围无效，请重新选择。")
@@ -643,55 +643,114 @@ describe("整数 id 与新增端点的 URL", () => {
   })
 })
 
-describe("接口令牌的空间范围端点（二期规格 §2.3）", () => {
+describe("接口令牌端点（三期规格 §3）", () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
 
-  it("只改范围走 PUT /me/{read,write}-token/spaces，body 只带 spaceIds", async () => {
-    const calls: { url: string; init?: RequestInit }[] = []
-    for (const run of [
-      () => meApi.setReadTokenSpaces([2, 1]),
-      () => meApi.setWriteTokenSpaces(null)
-    ]) {
-      const fetchMock = stubFetch(
-        new Response(JSON.stringify({ spaceIds: [1, 2] }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        })
+  it("列表走 GET /me/tokens，回执包在 tokens 里", async () => {
+    const fetchMock = stubFetch(
+      new Response(
+        JSON.stringify({
+          tokens: [
+            {
+              id: 7,
+              name: "只读 Token",
+              kind: "read",
+              spaceIds: null,
+              createdAt: "2026-11-12T00:00:00.000Z",
+              lastUsedAt: null
+            }
+          ]
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
       )
+    )
+
+    const result = await meApi.tokens()
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/me/tokens")
+    expect(result.tokens).toHaveLength(1)
+    expect(result.tokens[0].kind).toBe("read")
+  })
+
+  it("新建只发约定键：名称留空时不带 name", async () => {
+    const urls: string[] = []
+    const bodies: (string | undefined)[] = []
+    for (const input of [
+      { kind: "read" as const, spaceIds: null },
+      { kind: "write" as const, name: "Muse", spaceIds: [2, 1] }
+    ]) {
+      const fetchMock = stubFetch(new Response("{}", { status: 201 }))
+      await meApi.createToken(input)
+      urls.push(fetchMock.mock.calls[0][0])
+      bodies.push(fetchMock.mock.calls[0][1]?.body as string | undefined)
+    }
+
+    expect(urls).toEqual(["/api/me/tokens", "/api/me/tokens"])
+    expect(bodies).toEqual([
+      JSON.stringify({ kind: "read", spaceIds: null }),
+      JSON.stringify({ kind: "write", name: "Muse", spaceIds: [2, 1] })
+    ])
+  })
+
+  it("改名 / 改范围 / 吊销都落在 /me/tokens/:id", async () => {
+    const calls: { url: string; method?: string; body?: unknown }[] = []
+    for (const run of [
+      () => meApi.renameToken(7, "新名字"),
+      () => meApi.setTokenSpaces(7, [2, 1]),
+      () => meApi.revokeToken(7)
+    ]) {
+      const fetchMock = stubFetch(new Response("{}", { status: 200 }))
       await run()
       calls.push({
         url: fetchMock.mock.calls[0][0],
-        init: fetchMock.mock.calls[0][1]
+        method: fetchMock.mock.calls[0][1]?.method,
+        body: fetchMock.mock.calls[0][1]?.body
       })
     }
 
     expect(calls.map((call) => call.url)).toEqual([
-      "/api/me/read-token/spaces",
-      "/api/me/write-token/spaces"
+      "/api/me/tokens/7/name",
+      "/api/me/tokens/7/spaces",
+      "/api/me/tokens/7"
     ])
-    expect(calls.map((call) => call.init?.method)).toEqual(["PUT", "PUT"])
-    expect(calls[0].init?.body).toBe(JSON.stringify({ spaceIds: [2, 1] }))
-    expect(calls[1].init?.body).toBe(JSON.stringify({ spaceIds: null }))
+    expect(calls.map((call) => call.method)).toEqual(["PUT", "PUT", "DELETE"])
+    expect(calls[0].body).toBe(JSON.stringify({ name: "新名字" }))
+    expect(calls[1].body).toBe(JSON.stringify({ spaceIds: [2, 1] }))
   })
 
-  it("读写令牌的生成 / 重置 / 吊销落在 /me/write-token", async () => {
+  it("插件凭证：列表 / 新建（名称可省）/ 按 id 吊销", async () => {
     const urls: string[] = []
+    const bodies: (string | undefined)[] = []
+    const methods: (string | undefined)[] = []
     for (const run of [
-      () => meApi.writeToken(),
-      () => meApi.createWriteToken(),
-      () => meApi.revokeWriteToken()
+      () => meApi.importTokens(),
+      () => meApi.createImportToken(),
+      () => meApi.createImportToken("工作机"),
+      () => meApi.revokeImportToken(3)
     ]) {
-      const fetchMock = stubFetch(new Response("{}", { status: 200 }))
+      const fetchMock = stubFetch(
+        new Response(JSON.stringify({ tokens: [] }), { status: 200 })
+      )
       await run()
-      urls.push(fetchMock.mock.calls[0][0])
+      const [url, init] = fetchMock.mock.calls[0]
+      urls.push(url)
+      methods.push(init?.method)
+      bodies.push(init?.body as string | undefined)
     }
 
     expect(urls).toEqual([
-      "/api/me/write-token",
-      "/api/me/write-token",
-      "/api/me/write-token"
+      "/api/me/import-tokens",
+      "/api/me/import-tokens",
+      "/api/me/import-tokens",
+      "/api/me/import-tokens/3"
+    ])
+    expect(methods).toEqual(["GET", "POST", "POST", "DELETE"])
+    expect(bodies).toEqual([
+      undefined,
+      "{}",
+      JSON.stringify({ name: "工作机" }),
+      undefined
     ])
   })
 })

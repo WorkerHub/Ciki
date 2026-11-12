@@ -568,38 +568,56 @@
       "emailOtpDisabled": "邮箱验证码已关闭。"
     },
     "tokens": {
-      "import": {
-        "title": "导入令牌",
-        "empty": "还没有导入令牌",
-        "revoked": "令牌已吊销，插件里的旧令牌立即失效。",
-        "rotateTitle": "重置导入令牌？",
-        "rotateDescription": "旧令牌立即失效，插件里要重新填新令牌。新令牌同样只显示这一次。",
-        "revokeTitle": "吊销导入令牌？",
-        "revokeDescription": "吊销后插件无法再导入页面，直到你重新生成令牌。"
+      "api": {
+        "title": "API Token",
+        "new": "新建 Token",
+        "empty": "还没有 API Token",
+        "kindLabel": "类型",
+        "kind": {
+          "read": "只读",
+          "write": "读写"
+        },
+        "autoName": {
+          "read": "只读 Token",
+          "write": "读写 Token"
+        },
+        "nameLabel": "名称",
+        "nameAutoHint": "留空将自动命名：{{name}}",
+        "create": "创建",
+        "creating": "创建中…",
+        "created": "Token 已创建。",
+        "rename": "改名",
+        "renameTitle": "修改 Token 名称",
+        "renameConfirm": "保存",
+        "renamed": "名称已修改。",
+        "editScope": "改范围",
+        "revoke": "吊销",
+        "revokeTitle": "吊销这个 Token？",
+        "revokeDescription": "吊销后使用「{{name}}」的应用立即失效，且不能恢复。",
+        "revokeConfirm": "吊销 Token",
+        "revoked": "Token 已吊销，使用它的应用立即失效。",
+        "missing": "Token 已不存在，列表已刷新。",
+        "issuedHint": "这串 Token 只显示这一次，离开设置页后无法再查看。请现在复制。"
       },
-      "read": {
-        "title": "只读接口令牌",
-        "empty": "还没有只读接口令牌",
-        "revoked": "令牌已吊销，外部应用里的旧令牌立即失效。",
-        "rotateTitle": "重置只读接口令牌？",
-        "rotateDescription": "旧令牌立即失效，外部只读客户端要重新填新令牌。新令牌同样只显示这一次。",
-        "revokeTitle": "吊销只读接口令牌？",
-        "revokeDescription": "吊销后外部应用无法再读取页面，直到你重新生成令牌。"
-      },
-      "write": {
-        "title": "读写接口令牌",
-        "empty": "还没有读写接口令牌",
-        "revoked": "令牌已吊销，外部应用里的旧令牌立即失效。",
-        "rotateTitle": "重置读写接口令牌？",
-        "rotateDescription": "旧令牌立即失效，外部读写客户端要重新填新令牌。新令牌同样只显示这一次。",
-        "revokeTitle": "吊销读写接口令牌？",
-        "revokeDescription": "吊销后外部应用无法再读写页面，直到你重新生成令牌。"
-      },
-      "notices": {
-        "generated": "令牌已生成。",
-        "rotated": "令牌已重置，旧令牌立即失效。",
-        "regenerated": "已重新生成令牌。",
-        "missing": "令牌已不存在，已刷新状态。"
+      "plugin": {
+        "title": "浏览器插件",
+        "new": "新建凭证",
+        "empty": "还没有插件凭证",
+        "nameLabel": "名称",
+        "autoName": "浏览器插件",
+        "nameAutoHint": "留空将自动命名：{{name}}",
+        "create": "创建",
+        "creating": "创建中…",
+        "created": "凭证已创建。",
+        "plaintextHint": "这串凭证只显示这一次，离开设置页后无法再查看。请现在复制。",
+        "pasteHint": "把凭证粘贴到浏览器插件的设置里，插件只需要这一串。",
+        "revoke": "吊销",
+        "revokeTitle": "吊销这个凭证？",
+        "revokeDescription": "吊销后「{{name}}」立即停止导入，且不能恢复。",
+        "revokeConfirm": "吊销凭证",
+        "revoked": "凭证已吊销，插件里的旧凭证立即失效。",
+        "missing": "凭证已不存在，列表已刷新。",
+        "copyLabel": "复制凭证"
       },
       "scope": {
         "label": "空间范围",
@@ -608,31 +626,23 @@
         "save": "保存范围",
         "saving": "保存中…",
         "saved": "空间范围已保存。",
-        "empty": "没有可选的空间"
+        "empty": "没有可选的空间",
+        "summary": {
+          "all": "全部空间",
+          "selected": "指定空间（{{count}} 个）"
+        }
       },
       "common": {
         "loading": "读取中…",
-        "copyFailed": "复制失败，请手动选中令牌文本复制。",
-        "active": "生效中",
-        "revoked": "已吊销",
-        "createdAt": "创建于 {{time}}",
-        "lastUsed": "最近使用 {{time}}",
         "neverUsed": "尚未使用",
-        "revokedAt": "吊销于 {{time}}",
-        "originalCreatedAt": "原令牌创建于 {{time}}",
-        "emptyHint": "生成后明文只显示这一次，离开设置页就看不到了。",
-        "generating": "生成中…",
-        "generate": "生成令牌",
-        "rotate": "重置",
-        "revoke": "吊销",
-        "regenerate": "重新生成",
-        "plaintextHint": "这串令牌只显示这一次，离开设置页后无法再查看。请现在复制并妥善保存。",
+        "lastUsed": "最近使用 {{time}}",
+        "createdAt": "创建于 {{time}}",
+        "nameTooLong": "名称最多 40 个字。",
+        "copyFailed": "复制失败，请手动选中令牌文本复制。",
         "copy": "复制",
-        "copyLabel": "复制令牌",
+        "copyLabel": "复制 Token",
         "copied": "已复制",
-        "saved": "我已保存",
-        "rotateConfirm": "重置令牌",
-        "revokeConfirm": "吊销令牌"
+        "saved": "我已保存"
       }
     }
   },

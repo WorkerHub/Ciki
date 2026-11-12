@@ -573,38 +573,56 @@
       "emailOtpDisabled": "Email code disabled."
     },
     "tokens": {
-      "import": {
-        "title": "Import token",
-        "empty": "No import token yet",
-        "revoked": "Token revoked. The old token in the extension no longer works.",
-        "rotateTitle": "Reset the import token?",
-        "rotateDescription": "The old token stops working immediately and must be replaced in the extension. The new token is also shown only once.",
-        "revokeTitle": "Revoke the import token?",
-        "revokeDescription": "After revoking, the extension cannot import pages until you generate a new token."
+      "api": {
+        "title": "API Token",
+        "new": "New Token",
+        "empty": "No API Token yet",
+        "kindLabel": "Type",
+        "kind": {
+          "read": "Read-only",
+          "write": "Read-write"
+        },
+        "autoName": {
+          "read": "Read-only Token",
+          "write": "Read-write Token"
+        },
+        "nameLabel": "Name",
+        "nameAutoHint": "Leave blank to name it {{name}}",
+        "create": "Create",
+        "creating": "Creating…",
+        "created": "Token created.",
+        "rename": "Rename",
+        "renameTitle": "Rename Token",
+        "renameConfirm": "Save",
+        "renamed": "Name updated.",
+        "editScope": "Scope",
+        "revoke": "Revoke",
+        "revokeTitle": "Revoke this Token?",
+        "revokeDescription": "Apps using \"{{name}}\" stop working immediately and cannot be restored.",
+        "revokeConfirm": "Revoke Token",
+        "revoked": "Token revoked. Apps using it stop working immediately.",
+        "missing": "The Token no longer exists; the list has been refreshed.",
+        "issuedHint": "This Token is shown only once and cannot be viewed again after you leave Settings. Copy it now."
       },
-      "read": {
-        "title": "Read-only API token",
-        "empty": "No read-only API token yet",
-        "revoked": "Token revoked. The old token in external apps no longer works.",
-        "rotateTitle": "Reset the read-only API token?",
-        "rotateDescription": "The old token stops working immediately and read-only clients must use the new one. The new token is also shown only once.",
-        "revokeTitle": "Revoke the read-only API token?",
-        "revokeDescription": "After revoking, external apps cannot read pages until you generate a new token."
-      },
-      "write": {
-        "title": "Read-write API token",
-        "empty": "No read-write API token yet",
-        "revoked": "Token revoked. The old token in external apps no longer works.",
-        "rotateTitle": "Reset the read-write API token?",
-        "rotateDescription": "The old token stops working immediately and read-write clients must use the new one. The new token is also shown only once.",
-        "revokeTitle": "Revoke the read-write API token?",
-        "revokeDescription": "After revoking, external apps cannot read or write pages until you generate a new token."
-      },
-      "notices": {
-        "generated": "Token generated.",
-        "rotated": "Token reset. The old token no longer works.",
-        "regenerated": "Token regenerated.",
-        "missing": "The token no longer exists; status refreshed."
+      "plugin": {
+        "title": "Browser extension",
+        "new": "New credential",
+        "empty": "No extension credentials yet",
+        "nameLabel": "Name",
+        "autoName": "Browser extension",
+        "nameAutoHint": "Leave blank to name it {{name}}",
+        "create": "Create",
+        "creating": "Creating…",
+        "created": "Credential created.",
+        "plaintextHint": "This credential is shown only once and cannot be viewed again after you leave Settings. Copy it now.",
+        "pasteHint": "Paste the credential into the browser extension's settings; it needs nothing else.",
+        "revoke": "Revoke",
+        "revokeTitle": "Revoke this credential?",
+        "revokeDescription": "\"{{name}}\" stops importing immediately and cannot be restored.",
+        "revokeConfirm": "Revoke credential",
+        "revoked": "Credential revoked. The old one in the extension stops working immediately.",
+        "missing": "The credential no longer exists; the list has been refreshed.",
+        "copyLabel": "Copy credential"
       },
       "scope": {
         "label": "Space scope",
@@ -613,31 +631,24 @@
         "save": "Save scope",
         "saving": "Saving…",
         "saved": "Space scope saved.",
-        "empty": "No spaces available"
+        "empty": "No spaces available",
+        "summary": {
+          "all": "All spaces",
+          "selected_one": "{{count}} selected space",
+          "selected_other": "{{count}} selected spaces"
+        }
       },
       "common": {
         "loading": "Loading…",
-        "copyFailed": "Copy failed. Select the token text and copy it manually.",
-        "active": "Active",
-        "revoked": "Revoked",
-        "createdAt": "Created {{time}}",
-        "lastUsed": "Last used {{time}}",
         "neverUsed": "Never used",
-        "revokedAt": "Revoked {{time}}",
-        "originalCreatedAt": "Original token created {{time}}",
-        "emptyHint": "The plaintext is shown only once after generation; it is gone when you leave this page.",
-        "generating": "Generating…",
-        "generate": "Generate token",
-        "rotate": "Reset",
-        "revoke": "Revoke",
-        "regenerate": "Regenerate",
-        "plaintextHint": "This token is shown only once and cannot be viewed again after you leave Settings. Copy and store it now.",
+        "lastUsed": "Last used {{time}}",
+        "createdAt": "Created {{time}}",
+        "nameTooLong": "Names can be at most 40 characters.",
+        "copyFailed": "Copy failed. Select the Token text and copy it manually.",
         "copy": "Copy",
         "copyLabel": "Copy token",
         "copied": "Copied",
-        "saved": "I saved it",
-        "rotateConfirm": "Reset token",
-        "revokeConfirm": "Revoke token"
+        "saved": "I saved it"
       }
     }
   },

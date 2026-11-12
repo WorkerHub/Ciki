@@ -31,43 +31,18 @@ vi.mock("@/lib/api", async (importOriginal) => {
       sessions: vi.fn(),
       updateProfile: vi.fn(),
       changePassword: vi.fn(),
-      importToken: vi.fn(),
-      createImportToken: vi.fn(),
-      revokeImportToken: vi.fn(),
-      readToken: vi.fn(),
-      createReadToken: vi.fn(),
-      revokeReadToken: vi.fn(),
-      writeToken: vi.fn(),
-      createWriteToken: vi.fn(),
-      revokeWriteToken: vi.fn()
+      tokens: vi.fn(),
+      importTokens: vi.fn()
     }
   }
 })
 
 const { authApi, meApi } = await import("@/lib/api")
 
-// 设置页里的三张令牌卡挂载时各拉一次状态：给默认值，别让旧用例打到真 fetch。
+// 设置页里的两张令牌卡挂载时各拉一次列表：给默认值，别让旧用例打到真 fetch。
 beforeEach(() => {
-  vi.mocked(meApi.importToken).mockResolvedValue({
-    active: false,
-    createdAt: null,
-    lastUsedAt: null,
-    revokedAt: null
-  })
-  vi.mocked(meApi.readToken).mockResolvedValue({
-    active: false,
-    createdAt: null,
-    lastUsedAt: null,
-    revokedAt: null,
-    spaceIds: null
-  })
-  vi.mocked(meApi.writeToken).mockResolvedValue({
-    active: false,
-    createdAt: null,
-    lastUsedAt: null,
-    revokedAt: null,
-    spaceIds: null
-  })
+  vi.mocked(meApi.tokens).mockResolvedValue({ tokens: [] })
+  vi.mocked(meApi.importTokens).mockResolvedValue({ tokens: [] })
 })
 
 function setUser(twofa: {
@@ -244,39 +219,36 @@ describe("令牌卡接入", () => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
   })
 
-  it("设置页里渲染导入令牌卡并拉一次状态", async () => {
+  it("设置页渲染 API Token 与浏览器插件两张卡，旧的单令牌卡已下线", async () => {
     setUser({ totpEnabled: true, passkeyCount: 0, emailOtpEnabled: false })
     renderSettings()
 
-    expect(await screen.findByText("导入令牌")).toBeInTheDocument()
-    expect(meApi.importToken).toHaveBeenCalledTimes(1)
-    // 三张卡都处于空态：各自一个「生成令牌」，互不抢对方的按钮
-    expect(
-      await screen.findAllByRole("button", { name: "生成令牌" })
-    ).toHaveLength(3)
+    expect(await screen.findByText("API Token")).toBeInTheDocument()
+    expect(screen.getByText("浏览器插件")).toBeInTheDocument()
+    expect(meApi.tokens).toHaveBeenCalledTimes(1)
+    expect(meApi.importTokens).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText("还没有 API Token")).toBeInTheDocument()
+    expect(screen.getByText("还没有插件凭证")).toBeInTheDocument()
+    // 旧的三张卡（导入 / 只读 / 读写）不再渲染
+    expect(screen.queryByText("导入令牌")).toBeNull()
+    expect(screen.queryByText("只读接口令牌")).toBeNull()
+    expect(screen.queryByText("读写接口令牌")).toBeNull()
   })
 
-  it("只读接口令牌卡与导入令牌并列，各自拉自己的状态", async () => {
+  it("新建 Token 面内联展开，类型默认只读、名称留空提示自动名", async () => {
     setUser({ totpEnabled: true, passkeyCount: 0, emailOtpEnabled: false })
+    const user = userEvent.setup()
     renderSettings()
 
-    expect(await screen.findByText("只读接口令牌")).toBeInTheDocument()
-    expect(await screen.findByText("还没有只读接口令牌")).toBeInTheDocument()
-    expect(meApi.readToken).toHaveBeenCalledTimes(1)
-    // 两张卡各发各的：只读卡的存在不改变导入卡的状态来源
-    expect(meApi.importToken).toHaveBeenCalledTimes(1)
-  })
+    await user.click(await screen.findByRole("button", { name: "新建 Token" }))
 
-  it("读写接口令牌卡与只读令牌并列，各自拉自己的状态", async () => {
-    setUser({ totpEnabled: true, passkeyCount: 0, emailOtpEnabled: false })
-    renderSettings()
-
-    expect(await screen.findByText("读写接口令牌")).toBeInTheDocument()
-    expect(await screen.findByText("还没有读写接口令牌")).toBeInTheDocument()
-    expect(meApi.writeToken).toHaveBeenCalledTimes(1)
-    // 三张卡各管各的令牌，互不共用状态来源
-    expect(meApi.readToken).toHaveBeenCalledTimes(1)
-    expect(meApi.importToken).toHaveBeenCalledTimes(1)
+    expect(screen.getByLabelText("名称")).toBeInTheDocument()
+    expect(screen.getByText("留空将自动命名：只读 Token")).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "只读" })).toHaveAttribute(
+      "aria-checked",
+      "true"
+    )
+    expect(screen.getByRole("button", { name: "创建" })).toBeEnabled()
   })
 })
 
@@ -515,9 +487,10 @@ describe("设置页 · 英文界面", () => {
         "1 passkey registered (fingerprint / face / security key)."
       )
     ).toBeInTheDocument()
-    expect(await screen.findByText("Import token")).toBeInTheDocument()
-    expect(screen.getByText("Read-only API token")).toBeInTheDocument()
-    expect(screen.getByText("Read-write API token")).toBeInTheDocument()
+    expect(await screen.findByText("API Token")).toBeInTheDocument()
+    expect(screen.getByText("Browser extension")).toBeInTheDocument()
+    expect(screen.getByText("No API Token yet")).toBeInTheDocument()
+    expect(screen.getByText("No extension credentials yet")).toBeInTheDocument()
     expect(screen.getByText("Signed-in devices")).toBeInTheDocument()
   })
 })
