@@ -1,3 +1,4 @@
+import { DEFAULT_LANGUAGE, type Language } from "../../core/language"
 import { usersTable } from "../../lib/tables"
 
 export interface UserRow {
@@ -27,6 +28,9 @@ export interface UserRow {
  * 一行都不写（返回 null），由调用方回 503——不能靠插入前的 COUNT 预检，那个窗口里
  * 两个请求会都以为自己是第一个。
  *
+ * `language` 是界面语言（自助注册按注册页当前语言传入，缺省 `zh`）；管理员建号走
+ * `createApprovedUser`，那里固定 `zh`（i18n 规格 §2.6），本单不给建号表单加语言项。
+ *
  * 返回新用户的整数 id（`meta.last_row_id`）；被 `requireEmptyTable` 拦下时返回 null。
  */
 export async function createUserFirstIsAdmin(
@@ -37,6 +41,7 @@ export async function createUserFirstIsAdmin(
     username: string
     password_hash: string
     approvalStatus: "pending" | "approved"
+    language?: Language
   },
   options: { requireEmptyTable?: boolean } = {}
 ): Promise<number | null> {
@@ -52,7 +57,7 @@ export async function createUserFirstIsAdmin(
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'approved' ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE 0 END,
-         'zh', ?, ?
+         ?, ?, ?
        WHERE ? = 0 OR (SELECT COUNT(*) FROM ${table}) = 0`
     )
     .bind(
@@ -61,6 +66,7 @@ export async function createUserFirstIsAdmin(
       data.password_hash,
       active,
       data.approvalStatus,
+      data.language ?? DEFAULT_LANGUAGE,
       now,
       now,
       options.requireEmptyTable ? 1 : 0
@@ -70,7 +76,10 @@ export async function createUserFirstIsAdmin(
   return result.meta.last_row_id
 }
 
-/** 管理员直接建号：强制已批准、已激活、邮箱已验证。返回新用户的整数 id。 */
+/**
+ * 管理员直接建号：强制已批准、已激活、邮箱已验证，语言固定 `zh`（本单不给建号
+ * 表单加语言项，新用户登录后自改）。返回新用户的整数 id。
+ */
 export async function createApprovedUser(
   db: D1Database,
   prefix: string,
@@ -166,7 +175,8 @@ const UPDATABLE = new Set([
   "approval_status",
   "role",
   "username",
-  "avatar_key"
+  "avatar_key",
+  "language"
 ])
 
 export async function updateUser(
