@@ -10,6 +10,9 @@
  * 判据一律读系统表（`sqlite_master` / `PRAGMA table_info` / `PRAGMA index_list`），
  * **不比 DDL 文本**：存量库是旧版用「临时表 + 改名」建出来的，`sqlite_master.sql`
  * 与今天的 DDL 文本不保证逐字一致，比文本会误伤真实生产库。
+ *
+ * `schema_v3` 合表后会按设计删掉基线里的 `read_tokens`：`api_tokens` 已在位时，
+ * 校验豁免这张表与它的唯一索引，否则升级完成后每次 setup 都会把 v1 判成未应用。
  */
 import {
   SCHEMA_INDEXES,
@@ -17,7 +20,7 @@ import {
   USERS_USERNAME_UNIQUE_INDEX,
   tableDdl
 } from "./schema"
-import { tableName, usersTable } from "./tables"
+import { apiTokensTable, tableName, usersTable } from "./tables"
 
 /** 迁移名（本模块只认识基线这一条）。 */
 const BASELINE_NAME = "schema_v1"
@@ -94,6 +97,14 @@ function indexIdentifier(ddl: string): string {
   return match[1]
 }
 
+/**
+ * `schema_v3` 之后基线里不再存在的表 / 索引（逻辑名，索引名带 `{prefix}` 占位）。
+ * 只在 `api_tokens` 已存在时豁免：那说明 v3 已完成，`schema_v1` 的形态校验不能
+ * 因为 v3 按设计删掉了 `read_tokens` 就判基线「结构不符」。
+ */
+const RETIRED_AFTER_V3_TABLES = new Set(["read_tokens"])
+const RETIRED_AFTER_V3_INDEXES = new Set(["{prefix}read_tokens_token_hash"])
+
 /** 定版结构里三列已删的旧形态特征（v6 及以前）。 */
 const RETIRED_USER_COLUMNS = ["base_currency", "timezone", "theme"]
 
@@ -119,6 +130,8 @@ export async function findBaselineMismatches(
 ): Promise<BaselineMismatch[]> {
   const problems: BaselineMismatch[] = []
   const tables = await listTables(db)
+  // v3 已完成：`read_tokens` 与它的索引是被迁移有意删掉的，不再是基线缺口。
+  const tokensMerged = tables.has(apiTokensTable(prefix))
 
   const columnsIfPresent = async (
     logical: string
@@ -129,6 +142,7 @@ export async function findBaselineMismatches(
   }
 
   for (const table of SCHEMA_TABLES) {
+    if (tokensMerged && RETIRED_AFTER_V3_TABLES.has(table.name)) continue
     const name = tableName(prefix, table.name)
     if (!tables.has(name)) {
       problems.push({ kind: "missing", message: `table ${name} is missing` })
@@ -237,7 +251,9 @@ export async function findBaselineMismatches(
     prefix
   )
   for (const ddl of SCHEMA_INDEXES) {
-    const name = indexIdentifier(ddl).replaceAll("{prefix}", prefix)
+    const identifier = indexIdentifier(ddl)
+    if (tokensMerged && RETIRED_AFTER_V3_INDEXES.has(identifier)) continue
+    const name = identifier.replaceAll("{prefix}", prefix)
     if (!present.has(name)) {
       problems.push({ kind: "missing", message: `index ${name} is missing` })
     }

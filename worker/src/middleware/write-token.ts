@@ -1,20 +1,20 @@
 /**
- * 写接口鉴权：只认 `Authorization: Bearer <读写令牌>`。
+ * 写接口鉴权：只认 `Authorization: Bearer <kind = write 的接口令牌>`。
  *
- * 与 `middleware/read-token.ts` 逐段同构、只换表与限流桶（规格 §3.1）：
+ * 与 `middleware/read-token.ts` 逐段同构、只换 kind 与限流桶（规格 §3.1）：
  * - **不接受会话 Cookie**（也不看查询参数）：写接口的调用方是外部连接器，职责与
  *   登录态分离；反过来，读写令牌也登不上任何会话接口。
- * - **三向表隔离**：这里只查 `write_tokens` 表，只读令牌与导入令牌的哈希不在其中，
- *   所以它们调 `/api/write/*` 一律 401；会话 Cookie 同理。两侧互不通用是表隔离的
- *   结果，不靠任何前端约定。
+ * - **kind + 表双重隔离**：`findApiToken` 直接带 `kind = write` 过滤，所以只读令牌
+ *   在写接口上根本查不到；导入令牌在另一张表（`import_tokens`）同样进不来；会话
+ *   Cookie 同理。三者调 `/api/write/*` 一律 401，不靠任何前端约定。
  * - 令牌每次回表校验（吊销 / 重置 / 用户停用或未批准立即失效），哈希口径与
- *   `sessions` 一致（core/write-token.ts）。
+ *   `sessions` 一致（core/api-token.ts）。
  * - 限流沿用 §8 的 auth_counters，不另设体系：
  *   `write_auth_fail` 按 IP 20 次 / 5 分钟（先拒后验，挡住令牌爆破），
  *   `write` 按用户 600 次 / 5 分钟（挡住异常狂刷，正常写入远达不到）。
  *
- * 空间范围不在这里判：写路由自己取该令牌的那一份（`getTokenScope(..., "write")`），
- * 与只读令牌的范围互不影响。
+ * 空间范围按命中的令牌行取（`token_space_scopes.token_id`），在中间件里读一次放进
+ * 上下文，写路由直接复用，不在每个 handler 重复回表。
  */
 import type { Context, Next } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
@@ -24,7 +24,8 @@ import {
   readCounterWindow,
   resetCounter
 } from "../core/counters"
-import { findWriteToken, touchWriteToken } from "../core/write-token"
+import { findApiToken, touchApiToken } from "../core/api-token"
+import { getTokenScope } from "../core/token-scope"
 import { readBearerToken } from "./import-token"
 import type { HonoEnv } from "../types"
 
@@ -69,7 +70,9 @@ export async function writeTokenMiddleware(c: Context<HonoEnv>, next: Next) {
   }
 
   const token = readBearerToken(c)
-  const identity = token ? await findWriteToken(db, prefix, token) : null
+  const identity = token
+    ? await findApiToken(db, prefix, token, { kind: "write" })
+    : null
   if (!identity) {
     const state = await consumeCounter(db, prefix, {
       ...failKey,
@@ -93,8 +96,12 @@ export async function writeTokenMiddleware(c: Context<HonoEnv>, next: Next) {
     return rateLimited(c, remainingSeconds(usage.windowStart))
   }
 
-  await touchWriteToken(db, prefix, identity.userId)
+  // 范围按命中的令牌行取一次，放进上下文供写路由复用。
+  const scope = await getTokenScope(db, prefix, identity.tokenId)
+
+  await touchApiToken(db, prefix, identity.tokenId)
   c.set("userId", identity.userId)
   c.set("role", identity.role)
+  c.set("tokenScope", scope)
   await next()
 }

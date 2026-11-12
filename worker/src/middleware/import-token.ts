@@ -93,7 +93,7 @@ export async function importTokenMiddleware(c: Context<HonoEnv>, next: Next) {
     return rateLimited(c, remainingSeconds(usage.windowStart))
   }
 
-  await touchImportToken(db, prefix, identity.userId)
+  await touchImportToken(db, prefix, identity.tokenId)
   c.set("userId", identity.userId)
   c.set("role", identity.role)
   await next()

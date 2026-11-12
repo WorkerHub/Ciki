@@ -1,13 +1,11 @@
 /**
  * 读写接口令牌：生成、哈希落库、重置、吊销，以及与只读令牌 / 导入令牌的互不通用。
  *
- * 与 read-token.test.ts 同构（两种令牌形状一致、各自一张表）。写接口本身由后续单
- * 实现，这里只测核心校验 `findWriteToken` / `findApiToken` 的表隔离口径。
+ * `schema_v3` 起读写令牌同存 `api_tokens`、按 `kind` 区分；这里同时钉住
+ * `findApiToken` 的 kind 过滤（写接口只接受 write）与旧端点的兼容语义。
  */
 import { describe, expect, it } from "vitest"
 import { findApiToken } from "../src/core/api-token"
-import { findReadToken } from "../src/core/read-token"
-import { findWriteToken } from "../src/core/write-token"
 import {
   adminSession,
   initializedContext,
@@ -70,7 +68,9 @@ describe("读写令牌：生成、哈希落库、重置与吊销", () => {
     expect(createdAt).toBe(new Date(createdAt).toISOString())
 
     const rows = db.db
-      .prepare("SELECT * FROM ciki_write_tokens")
+      .prepare(
+        "SELECT * FROM ciki_api_tokens WHERE kind = 'write' AND revoked_at IS NULL"
+      )
       .all() as Array<Record<string, unknown>>
     expect(rows).toHaveLength(1)
     expect(rows[0].token_hash).toBe(await sha256Hex(token))
@@ -79,9 +79,11 @@ describe("读写令牌：生成、哈希落库、重置与吊销", () => {
     expect(rows[0].revoked_at).toBeNull()
     expect(JSON.stringify(rows[0])).not.toContain(token)
 
-    // 令牌不落只读表：三套令牌各存各的表。
+    // 同表不同 kind：读写令牌不会被当成只读令牌。
     const readRows = db.db
-      .prepare("SELECT COUNT(*) AS count FROM ciki_read_tokens")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM ciki_api_tokens WHERE kind = 'read'"
+      )
       .get() as { count: number }
     expect(readRows.count).toBe(0)
 
@@ -104,11 +106,18 @@ describe("读写令牌：生成、哈希落库、重置与吊销", () => {
     const second = await issueToken(env, admin)
     expect(second.token).not.toBe(first.token)
 
-    expect(await findWriteToken(env.DB, "ciki_", first.token)).toBeNull()
-    expect(await findWriteToken(env.DB, "ciki_", second.token)).not.toBeNull()
+    expect(
+      await findApiToken(env.DB, "ciki_", first.token, { kind: "write" })
+    ).toBeNull()
+    expect(
+      await findApiToken(env.DB, "ciki_", second.token, { kind: "write" })
+    ).not.toBeNull()
 
+    // 重置是「吊销旧行 + 建新行」：有效写令牌始终只有一枚。
     const rows = db.db
-      .prepare("SELECT COUNT(*) AS count FROM ciki_write_tokens")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM ciki_api_tokens WHERE kind = 'write' AND revoked_at IS NULL"
+      )
       .get() as { count: number }
     expect(rows.count).toBe(1)
     expect((await tokenStatus(env, admin)).revokedAt).toBeNull()
@@ -128,7 +137,9 @@ describe("读写令牌：生成、哈希落库、重置与吊销", () => {
     )
     expect(revoke.status).toBe(200)
     expect(await revoke.json()).toEqual({ success: true })
-    expect(await findWriteToken(env.DB, "ciki_", token)).toBeNull()
+    expect(
+      await findApiToken(env.DB, "ciki_", token, { kind: "write" })
+    ).toBeNull()
 
     const status = await tokenStatus(env, admin)
     expect(status.active).toBe(false)
@@ -155,7 +166,9 @@ describe("读写令牌：生成、哈希落库、重置与吊销", () => {
     expect(await missing.json()).toEqual({ error: "Write token not found" })
 
     const reissued = await issueToken(env, admin)
-    expect(await findWriteToken(env.DB, "ciki_", reissued.token)).not.toBeNull()
+    expect(
+      await findApiToken(env.DB, "ciki_", reissued.token, { kind: "write" })
+    ).not.toBeNull()
   })
 
   it("管理端点要会话：无 Cookie 401", async () => {
@@ -164,7 +177,7 @@ describe("读写令牌：生成、哈希落库、重置与吊销", () => {
     expect(res.status).toBe(401)
   })
 
-  it("表隔离：只读令牌认不出写接口、写令牌认不出读接口，findApiToken 报出种类", async () => {
+  it("kind 隔离：只读令牌过不了写接口过滤、写令牌过不了只读过滤，findApiToken 报出种类", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
 
@@ -173,9 +186,13 @@ describe("读写令牌：生成、哈希落库、重置与吊销", () => {
     ).json()) as { token: string }
     const writeToken = await issueToken(env, admin)
 
-    // 各查各的表：交叉校验一律不命中。
-    expect(await findReadToken(env.DB, "ciki_", writeToken.token)).toBeNull()
-    expect(await findWriteToken(env.DB, "ciki_", readToken.token)).toBeNull()
+    // 写接口的 kind 过滤：只读令牌查不到；只读过滤同理。
+    expect(
+      await findApiToken(env.DB, "ciki_", writeToken.token, { kind: "read" })
+    ).toBeNull()
+    expect(
+      await findApiToken(env.DB, "ciki_", readToken.token, { kind: "write" })
+    ).toBeNull()
 
     expect(await findApiToken(env.DB, "ciki_", readToken.token)).toMatchObject({
       kind: "read"
