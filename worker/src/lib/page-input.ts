@@ -58,6 +58,19 @@ export type PageContentResult =
   | { ok: true; value: PageContent }
   | { ok: false; error: string; code?: string }
 
+/**
+ * 标题的统一规范化：剥 HTML、折叠空白，结果必须是 1–255 码点。
+ *
+ * 只处理已确认是字符串的值（非字符串的报错文案由调用方决定：`normalizeImportedContent`
+ * 回 "Title required"，只改标题的写接口同样）。`/api/write/pages/:id` 的 title-only
+ * 更新没有正文可重算，靠这里走与保存完全同一条标题校验。
+ */
+export function normalizePageTitle(value: string): string | null {
+  const title = toPlainText(value)
+  if (!title || title.length > MAX_TITLE_LENGTH) return null
+  return title
+}
+
 /** D1 单行上限 2,000,000 B；给三件套合计留出余量。 */
 export const MAX_ROW_BYTES = 1_900_000
 /**
@@ -131,8 +144,8 @@ export function normalizePageInput(
   if (utf8Length(contentHtml) > MAX_HTML_INPUT_BYTES) return payloadTooLarge()
   if (contentText.length > MAX_TEXT_INPUT_CHARS) return payloadTooLarge()
 
-  const plainTitle = toPlainText(title)
-  if (!plainTitle || plainTitle.length > MAX_TITLE_LENGTH) {
+  const plainTitle = normalizePageTitle(title)
+  if (!plainTitle) {
     return { ok: false, error: "Title must be 1-255 characters" }
   }
   const safeHtml = sanitizePageHtml(contentHtml)
@@ -182,8 +195,8 @@ export function normalizeImportedContent(input: {
   if (typeof input.title !== "string") {
     return { ok: false, error: "Title required" }
   }
-  const plainTitle = toPlainText(input.title)
-  if (!plainTitle || plainTitle.length > MAX_TITLE_LENGTH) {
+  const plainTitle = normalizePageTitle(input.title)
+  if (!plainTitle) {
     return { ok: false, error: "Title must be 1-255 characters" }
   }
 
