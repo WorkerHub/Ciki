@@ -36,14 +36,17 @@ vi.mock("@/lib/api", async (importOriginal) => {
       revokeImportToken: vi.fn(),
       readToken: vi.fn(),
       createReadToken: vi.fn(),
-      revokeReadToken: vi.fn()
+      revokeReadToken: vi.fn(),
+      writeToken: vi.fn(),
+      createWriteToken: vi.fn(),
+      revokeWriteToken: vi.fn()
     }
   }
 })
 
 const { authApi, meApi } = await import("@/lib/api")
 
-// 设置页里的两张令牌卡挂载时各拉一次状态：给默认值，别让旧用例打到真 fetch。
+// 设置页里的三张令牌卡挂载时各拉一次状态：给默认值，别让旧用例打到真 fetch。
 beforeEach(() => {
   vi.mocked(meApi.importToken).mockResolvedValue({
     active: false,
@@ -55,7 +58,15 @@ beforeEach(() => {
     active: false,
     createdAt: null,
     lastUsedAt: null,
-    revokedAt: null
+    revokedAt: null,
+    spaceIds: null
+  })
+  vi.mocked(meApi.writeToken).mockResolvedValue({
+    active: false,
+    createdAt: null,
+    lastUsedAt: null,
+    revokedAt: null,
+    spaceIds: null
   })
 })
 
@@ -239,10 +250,10 @@ describe("令牌卡接入", () => {
 
     expect(await screen.findByText("导入令牌")).toBeInTheDocument()
     expect(meApi.importToken).toHaveBeenCalledTimes(1)
-    // 两张卡都处于空态：各自一个「生成令牌」，互不抢对方的按钮
+    // 三张卡都处于空态：各自一个「生成令牌」，互不抢对方的按钮
     expect(
       await screen.findAllByRole("button", { name: "生成令牌" })
-    ).toHaveLength(2)
+    ).toHaveLength(3)
   })
 
   it("只读接口令牌卡与导入令牌并列，各自拉自己的状态", async () => {
@@ -253,6 +264,18 @@ describe("令牌卡接入", () => {
     expect(await screen.findByText("还没有只读接口令牌")).toBeInTheDocument()
     expect(meApi.readToken).toHaveBeenCalledTimes(1)
     // 两张卡各发各的：只读卡的存在不改变导入卡的状态来源
+    expect(meApi.importToken).toHaveBeenCalledTimes(1)
+  })
+
+  it("读写接口令牌卡与只读令牌并列，各自拉自己的状态", async () => {
+    setUser({ totpEnabled: true, passkeyCount: 0, emailOtpEnabled: false })
+    renderSettings()
+
+    expect(await screen.findByText("读写接口令牌")).toBeInTheDocument()
+    expect(await screen.findByText("还没有读写接口令牌")).toBeInTheDocument()
+    expect(meApi.writeToken).toHaveBeenCalledTimes(1)
+    // 三张卡各管各的令牌，互不共用状态来源
+    expect(meApi.readToken).toHaveBeenCalledTimes(1)
     expect(meApi.importToken).toHaveBeenCalledTimes(1)
   })
 })
@@ -494,6 +517,7 @@ describe("设置页 · 英文界面", () => {
     ).toBeInTheDocument()
     expect(await screen.findByText("Import token")).toBeInTheDocument()
     expect(screen.getByText("Read-only API token")).toBeInTheDocument()
+    expect(screen.getByText("Read-write API token")).toBeInTheDocument()
     expect(screen.getByText("Signed-in devices")).toBeInTheDocument()
   })
 })

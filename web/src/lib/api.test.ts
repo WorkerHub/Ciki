@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "@/i18n"
-import { ApiError, adminApi, describeApiError, pagesApi } from "@/lib/api"
+import {
+  ApiError,
+  adminApi,
+  describeApiError,
+  meApi,
+  pagesApi
+} from "@/lib/api"
 import { describeWebAuthnError } from "@/lib/webauthn"
 
 /**
@@ -194,6 +200,17 @@ describe("describeApiError：空间相关错误码", () => {
         apiError(400, "Invalid role", "/spaces/s1/members", "INVALID_ROLE")
       )
     ).toBe("成员角色不合法。")
+  })
+
+  it("令牌空间范围被拒（400 INVALID_SPACE_SCOPE）→ 中文提示，不漏英文原文", () => {
+    const error = apiError(
+      400,
+      "Invalid space scope",
+      "/me/read-token/spaces",
+      "INVALID_SPACE_SCOPE"
+    )
+    expect(describeApiError(error)).toBe("空间范围无效，请重新选择。")
+    expect(describeApiError(error)).not.toBe(error.message)
   })
 })
 
@@ -623,6 +640,59 @@ describe("整数 id 与新增端点的 URL", () => {
     expect(storage.assetsSizeBytes).toBe(2048)
     // 某一桶失败时该项为 null（前端据此不渲染），不补 0
     expect(storage.contentSizeBytes).toBeNull()
+  })
+})
+
+describe("接口令牌的空间范围端点（二期规格 §2.3）", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("只改范围走 PUT /me/{read,write}-token/spaces，body 只带 spaceIds", async () => {
+    const calls: { url: string; init?: RequestInit }[] = []
+    for (const run of [
+      () => meApi.setReadTokenSpaces([2, 1]),
+      () => meApi.setWriteTokenSpaces(null)
+    ]) {
+      const fetchMock = stubFetch(
+        new Response(JSON.stringify({ spaceIds: [1, 2] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      )
+      await run()
+      calls.push({
+        url: fetchMock.mock.calls[0][0],
+        init: fetchMock.mock.calls[0][1]
+      })
+    }
+
+    expect(calls.map((call) => call.url)).toEqual([
+      "/api/me/read-token/spaces",
+      "/api/me/write-token/spaces"
+    ])
+    expect(calls.map((call) => call.init?.method)).toEqual(["PUT", "PUT"])
+    expect(calls[0].init?.body).toBe(JSON.stringify({ spaceIds: [2, 1] }))
+    expect(calls[1].init?.body).toBe(JSON.stringify({ spaceIds: null }))
+  })
+
+  it("读写令牌的生成 / 重置 / 吊销落在 /me/write-token", async () => {
+    const urls: string[] = []
+    for (const run of [
+      () => meApi.writeToken(),
+      () => meApi.createWriteToken(),
+      () => meApi.revokeWriteToken()
+    ]) {
+      const fetchMock = stubFetch(new Response("{}", { status: 200 }))
+      await run()
+      urls.push(fetchMock.mock.calls[0][0])
+    }
+
+    expect(urls).toEqual([
+      "/api/me/write-token",
+      "/api/me/write-token",
+      "/api/me/write-token"
+    ])
   })
 })
 

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "@/i18n"
 import { ReadTokenCard } from "@/components/ReadTokenCard"
+import { useSpacesStore } from "@/stores/spaces"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -12,7 +13,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...actual.meApi,
       readToken: vi.fn(),
       createReadToken: vi.fn(),
-      revokeReadToken: vi.fn()
+      revokeReadToken: vi.fn(),
+      setReadTokenSpaces: vi.fn()
     }
   }
 })
@@ -28,19 +30,22 @@ const EMPTY = {
   active: false,
   createdAt: null,
   lastUsedAt: null,
-  revokedAt: null
+  revokedAt: null,
+  spaceIds: null
 } as const
 const ACTIVE = {
   active: true,
   createdAt: CREATED_AT,
   lastUsedAt: LAST_USED_AT,
-  revokedAt: null
+  revokedAt: null,
+  spaceIds: null
 } as const
 const REVOKED = {
   active: false,
   createdAt: CREATED_AT,
   lastUsedAt: LAST_USED_AT,
-  revokedAt: LAST_USED_AT
+  revokedAt: LAST_USED_AT,
+  spaceIds: null
 } as const
 
 beforeEach(() => {
@@ -50,6 +55,9 @@ beforeEach(() => {
     createdAt: CREATED_AT
   })
   vi.mocked(meApi.revokeReadToken).mockResolvedValue({ success: true })
+  vi.mocked(meApi.setReadTokenSpaces).mockImplementation(async (spaceIds) => ({
+    spaceIds
+  }))
 })
 
 describe("只读接口令牌卡", () => {
@@ -195,6 +203,40 @@ describe("只读接口令牌卡", () => {
     expect(revokeImport).not.toHaveBeenCalled()
     createImport.mockRestore()
     revokeImport.mockRestore()
+  })
+})
+
+describe("只读接口令牌卡 · 空间范围", () => {
+  it("保存范围只走 PUT spaces，不换令牌", async () => {
+    useSpacesStore.setState({
+      spaces: [
+        {
+          id: 1,
+          slug: "space-1",
+          name: "默认空间",
+          description: "",
+          myRole: "admin",
+          isDefault: true,
+          createdAt: "2026-11-01T00:00:00.000Z",
+          updatedAt: "2026-11-01T00:00:00.000Z"
+        }
+      ],
+      status: "ready",
+      currentId: 1
+    })
+    vi.mocked(meApi.readToken).mockResolvedValue({ ...ACTIVE })
+    const user = userEvent.setup()
+    render(<ReadTokenCard />)
+
+    expect(await screen.findByText("空间范围")).toBeInTheDocument()
+    await user.click(screen.getByRole("radio", { name: "指定空间" }))
+    await user.click(screen.getByRole("checkbox", { name: "默认空间" }))
+    await user.click(screen.getByRole("button", { name: "保存范围" }))
+
+    expect(await screen.findByText("空间范围已保存。")).toBeInTheDocument()
+    expect(meApi.setReadTokenSpaces).toHaveBeenCalledWith([1])
+    expect(meApi.createReadToken).not.toHaveBeenCalled()
+    expect(meApi.revokeReadToken).not.toHaveBeenCalled()
   })
 })
 
