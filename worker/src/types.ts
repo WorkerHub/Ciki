@@ -3,6 +3,8 @@
  * 线上由 CI 经 `wrangler deploy --secrets-file` 上传，本地来自 worker/.dev.vars
  * （见 worker/.dev.vars.example，已被 gitignore）。
  */
+import type { TokenScope } from "./core/token-scope"
+
 export interface Env {
   /** 共享 D1（既有 workerhub 库）：表名一律经 getTablePrefix() 拼前缀。 */
   DB: D1Database
@@ -66,5 +68,11 @@ export type HonoEnv = {
     role: string
     sessionId: string
     restricted: boolean
+    /**
+     * 当前令牌的空间范围（`null` = 不限制），由读中间件在命中令牌后写入
+     * （`token_kind` 按命中那张表取，见 core/token-scope.ts）。
+     * `/api/read/*` 在现行成员过滤之外叠这一层。
+     */
+    tokenScope: TokenScope
   }
 }
