@@ -10,6 +10,7 @@ const TIME_ZONE = "Asia/Shanghai"
 
 const dateTimeFormatters = new Map<Language, Intl.DateTimeFormat>()
 const dateFormatters = new Map<Language, Intl.DateTimeFormat>()
+const timeFormatters = new Map<Language, Intl.DateTimeFormat>()
 
 function dateTimeFormatter(language: Language): Intl.DateTimeFormat {
   const cached = dateTimeFormatters.get(language)
@@ -37,6 +38,19 @@ function dateFormatter(language: Language): Intl.DateTimeFormat {
     day: "2-digit"
   })
   dateFormatters.set(language, formatter)
+  return formatter
+}
+
+function timeFormatter(language: Language): Intl.DateTimeFormat {
+  const cached = timeFormatters.get(language)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat(intlLocale(language), {
+    timeZone: TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  })
+  timeFormatters.set(language, formatter)
   return formatter
 }
 
@@ -73,6 +87,21 @@ export function formatDate(iso: string | null | undefined): string {
   return localizeSeparators(dateFormatter(language).format(date), language)
 }
 
+/**
+ * 只取「时:分」的时刻展示（如编辑页的「已保存 22:10」）。
+ * 单独走一个 formatter，不靠整串日期格式的字符位置切——en 的日期排布与 zh 不同。
+ */
+export function formatTime(iso: string | null | undefined): string {
+  if (!iso) return "—"
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return "—"
+  return timeFormatter(currentLanguage()).format(date)
+}
+
+/**
+ * 中文只有一个复数类别（CLDR 的 other），i18next 对任何 count 都取 `_other`，
+ * 所以 zh.json 只有 `time.*_other`、刻意没有 `_one`；英文两类都有。
+ */
 export function formatRelative(iso: string | null | undefined): string {
   if (!iso) return "—"
   const date = new Date(iso)

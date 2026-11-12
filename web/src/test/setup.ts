@@ -10,8 +10,10 @@ beforeEach(async () => {
   await i18n.changeLanguage("zh")
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
+  // 个别用例会切到 en 验证英文文案；这里复位，别把语言留给下一个用例。
+  await i18n.changeLanguage("zh")
   try {
     localStorage.clear()
     sessionStorage.clear()

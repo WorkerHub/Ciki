@@ -54,6 +54,8 @@ export function RootGate() {
   }, [load, loadSetup, loadSite])
 
   // 登录 / 刷新 Me 后以账号语言为准，并同步 localStorage（规格 §2.3）。
+  // 设置页写回同一个语言时本效果会再跑一次：changeLanguage 对同值直接返回，
+  // accountLanguage 也不变，因此不会形成循环。
   useEffect(() => {
     void applyAccountLanguage(accountLanguage)
   }, [accountLanguage])

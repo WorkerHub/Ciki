@@ -1,4 +1,6 @@
+import { currentLanguage } from "@/i18n"
 import type { PageNode } from "@/lib/api"
+import { intlLocale } from "@/lib/language"
 
 /** 页面树在 UI 里的扁平视图：只含当前展开的层级。 */
 export interface TreeRow {
@@ -19,9 +21,11 @@ export interface DropTarget {
 export const INDENT_WIDTH = 18
 
 export function sortSiblings(nodes: PageNode[]): PageNode[] {
+  // 排序口径跟随界面语言（规格 §2.11）：中文 zh-CN、英文 en-US。
+  const locale = intlLocale(currentLanguage())
   return [...nodes].sort(
     (a, b) =>
-      a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, "zh-CN")
+      a.sortOrder - b.sortOrder || a.title.localeCompare(b.title, locale)
   )
 }
 
