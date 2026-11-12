@@ -1,9 +1,9 @@
 /**
  * 三个只读接口（规格一期 §二.3）：冻结契约逐字核对 + 可见性 + 软删排除 + 双向令牌隔离。
  *
- * 字段是 snake_case（`parent_id` / `updated_at` / `created_at` / `content_json`）——这是
- * 用户冻结的契约，Muse 连接器按此接入，所以这里断言的是**精确的键集合**，多一个少一个
- * 都算破坏契约。
+ * 字段是 snake_case（`parent_id` / `space_id` / `sort_order` / `updated_at` /
+ * `created_at` / `content_json`）——这是用户冻结的契约，Muse 连接器按此接入，所以这里
+ * 断言的是**精确的键集合**，多一个少一个都算破坏契约。
  */
 import { describe, expect, it } from "vitest"
 import {
@@ -18,7 +18,14 @@ import type { Env } from "../src/types"
 const READ_TOKEN_PATH = "/api/me/read-token"
 const IMPORT_TOKEN_PATH = "/api/me/import-token"
 
-const TREE_KEYS = ["id", "parent_id", "title", "updated_at"]
+const TREE_KEYS = [
+  "id",
+  "parent_id",
+  "sort_order",
+  "space_id",
+  "title",
+  "updated_at"
+]
 const SEARCH_KEYS = ["id", "snippet", "title", "updated_at"]
 
 async function readToken(env: Env, cookie: string): Promise<string> {
@@ -35,6 +42,8 @@ interface TreeEntry {
   id: string
   title: string
   parent_id: string | null
+  space_id: number
+  sort_order: number
   updated_at: string
 }
 
@@ -68,7 +77,12 @@ async function search(
 async function createPage(
   env: Env,
   cookie: string,
-  input: { title: string; text?: string; spaceId?: string }
+  input: {
+    title: string
+    text?: string
+    spaceId?: string
+    parentId?: string
+  }
 ): Promise<{ id: string; title: string }> {
   const res = await jsonRequest(
     env,
@@ -76,7 +90,7 @@ async function createPage(
     "/api/pages",
     {
       title: input.title,
-      parentId: null,
+      parentId: input.parentId ?? null,
       spaceId: input.spaceId ?? null,
       contentJson: JSON.stringify({
         type: "doc",
@@ -125,7 +139,7 @@ describe("只读接口：鉴权只认只读令牌", () => {
 
 describe("只读接口：tree", () => {
   it("字段是冻结契约的 snake_case 键集合；软删页面不出现", async () => {
-    const { env } = await initializedContext()
+    const { env, db } = await initializedContext()
     const admin = await adminSession(env)
     const token = await readToken(env, admin)
     const kept = await createPage(env, admin, { title: "保留页" })
@@ -148,6 +162,60 @@ describe("只读接口：tree", () => {
     expect(Object.keys(entry ?? {}).sort()).toEqual(TREE_KEYS)
     expect(entry?.title).toBe("保留页")
     expect(entry?.parent_id).toBeNull()
+    const row = db.db
+      .prepare("SELECT space_id, sort_order FROM ciki_pages WHERE id = ?")
+      .get(Number(kept.id)) as { space_id: number; sort_order: number }
+    expect(entry?.space_id).toBe(row.space_id)
+    expect(entry?.sort_order).toBe(row.sort_order)
+  })
+
+  it("同父级下 sort_order 与数组次序一致，两字段始终等于库值", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const token = await readToken(env, admin)
+    const parent = await createPage(env, admin, { title: "父页" })
+    const first = await createPage(env, admin, {
+      title: "甲",
+      parentId: parent.id
+    })
+    const second = await createPage(env, admin, {
+      title: "乙",
+      parentId: parent.id
+    })
+
+    // 把第二个子页拖到同级最前：move 把该组整组重排成 0..n-1。
+    const moved = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${second.id}/move`,
+      { parentId: parent.id, sortOrder: 0 },
+      admin
+    )
+    expect(moved.status).toBe(200)
+
+    const entries = await tree(env, token)
+    const siblings = entries.filter((entry) => entry.parent_id === parent.id)
+    expect(siblings.map((entry) => entry.id)).toEqual([second.id, first.id])
+    expect(siblings.map((entry) => entry.sort_order)).toEqual([0, 1])
+
+    // 全树不变量：同一 (space_id, parent_id) 组内 sort_order 随数组次序严格递增，
+    // 且每一项都与库里的值一致。
+    entries.forEach((entry, index) => {
+      const row = db.db
+        .prepare("SELECT space_id, sort_order FROM ciki_pages WHERE id = ?")
+        .get(entry.id) as { space_id: number; sort_order: number }
+      expect(entry.space_id).toBe(row.space_id)
+      expect(entry.sort_order).toBe(row.sort_order)
+
+      const previous = entries[index - 1]
+      if (
+        previous &&
+        previous.parent_id === entry.parent_id &&
+        previous.space_id === entry.space_id
+      ) {
+        expect(previous.sort_order).toBeLessThan(entry.sort_order)
+      }
+    })
   })
 })
 
@@ -209,7 +277,7 @@ describe("只读接口：search", () => {
 
 describe("只读接口：pages/:id", () => {
   it("默认给 markdown；?format=json 给 content_json；已删/不存在 404", async () => {
-    const { env } = await initializedContext()
+    const { env, db } = await initializedContext()
     const admin = await adminSession(env)
     const token = await readToken(env, admin)
     const page = await createPage(env, admin, {
@@ -225,11 +293,18 @@ describe("只读接口：pages/:id", () => {
       "id",
       "markdown",
       "parent_id",
+      "sort_order",
+      "space_id",
       "title",
       "updated_at"
     ])
     expect(markdownBody.markdown).toBe("接口正文")
     expect(markdownBody.title).toBe("接口页")
+    const row = db.db
+      .prepare("SELECT space_id, sort_order FROM ciki_pages WHERE id = ?")
+      .get(Number(page.id)) as { space_id: number; sort_order: number }
+    expect(markdownBody.space_id).toBe(row.space_id)
+    expect(markdownBody.sort_order).toBe(row.sort_order)
     // content_md 不含标题行（下载时由前端拼一级标题）。
     expect(String(markdownBody.markdown)).not.toContain("# 接口页")
 
@@ -245,9 +320,13 @@ describe("只读接口：pages/:id", () => {
       "created_at",
       "id",
       "parent_id",
+      "sort_order",
+      "space_id",
       "title",
       "updated_at"
     ])
+    expect(jsonBody.space_id).toBe(row.space_id)
+    expect(jsonBody.sort_order).toBe(row.sort_order)
     expect(jsonBody.markdown).toBeUndefined()
     expect(JSON.parse(String(jsonBody.content_json))).toMatchObject({
       type: "doc"
@@ -286,8 +365,11 @@ describe("只读接口：空间可见性 = 令牌持有人的读权限", () => {
 
     // 站点管理员（令牌持有人）看得到全部空间。
     const adminToken = await readToken(env, admin)
-    expect((await tree(env, adminToken)).map((entry) => entry.id)).toContain(
-      secret.id
+    const adminTree = await tree(env, adminToken)
+    expect(adminTree.map((entry) => entry.id)).toContain(secret.id)
+    // space_id 透传页面真实所属空间，不会被写成默认空间。
+    expect(adminTree.find((entry) => entry.id === secret.id)?.space_id).toBe(
+      Number(space.id)
     )
     expect(
       (await search(env, adminToken, "专属关键词")).map((hit) => hit.id)

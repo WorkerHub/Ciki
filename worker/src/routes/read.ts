@@ -5,9 +5,10 @@
  * 令牌所属用户本人的读权限：站点管理员可见全部空间，其余人只见自己是成员的空间，
  * 与站内页面树/搜索同一口径（SQL 层过滤，非成员空间连标题都不会出现在响应里）。
  *
- * 三个接口的字段是**冻结契约**，按规格逐字使用 snake_case（`parent_id` / `updated_at`
- * / `created_at` / `content_json`）——这是本仓「响应字段一律 camelCase」通则的唯一例外，
- * 连接器按此对接，别在实现里顺手改成 camelCase。id 已随 ID 重构改为整数。
+ * 三个接口的字段是**冻结契约**，按规格逐字使用 snake_case（`parent_id` / `space_id`
+ * / `sort_order` / `updated_at` / `created_at` / `content_json`）——这是本仓「响应字段
+ * 一律 camelCase」通则的唯一例外，连接器按此对接，别在实现里顺手改成 camelCase。
+ * id 已随 ID 重构改为整数。
  *
  * 正文分工：默认 `markdown` 与树/搜索都只读 D1；`?format=json` 按 `content_hash`
  * 从内容桶取（连接器要原文时才走这一步）。
@@ -38,6 +39,8 @@ interface TreeRow {
   id: number
   title: string
   parent_id: number | null
+  space_id: number
+  sort_order: number
   updated_at: string
 }
 
@@ -56,6 +59,7 @@ readRoutes.get("/tree", async (c) => {
        )`
   const stmt = c.env.DB.prepare(
     `SELECT p.id AS id, p.title AS title, p.parent_id AS parent_id,
+            p.space_id AS space_id, p.sort_order AS sort_order,
             p.updated_at AS updated_at
        FROM ${pagesTable(prefix)} p
       WHERE p.deleted_at IS NULL
@@ -71,6 +75,8 @@ readRoutes.get("/tree", async (c) => {
       id: row.id,
       title: toPlainText(row.title),
       parent_id: row.parent_id,
+      space_id: row.space_id,
+      sort_order: row.sort_order,
       updated_at: row.updated_at
     }))
   )
@@ -159,6 +165,8 @@ readRoutes.get("/pages/:id", async (c) => {
     id: row.id,
     title: toPlainText(row.title),
     parent_id: row.parent_id,
+    space_id: row.space_id,
+    sort_order: row.sort_order,
     created_at: row.created_at,
     updated_at: row.updated_at
   }
