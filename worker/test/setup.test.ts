@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   DEFAULT_SPACE_ID,
   DEFAULT_SPACE_NAME,
+  DEFAULT_SPACE_NAME_EN,
   getMigrations
 } from "../src/lib/migrations"
 import { splitStatements } from "../src/lib/migrations-runner"
@@ -28,10 +29,18 @@ function migrationList(status: "applied" | "skipped") {
   return MIGRATION_NAMES.map((name) => ({ name, status }))
 }
 
-function setupRequest(env: Parameters<typeof request>[0], secret: string) {
+function setupRequest(
+  env: Parameters<typeof request>[0],
+  secret: string,
+  body?: Record<string, unknown>
+) {
   return request(env, "/api/setup", {
     method: "POST",
-    headers: { "x-setup-secret": secret }
+    headers: {
+      "x-setup-secret": secret,
+      ...(body ? { "content-type": "application/json" } : {})
+    },
+    ...(body ? { body: JSON.stringify(body) } : {})
   })
 }
 
@@ -316,6 +325,50 @@ describe("初始化迁移：默认空间与播种", () => {
       }>
     ).map((column) => column.name)
     expect(pageColumns).toContain("space_id")
+  })
+
+  it("全新英文 setup：默认空间播种为 Default Space", async () => {
+    const { env, db } = makeContext()
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET, { language: "en" })
+    expect(res.status).toBe(200)
+
+    const space = db.db
+      .prepare("SELECT name FROM ciki_spaces WHERE is_default = 1")
+      .get() as { name: string }
+    expect(space.name).toBe(DEFAULT_SPACE_NAME_EN)
+  })
+
+  it("已有用户的库重复 setup（en）不改默认空间名", async () => {
+    const { env, db } = makeContext()
+    await setupRequest(env, TEST_SETUP_SECRET)
+    await adminSession(env)
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET, { language: "en" })
+    expect(res.status).toBe(200)
+
+    const space = db.db
+      .prepare("SELECT name FROM ciki_spaces WHERE is_default = 1")
+      .get() as { name: string }
+    expect(space.name).toBe(DEFAULT_SPACE_NAME)
+  })
+
+  it("用户改过名的空间：无用户时 setup（en）也不覆盖", async () => {
+    const { env, db } = makeContext()
+    await setupRequest(env, TEST_SETUP_SECRET)
+    db.db
+      .prepare(
+        "UPDATE ciki_spaces SET name = 'Custom Space' WHERE is_default = 1"
+      )
+      .run()
+
+    const res = await setupRequest(env, TEST_SETUP_SECRET, { language: "en" })
+    expect(res.status).toBe(200)
+
+    const space = db.db
+      .prepare("SELECT name FROM ciki_spaces WHERE is_default = 1")
+      .get() as { name: string }
+    expect(space.name).toBe("Custom Space")
   })
 
   it("首个注册用户以 admin 进默认空间，新建页面缺省落默认空间", async () => {

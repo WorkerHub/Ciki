@@ -7,8 +7,11 @@ import {
   runSetup
 } from "../lib/setup"
 import { safeEqual } from "../core/auth"
+import { normalizeLanguage } from "../core/language"
 import { consumeCounter, ensureCountersTable } from "../core/counters"
-import { clientIp } from "../lib/http"
+import { renameUnusedDefaultSpace } from "../db/queries/spaces"
+import { clientIp, readJsonBody } from "../lib/http"
+import { DEFAULT_SPACE_NAME, DEFAULT_SPACE_NAME_EN } from "../lib/migrations"
 import type { HonoEnv } from "../types"
 
 export const setupRoutes = new Hono<HonoEnv>()
@@ -84,9 +87,24 @@ setupRoutes.post("/", async (c) => {
     return c.json({ error: "Invalid setup secret" }, 403)
   }
 
+  // 初始化页随当前界面语言发送；缺省/非法一律回退 zh（与 §3 语言链一致）。
+  const body = await readJsonBody<{ language?: unknown }>(c)
+  const language = normalizeLanguage(body?.language)
+
   try {
     const result = await runSetup(c.env)
     if (!result.success) return c.json(result, 409)
+    // 全新英文安装：默认空间名仍是播种名、且尚无用户时改成英文。存量库因
+    // 「已有用户」守卫不改名；用户改过名的空间因名字不符也不会被覆盖。
+    if (language === "en") {
+      await renameUnusedDefaultSpace(
+        c.env.DB,
+        prefix,
+        DEFAULT_SPACE_NAME,
+        DEFAULT_SPACE_NAME_EN,
+        new Date().toISOString()
+      )
+    }
     return c.json(result)
   } catch (err) {
     console.error("Setup failed:", err instanceof Error ? err.message : err)
