@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import {
   ApiError,
   type Me,
@@ -304,6 +305,38 @@ describe("空间设置与成员管理", () => {
 
     expect(
       await screen.findByText("仅空间管理员可以打开空间设置")
+    ).toBeInTheDocument()
+  })
+})
+
+describe("空间设置 · 英文界面", () => {
+  beforeEach(() => {
+    useAuthStore.setState({
+      user: memberUser,
+      status: "ready",
+      restricted: false
+    })
+    useSpacesStore.setState({
+      spaces: [space],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(spacesApi.get).mockResolvedValue(space)
+    vi.mocked(spacesApi.members).mockResolvedValue(members)
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.trash).mockResolvedValue([])
+  })
+
+  it("空间信息、成员与危险区都是英文", async () => {
+    await i18n.changeLanguage("en")
+    renderSettings()
+
+    expect(await screen.findByLabelText("Name")).toHaveValue("支付团队")
+    expect(screen.getByText("Members")).toBeInTheDocument()
+    expect(screen.getByText("Danger zone")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Delete space" })
     ).toBeInTheDocument()
   })
 })

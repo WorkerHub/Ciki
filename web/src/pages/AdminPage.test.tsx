@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import type { Me, SiteSettings, SmtpSettings } from "@/lib/api"
 import { AdminPage } from "@/pages/AdminPage"
 import { useAuthStore } from "@/stores/auth"
@@ -86,5 +87,39 @@ describe("系统管理 · 页签", () => {
       "smtp.example.com"
     )
     expect(adminApi.smtp).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe("系统管理 · 英文界面", () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: admin, status: "ready", restricted: false })
+    vi.mocked(adminApi.users).mockResolvedValue([])
+    vi.mocked(adminApi.settings).mockResolvedValue(settings)
+    vi.mocked(adminApi.smtp).mockResolvedValue({
+      emailConfigured: true,
+      config: smtp
+    })
+    vi.mocked(adminApi.r2Cleanup).mockResolvedValue({
+      lastRun: null,
+      running: null
+    })
+  })
+
+  it("页标题、六个页签与默认用户列表都是英文", async () => {
+    await i18n.changeLanguage("en")
+    render(<AdminPage />)
+
+    expect(await screen.findByText("Admin")).toBeInTheDocument()
+    expect(
+      screen.getByRole("tab", { name: "Space overview" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("tab", { name: "Database maintenance" })
+    ).toBeInTheDocument()
+    // 默认落在「用户管理」页签：兼作 UsersTab 的英文覆盖
+    expect(
+      await screen.findByRole("button", { name: "New user" })
+    ).toBeInTheDocument()
+    expect(screen.getByText("No users yet.")).toBeInTheDocument()
   })
 })

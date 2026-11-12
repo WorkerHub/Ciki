@@ -1,5 +1,6 @@
 import { Scissors } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +20,7 @@ import {
   type SiteSettings
 } from "@/lib/api"
 
-const INVALID_LIMIT_HINT = "保留数需为不小于 1 的整数，留空表示不限。"
+const INVALID_LIMIT_HINT_KEY = "admin.retention.invalid"
 
 /**
  * 历史版本保留数（全站一个值）＋ 按当前设置修剪全部页面。
@@ -44,6 +45,7 @@ export function RevisionRetentionCard({
   const [previewing, setPreviewing] = useState(false)
   const [previewError, setPreviewError] = useState("")
   const [pruning, setPruning] = useState(false)
+  const { t } = useTranslation()
 
   const locked = Boolean(disabled) || saving
 
@@ -90,12 +92,14 @@ export function RevisionRetentionCard({
       const savedLimit = typeof raw === "number" ? raw : null
       if (raw === undefined || savedLimit !== value) {
         setDraft(current)
-        setError("保留数没有保存成功，请刷新后重试。")
+        setError(t("admin.retention.notSaved"))
         return
       }
       onSaved(saved)
       setNotice(
-        value === null ? "保留数已设为不限。" : `保留数已设为 ${value} 条。`
+        value === null
+          ? t("admin.retention.savedUnlimited")
+          : t("admin.retention.saved", { count: value })
       )
     } catch (saveError: unknown) {
       setDraft(current)
@@ -121,7 +125,7 @@ export function RevisionRetentionCard({
     }
     if (!/^\d+$/.test(next) || Number(next) < 1) {
       setDraft(current)
-      setError(INVALID_LIMIT_HINT)
+      setError(t(INVALID_LIMIT_HINT_KEY))
       return
     }
     void save(Number(next))
@@ -134,7 +138,9 @@ export function RevisionRetentionCard({
     try {
       const { deleted } = await adminApi.pruneAllRevisions()
       setNotice(
-        deleted > 0 ? `已删除 ${deleted} 条版本。` : "没有可删除的版本。"
+        deleted > 0
+          ? t("admin.retention.deleted", { count: deleted })
+          : t("admin.retention.nothingToDelete")
       )
     } catch (pruneError: unknown) {
       setError(describeApiError(pruneError))
@@ -148,14 +154,17 @@ export function RevisionRetentionCard({
     preview !== null && preview.limit !== null && preview.prunableRevisions > 0
 
   const pruneDescription = (() => {
-    if (previewing) return "正在统计将删除的版本…"
+    if (previewing) return t("admin.retention.previewing")
     if (previewError) return previewError
-    if (!preview) return "正在统计将删除的版本…"
-    if (preview.limit === null) return "当前设置为不限，没有可修剪的版本。"
+    if (!preview) return t("admin.retention.previewing")
+    if (preview.limit === null) return t("admin.retention.unlimited")
     if (preview.prunableRevisions === 0) {
-      return "当前没有超出保留数的版本，不需要修剪。"
+      return t("admin.retention.nothingToPrune")
     }
-    return `将删除 ${preview.prunableRevisions} 条旧版本（每页保留最新 ${preview.limit} 条），删除后无法恢复。页面当前内容与最新的一条版本不受影响。`
+    return t("admin.retention.preview", {
+      count: preview.prunableRevisions,
+      limit: preview.limit
+    })
   })()
 
   return (
@@ -180,9 +189,11 @@ export function RevisionRetentionCard({
       <div className="rounded-xl border border-border px-4">
         <div className="flex flex-col gap-2 border-b border-border py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
           <div className="space-y-0.5">
-            <p className="text-sm font-medium">每页保留历史版本数</p>
+            <p className="text-sm font-medium">
+              {t("admin.retention.limit.label")}
+            </p>
             <p className="max-w-prose text-xs text-muted-foreground">
-              留空表示不限。设置后每次保存会自动删掉该页超出的旧版本；已有版本不会自动清理，可用下面的按钮按当前设置修剪。
+              {t("admin.retention.limit.description")}
             </p>
           </div>
           <Input
@@ -190,8 +201,8 @@ export function RevisionRetentionCard({
             min={1}
             step={1}
             inputMode="numeric"
-            placeholder="不限"
-            aria-label="每页保留历史版本数"
+            placeholder={t("admin.retention.limit.placeholder")}
+            aria-label={t("admin.retention.limit.label")}
             className="h-8 w-full sm:w-56"
             value={draft}
             disabled={locked}
@@ -211,7 +222,7 @@ export function RevisionRetentionCard({
         </div>
         <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <p className="max-w-prose text-xs text-muted-foreground">
-            按当前设置为全部页面修剪：只删历史版本记录，不动页面当前内容。执行前会显示将删除的版本总数。
+            {t("admin.retention.pruneDescription")}
           </p>
           <Button
             type="button"
@@ -222,7 +233,7 @@ export function RevisionRetentionCard({
             onClick={() => setPruneOpen(true)}
           >
             <Scissors aria-hidden="true" />
-            按当前设置修剪全部页面
+            {t("admin.retention.prune")}
           </Button>
         </div>
       </div>
@@ -230,17 +241,23 @@ export function RevisionRetentionCard({
       <AlertDialog open={pruneOpen} onOpenChange={setPruneOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>按当前设置修剪全部页面？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("admin.retention.pruneTitle")}
+            </AlertDialogTitle>
             <AlertDialogDescription>{pruneDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pruning}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={pruning}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={!confirmable || pruning}
               onClick={() => void runPrune()}
             >
-              删除 {preview ? preview.prunableRevisions : 0} 条
+              {t("admin.retention.pruneConfirm", {
+                count: preview ? preview.prunableRevisions : 0
+              })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

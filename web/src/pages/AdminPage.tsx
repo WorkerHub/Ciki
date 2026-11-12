@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DatabaseTab } from "@/pages/admin/DatabaseTab"
 import { SecurityTab } from "@/pages/admin/SecurityTab"
@@ -14,6 +15,7 @@ import { UsersTab } from "@/pages/admin/UsersTab"
  */
 export function AdminPage() {
   const [tab, setTab] = useState("users")
+  const { t } = useTranslation()
 
   return (
     <div className="space-y-4">
@@ -23,18 +25,18 @@ export function AdminPage() {
             className="size-4 text-muted-foreground"
             aria-hidden="true"
           />
-          系统管理
+          {t("admin.title")}
         </h1>
       </header>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
-          <TabsTrigger value="users">用户管理</TabsTrigger>
-          <TabsTrigger value="spaces">空间总览</TabsTrigger>
-          <TabsTrigger value="site">应用设置</TabsTrigger>
-          <TabsTrigger value="security">访问与安全</TabsTrigger>
-          <TabsTrigger value="email">邮件配置</TabsTrigger>
-          <TabsTrigger value="database">数据库维护</TabsTrigger>
+          <TabsTrigger value="users">{t("admin.tabs.users")}</TabsTrigger>
+          <TabsTrigger value="spaces">{t("admin.tabs.spaces")}</TabsTrigger>
+          <TabsTrigger value="site">{t("admin.tabs.settings")}</TabsTrigger>
+          <TabsTrigger value="security">{t("admin.tabs.security")}</TabsTrigger>
+          <TabsTrigger value="email">{t("admin.tabs.email")}</TabsTrigger>
+          <TabsTrigger value="database">{t("admin.tabs.database")}</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-3">
           <UsersTab />

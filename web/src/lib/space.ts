@@ -5,13 +5,8 @@ import type { Space, SpaceRole } from "@/lib/api"
  * - 站点管理员对所有空间的有效角色视为 `admin`；
  * - `editor` 及以上可写页面，`admin` 才能改空间信息 / 成员 / 删空间。
  * 角色未知（列表未到、空间不在列表）一律当作「不可写」处理，写入口不渲染。
+ * 角色名是界面文案，统一走 locale 的 `common.roles.*`，这里不放中文。
  */
-
-export const SPACE_ROLE_LABELS: Record<SpaceRole, string> = {
-  admin: "管理员",
-  editor: "编辑",
-  viewer: "只读"
-}
 
 export function effectiveRole(space: Space, isSiteAdmin: boolean): SpaceRole {
   return isSiteAdmin ? "admin" : space.myRole

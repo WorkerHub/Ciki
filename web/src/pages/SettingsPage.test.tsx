@@ -475,3 +475,25 @@ describe("界面语言", () => {
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("zh")
   })
 })
+
+describe("设置页 · 英文界面", () => {
+  it("卡片标题、两步验证与两张令牌卡都是英文", async () => {
+    vi.mocked(meApi.sessions).mockResolvedValue([])
+    setUser({ totpEnabled: true, passkeyCount: 1 })
+    await i18n.changeLanguage("en")
+    renderSettings()
+
+    expect(screen.getByText("Settings")).toBeInTheDocument()
+    expect(screen.getByText("Appearance")).toBeInTheDocument()
+    expect(screen.getByText("Change password")).toBeInTheDocument()
+    expect(screen.getByText("Two-factor authentication")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "1 passkey registered (fingerprint / face / security key)."
+      )
+    ).toBeInTheDocument()
+    expect(await screen.findByText("Import token")).toBeInTheDocument()
+    expect(screen.getByText("Read-only API token")).toBeInTheDocument()
+    expect(screen.getByText("Signed-in devices")).toBeInTheDocument()
+  })
+})

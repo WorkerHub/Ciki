@@ -75,6 +75,7 @@ function PasswordConfirmDialog({
   onConfirm: (password: string) => void
 }) {
   const [password, setPassword] = useState("")
+  const { t } = useTranslation()
   useEffect(() => {
     if (open) setPassword("")
   }, [open])
@@ -93,7 +94,9 @@ function PasswordConfirmDialog({
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="confirm-password">账号密码</Label>
+            <Label htmlFor="confirm-password">
+              {t("settings.password.accountLabel")}
+            </Label>
             <Input
               id="confirm-password"
               name="password"
@@ -107,7 +110,7 @@ function PasswordConfirmDialog({
           {error ? <p className="text-xs text-destructive">{error}</p> : null}
           <DialogFooter>
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "处理中…" : confirmLabel}
+              {busy ? t("settings.password.busy") : confirmLabel}
             </Button>
           </DialogFooter>
         </form>
@@ -126,7 +129,8 @@ export function SettingsPage() {
   const { t } = useTranslation()
 
   const [error, setError] = useState("")
-  const [notice, setNotice] = useState("")
+  /** 成功提示存 key，渲染时再 t()：本页就能切语言，提示不能停在旧语言。 */
+  const [noticeKey, setNoticeKey] = useState("")
 
   // 语言：切换即时生效，再写回账号（规格 §2.4）
   const [savingLanguage, setSavingLanguage] = useState(false)
@@ -211,13 +215,13 @@ export function SettingsPage() {
 
   const changePassword = async () => {
     setError("")
-    setNotice("")
+    setNoticeKey("")
     if (newPassword.length < 8) {
-      setError("新密码至少 8 位")
+      setError(t("settings.password.tooShort"))
       return
     }
     if (newPassword !== repeatPassword) {
-      setError("两次输入的新密码不一致")
+      setError(t("settings.password.mismatch"))
       return
     }
     setChangingPassword(true)
@@ -226,7 +230,7 @@ export function SettingsPage() {
       setCurrentPassword("")
       setNewPassword("")
       setRepeatPassword("")
-      setNotice("密码已更新，其它设备上的登录会话已失效。")
+      setNoticeKey("settings.notices.passwordUpdated")
     } catch (passwordError) {
       setError(describeApiError(passwordError))
     } finally {
@@ -242,7 +246,7 @@ export function SettingsPage() {
     const before = currentLanguage()
     if (next === before) return
     setError("")
-    setNotice("")
+    setNoticeKey("")
     setSavingLanguage(true)
     await changeLanguage(next)
     try {
@@ -257,7 +261,7 @@ export function SettingsPage() {
 
   const startTotp = async (password?: string) => {
     setError("")
-    setNotice("")
+    setNoticeKey("")
     if (!password && needsReauthToAddFactor(user?.twofa)) {
       setReauthError("")
       setPendingReauth("totp")
@@ -292,7 +296,7 @@ export function SettingsPage() {
       // 后端在启用成功后已经清掉 needs_2fa_setup，本地受限标记也要跟着清，
       // 否则用户会一直被 RequireAuth 拉回设置页
       setRestricted(false)
-      setNotice("两步验证已开启，下次登录需要输入动态验证码。")
+      setNoticeKey("settings.notices.totpEnabled")
       await refreshMe()
     } catch (enableError) {
       setError(describeApiError(enableError))
@@ -303,7 +307,7 @@ export function SettingsPage() {
 
   const registerPasskey = async (password?: string) => {
     setError("")
-    setNotice("")
+    setNoticeKey("")
     if (!password && needsReauthToAddFactor(user?.twofa)) {
       setReauthError("")
       setPendingReauth("passkey")
@@ -320,7 +324,7 @@ export function SettingsPage() {
       setReauthPassword("")
       setPendingReauth(null)
       setRestricted(false)
-      setNotice("Passkey 已添加。")
+      setNoticeKey("settings.notices.passkeyAdded")
       await refreshMe()
     } catch (passkeyError) {
       const isApiError = passkeyError instanceof ApiError
@@ -340,7 +344,7 @@ export function SettingsPage() {
 
   const sendEmailVerify = async (password?: string) => {
     setError("")
-    setNotice("")
+    setNoticeKey("")
     if (!password && needsReauthToAddFactor(user?.twofa)) {
       setReauthError("")
       setPendingReauth("email")
@@ -393,7 +397,7 @@ export function SettingsPage() {
       setReauthPassword("")
       // 与 TOTP 启用一致：后端已清掉 needs_2fa_setup，受限标记要跟着清
       setRestricted(false)
-      setNotice("邮箱验证码已开启，下次登录可以改用邮箱收码。")
+      setNoticeKey("settings.notices.emailOtpEnabled")
       await refreshMe()
     } catch (enableError) {
       setError(describeApiError(enableError))
@@ -407,22 +411,24 @@ export function SettingsPage() {
   const emailOtpEnabled = user?.twofa.emailOtpEnabled === true
   /** 发信没配好时「开启邮箱验证码」直接不可点，并在同一句里说清去哪里配。 */
   const emailUnavailable = !emailConfigured && !emailOtpEnabled
-  const emailSentHint = `验证码已发送到 ${user?.email ?? "账号邮箱"}，${Math.round(
-    emailExpiresIn / 60
-  )} 分钟内有效。`
+  const emailSentHint = t("auth.common.codeSentTo", {
+    email: user?.email ?? t("auth.common.accountEmailFallback"),
+    minutes: Math.round(emailExpiresIn / 60)
+  })
+  const accountEmail = user?.email ?? t("auth.common.accountEmailFallback")
   const emailHint = emailOtpEnabled
     ? emailConfigured
-      ? `已开启：登录第二步可以向 ${user?.email ?? "账号邮箱"} 发送 6 位验证码。`
-      : "已开启，但站点没有配置发信，登录时不会出现这个方式；可随时关闭。"
+      ? t("settings.twofa.email.hintEnabledConfigured", { email: accountEmail })
+      : t("settings.twofa.email.hintEnabledUnconfigured")
     : emailConfigured
-      ? "未开启：需要先收一封验证码邮件确认邮箱可达。"
-      : "站点未配置发信，邮箱验证码不可用；请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。"
+      ? t("settings.twofa.email.hintNotEnabled")
+      : t("settings.twofa.email.hintUnavailable")
 
   return (
     <div className="space-y-4">
       <header className="space-y-1">
         <h1 className="font-heading text-xl font-semibold tracking-tight">
-          设置
+          {t("settings.title")}
         </h1>
       </header>
 
@@ -434,12 +440,12 @@ export function SettingsPage() {
           {error}
         </p>
       ) : null}
-      {notice ? (
+      {noticeKey ? (
         <p
           role="status"
           className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
         >
-          {notice}
+          {t(noticeKey)}
         </p>
       ) : null}
 
@@ -450,13 +456,13 @@ export function SettingsPage() {
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            外观
+            {t("settings.appearance.title")}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <ThemeSegmented />
           <p className="text-xs text-muted-foreground">
-            当前账号：{user?.email}
+            {t("settings.appearance.account", { email: user?.email })}
           </p>
         </CardContent>
       </Card>
@@ -483,7 +489,7 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Lock className="size-4 text-muted-foreground" aria-hidden="true" />
-            修改密码
+            {t("settings.password.title")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -495,7 +501,9 @@ export function SettingsPage() {
             }}
           >
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="current-password">当前密码</Label>
+              <Label htmlFor="current-password">
+                {t("settings.password.current")}
+              </Label>
               <Input
                 id="current-password"
                 name="password"
@@ -507,7 +515,7 @@ export function SettingsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="new-password">新密码（至少 8 位）</Label>
+              <Label htmlFor="new-password">{t("settings.password.new")}</Label>
               <Input
                 id="new-password"
                 name="new-password"
@@ -519,7 +527,9 @@ export function SettingsPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="repeat-password">再次输入新密码</Label>
+              <Label htmlFor="repeat-password">
+                {t("settings.password.repeat")}
+              </Label>
               <Input
                 id="repeat-password"
                 name="repeat-password"
@@ -532,7 +542,9 @@ export function SettingsPage() {
             </div>
             <div className="sm:col-span-2">
               <Button type="submit" size="sm" disabled={changingPassword}>
-                {changingPassword ? "更新中…" : "更新密码"}
+                {changingPassword
+                  ? t("settings.password.submitting")
+                  : t("settings.password.submit")}
               </Button>
             </div>
           </form>
@@ -546,18 +558,20 @@ export function SettingsPage() {
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            两步验证
+            {t("settings.twofa.title")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           <section className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-sm font-medium">验证器 App（TOTP）</p>
+                <p className="text-sm font-medium">
+                  {t("settings.twofa.totp.label")}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {totpEnabled
-                    ? "已开启：登录第二步输入 6 位动态码。"
-                    : "未开启。"}
+                    ? t("settings.twofa.totp.enabled")
+                    : t("settings.twofa.totp.disabled")}
                 </p>
               </div>
               {totpEnabled ? (
@@ -567,7 +581,7 @@ export function SettingsPage() {
                   variant="outline"
                   onClick={() => setDisableTotpOpen(true)}
                 >
-                  关闭
+                  {t("settings.twofa.disable")}
                 </Button>
               ) : (
                 <Button
@@ -576,7 +590,9 @@ export function SettingsPage() {
                   onClick={() => void startTotp()}
                   disabled={totpBusy}
                 >
-                  {totpBusy ? "准备中…" : "开始配置"}
+                  {totpBusy
+                    ? t("settings.twofa.totp.preparing")
+                    : t("settings.twofa.totp.start")}
                 </Button>
               )}
             </div>
@@ -587,7 +603,7 @@ export function SettingsPage() {
                   {totpQr ? (
                     <img
                       src={totpQr}
-                      alt="TOTP 配置二维码"
+                      alt={t("settings.twofa.totp.qrAlt")}
                       width={160}
                       height={160}
                       className="size-40 rounded bg-white p-1"
@@ -595,15 +611,16 @@ export function SettingsPage() {
                   ) : null}
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground">
-                      用 Bitwarden / 1Password
-                      等验证器扫描二维码，或手动输入密钥：
+                      {t("settings.twofa.totp.scanHint")}
                     </p>
                     <code className="block rounded bg-muted px-2 py-1 font-mono text-xs break-all">
                       {totp.secret}
                     </code>
                     <div className="flex items-end gap-2">
                       <div className="space-y-1.5">
-                        <Label htmlFor="totp-enable-code">6 位验证码</Label>
+                        <Label htmlFor="totp-enable-code">
+                          {t("settings.twofa.totp.codeLabel")}
+                        </Label>
                         <Input
                           id="totp-enable-code"
                           name="otp-code"
@@ -626,7 +643,7 @@ export function SettingsPage() {
                         disabled={totpBusy || totpCode.length !== 6}
                         onClick={() => void enableTotp()}
                       >
-                        启用
+                        {t("settings.twofa.enable")}
                       </Button>
                     </div>
                   </div>
@@ -646,8 +663,10 @@ export function SettingsPage() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {passkeyCount > 0
-                    ? `已登记 ${passkeyCount} 个 Passkey（指纹 / 面容 / 安全钥匙）。`
-                    : "未登记。"}
+                    ? t("settings.twofa.passkey.registered", {
+                        count: passkeyCount
+                      })
+                    : t("settings.twofa.passkey.none")}
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
@@ -660,10 +679,12 @@ export function SettingsPage() {
                   title={
                     webauthnSupported()
                       ? undefined
-                      : "当前浏览器不支持 WebAuthn"
+                      : t("settings.twofa.passkey.unsupported")
                   }
                 >
-                  {passkeyBusy ? "等待验证…" : "添加 Passkey"}
+                  {passkeyBusy
+                    ? t("settings.twofa.passkey.waiting")
+                    : t("settings.twofa.passkey.add")}
                 </Button>
                 {passkeyCount > 0 ? (
                   <Button
@@ -672,7 +693,7 @@ export function SettingsPage() {
                     variant="ghost"
                     onClick={() => setRemovePasskeyOpen(true)}
                   >
-                    全部移除
+                    {t("settings.twofa.passkey.removeAll")}
                   </Button>
                 ) : null}
               </div>
@@ -686,7 +707,7 @@ export function SettingsPage() {
               <div>
                 <p className="flex items-center gap-1.5 text-sm font-medium">
                   <Mail className="size-3.5" aria-hidden="true" />
-                  邮箱验证码
+                  {t("settings.twofa.email.label")}
                 </p>
                 <p className="text-xs text-muted-foreground">{emailHint}</p>
               </div>
@@ -695,10 +716,10 @@ export function SettingsPage() {
                   type="button"
                   size="sm"
                   variant="outline"
-                  aria-label="关闭邮箱验证码"
+                  aria-label={t("settings.twofa.email.disableLabel")}
                   onClick={() => setDisableEmailOtpOpen(true)}
                 >
-                  关闭
+                  {t("settings.twofa.disable")}
                 </Button>
               ) : (
                 <Button
@@ -713,13 +734,15 @@ export function SettingsPage() {
                   }
                 >
                   {emailBusy
-                    ? "发送中…"
+                    ? t("settings.twofa.email.sending")
                     : // 冷却期间不论是刚发完还是刚取消，都别留一个点了必定 429 的按钮
                       emailCooldown > 0
-                      ? `重新发送（${emailCooldown}s）`
+                      ? t("settings.twofa.email.resendIn", {
+                          seconds: emailCooldown
+                        })
                       : emailVerifySent
-                        ? "重新发送"
-                        : "开启邮箱验证码"}
+                        ? t("settings.twofa.email.resend")
+                        : t("settings.twofa.email.enable")}
                 </Button>
               )}
             </div>
@@ -728,7 +751,9 @@ export function SettingsPage() {
               <div className="rounded-lg border border-border p-3">
                 <div className="flex flex-wrap items-end gap-2">
                   <div className="space-y-1.5">
-                    <Label htmlFor="email-otp-enable-code">邮箱验证码</Label>
+                    <Label htmlFor="email-otp-enable-code">
+                      {t("settings.twofa.email.label")}
+                    </Label>
                     <Input
                       id="email-otp-enable-code"
                       name="email-otp-code"
@@ -751,7 +776,7 @@ export function SettingsPage() {
                     disabled={emailBusy || emailCode.length !== 6}
                     onClick={() => void enableEmailOtp()}
                   >
-                    启用
+                    {t("settings.twofa.enable")}
                   </Button>
                   <Button
                     type="button"
@@ -763,7 +788,7 @@ export function SettingsPage() {
                       setReauthPassword("")
                     }}
                   >
-                    取消
+                    {t("common.cancel")}
                   </Button>
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -786,15 +811,17 @@ export function SettingsPage() {
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            登录设备
+            {t("settings.sessions.title")}
           </CardTitle>
-          <CardDescription>吊销后该设备需要重新登录。</CardDescription>
+          <CardDescription>
+            {t("settings.sessions.description")}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="divide-y divide-border">
             {sessions.length === 0 ? (
               <li className="py-2 text-sm text-muted-foreground">
-                没有其它会话。
+                {t("settings.sessions.empty")}
               </li>
             ) : (
               sessions.map((session) => (
@@ -804,17 +831,20 @@ export function SettingsPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm">
-                      {session.userAgent || "未知设备"}
+                      {session.userAgent ||
+                        t("settings.sessions.unknownDevice")}
                       {session.current ? (
                         <span className="ml-1.5 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300">
-                          当前
+                          {t("settings.sessions.current")}
                         </span>
                       ) : null}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {session.ip || "—"} · 最近活动{" "}
-                      {formatRelative(session.lastSeenAt)} · 创建于{" "}
-                      {formatDateTime(session.createdAt)}
+                      {t("settings.sessions.meta", {
+                        ip: session.ip || "—",
+                        relative: formatRelative(session.lastSeenAt),
+                        time: formatDateTime(session.createdAt)
+                      })}
                     </p>
                   </div>
                   <Button
@@ -831,7 +861,7 @@ export function SettingsPage() {
                       }
                     }}
                   >
-                    吊销
+                    {t("settings.sessions.revoke")}
                   </Button>
                 </li>
               ))
@@ -850,16 +880,16 @@ export function SettingsPage() {
           }}
         >
           <LogOut aria-hidden="true" />
-          退出登录
+          {t("shell.userMenu.logout")}
         </Button>
       </div>
 
       <PasswordConfirmDialog
         open={disableTotpOpen}
         onOpenChange={setDisableTotpOpen}
-        title="关闭两步验证"
-        description="关闭后登录只需要密码。"
-        confirmLabel="关闭"
+        title={t("settings.dialogs.disableTotp.title")}
+        description={t("settings.dialogs.disableTotp.description")}
+        confirmLabel={t("settings.twofa.disable")}
         busy={totpBusy}
         error={error}
         onConfirm={async (password) => {
@@ -868,7 +898,7 @@ export function SettingsPage() {
           try {
             await authApi.totpDisable(password)
             setDisableTotpOpen(false)
-            setNotice("两步验证已关闭。")
+            setNoticeKey("settings.notices.totpDisabled")
             await refreshMe()
           } catch (disableError) {
             setError(describeApiError(disableError))
@@ -886,9 +916,9 @@ export function SettingsPage() {
           setReauthPassword("")
           setReauthError("")
         }}
-        title="验证身份"
-        description="账号已有可用的两步验证方式，新增前需要输入当前密码确认身份。"
-        confirmLabel="继续"
+        title={t("settings.dialogs.reauth.title")}
+        description={t("settings.dialogs.reauth.description")}
+        confirmLabel={t("settings.dialogs.reauth.confirm")}
         busy={totpBusy || passkeyBusy || emailBusy}
         error={reauthError}
         onConfirm={(password) => {
@@ -904,9 +934,9 @@ export function SettingsPage() {
       <PasswordConfirmDialog
         open={disableEmailOtpOpen}
         onOpenChange={setDisableEmailOtpOpen}
-        title="关闭邮箱验证码"
-        description="关闭后登录第二步不再发送邮件验证码，其它方式不受影响。"
-        confirmLabel="确认关闭"
+        title={t("settings.dialogs.disableEmail.title")}
+        description={t("settings.dialogs.disableEmail.description")}
+        confirmLabel={t("settings.dialogs.disableEmail.confirm")}
         busy={emailBusy}
         error={error}
         onConfirm={async (password) => {
@@ -915,7 +945,7 @@ export function SettingsPage() {
           try {
             await authApi.emailOtpDisable(password)
             setDisableEmailOtpOpen(false)
-            setNotice("邮箱验证码已关闭。")
+            setNoticeKey("settings.notices.emailOtpDisabled")
             await refreshMe()
           } catch (disableError) {
             setError(describeApiError(disableError))
@@ -928,9 +958,9 @@ export function SettingsPage() {
       <PasswordConfirmDialog
         open={removePasskeyOpen}
         onOpenChange={setRemovePasskeyOpen}
-        title="移除全部 Passkey"
-        description="移除后只能使用动态验证码或密码登录。"
-        confirmLabel="全部移除"
+        title={t("settings.dialogs.removePasskey.title")}
+        description={t("settings.dialogs.removePasskey.description")}
+        confirmLabel={t("settings.twofa.passkey.removeAll")}
         busy={passkeyBusy}
         error={error}
         onConfirm={async (password) => {
@@ -939,7 +969,7 @@ export function SettingsPage() {
           try {
             await authApi.passkeyDisableAll(password)
             setRemovePasskeyOpen(false)
-            setNotice("Passkey 已全部移除。")
+            setNoticeKey("settings.notices.passkeyRemoved")
             await refreshMe()
           } catch (removeError) {
             setError(describeApiError(removeError))

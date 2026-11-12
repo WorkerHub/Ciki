@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   ApiError,
   adminApi,
@@ -16,6 +17,7 @@ import { useSiteStore } from "@/stores/site"
 export function SettingsTab() {
   const siteName = useSiteStore((state) => state.name)
   const setName = useSiteStore((state) => state.setName)
+  const { t } = useTranslation()
   const [settings, setSettings] = useState<SiteSettings | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
@@ -56,7 +58,7 @@ export function SettingsTab() {
   const saveSiteName = async (next: string) => {
     if (!settings) return
     if (next.length > 32) {
-      setError("站点名称需为 1–32 个字符。")
+      setError(t("admin.settings.siteName.tooLong"))
       return
     }
     setSaving(true)
@@ -71,18 +73,18 @@ export function SettingsTab() {
       const saved = await adminApi.settings()
       if ((saved.siteName ?? "").trim() !== next) {
         setSettings(previous)
-        setError("站点名称没有保存成功，请刷新后重试。")
+        setError(t("admin.settings.siteName.notSaved"))
         return
       }
       setSettings(saved)
       // 品牌区、页签标题、登录页都读同一份 store，保存成功即全站更新
       setName(next)
-      setNotice("站点名称已保存，全站即时生效。")
+      setNotice(t("admin.settings.siteName.saved"))
     } catch (saveError) {
       setSettings(previous)
       setError(
         saveError instanceof ApiError && saveError.status === 400
-          ? "站点名称需为 1–32 个字符。"
+          ? t("admin.settings.siteName.tooLong")
           : describeApiError(saveError)
       )
     } finally {
@@ -123,16 +125,16 @@ export function SettingsTab() {
       ) : null}
       <div className="rounded-xl border border-border px-4">
         <SettingTextRow
-          label="站点名称"
-          description="显示在浏览器页签、左上品牌区与登录页；保存后全站即时生效，不需要重新部署。"
+          label={t("admin.settings.siteName.label")}
+          description={t("admin.settings.siteName.description")}
           value={settings.siteName || siteName}
           maxLength={32}
           disabled={saving}
           onSave={(next) => void saveSiteName(next)}
         />
         <SettingRow
-          label="显示初始化页面"
-          description="初始化完成后通常应关闭，避免把 setup 入口暴露在登录页。"
+          label={t("admin.settings.setupPage.label")}
+          description={t("admin.settings.setupPage.description")}
           checked={settings.setupPageEnabled}
           disabled={saving}
           onChange={(checked) => void update({ setupPageEnabled: checked })}
@@ -145,8 +147,8 @@ export function SettingsTab() {
       />
       <p className="text-[11px] text-muted-foreground">
         {settings.emailConfigured
-          ? "邮件服务已配置：邮箱验证码两步验证与找回密码可用，修改在「邮件配置」。"
-          : "邮件服务未配置：邮箱验证码两步验证与找回密码不可用，请到「邮件配置」填写 SMTP。"}
+          ? t("admin.settings.mailConfigured")
+          : t("admin.settings.mailMissing")}
       </p>
     </div>
   )

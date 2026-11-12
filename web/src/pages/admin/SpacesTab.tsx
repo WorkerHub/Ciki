@@ -1,6 +1,7 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
 import { Boxes, ExternalLink } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ export function SpacesTab() {
   const [spaces, setSpaces] = useState<AdminSpace[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const { t } = useTranslation()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -42,9 +44,9 @@ export function SpacesTab() {
     <section className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-sm font-medium">空间总览</h2>
+          <h2 className="text-sm font-medium">{t("admin.spaces.title")}</h2>
           <p className="text-xs text-muted-foreground">
-            全部空间的成员数与页面数；页面数只算未删除页面，回收站单独统计。
+            {t("admin.spaces.description")}
           </p>
         </div>
         <Button
@@ -54,7 +56,7 @@ export function SpacesTab() {
           onClick={() => void load()}
           disabled={loading}
         >
-          刷新
+          {t("admin.common.refresh")}
         </Button>
       </div>
 
@@ -68,7 +70,11 @@ export function SpacesTab() {
       ) : null}
 
       {loading && spaces.length === 0 ? (
-        <div className="space-y-2" role="status" aria-label="空间总览加载中">
+        <div
+          className="space-y-2"
+          role="status"
+          aria-label={t("admin.spaces.loadingLabel")}
+        >
           {[0, 1, 2].map((index) => (
             <div key={index} className="h-11 animate-pulse rounded bg-muted" />
           ))}
@@ -76,21 +82,33 @@ export function SpacesTab() {
       ) : spaces.length === 0 ? (
         <Empty
           icon={<Boxes />}
-          title="还没有空间"
-          description="完成数据库升级后会自动建出默认空间。"
+          title={t("admin.spaces.emptyTitle")}
+          description={t("admin.spaces.emptyDescription")}
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>空间</TableHead>
-                <TableHead className="w-40">描述</TableHead>
-                <TableHead className="w-20 text-right">成员</TableHead>
-                <TableHead className="w-20 text-right">页面</TableHead>
-                <TableHead className="w-24 text-right">回收站</TableHead>
-                <TableHead className="w-28">创建时间</TableHead>
-                <TableHead className="w-24 text-right">操作</TableHead>
+                <TableHead>{t("admin.spaces.table.space")}</TableHead>
+                <TableHead className="w-40">
+                  {t("admin.spaces.table.description")}
+                </TableHead>
+                <TableHead className="w-20 text-right">
+                  {t("admin.spaces.table.members")}
+                </TableHead>
+                <TableHead className="w-20 text-right">
+                  {t("admin.spaces.table.pages")}
+                </TableHead>
+                <TableHead className="w-24 text-right">
+                  {t("admin.spaces.table.trashed")}
+                </TableHead>
+                <TableHead className="w-28">
+                  {t("admin.spaces.table.createdAt")}
+                </TableHead>
+                <TableHead className="w-24 text-right">
+                  {t("common.table.actions")}
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -101,7 +119,7 @@ export function SpacesTab() {
                       {space.name}
                       {space.isDefault ? (
                         <Badge variant="outline" className="text-[10px]">
-                          默认
+                          {t("admin.spaces.default")}
                         </Badge>
                       ) : null}
                     </span>
@@ -132,7 +150,7 @@ export function SpacesTab() {
                       <Button asChild size="sm" variant="ghost">
                         <Link to={spaceSettingsPath(space.slug)}>
                           <ExternalLink aria-hidden="true" />
-                          空间设置
+                          {t("shell.spaces.settings")}
                         </Link>
                       </Button>
                     ) : null}

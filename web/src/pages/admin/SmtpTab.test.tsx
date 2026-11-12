@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError, type Me, type SmtpSettings } from "@/lib/api"
 import { SmtpTab } from "@/pages/admin/SmtpTab"
 import { useAuthStore } from "@/stores/auth"
@@ -307,5 +308,32 @@ describe("系统管理 · 邮件配置", () => {
       "SMTP 配置不合法：from must be a valid email address"
     )
     expect(screen.getByLabelText("服务器地址")).toHaveValue("smtp.example.com")
+  })
+})
+
+describe("系统管理 · 邮件配置 · 英文界面", () => {
+  beforeEach(() => {
+    useAuthStore.setState({ user: admin, status: "ready", restricted: false })
+    useSiteStore.setState({ name: DEFAULT_SITE_NAME, loaded: true })
+    vi.mocked(adminApi.smtp).mockReset().mockResolvedValue(state)
+  })
+
+  it("字段标签、加密选项与页脚说明都是英文", async () => {
+    await i18n.changeLanguage("en")
+    render(<SmtpTab />)
+
+    expect(await screen.findByLabelText("Server address")).toHaveValue(
+      "smtp.example.com"
+    )
+    expect(screen.getByLabelText("Port")).toHaveValue(587)
+    expect(
+      screen.getByRole("combobox", { name: "Encryption" })
+    ).toHaveTextContent("STARTTLS")
+    expect(screen.getByText("Configured")).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        "Test emails only go to the current admin inbox (admin@example.com) using the saved configuration."
+      )
+    ).toBeInTheDocument()
   })
 })

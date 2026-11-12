@@ -5,6 +5,7 @@ import {
   startAuthentication,
   startRegistration
 } from "@simplewebauthn/browser"
+import { i18n } from "@/i18n"
 import { ApiError, describeApiError } from "@/lib/api"
 
 type JsonRecord = Record<string, unknown>
@@ -19,7 +20,7 @@ function unwrapOptions(raw: JsonRecord): JsonRecord {
     | JsonRecord
     | undefined
   if (!candidate || typeof candidate.challenge !== "string") {
-    throw new Error("服务器返回的 WebAuthn 参数不完整（缺少 challenge）")
+    throw new Error(i18n.t("errors.webauthn.missingChallenge"))
   }
   return candidate
 }
@@ -50,7 +51,7 @@ export function describeWebAuthnError(error: unknown): string {
   // 端点自己回的错误（挑战过期、验证未通过）走统一翻译，别把后端的英文原文
   // 直接摆给用户；只有浏览器侧 WebAuthn 失败才用 error.message。
   if (error instanceof ApiError) return describeApiError(error)
-  if (isWebAuthnCancelled(error)) return "已取消 Passkey 操作"
+  if (isWebAuthnCancelled(error)) return i18n.t("errors.webauthn.cancelled")
   const message = error instanceof Error ? error.message : ""
-  return message || "Passkey 操作失败，请重试"
+  return message || i18n.t("errors.webauthn.failed")
 }

@@ -1,5 +1,6 @@
 import { MailCheck, Send } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -30,7 +31,7 @@ interface SmtpForm {
 }
 
 /** 已存密码时只以掩码示人，绝不回显明文。 */
-const PASSWORD_MASK_HINT = "•••••••• 已保存，留空保持不变"
+const PASSWORD_MASK_HINT_KEY = "admin.smtp.password.maskHint"
 
 const EMPTY_FORM: SmtpForm = {
   host: "",
@@ -42,10 +43,10 @@ const EMPTY_FORM: SmtpForm = {
 }
 
 /** 三态的标签把端口习惯一并说清，省得用户去查邮件服务商文档。 */
-const ENCRYPTION_OPTIONS: Array<{ value: SmtpEncryption; label: string }> = [
-  { value: "tls", label: "TLS（465 端口，全程加密）" },
-  { value: "starttls", label: "STARTTLS（587 端口，先连接再升级加密）" },
-  { value: "none", label: "不加密（仅限内网自建服务）" }
+const ENCRYPTION_OPTIONS: Array<{ value: SmtpEncryption; labelKey: string }> = [
+  { value: "tls", labelKey: "admin.smtp.encryption.tls" },
+  { value: "starttls", labelKey: "admin.smtp.encryption.starttls" },
+  { value: "none", labelKey: "admin.smtp.encryption.none" }
 ]
 
 function formFrom(config: SmtpSettings | null): SmtpForm {
@@ -94,6 +95,7 @@ function Field({
  */
 export function SmtpTab() {
   const adminEmail = useAuthStore((state) => state.user?.email ?? "")
+  const { t } = useTranslation()
   const [form, setForm] = useState<SmtpForm | null>(null)
   const [password, setPassword] = useState("")
   const [passwordSet, setPasswordSet] = useState(false)
@@ -141,27 +143,27 @@ export function SmtpTab() {
     // 服务端规则：用户名与密码必须同时有或同时空（保留原密文也算「有」）
     const hasPassword = password !== "" || passwordSet
     if (!host) {
-      setError("请填写 SMTP 服务器地址。")
+      setError(t("admin.smtp.errors.host"))
       return
     }
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      setError("端口需为 1–65535 的整数。")
+      setError(t("admin.smtp.errors.port"))
       return
     }
     if (!from) {
-      setError("请填写发件人地址。")
+      setError(t("admin.smtp.errors.from"))
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from)) {
-      setError("发件人地址格式不正确。")
+      setError(t("admin.smtp.errors.fromFormat"))
       return
     }
     if (hasPassword && !username) {
-      setError("填了（或已保存）密码时，用户名也要一起填。")
+      setError(t("admin.smtp.errors.usernameRequired"))
       return
     }
     if (!hasPassword && username) {
-      setError("填了用户名就要一起填密码；匿名中继请把用户名留空。")
+      setError(t("admin.smtp.errors.passwordRequired"))
       return
     }
 
@@ -188,8 +190,8 @@ export function SmtpTab() {
       void useSiteStore.getState().load()
       setNotice(
         result.emailConfigured
-          ? "SMTP 配置已保存。"
-          : "SMTP 配置已保存，但还不能发信；请补全服务器地址、端口、加密方式与发件人地址。"
+          ? t("admin.smtp.notices.saved")
+          : t("admin.smtp.notices.savedIncomplete")
       )
     } catch (saveError) {
       setError(describeApiError(saveError))
@@ -206,8 +208,8 @@ export function SmtpTab() {
       await adminApi.testSmtp()
       setTestNotice(
         adminEmail
-          ? `测试邮件已发送到 ${adminEmail}，请查收（也看一下垃圾箱）。`
-          : "测试邮件已发送，请查收当前管理员邮箱。"
+          ? t("admin.smtp.notices.testSent", { email: adminEmail })
+          : t("admin.smtp.notices.testSentUnknown")
       )
     } catch (failure) {
       setTestError(describeApiError(failure))
@@ -254,7 +256,7 @@ export function SmtpTab() {
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            SMTP 服务器
+            {t("admin.smtp.title")}
           </h3>
           <span
             className={
@@ -263,17 +265,19 @@ export function SmtpTab() {
                 : "rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-700 dark:text-amber-300"
             }
           >
-            {configured ? "已配置" : "未配置"}
+            {configured
+              ? t("admin.smtp.configured")
+              : t("admin.smtp.unconfigured")}
           </span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
           {configured
-            ? "邮箱验证码两步验证与找回密码都使用这份配置。"
-            : "填好并保存后，邮箱验证码两步验证与找回密码才会启用。"}
+            ? t("admin.smtp.hintConfigured")
+            : t("admin.smtp.hintUnconfigured")}
         </p>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label="服务器地址" htmlFor="smtp-host">
+          <Field label={t("admin.smtp.host.label")} htmlFor="smtp-host">
             <Input
               id="smtp-host"
               name="smtp-host"
@@ -286,9 +290,9 @@ export function SmtpTab() {
           </Field>
 
           <Field
-            label="端口"
+            label={t("admin.smtp.port.label")}
             htmlFor="smtp-port"
-            hint="TLS 常用 465，STARTTLS 常用 587。"
+            hint={t("admin.smtp.port.hint")}
           >
             <Input
               id="smtp-port"
@@ -303,7 +307,10 @@ export function SmtpTab() {
             />
           </Field>
 
-          <Field label="加密方式" htmlFor="smtp-encryption">
+          <Field
+            label={t("admin.smtp.encryption.label")}
+            htmlFor="smtp-encryption"
+          >
             <Select
               value={form.encryption}
               disabled={saving}
@@ -311,7 +318,7 @@ export function SmtpTab() {
             >
               <SelectTrigger
                 id="smtp-encryption"
-                aria-label="加密方式"
+                aria-label={t("admin.smtp.encryption.label")}
                 className="w-full"
               >
                 <SelectValue />
@@ -319,7 +326,7 @@ export function SmtpTab() {
               <SelectContent>
                 {ENCRYPTION_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.labelKey)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -327,9 +334,9 @@ export function SmtpTab() {
           </Field>
 
           <Field
-            label="用户名"
+            label={t("admin.smtp.username.label")}
             htmlFor="smtp-username"
-            hint="多数服务商要求填邮箱全称；留空表示匿名登录。"
+            hint={t("admin.smtp.username.hint")}
           >
             <Input
               id="smtp-username"
@@ -342,12 +349,12 @@ export function SmtpTab() {
           </Field>
 
           <Field
-            label="密码"
+            label={t("admin.smtp.password.label")}
             htmlFor="smtp-password"
             hint={
               passwordSet
-                ? "已保存密码，留空不会改动它；重录才会覆盖。"
-                : "按服务商要求填写；有的服务商要用「授权码」而不是登录密码。"
+                ? t("admin.smtp.password.hintSaved")
+                : t("admin.smtp.password.hintEmpty")
             }
           >
             <Input
@@ -358,13 +365,17 @@ export function SmtpTab() {
               autoComplete="new-password"
               value={password}
               // 掩码用占位符表达：输入框里永远是空值，重录才会覆盖（GET 从不回密码）
-              placeholder={passwordSet ? PASSWORD_MASK_HINT : "未设置"}
+              placeholder={
+                passwordSet
+                  ? t(PASSWORD_MASK_HINT_KEY)
+                  : t("admin.smtp.password.unset")
+              }
               disabled={saving}
               onChange={(event) => setPassword(event.target.value)}
             />
           </Field>
 
-          <Field label="发件人地址" htmlFor="smtp-from">
+          <Field label={t("admin.smtp.from.label")} htmlFor="smtp-from">
             <Input
               id="smtp-from"
               name="smtp-from"
@@ -378,9 +389,9 @@ export function SmtpTab() {
           </Field>
 
           <Field
-            label="发件人名称"
+            label={t("admin.smtp.fromName.label")}
             htmlFor="smtp-from-name"
-            hint="收件人看到的显示名，留空只显示地址。"
+            hint={t("admin.smtp.fromName.hint")}
           >
             <Input
               id="smtp-from-name"
@@ -396,18 +407,18 @@ export function SmtpTab() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button type="submit" size="sm" disabled={saving}>
-            {saving ? "保存中…" : "保存配置"}
+            {saving ? t("admin.common.saving") : t("admin.smtp.save")}
           </Button>
           <Button
             type="button"
             size="sm"
             variant="outline"
             disabled={testing || !configured}
-            title={configured ? undefined : "先保存一份可用的配置"}
+            title={configured ? undefined : t("admin.smtp.testDisabled")}
             onClick={() => void sendTest()}
           >
             <Send aria-hidden="true" />
-            {testing ? "发送中…" : "发送测试邮件"}
+            {testing ? t("admin.smtp.testing") : t("admin.smtp.test")}
           </Button>
         </div>
 
@@ -446,10 +457,12 @@ export function SmtpTab() {
         ) : null}
 
         <p className="mt-3 text-[11px] text-muted-foreground">
-          测试邮件只会发到当前管理员邮箱
-          {adminEmail ? `（${adminEmail}）` : ""}
-          ，用的是已保存的配置。
-          {configured ? "" : "先保存配置，按钮才可用。"}
+          {t("admin.smtp.testNote", {
+            email: adminEmail
+              ? t("admin.smtp.testNoteEmail", { email: adminEmail })
+              : ""
+          })}
+          {configured ? "" : t("admin.smtp.testNoteDisabled")}
         </p>
       </form>
     </div>

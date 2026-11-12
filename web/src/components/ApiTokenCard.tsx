@@ -1,5 +1,6 @@
 import { BookOpen, Check, Copy, KeySquare } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,10 +28,10 @@ type TokenKind = "import" | "read"
 type ConfirmAction = "rotate" | "revoke"
 
 interface TokenKindConfig {
-  title: string
+  /** 卡片标题、空态主文案、提示与确认框一律存 key，渲染时再 t()。 */
+  titleKey: string
   icon: typeof KeySquare
-  /** 空态主文案（「还没有导入令牌」/「还没有只读接口令牌」）。 */
-  emptyLabel: string
+  emptyKey: string
   notices: {
     generated: string
     rotated: string
@@ -59,22 +60,21 @@ interface TokenKindConfig {
  */
 const KINDS: Record<TokenKind, TokenKindConfig> = {
   import: {
-    title: "导入令牌",
+    titleKey: "settings.tokens.import.title",
     icon: KeySquare,
-    emptyLabel: "还没有导入令牌",
+    emptyKey: "settings.tokens.import.empty",
     notices: {
-      generated: "令牌已生成。",
-      rotated: "令牌已重置，旧令牌立即失效。",
-      regenerated: "已重新生成令牌。",
-      revoked: "令牌已吊销，插件里的旧令牌立即失效。",
-      missing: "令牌已不存在，已刷新状态。"
+      generated: "settings.tokens.notices.generated",
+      rotated: "settings.tokens.notices.rotated",
+      regenerated: "settings.tokens.notices.regenerated",
+      revoked: "settings.tokens.import.revoked",
+      missing: "settings.tokens.notices.missing"
     },
     confirm: {
-      rotateTitle: "重置导入令牌？",
-      rotateDescription:
-        "旧令牌立即失效，插件里要重新填新令牌。新令牌同样只显示这一次。",
-      revokeTitle: "吊销导入令牌？",
-      revokeDescription: "吊销后插件无法再导入页面，直到你重新生成令牌。"
+      rotateTitle: "settings.tokens.import.rotateTitle",
+      rotateDescription: "settings.tokens.import.rotateDescription",
+      revokeTitle: "settings.tokens.import.revokeTitle",
+      revokeDescription: "settings.tokens.import.revokeDescription"
     },
     api: {
       status: () => meApi.importToken(),
@@ -83,22 +83,21 @@ const KINDS: Record<TokenKind, TokenKindConfig> = {
     }
   },
   read: {
-    title: "只读接口令牌",
+    titleKey: "settings.tokens.read.title",
     icon: BookOpen,
-    emptyLabel: "还没有只读接口令牌",
+    emptyKey: "settings.tokens.read.empty",
     notices: {
-      generated: "令牌已生成。",
-      rotated: "令牌已重置，旧令牌立即失效。",
-      regenerated: "已重新生成令牌。",
-      revoked: "令牌已吊销，外部应用里的旧令牌立即失效。",
-      missing: "令牌已不存在，已刷新状态。"
+      generated: "settings.tokens.notices.generated",
+      rotated: "settings.tokens.notices.rotated",
+      regenerated: "settings.tokens.notices.regenerated",
+      revoked: "settings.tokens.read.revoked",
+      missing: "settings.tokens.notices.missing"
     },
     confirm: {
-      rotateTitle: "重置只读接口令牌？",
-      rotateDescription:
-        "旧令牌立即失效，外部只读客户端要重新填新令牌。新令牌同样只显示这一次。",
-      revokeTitle: "吊销只读接口令牌？",
-      revokeDescription: "吊销后外部应用无法再读取页面，直到你重新生成令牌。"
+      rotateTitle: "settings.tokens.read.rotateTitle",
+      rotateDescription: "settings.tokens.read.rotateDescription",
+      revokeTitle: "settings.tokens.read.revokeTitle",
+      revokeDescription: "settings.tokens.read.revokeDescription"
     },
     api: {
       status: () => meApi.readToken(),
@@ -119,11 +118,13 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
   const config = KINDS[kind]
   const { api } = config
   const Icon = config.icon
+  const { t } = useTranslation()
   const [status, setStatus] = useState<ApiTokenStatus | null>(null)
   const [issued, setIssued] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  const [notice, setNotice] = useState("")
+  /** 成功提示存 key，渲染时再 t()：切语言后提示跟着变。 */
+  const [noticeKey, setNoticeKey] = useState("")
   const [copied, setCopied] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null)
 
@@ -143,7 +144,7 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
 
   const issue = async () => {
     setError("")
-    setNotice("")
+    setNoticeKey("")
     setCopied(false)
     setConfirm(null)
     setBusy(true)
@@ -157,9 +158,9 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
         lastUsedAt: null,
         revokedAt: null
       })
-      if (previous?.active) setNotice(config.notices.rotated)
-      else if (previous?.revokedAt) setNotice(config.notices.regenerated)
-      else setNotice(config.notices.generated)
+      if (previous?.active) setNoticeKey(config.notices.rotated)
+      else if (previous?.revokedAt) setNoticeKey(config.notices.regenerated)
+      else setNoticeKey(config.notices.generated)
     } catch (issueError) {
       setError(describeApiError(issueError))
     } finally {
@@ -169,20 +170,20 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
 
   const revoke = async () => {
     setError("")
-    setNotice("")
+    setNoticeKey("")
     setCopied(false)
     setConfirm(null)
     setBusy(true)
     try {
       await api.revoke()
       setIssued("")
-      setNotice(config.notices.revoked)
+      setNoticeKey(config.notices.revoked)
       await load()
     } catch (revokeError) {
       // 契约里只有「从未生成」才回 404：多半是别处已经吊销，刷新状态即可
       if (revokeError instanceof ApiError && revokeError.status === 404) {
         setIssued("")
-        setNotice(config.notices.missing)
+        setNoticeKey(config.notices.missing)
         await load()
       } else {
         setError(describeApiError(revokeError))
@@ -201,7 +202,7 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
       window.setTimeout(() => setCopied(false), 1600)
     } catch {
       setCopied(false)
-      setError("复制失败，请手动选中令牌文本复制。")
+      setError(t("settings.tokens.common.copyFailed"))
     }
   }
 
@@ -216,7 +217,7 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-          {config.title}
+          {t(config.titleKey)}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -234,11 +235,13 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                   disabled={busy}
                   onClick={() => void load()}
                 >
-                  重试
+                  {t("common.retry")}
                 </Button>
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">读取中…</p>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.tokens.common.loading")}
+              </p>
             )}
           </div>
         ) : (
@@ -248,12 +251,12 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                 {error}
               </p>
             ) : null}
-            {notice ? (
+            {noticeKey ? (
               <p
                 role="status"
                 className="text-xs text-emerald-700 dark:text-emerald-300"
               >
-                {notice}
+                {t(noticeKey)}
               </p>
             ) : null}
 
@@ -265,44 +268,59 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                       variant="secondary"
                       className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                     >
-                      生效中
+                      {t("settings.tokens.common.active")}
                     </Badge>
                   ) : null}
-                  {revoked ? <Badge variant="secondary">已吊销</Badge> : null}
+                  {revoked ? (
+                    <Badge variant="secondary">
+                      {t("settings.tokens.common.revoked")}
+                    </Badge>
+                  ) : null}
                   {empty ? (
                     <span className="text-sm font-medium">
-                      {config.emptyLabel}
+                      {t(config.emptyKey)}
                     </span>
                   ) : null}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   {active ? (
                     <>
-                      <span>创建于 {formatDateTime(current.createdAt)}</span>
+                      <span>
+                        {t("settings.tokens.common.createdAt", {
+                          time: formatDateTime(current.createdAt)
+                        })}
+                      </span>
                       <span aria-hidden="true"> · </span>
                       <span>
-                        最近使用{" "}
-                        {current.lastUsedAt
-                          ? formatDateTime(current.lastUsedAt)
-                          : "尚未使用"}
+                        {t("settings.tokens.common.lastUsed", {
+                          time: current.lastUsedAt
+                            ? formatDateTime(current.lastUsedAt)
+                            : t("settings.tokens.common.neverUsed")
+                        })}
                       </span>
                     </>
                   ) : null}
                   {revoked ? (
                     <>
-                      <span>吊销于 {formatDateTime(current.revokedAt)}</span>
+                      <span>
+                        {t("settings.tokens.common.revokedAt", {
+                          time: formatDateTime(current.revokedAt)
+                        })}
+                      </span>
                       {current.createdAt ? (
                         <>
                           <span aria-hidden="true"> · </span>
                           <span>
-                            原令牌创建于 {formatDateTime(current.createdAt)}
+                            {t("settings.tokens.common.originalCreatedAt", {
+                              time: formatDateTime(current.createdAt)
+                            })}
                           </span>
                         </>
                       ) : null}
                     </>
                   ) : null}
                   {empty ? (
-                    <span>生成后明文只显示这一次，离开设置页就看不到了。</span>
+                    <span>{t("settings.tokens.common.emptyHint")}</span>
                   ) : null}
                 </p>
               </div>
@@ -315,7 +333,9 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                     disabled={busy}
                     onClick={() => void issue()}
                   >
-                    {busy ? "生成中…" : "生成令牌"}
+                    {busy
+                      ? t("settings.tokens.common.generating")
+                      : t("settings.tokens.common.generate")}
                   </Button>
                 ) : null}
                 {active ? (
@@ -327,7 +347,7 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                       disabled={busy}
                       onClick={() => setConfirm("rotate")}
                     >
-                      重置
+                      {t("settings.tokens.common.rotate")}
                     </Button>
                     <Button
                       type="button"
@@ -336,7 +356,7 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                       disabled={busy}
                       onClick={() => setConfirm("revoke")}
                     >
-                      吊销
+                      {t("settings.tokens.common.revoke")}
                     </Button>
                   </>
                 ) : null}
@@ -347,7 +367,9 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                     disabled={busy}
                     onClick={() => void issue()}
                   >
-                    {busy ? "生成中…" : "重新生成"}
+                    {busy
+                      ? t("settings.tokens.common.generating")
+                      : t("settings.tokens.common.regenerate")}
                   </Button>
                 ) : null}
               </div>
@@ -356,7 +378,7 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
             {issued ? (
               <div className="rounded-lg border border-border p-3">
                 <p className="text-xs text-muted-foreground">
-                  这串令牌只显示这一次，离开设置页后无法再查看。请现在复制并妥善保存。
+                  {t("settings.tokens.common.plaintextHint")}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <code className="min-w-0 flex-1 rounded bg-muted px-2 py-1 font-mono text-xs break-all select-all">
@@ -366,7 +388,11 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                     type="button"
                     size="sm"
                     variant="outline"
-                    aria-label={copied ? "已复制" : "复制令牌"}
+                    aria-label={
+                      copied
+                        ? t("settings.tokens.common.copied")
+                        : t("settings.tokens.common.copyLabel")
+                    }
                     onClick={() => void copy()}
                   >
                     {copied ? (
@@ -374,7 +400,9 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                     ) : (
                       <Copy aria-hidden="true" />
                     )}
-                    {copied ? "已复制" : "复制"}
+                    {copied
+                      ? t("settings.tokens.common.copied")
+                      : t("settings.tokens.common.copy")}
                   </Button>
                 </div>
                 <div className="mt-2 flex justify-end">
@@ -387,7 +415,7 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                       setCopied(false)
                     }}
                   >
-                    我已保存
+                    {t("settings.tokens.common.saved")}
                   </Button>
                 </div>
               </div>
@@ -404,15 +432,15 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{config.confirm.rotateTitle}</AlertDialogTitle>
+            <AlertDialogTitle>{t(config.confirm.rotateTitle)}</AlertDialogTitle>
             <AlertDialogDescription>
-              {config.confirm.rotateDescription}
+              {t(config.confirm.rotateDescription)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction disabled={busy} onClick={() => void issue()}>
-              重置令牌
+              {t("settings.tokens.common.rotateConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -426,19 +454,19 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{config.confirm.revokeTitle}</AlertDialogTitle>
+            <AlertDialogTitle>{t(config.confirm.revokeTitle)}</AlertDialogTitle>
             <AlertDialogDescription>
-              {config.confirm.revokeDescription}
+              {t(config.confirm.revokeDescription)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={busy}
               onClick={() => void revoke()}
             >
-              吊销令牌
+              {t("settings.tokens.common.revokeConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

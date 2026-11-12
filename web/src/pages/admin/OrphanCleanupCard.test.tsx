@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError, type R2CleanupRunResult } from "@/lib/api"
 import { OrphanCleanupCard } from "@/pages/admin/OrphanCleanupCard"
 
@@ -266,5 +267,20 @@ describe("孤儿图片清理 · 两步流程", () => {
     expect(screen.queryByRole("alert")).toBeNull()
     // 这一轮什么都没删：扫描结果留着，锁释放后可继续
     expect(screen.getByRole("button", { name: "立即清理" })).toBeInTheDocument()
+  })
+})
+
+describe("孤儿图片清理 · 英文界面", () => {
+  it("标题、按钮与锁等待时长都是英文", async () => {
+    await i18n.changeLanguage("en")
+    renderCard({ runningSeconds: 42 })
+
+    expect(screen.getByText("Orphaned image cleanup")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Scan for orphaned images" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Cleanup in progress; try again in about 42 seconds\./)
+    ).toBeInTheDocument()
   })
 })

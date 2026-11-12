@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import type { SiteSettings } from "@/lib/api"
 import { SecurityTab } from "@/pages/admin/SecurityTab"
 
@@ -91,5 +92,25 @@ describe("系统管理 · 访问与安全", () => {
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
     expect(registration).toHaveAttribute("aria-checked", "true")
+  })
+})
+
+describe("系统管理 · 访问与安全 · 英文界面", () => {
+  beforeEach(() => {
+    vi.mocked(adminApi.settings).mockResolvedValue(settings)
+  })
+
+  it("三个开关与权限模型说明都是英文", async () => {
+    await i18n.changeLanguage("en")
+    render(<SecurityTab />)
+
+    expect(
+      await screen.findByLabelText("Require two-factor authentication")
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Open registration")).toBeInTheDocument()
+    expect(
+      screen.getByLabelText("Registration requires admin approval")
+    ).toBeInTheDocument()
+    expect(screen.getByText("Permission model")).toBeInTheDocument()
   })
 })
