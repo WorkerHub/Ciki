@@ -1,5 +1,6 @@
 import { ArrowLeft, KeyRound, Mail, ShieldAlert } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
@@ -36,10 +37,11 @@ type Step =
 /** 切换器与默认落点的顺序，与契约的 availableMethods 顺序一致。 */
 const METHOD_ORDER: TwoFaMethod[] = ["totp", "passkey", "email_otp"]
 
-const METHOD_LABELS: Record<TwoFaMethod, string> = {
-  totp: "验证器 App",
-  passkey: "Passkey",
-  email_otp: "邮箱验证码"
+/** 方式名走 locale（`auth.twofa.methods.*`），加语言只加资源，不改这里。 */
+const METHOD_KEYS: Record<TwoFaMethod, string> = {
+  totp: "auth.twofa.methods.totp",
+  passkey: "auth.twofa.methods.passkey",
+  email_otp: "auth.twofa.methods.emailOtp"
 }
 
 /**
@@ -52,6 +54,7 @@ const METHOD_LABELS: Record<TwoFaMethod, string> = {
  *   （同一个 tempToken 只自动发一次），重发有 60s 冷却倒计时。
  */
 export function LoginPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const siteName = useSiteStore((state) => state.name)
   const emailConfigured = useSiteStore((state) => state.emailConfigured)
@@ -74,16 +77,15 @@ export function LoginPage() {
   /** 登录页直接重发验证码的状态（与两步验证的邮箱码各自独立）。 */
   const [resendBusy, setResendBusy] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
-  const [resendNote, setResendNote] = useState<{
-    tone: "info" | "error"
-    text: string
-  } | null>(null)
+  const [resendNote, setResendNote] = useState<
+    { tone: "info"; email: string } | { tone: "error"; text: string } | null
+  >(null)
   const [emailSent, setEmailSent] = useState(false)
   const [emailCooldown, setEmailCooldown] = useState(0)
   /** 已经为哪个登录挑战自动发过码：严格模式下 effect 会跑两遍，别发两封。 */
   const autoSentFor = useRef<string | null>(null)
 
-  const accountEmail = email.trim() || "账号邮箱"
+  const accountEmail = email.trim() || t("auth.common.accountEmailFallback")
   const twofa = step.kind === "twofa" ? step : null
 
   const finishLogin = async () => {
@@ -148,10 +150,7 @@ export function LoginPage() {
       try {
         const sent = await authApi.resendVerificationEmail(target)
         setResendCooldown(sent.cooldownSeconds)
-        setResendNote({
-          tone: "info",
-          text: `验证码已发送到 ${target}，${VERIFY_CODE_TTL_MINUTES} 分钟内有效。`
-        })
+        setResendNote({ tone: "info", email: target })
       } catch (sendError) {
         if (sendError instanceof ApiError && sendError.retryAfter) {
           setResendCooldown(sendError.retryAfter)
@@ -261,7 +260,7 @@ export function LoginPage() {
 
   if (step.kind === "password") {
     return (
-      <AuthShell title={`登录 ${siteName}`}>
+      <AuthShell title={t("auth.login.title", { siteName })}>
         <form
           key="password-step"
           id="password-step"
@@ -269,7 +268,7 @@ export function LoginPage() {
           onSubmit={submitPassword}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="login-email">邮箱</Label>
+            <Label htmlFor="login-email">{t("auth.login.email")}</Label>
             <Input
               id="login-email"
               name="email"
@@ -283,21 +282,21 @@ export function LoginPage() {
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="login-password">密码</Label>
+              <Label htmlFor="login-password">{t("auth.login.password")}</Label>
               {mailEntryUnavailable ? (
                 <span
                   aria-disabled="true"
-                  title="站点未配置发信，暂时无法通过邮件找回密码"
+                  title={t("auth.login.forgotUnavailable")}
                   className="cursor-not-allowed text-xs text-muted-foreground/60"
                 >
-                  忘记密码？
+                  {t("auth.login.forgot")}
                 </span>
               ) : (
                 <Link
                   to="/forgot-password"
                   className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
-                  忘记密码？
+                  {t("auth.login.forgot")}
                 </Link>
               )}
             </div>
@@ -322,7 +321,7 @@ export function LoginPage() {
                   className="mt-px size-3.5 shrink-0 text-muted-foreground"
                   aria-hidden="true"
                 />
-                <span>{unverified} 还没有验证邮箱，验证后才能登录。</span>
+                <span>{t("auth.login.unverified", { email: unverified })}</span>
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <Button asChild size="xs" variant="outline">
@@ -336,7 +335,7 @@ export function LoginPage() {
                       } satisfies VerifyEmailNavState
                     }
                   >
-                    去验证
+                    {t("auth.login.verifyNow")}
                   </Link>
                 </Button>
                 <Button
@@ -347,8 +346,8 @@ export function LoginPage() {
                   onClick={() => void resendVerification(unverified)}
                 >
                   {resendCooldown > 0
-                    ? `${resendCooldown}s 后可重发`
-                    : "重新发送验证码"}
+                    ? t("auth.common.resendIn", { seconds: resendCooldown })
+                    : t("auth.common.resend")}
                 </Button>
               </div>
               {resendNote ? (
@@ -360,7 +359,12 @@ export function LoginPage() {
                       : "text-muted-foreground"
                   }
                 >
-                  {resendNote.text}
+                  {resendNote.tone === "error"
+                    ? resendNote.text
+                    : t("auth.common.codeSentTo", {
+                        email: resendNote.email,
+                        minutes: VERIFY_CODE_TTL_MINUTES
+                      })}
                 </p>
               ) : null}
             </div>
@@ -370,25 +374,31 @@ export function LoginPage() {
             </p>
           ) : null}
           <Button type="submit" size="sm" className="w-full" disabled={busy}>
-            {busy ? "登录中…" : "登录"}
+            {busy ? t("auth.login.submitting") : t("auth.login.submit")}
           </Button>
           {mailEntryUnavailable ? (
             <p className="text-xs text-muted-foreground">
-              站点未配置发信，邮件找回密码与自助注册暂不可用；请联系管理员在「系统管理
-              → 邮件配置」中填写 SMTP。
+              {t("auth.login.smtpMissing")}
             </p>
           ) : null}
           {mailEntryUnavailable ? (
             // 发信不可用时上面那行已说明原因：这行只说账号怎么来，不重复 SMTP
             <p className="text-center text-xs text-muted-foreground">
-              账号请联系管理员开通。
+              {t("auth.login.accountViaAdmin")}
             </p>
           ) : (
             <p className="text-center text-xs text-muted-foreground">
-              还没有账号？
-              <Link to="/register" className="underline underline-offset-4">
-                注册
-              </Link>
+              <Trans
+                i18nKey="auth.login.noAccount"
+                components={{
+                  signup: (
+                    <Link
+                      to="/register"
+                      className="underline underline-offset-4"
+                    />
+                  )
+                }}
+              />
             </p>
           )}
         </form>
@@ -399,15 +409,15 @@ export function LoginPage() {
   const isEmailCode = step.method === "email_otp"
   const isPasskey = step.method === "passkey"
   const subtitle = isEmailCode
-    ? `继续验证 ${accountEmail}，验证码会发到账号邮箱。`
+    ? t("auth.twofa.subtitleEmail", { account: accountEmail })
     : isPasskey
-      ? `继续验证 ${accountEmail}，使用已登记的 Passkey。`
-      : `继续验证 ${accountEmail}，输入验证器里的 6 位动态码。`
+      ? t("auth.twofa.subtitlePasskey", { account: accountEmail })
+      : t("auth.twofa.subtitleTotp", { account: accountEmail })
   const codeInputId = isEmailCode ? "email-otp-code" : "otp-code"
   const methods = METHOD_ORDER.filter((method) => step.methods.includes(method))
 
   return (
-    <AuthShell title="两步验证" subtitle={subtitle}>
+    <AuthShell title={t("auth.twofa.title")} subtitle={subtitle}>
       <form
         key="twofa-step"
         id="twofa-step"
@@ -424,7 +434,7 @@ export function LoginPage() {
             onValueChange={(value) => {
               if (value) selectMethod(value as TwoFaMethod)
             }}
-            aria-label="验证方式"
+            aria-label={t("auth.twofa.methodsLabel")}
           >
             {methods.map((method) => (
               <ToggleGroupItem
@@ -433,7 +443,7 @@ export function LoginPage() {
                 className="flex-1"
                 disabled={busy}
               >
-                {METHOD_LABELS[method]}
+                {t(METHOD_KEYS[method])}
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
@@ -442,7 +452,7 @@ export function LoginPage() {
         {step.method === "passkey" ? (
           <div className="space-y-2">
             <p className="text-xs text-muted-foreground">
-              浏览器会弹出指纹 / 面容 / 安全钥匙验证，不需要输入验证码。
+              {t("auth.twofa.passkeyHint")}
             </p>
             <Button
               type="button"
@@ -451,18 +461,24 @@ export function LoginPage() {
               disabled={busy || !webauthnSupported()}
               onClick={() => void loginWithPasskey(step.tempToken)}
               title={
-                webauthnSupported() ? undefined : "当前浏览器不支持 WebAuthn"
+                webauthnSupported()
+                  ? undefined
+                  : t("auth.twofa.passkeyUnsupported")
               }
             >
               <KeyRound aria-hidden="true" />
-              {busy ? "等待验证…" : "使用 Passkey 验证"}
+              {busy
+                ? t("auth.twofa.passkeyWaiting")
+                : t("auth.twofa.passkeySubmit")}
             </Button>
           </div>
         ) : (
           <div className="space-y-2">
             <div className="space-y-1.5">
               <Label htmlFor={codeInputId}>
-                {isEmailCode ? "邮箱验证码" : "动态验证码"}
+                {isEmailCode
+                  ? t("auth.twofa.codeLabelEmail")
+                  : t("auth.twofa.codeLabelTotp")}
               </Label>
               <Input
                 key={codeInputId}
@@ -487,8 +503,8 @@ export function LoginPage() {
                 <span className="flex items-center gap-1">
                   <Mail className="size-3.5" aria-hidden="true" />
                   {emailSent
-                    ? `验证码已发送到 ${accountEmail}`
-                    : "选这个方式会向账号邮箱发送 6 位验证码"}
+                    ? t("auth.twofa.codeSent", { email: accountEmail })
+                    : t("auth.twofa.codeWillSend")}
                 </span>
                 <Button
                   type="button"
@@ -498,10 +514,10 @@ export function LoginPage() {
                   onClick={() => void sendEmailCode(step.tempToken)}
                 >
                   {emailCooldown > 0
-                    ? `${emailCooldown}s 后可重发`
+                    ? t("auth.common.resendIn", { seconds: emailCooldown })
                     : emailSent
-                      ? "重新发送"
-                      : "发送验证码"}
+                      ? t("auth.twofa.resend")
+                      : t("auth.twofa.sendCode")}
                 </Button>
               </div>
             ) : null}
@@ -521,7 +537,7 @@ export function LoginPage() {
             className="w-full"
             disabled={busy || code.length !== 6}
           >
-            {busy ? "验证中…" : "验证并登录"}
+            {busy ? t("auth.twofa.verifying") : t("auth.twofa.verify")}
           </Button>
         )}
 
@@ -542,7 +558,7 @@ export function LoginPage() {
           }}
         >
           <ArrowLeft aria-hidden="true" />
-          返回上一步
+          {t("auth.twofa.back")}
         </Button>
       </form>
     </AuthShell>

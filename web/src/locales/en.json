@@ -6,17 +6,255 @@
     "languages": {
       "zh": "中文",
       "en": "English"
+    },
+    "cancel": "Cancel",
+    "save": "Save",
+    "retry": "Retry",
+    "theme": {
+      "label": "Theme",
+      "auto": {
+        "label": "Auto",
+        "hint": "Follow the system appearance"
+      },
+      "light": {
+        "label": "Light",
+        "hint": "Always light"
+      },
+      "dark": {
+        "label": "Dark",
+        "hint": "Always dark"
+      },
+      "cycle": {
+        "auto": "Auto (follow system)",
+        "light": "Light",
+        "dark": "Dark",
+        "switch": "Theme: {{label}}. Click to switch."
+      }
+    },
+    "roles": {
+      "admin": "Admin",
+      "editor": "Editor",
+      "viewer": "Viewer"
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "pages": "Pages",
+      "resize": "Resize sidebar"
+    },
+    "newPage": "New page",
+    "loadingPage": "Loading page",
+    "pageTree": "Page tree",
+    "openTree": "Open page tree",
+    "search": {
+      "placeholder": "Search titles and content…",
+      "label": "Search pages",
+      "action": "Search"
+    },
+    "userMenu": {
+      "trigger": "Account menu",
+      "profile": "Profile",
+      "admin": "Admin",
+      "trash": "Trash",
+      "settings": "Settings",
+      "about": "About",
+      "help": "Help",
+      "logout": "Sign out"
+    },
+    "spaces": {
+      "switch": "Switch space",
+      "loadFailed": "Could not load spaces",
+      "loading": "Loading spaces…",
+      "none": "No spaces",
+      "default": "Default",
+      "settings": "Space settings",
+      "new": "New space",
+      "create": {
+        "hint": "A space groups pages and members. You become its admin when you create it.",
+        "name": "Space name",
+        "namePlaceholder": "e.g. Payments team",
+        "description": "Description (optional)",
+        "descriptionPlaceholder": "What does this space hold?",
+        "nameRequired": "Enter a space name",
+        "creating": "Creating…",
+        "submit": "Create space"
+      }
+    },
+    "tree": {
+      "loading": "Loading page tree",
+      "emptyNamed": "No pages in “{{spaceName}}” yet",
+      "empty": "No pages yet",
+      "emptyReadOnly": "You are a viewer in this space. Ask a space admin to add pages.",
+      "emptyHint": "Start by creating a page, or paste Confluence content straight into the editor.",
+      "movedTo": "Moved to “{{name}}”.",
+      "targetSpace": "Target space",
+      "renameTitle": "Rename page",
+      "renameHint": "Only the title changes; the body and version history stay as they are.",
+      "titleLabel": "Title",
+      "deleteTitle": "Delete “{{title}}”?",
+      "deleteHint": "The page and all its subpages move to the trash, where you can restore them.",
+      "deleteConfirm": "Move to trash",
+      "expand": "Expand subpages",
+      "collapse": "Collapse subpages",
+      "unnamed": "Untitled page",
+      "drag": "Drag to reorder",
+      "rowActions": "Actions for “{{title}}”",
+      "addChild": "New subpage",
+      "rename": "Rename",
+      "moveToSpace": "Move to space…",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "delete": "Delete (with subpages)"
+    }
+  },
+  "auth": {
+    "language": {
+      "switch": "Language: {{language}}. Click to switch."
+    },
+    "common": {
+      "resendIn": "Resend in {{seconds}}s",
+      "resend": "Resend code",
+      "codeSentTo": "Code sent to {{email}}. It is valid for {{minutes}} minutes.",
+      "accountEmailFallback": "the account email",
+      "passwordMismatch": "The two passwords do not match.",
+      "goLogin": "Sign in",
+      "backToLogin": "Back to sign in"
+    },
+    "login": {
+      "title": "Sign in to {{siteName}}",
+      "email": "Email",
+      "password": "Password",
+      "forgot": "Forgot password?",
+      "forgotUnavailable": "Email delivery is not configured, so password recovery is unavailable",
+      "unverified": "{{email}} is not verified yet. Verify it before signing in.",
+      "verifyNow": "Verify now",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "smtpMissing": "Email delivery is not configured, so password recovery and self-registration are unavailable. Ask an admin to fill in SMTP under Admin → Email delivery.",
+      "accountViaAdmin": "Ask an admin to create an account for you.",
+      "noAccount": "No account? <signup>Register</signup>"
+    },
+    "twofa": {
+      "title": "Two-factor authentication",
+      "subtitleEmail": "Continue verifying {{account}}. The code goes to the account email.",
+      "subtitlePasskey": "Continue verifying {{account}} with your registered passkey.",
+      "subtitleTotp": "Continue verifying {{account}}. Enter the 6-digit code from your authenticator.",
+      "methodsLabel": "Verification method",
+      "methods": {
+        "totp": "Authenticator app",
+        "passkey": "Passkey",
+        "emailOtp": "Email code"
+      },
+      "passkeyHint": "Your browser will ask for a fingerprint, face or security key. No code needed.",
+      "passkeyUnsupported": "This browser does not support WebAuthn",
+      "passkeyWaiting": "Waiting…",
+      "passkeySubmit": "Verify with passkey",
+      "codeLabelEmail": "Email code",
+      "codeLabelTotp": "Authentication code",
+      "codeSent": "Code sent to {{email}}",
+      "codeWillSend": "Choosing this method sends a 6-digit code to the account email",
+      "resend": "Resend",
+      "sendCode": "Send code",
+      "verify": "Verify and sign in",
+      "verifying": "Verifying…",
+      "back": "Back"
+    },
+    "register": {
+      "title": "Register for {{siteName}}",
+      "subtitleApproval": "After registering you must verify your email and wait for admin approval",
+      "subtitle": "After registering you must verify your email before signing in",
+      "email": "Email",
+      "password": "Password (at least 8 characters)",
+      "repeat": "Repeat password",
+      "passwordTooShort": "Password must be at least 8 characters",
+      "submit": "Register",
+      "submitting": "Submitting…",
+      "hasAccount": "Already have an account? <signin>Sign in</signin>",
+      "doneTitle": "Registration submitted",
+      "donePending": "Your account was created and is waiting for admin approval. Once approved, sign in with the same email.",
+      "doneActive": "Your account was created and activated. You can sign in now.",
+      "closed": "Self-registration is closed on this site.",
+      "closedHint": "Ask an admin to create an account, or sign in with an existing one.",
+      "unavailable": "Email delivery (SMTP) is not configured, so self-registration is unavailable.",
+      "unavailableHint": "Registration requires verifying your email with a code, so email delivery must work first. Ask an admin to fill in SMTP under Admin → Email delivery."
+    },
+    "verify": {
+      "title": "Verify email",
+      "subtitleWithEmail": "Enter the 6-digit code sent to {{email}}. You can sign in after verifying.",
+      "subtitle": "Enter your registration email and the 6-digit code from the email. You can sign in after verifying.",
+      "email": "Email",
+      "code": "Email code",
+      "ttl": "Valid for {{minutes}} minutes",
+      "missingEmail": "Enter the email to verify first.",
+      "submit": "Verify",
+      "verifying": "Verifying…",
+      "alreadyVerified": "Already verified? <signin>Sign in</signin>",
+      "doneTitle": "Email verified",
+      "doneApproved": "{{email}} is verified. You can sign in with it now.",
+      "donePending": "{{email}} is verified. The account is still waiting for admin approval; you can sign in with this email once it is approved.",
+      "unavailable": "Email delivery (SMTP) is not configured, so verifying by email is unavailable.",
+      "unavailableHint": "Ask an admin to fill in SMTP under Admin → Email delivery, then resend the code."
+    },
+    "forgot": {
+      "title": "Reset password",
+      "subtitle": "Receive a code at your account email, then set a new password.",
+      "email": "Email",
+      "emailHint": "The page never reveals whether the account exists: if this email is registered, a 6-digit code arrives shortly.",
+      "send": "Send code",
+      "sending": "Sending…",
+      "remembered": "Remembered it? <signin>Back to sign in</signin>",
+      "codeTitle": "Enter the code",
+      "codeSubtitle": "If {{email}} is registered, the code arrives within a few minutes. Check the spam folder too.",
+      "codeLabel": "Email code",
+      "codeHint": "Valid for 10 minutes; 5 wrong entries void the code",
+      "submit": "Verify",
+      "verifying": "Verifying…",
+      "back": "Back",
+      "wrongCode": "The code was entered wrong 5 times and is now void. Send a new one.",
+      "passwordTitle": "Set a new password",
+      "passwordSubtitle": "Saving signs out every session of this account; sign in again with the new password.",
+      "passwordHint": "Verified. Finish within 10 minutes, otherwise request a new code.",
+      "newPassword": "New password (at least 8 characters)",
+      "repeat": "Repeat new password",
+      "passwordTooShort": "New password must be at least 8 characters",
+      "save": "Save new password",
+      "saving": "Saving…",
+      "resend": "Get a new code",
+      "doneTitle": "Password reset",
+      "doneBody": "The new password is active. All previous sessions of this account have been signed out.",
+      "doneHint": "Sign in with the new password; two-factor settings are unchanged.",
+      "unavailable": "Email delivery (SMTP) is not configured, so password recovery is unavailable.",
+      "unavailableHint": "Ask an admin to fill in SMTP under Admin → Email delivery; an admin can also reset your password directly."
+    },
+    "setup": {
+      "title": "{{siteName}} setup",
+      "checking": "Checking setup status…",
+      "subtitle": "The first deployment needs its tables created, then SETUP_SECRET completes setup; the first account registered afterwards becomes the admin.",
+      "doneSubtitle": "This site is already set up.",
+      "submit": "Set up database",
+      "running": "Setting up…",
+      "secretPlaceholder": "The setup secret configured at deploy time",
+      "secretHint": "The secret only travels in a request header, never in the URL; every attempt is rate-limited by source IP.",
+      "idempotentHint": "Running it again only performs idempotent checks and migrations; it never recreates tables or wipes data.",
+      "conflict": "Data already exists under another table prefix, so setup was aborted.",
+      "invalidSecret": "The setup secret is incorrect. Check the SETUP_SECRET configured at deploy time.",
+      "rateLimited": "Too many attempts (3 per 10 minutes per IP). Try again later.",
+      "conflictResolved": "The resolved prefix is <code>{{resolved}}</code>{{others}}. To avoid two sets of tables, setup was aborted. Ask whoever deployed this site to confirm TABLE_PREFIX.",
+      "conflictOthers": ", but data from this project already exists under {{prefixes}}",
+      "prefixSeparator": ", ",
+      "doneTitle": "Setup complete",
+      "tablePrefix": "Effective table prefix",
+      "noPrefix": "(no prefix)",
+      "migrationApplied": "Applied",
+      "migrationCurrent": "Up to date",
+      "registerAdmin": "Register the first admin",
+      "disabled": "The setup page is disabled in the admin settings, which means the database is ready."
     }
   },
   "settings": {
     "language": {
       "title": "Language",
       "label": "Language"
-    }
-  },
-  "auth": {
-    "language": {
-      "switch": "Language: {{language}}. Click to switch."
     }
   },
   "time": {

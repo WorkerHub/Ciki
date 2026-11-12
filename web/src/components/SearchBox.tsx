@@ -1,5 +1,6 @@
 import { Search } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router"
 import { Input } from "@/components/ui/input"
 import { spaceSearchPath } from "@/lib/routes"
@@ -7,6 +8,7 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 顶栏搜索框：提交后进结果页（结果页自己读 ?q= 发起请求）。 */
 export function SearchBox({ className }: { className?: string }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const spaces = useSpacesStore((state) => state.spaces)
@@ -39,8 +41,8 @@ export function SearchBox({ className }: { className?: string }) {
           name="q"
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          placeholder="搜索标题与正文…"
-          aria-label="搜索页面"
+          placeholder={t("shell.search.placeholder")}
+          aria-label={t("shell.search.label")}
           className="h-8 pl-8"
         />
       </div>

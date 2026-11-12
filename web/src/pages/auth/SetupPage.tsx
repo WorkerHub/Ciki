@@ -1,5 +1,6 @@
 import { Database, KeyRound } from "lucide-react"
 import { useEffect, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
@@ -21,6 +22,7 @@ import { useSiteStore } from "@/stores/site"
  * 不再重复建库；任何情况下都没有删表/清库入口。
  */
 export function SetupPage() {
+  const { t } = useTranslation()
   // 与 RootGate 共用同一份状态：初始化成功后重拉一次，根门立刻放行
   const gateState = useSetupGateStore((state) => state.state)
   const loadSetup = useSetupGateStore((state) => state.load)
@@ -55,11 +57,11 @@ export function SetupPage() {
           prefixes: runError.details?.detectedPrefixes ?? [],
           resolved: runError.details?.resolvedPrefix ?? ""
         })
-        setError("检测到另一套表前缀下已有数据，初始化已中止。")
+        setError(t("auth.setup.conflict"))
       } else if (runError instanceof ApiError && runError.status === 403) {
-        setError("初始化密钥不正确，请确认部署时配置的 SETUP_SECRET。")
+        setError(t("auth.setup.invalidSecret"))
       } else if (runError instanceof ApiError && runError.status === 429) {
-        setError("尝试过于频繁（同一 IP 每 10 分钟 3 次），请稍后再试。")
+        setError(t("auth.setup.rateLimited"))
       } else {
         setError(describeApiError(runError))
       }
@@ -76,7 +78,7 @@ export function SetupPage() {
     return (
       <AuthShell title={siteName}>
         <p className="text-center text-sm text-muted-foreground">
-          正在检查初始化状态…
+          {t("auth.setup.checking")}
         </p>
       </AuthShell>
     )
@@ -92,44 +94,48 @@ export function SetupPage() {
             className="size-5 text-muted-foreground"
             aria-hidden="true"
           />
-          {siteName} 初始化
+          {t("auth.setup.title", { siteName })}
         </span>
       }
       subtitle={
-        disabled
-          ? "站点已完成初始化。"
-          : "第一次部署需要先建表，然后用 SETUP_SECRET 完成初始化；之后注册的首个账号会成为管理员。"
+        disabled ? t("auth.setup.doneSubtitle") : t("auth.setup.subtitle")
       }
     >
       <div className="space-y-4">
         {result ? (
           <div className="space-y-2 rounded-lg bg-muted/50 p-3 text-sm">
-            <p className="font-medium">初始化完成</p>
-            <p className="text-xs text-muted-foreground">生效的表前缀</p>
-            <p className="font-mono">{result.tablePrefix || "（无前缀）"}</p>
+            <p className="font-medium">{t("auth.setup.doneTitle")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("auth.setup.tablePrefix")}
+            </p>
+            <p className="font-mono">
+              {result.tablePrefix || t("auth.setup.noPrefix")}
+            </p>
             <Separator />
             <ul className="space-y-1 text-xs">
               {result.migrations.map((migration) => (
                 <li key={migration.name} className="flex justify-between gap-3">
                   <span className="font-mono">{migration.name}</span>
                   <span className="text-muted-foreground">
-                    {migration.status === "applied" ? "已应用" : "已是最新"}
+                    {migration.status === "applied"
+                      ? t("auth.setup.migrationApplied")
+                      : t("auth.setup.migrationCurrent")}
                   </span>
                 </li>
               ))}
             </ul>
             <Button asChild size="sm" className="mt-1 w-full">
-              <Link to="/register">注册首个管理员账号</Link>
+              <Link to="/register">{t("auth.setup.registerAdmin")}</Link>
             </Button>
             <Button asChild size="sm" variant="ghost" className="w-full">
-              <Link to="/login">去登录</Link>
+              <Link to="/login">{t("auth.common.goLogin")}</Link>
             </Button>
           </div>
         ) : disabled ? (
           <div className="space-y-3 text-sm">
-            <p>初始化页已经在系统设置里关闭，说明数据库已就绪。</p>
+            <p>{t("auth.setup.disabled")}</p>
             <Button asChild size="sm" variant="outline" className="w-full">
-              <Link to="/login">去登录</Link>
+              <Link to="/login">{t("auth.common.goLogin")}</Link>
             </Button>
           </div>
         ) : (
@@ -144,10 +150,10 @@ export function SetupPage() {
                 required
                 value={secret}
                 onChange={(event) => setSecret(event.target.value)}
-                placeholder="部署时配置的初始化密钥"
+                placeholder={t("auth.setup.secretPlaceholder")}
               />
               <p className="text-[11px] text-muted-foreground">
-                密钥只会放进请求头，不会出现在地址栏；每次尝试都按来源 IP 限流。
+                {t("auth.setup.secretHint")}
               </p>
             </div>
             {error ? (
@@ -155,25 +161,30 @@ export function SetupPage() {
                 <p>{error}</p>
                 {conflict ? (
                   <p className="text-muted-foreground">
-                    当前解析出的前缀是{" "}
-                    <code className="font-mono">
-                      {conflict.resolved || "—"}
-                    </code>
-                    {conflict.prefixes.length
-                      ? `，但另一个前缀 ${conflict.prefixes.join("、")} 下已经存在本项目的数据`
-                      : ""}
-                    。为避免出现两套表，初始化已中止，请联系部署负责人确认
-                    TABLE_PREFIX。
+                    <Trans
+                      i18nKey="auth.setup.conflictResolved"
+                      values={{
+                        resolved: conflict.resolved || "—",
+                        others: conflict.prefixes.length
+                          ? t("auth.setup.conflictOthers", {
+                              prefixes: conflict.prefixes.join(
+                                t("auth.setup.prefixSeparator")
+                              )
+                            })
+                          : ""
+                      }}
+                      components={{ code: <code className="font-mono" /> }}
+                    />
                   </p>
                 ) : null}
               </div>
             ) : null}
             <Button type="submit" size="sm" className="w-full" disabled={busy}>
               <KeyRound aria-hidden="true" />
-              {busy ? "初始化中…" : "初始化数据库"}
+              {busy ? t("auth.setup.running") : t("auth.setup.submit")}
             </Button>
             <p className="text-[11px] text-muted-foreground">
-              重复执行只会做幂等检查/迁移，不会重建表，也不会清空数据。
+              {t("auth.setup.idempotentHint")}
             </p>
           </form>
         )}
