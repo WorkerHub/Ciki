@@ -342,6 +342,8 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
     if (result.success) throw new Error("expected rejection")
     expect(result.code).toBe("MIGRATION_REJECTED")
     expect(result.error).toContain("ciki_users_username")
+    // 账本已记着 schema_v8 的这类库，“用上一版升一次”已无意义：指路必须是“按回退点还原”。
+    expect(result.error).toContain("Time Travel bookmark")
 
     expect(ledgerNames(context)).toEqual(beforeLedger)
     expect(businessSnapshot(context)).toEqual(beforeData)

@@ -260,7 +260,7 @@ export async function findBaselineMismatches(
   return problems
 }
 
-/** 组装拒绝信息：前 3 项 + 下一步怎么做 + 明确「什么都没改」。 */
+/** 组装拒绝信息：前 3 项 + 分情形的下一步 + 明确「什么都没改」。 */
 export function rejection(details: string[]): MigrationRejectedError {
   const shown = details.slice(0, 3).join("; ")
   const rest =
@@ -268,7 +268,11 @@ export function rejection(details: string[]): MigrationRejectedError {
   return new MigrationRejectedError(
     `Unsupported database shape for ${BASELINE_NAME}: ${shown}${rest}. ` +
       `This version only upgrades a database that is already at schema_v8. ` +
-      `Upgrade this database to schema_v8 with the previous release (the one that supports the v7 → v8 step), ` +
-      `then run this upgrade again. Nothing was changed.`
+      `If the ledger does not record schema_v8 yet, upgrade this database to schema_v8 with the previous release ` +
+      `(the one that supports the v7 → v8 step) and then run this upgrade again. ` +
+      `If the ledger already records schema_v8, the structure was altered after the fact: ` +
+      `restore this database from the Time Travel bookmark taken before the upgrade ` +
+      `(wrangler d1 time-travel restore <db> --bookmark=<bookmark>), or repair the items above first. ` +
+      `Nothing was changed.`
   )
 }

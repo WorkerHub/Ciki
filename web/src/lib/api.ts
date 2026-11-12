@@ -1100,9 +1100,9 @@ export function describeApiError(error: unknown): string {
     case "LEDGER_CONFLICT":
       return "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。"
     case "MIGRATION_REJECTED":
-      // 结构/账本停在中间版本：服务端的详细信息在错误体 error 里，这里给管理员一句
-      // 能照着做的下一步（数据没有被改动）。
-      return "这个库的形态不是本版支持的升级来源：请先用上一版升到最新，再回来点一次；数据库没有被改动。"
+      // 结构/账本停在中间版本：服务端的详细信息在错误体 error 里，这里只给管理员
+      // 「从上一版升一次」与「结构被改过就还原」两步，并明确数据未被改动。
+      return "这个库的结构不是本版能直接升级的来源：请先用上一版（支持升到 schema_v8 的发布）在「系统管理 → 数据库维护」点一次「检查并升级数据库」，再换回本版重试；本次没有改动任何数据。如果账本已记着 schema_v8，说明结构在升级后被改动过，请先按升级前记下的 Time Travel 回退点恢复。"
     case "REVISION_IS_LATEST":
       return "每页最新的一条版本不能删除。"
     case "RETENTION_UNLIMITED":
