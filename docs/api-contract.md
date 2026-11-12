@@ -36,7 +36,7 @@
 
 - 服务端入口：`worker/src/index.ts`（Hono），部署单元同时托管前端静态资源。
 - 表名一律经 `worker/src/lib/tables.ts` 拼当前部署的 `TABLE_PREFIX`（默认 `ciki_`，可显式无前缀），本文只用逻辑表名。
-- 响应字段一律 camelCase；数据库列名 snake_case，二者在路由层转换。**唯一例外**：`/api/read/*` 三个只读接口按用户冻结的接入契约逐字使用 snake_case（`parent_id` / `updated_at` / `created_at` / `content_json`），见「只读接口（只读令牌）」。
+- 响应字段一律 camelCase；数据库列名 snake_case，二者在路由层转换。**唯一例外**：`/api/read/*` 三个只读接口按用户冻结的接入契约逐字使用 snake_case（`parent_id` / `space_id` / `sort_order` / `updated_at` / `created_at` / `content_json`），见「只读接口（只读令牌）」。
 
 ## 一、通用约定
 
