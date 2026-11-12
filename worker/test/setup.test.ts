@@ -471,6 +471,20 @@ describe("默认空间名：按建库语言播种", () => {
     expect(defaultSpaceNameOf(db)).toBe("默认空间")
   })
 
+  it("用户改过名的空间：之后再跑 setup（en）也不覆盖", async () => {
+    const { env, db } = makeContext()
+    await setupRequest(env, TEST_SETUP_SECRET)
+    db.db
+      .prepare(
+        "UPDATE ciki_spaces SET name = 'Custom Space' WHERE is_default = 1"
+      )
+      .run()
+
+    const again = await setupRequestWithLanguage(env, TEST_SETUP_SECRET, "en")
+    expect(again.status).toBe(200)
+    expect(defaultSpaceNameOf(db)).toBe("Custom Space")
+  })
+
   it("候选文案里没有分号（执行器按 `;` 切分语句）", () => {
     for (const name of Object.values(DEFAULT_SPACE_NAMES)) {
       expect(name).not.toContain(";")
