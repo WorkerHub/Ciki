@@ -9,7 +9,8 @@ import { useSetupGateStore } from "@/stores/setup"
 import { useSiteStore } from "@/stores/site"
 import { useThemeStore } from "@/stores/theme"
 
-export function FullPageLoader({ label = "加载中…" }: { label?: string }) {
+export function FullPageLoader({ label }: { label?: string }) {
+  const { t } = useTranslation()
   const siteName = useSiteStore((state) => state.name)
   return (
     <div className="flex min-h-svh flex-col items-center justify-center gap-2 bg-background">
@@ -17,7 +18,7 @@ export function FullPageLoader({ label = "加载中…" }: { label?: string }) {
         {siteName}
       </p>
       <p className="text-xs text-muted-foreground" role="status">
-        {label}
+        {label ?? t("common.loading")}
       </p>
     </div>
   )

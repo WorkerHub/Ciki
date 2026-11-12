@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { CommentComposer } from "@/components/comments/CommentComposer"
 import { CommentItem } from "@/components/comments/CommentItem"
 import {
@@ -27,6 +28,7 @@ import { type CommentDto, type CommentThread, commentsApi } from "@/lib/api"
  * 恒为顶层评论 id（契约的归一规则）。
  */
 export function CommentSection({ pageId }: { pageId: number }) {
+  const { t } = useTranslation()
   const { data, status, error, pending, reload, create, update, remove } =
     useComments(pageId)
   const [topDraft, setTopDraft] = useState("")
@@ -125,8 +127,8 @@ export function CommentSection({ pageId }: { pageId: number }) {
                 onPreview={preview}
                 onSubmit={() => void submitReply(thread.id)}
                 onCancel={closeReplyBox}
-                submitLabel="回复"
-                label="回复内容"
+                submitLabel={t("comments.reply")}
+                label={t("comments.replyLabel")}
                 pending={pending}
                 autoFocus
               />
@@ -144,7 +146,7 @@ export function CommentSection({ pageId }: { pageId: number }) {
         id="comments-heading"
         className="flex items-baseline gap-2 font-heading text-base font-semibold tracking-tight"
       >
-        评论
+        {t("comments.title")}
         {total > 0 ? (
           <span className="text-sm font-normal text-muted-foreground tabular-nums">
             {total}
@@ -166,13 +168,17 @@ export function CommentSection({ pageId }: { pageId: number }) {
             variant="outline"
             onClick={() => void reload()}
           >
-            重试
+            {t("common.retry")}
           </Button>
         </div>
       ) : null}
 
       {status === "loading" && !hasData ? (
-        <div role="status" aria-label="评论加载中" className="space-y-3">
+        <div
+          role="status"
+          aria-label={t("comments.loadingLabel")}
+          className="space-y-3"
+        >
           <div className="h-14 animate-pulse rounded-lg bg-muted/60" />
           <div className="h-14 animate-pulse rounded-lg bg-muted/60" />
         </div>
@@ -188,8 +194,8 @@ export function CommentSection({ pageId }: { pageId: number }) {
           onChange={setTopDraft}
           onPreview={preview}
           onSubmit={() => void submitTop()}
-          submitLabel="发表"
-          label="发表评论"
+          submitLabel={t("comments.post")}
+          label={t("comments.postLabel")}
           pending={pending}
         />
       ) : null}
@@ -202,11 +208,17 @@ export function CommentSection({ pageId }: { pageId: number }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除这条评论？</AlertDialogTitle>
-            <AlertDialogDescription>删除后无法恢复。</AlertDialogDescription>
+            <AlertDialogTitle>
+              {t("comments.deleteDialog.title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("comments.deleteDialog.description")}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {t("common.cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={pending}
@@ -216,7 +228,7 @@ export function CommentSection({ pageId }: { pageId: number }) {
                 void confirmDelete()
               }}
             >
-              删除
+              {t("comments.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

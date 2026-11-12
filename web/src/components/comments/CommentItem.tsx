@@ -1,4 +1,5 @@
 import { Pencil, Reply, Trash2 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { CommentBody } from "@/components/comments/CommentBody"
 import { CommentComposer } from "@/components/comments/CommentComposer"
 import { UserAvatar } from "@/components/UserAvatar"
@@ -40,6 +41,7 @@ export function CommentItem({
   onSave,
   onDelete
 }: CommentItemProps) {
+  const { t } = useTranslation()
   const deleted = Boolean(comment.deletedAt)
   return (
     <div data-comment-id={comment.id} className="flex gap-3">
@@ -64,7 +66,9 @@ export function CommentItem({
             {formatRelative(comment.createdAt)}
           </time>
           {comment.editedAt ? (
-            <span className="text-xs text-muted-foreground">已编辑</span>
+            <span className="text-xs text-muted-foreground">
+              {t("comments.edited")}
+            </span>
           ) : null}
         </div>
         {editing ? (
@@ -74,20 +78,22 @@ export function CommentItem({
             onPreview={onPreview}
             onSubmit={onSave}
             onCancel={onCancelEdit}
-            submitLabel="保存"
-            label="编辑评论"
+            submitLabel={t("common.save")}
+            label={t("comments.editLabel")}
             pending={pending}
             autoFocus
           />
         ) : deleted ? (
-          <p className="py-0.5 text-sm text-muted-foreground">该评论已删除</p>
+          <p className="py-0.5 text-sm text-muted-foreground">
+            {t("comments.deleted")}
+          </p>
         ) : (
           <>
             <CommentBody html={comment.html} />
             <div className="flex flex-wrap items-center gap-1">
               <Button type="button" size="xs" variant="ghost" onClick={onReply}>
                 <Reply aria-hidden="true" />
-                回复
+                {t("comments.reply")}
               </Button>
               {comment.canEdit ? (
                 <Button
@@ -97,7 +103,7 @@ export function CommentItem({
                   onClick={onEdit}
                 >
                   <Pencil aria-hidden="true" />
-                  编辑
+                  {t("comments.edit")}
                 </Button>
               ) : null}
               {comment.canDelete ? (
@@ -108,7 +114,7 @@ export function CommentItem({
                   onClick={onDelete}
                 >
                   <Trash2 aria-hidden="true" />
-                  删除
+                  {t("comments.delete")}
                 </Button>
               ) : null}
             </div>

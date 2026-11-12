@@ -1,6 +1,7 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
 import { SearchX } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router"
 import { SearchBox } from "@/components/SearchBox"
 import { Badge } from "@/components/ui/badge"
@@ -41,6 +42,7 @@ function highlight(text: string, query: string) {
 }
 
 export function SearchPage() {
+  const { t } = useTranslation()
   const [params] = useSearchParams()
   const query = (params.get("q") ?? "").trim()
   const [data, setData] = useState<SearchResponse | null>(null)
@@ -77,12 +79,12 @@ export function SearchPage() {
       <SearchBox className="md:hidden" />
       <header className="space-y-1">
         <h1 className="font-heading text-xl font-semibold tracking-tight">
-          搜索
+          {t("search.title")}
         </h1>
         <p className="text-xs text-muted-foreground">
           {query
-            ? `关键词「${query}」· 标题与正文都能命中`
-            : "在顶栏输入关键词，回车开始搜索"}
+            ? t("search.subtitleWithQuery", { query })
+            : t("search.subtitle")}
         </p>
       </header>
 
@@ -96,7 +98,11 @@ export function SearchPage() {
       ) : null}
 
       {loading ? (
-        <div className="space-y-2" role="status" aria-label="搜索中">
+        <div
+          className="space-y-2"
+          role="status"
+          aria-label={t("search.loadingLabel")}
+        >
           {[0, 1, 2].map((index) => (
             <div
               key={index}
@@ -107,14 +113,14 @@ export function SearchPage() {
       ) : !query ? (
         <Empty
           icon={<SearchX />}
-          title="输入关键词开始搜索"
-          description="支持多关键词（空格分隔），标题与正文命中都会出现在结果里。"
+          title={t("search.empty.title")}
+          description={t("search.empty.description")}
         />
       ) : data && data.results.length === 0 ? (
         <Empty
           icon={<SearchX />}
-          title="没有找到匹配的页面"
-          description="换个关键词试试，或者确认页面没有被删除。"
+          title={t("search.noResults.title")}
+          description={t("search.noResults.description")}
         />
       ) : (
         <ul className="divide-y divide-border rounded-xl border border-border">

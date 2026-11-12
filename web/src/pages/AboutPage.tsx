@@ -1,4 +1,5 @@
 import { ExternalLink, GitBranch, Info } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import {
   Card,
   CardContent,
@@ -11,59 +12,50 @@ import { formatIsoUtc } from "@/lib/format"
 
 const REPO_URL = "https://github.com/WorkerHub/Ciki"
 
-const STACK = [
-  [
-    "前端",
-    "React 19 + Vite + TypeScript，Tailwind CSS v4，shadcn/ui（Nova 风格）+ Radix UI + Kumo"
-  ],
-  [
-    "编辑器",
-    "TipTap 3（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）"
-  ],
-  ["后端", "Cloudflare Workers + Hono，D1（SQLite）+ FTS5 全文检索"],
-  ["图片", "Cloudflare R2，经 /api/files 会话校验后回源"],
-  [
-    "交互基础",
-    "react-resizable-panels（分栏）、dnd-kit（页面树拖拽）、Zustand（状态）、Lucide（图标）、Motion（动效）"
-  ]
+/** 技术栈行的顺序与 id；文案在 locales 的 about.stack.rows.<row>.*。 */
+const STACK_ROWS = [
+  "frontend",
+  "editor",
+  "backend",
+  "image",
+  "interaction"
 ] as const
 
 export function AboutPage() {
+  const { t } = useTranslation()
   return (
     <div className="max-w-3xl space-y-4">
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight">
           <Info className="size-4 text-muted-foreground" aria-hidden="true" />
-          关于 ciki
+          {t("about.title")}
         </h1>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">这是什么</CardTitle>
-          <CardDescription>
-            {
-              "ciki 是团队内部使用的 wiki。页面按树组织，编辑器支持标题、代码块、表格、任务列表与图片；每次保存都会留下版本记录，可随时回滚，正文支持全文检索。成员按空间协作，登录支持 Passkey 与两步验证，也可用浏览器插件把外部页面剪藏进来。"
-            }
-          </CardDescription>
+          <CardTitle className="text-base">{t("about.intro.title")}</CardTitle>
+          <CardDescription>{t("about.intro.body")}</CardDescription>
         </CardHeader>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">技术栈</CardTitle>
+          <CardTitle className="text-base">{t("about.stack.title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="space-y-2">
-            {STACK.map(([label, detail]) => (
+            {STACK_ROWS.map((row) => (
               <div
-                key={label}
+                key={row}
                 className="grid gap-0.5 sm:grid-cols-[6rem_1fr] sm:gap-3"
               >
                 <dt className="text-xs font-medium text-muted-foreground">
-                  {label}
+                  {t(`about.stack.rows.${row}.label`)}
                 </dt>
-                <dd className="text-sm">{detail}</dd>
+                <dd className="text-sm">
+                  {t(`about.stack.rows.${row}.detail`)}
+                </dd>
               </div>
             ))}
           </dl>
@@ -77,17 +69,17 @@ export function AboutPage() {
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            构建信息
+            {t("about.build.title")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <dl className="grid gap-2 text-sm sm:grid-cols-[6rem_1fr] sm:gap-3">
             <dt className="text-xs font-medium text-muted-foreground">
-              版本号
+              {t("about.build.version")}
             </dt>
             <dd className="font-mono text-sm break-all">{__APP_VERSION__}</dd>
             <dt className="text-xs font-medium text-muted-foreground">
-              构建时间
+              {t("about.build.time")}
             </dt>
             <dd>{formatIsoUtc(__APP_BUILD_TIME__)}</dd>
           </dl>
@@ -98,7 +90,7 @@ export function AboutPage() {
             rel="noreferrer noopener"
             className="inline-flex items-center gap-1.5 text-sm underline underline-offset-4"
           >
-            开源地址：{REPO_URL}
+            {t("about.repo", { url: REPO_URL })}
             <ExternalLink className="size-3.5" aria-hidden="true" />
           </a>
         </CardContent>

@@ -42,7 +42,10 @@
     "image": {
       "unsupported": "Only PNG / JPG / GIF / WebP images are supported (no SVG)",
       "tooLarge": "The image is over 10MB; compress it and upload again"
-    }
+    },
+    "loading": "Loading…",
+    "close": "Close",
+    "userFallback": "User"
   },
   "shell": {
     "sidebar": {
@@ -931,7 +934,155 @@
         "deleteDescription": "The space and its memberships will be deleted. Pages must be moved or permanently deleted first. This cannot be undone.",
         "deleting": "Deleting…"
       }
+    },
+    "loading": "Loading space"
+  },
+  "search": {
+    "title": "Search",
+    "subtitleWithQuery": "“{{query}}” · matches in both titles and bodies",
+    "subtitle": "Type a keyword in the top bar and press Enter to search",
+    "loadingLabel": "Searching",
+    "empty": {
+      "title": "Type a keyword to search",
+      "description": "Multiple keywords (separated by spaces) are supported; matches in titles and bodies both show up in the results."
+    },
+    "noResults": {
+      "title": "No matching pages",
+      "description": "Try another keyword, or check that the page has not been deleted."
     }
+  },
+  "trash": {
+    "title": "Trash",
+    "currentSpace": "Current space: {{name}}.",
+    "description": "Soft-deleted pages stay here together with their subpages; permanent deletion also clears the version history and cannot be undone.",
+    "readOnly": "You are a read-only member and can only look.",
+    "loadingLabel": "Loading the trash",
+    "empty": {
+      "title": "The trash is empty",
+      "description": "Deleted pages land here first; you can restore them or delete them permanently.",
+      "action": "Back to pages"
+    },
+    "deletedAt": "Deleted {{relative}} ({{absolute}})",
+    "restore": "Restore",
+    "purge": "Delete permanently",
+    "purgeDialog": {
+      "title": "Permanently delete “{{title}}”?",
+      "description": "The page and its entire version history will be deleted for good. This cannot be undone."
+    }
+  },
+  "comments": {
+    "title": "Comments",
+    "loadingLabel": "Loading comments",
+    "post": "Post",
+    "postLabel": "Post a comment",
+    "reply": "Reply",
+    "replyLabel": "Reply content",
+    "edit": "Edit",
+    "editLabel": "Edit comment",
+    "delete": "Delete",
+    "preview": "Preview",
+    "edited": "Edited",
+    "deleted": "This comment has been deleted",
+    "deleteDialog": {
+      "title": "Delete this comment?",
+      "description": "This cannot be undone."
+    }
+  },
+  "help": {
+    "title": "Pasting and editing",
+    "description": "Select what you want in Confluence, copy it and paste it into the editor. Structure is kept as faithfully as possible; a few source-side limits cannot be undone.",
+    "supported": {
+      "title": "What is supported",
+      "rows": {
+        "headings": {
+          "item": "Headings H1–H6, quotes, dividers",
+          "detail": "Kept in full"
+        },
+        "codeBlock": {
+          "item": "Code blocks",
+          "detail": "Including the line-number column in the reading view; light highlighting + language badge + copy button"
+        },
+        "table": {
+          "item": "Tables",
+          "detail": "Header rows, merged cells (colspan/rowspan) and the source column widths are kept; wide tables scroll horizontally"
+        },
+        "list": {
+          "item": "Lists",
+          "detail": "Nesting is kept; Confluence task lists keep their checked state"
+        },
+        "inline": {
+          "item": "Links, inline code, bold / italic / underline / strikethrough",
+          "detail": "Kept in full"
+        },
+        "image": {
+          "item": "Images (image files carried by the clipboard)",
+          "detail": "Uploaded to image storage and inserted automatically"
+        },
+        "attachment": {
+          "item": "Confluence attachment images (link only)",
+          "detail": "The original link is kept and marked in yellow as “not transferred”; upload a replacement by hand on the edit page"
+        }
+      }
+    },
+    "limits": {
+      "title": "Known limits",
+      "tableHeader": "The header row of some tables built by Confluence plugins cannot be selected on the page and never reaches the clipboard, so the pasted table has an empty header — a source-side limit that this wiki cannot undo; fill it in by hand.",
+      "colors": "Text colors and table background colors are not kept (column widths are).",
+      "panels": "Info / Note / Warning / Success panels are downgraded to a quote block with a label."
+    },
+    "shortcuts": {
+      "save": "Shortcut: Ctrl/⌘ + S saves the page; the toolbar inserts tables and links, and also uploads images on its own.",
+      "versions": "Every save creates a version; view and restore them from “History” on the reading page."
+    }
+  },
+  "about": {
+    "title": "About ciki",
+    "intro": {
+      "title": "What this is",
+      "body": "ciki is an internal team wiki. Pages are organized in a tree, and the editor supports headings, code blocks, tables, task lists and images; every save leaves a version you can roll back to, and page bodies are full-text searchable. Members collaborate per space, sign-in supports Passkeys and two-factor verification, and a browser extension can clip external pages into it."
+    },
+    "stack": {
+      "title": "Tech stack",
+      "rows": {
+        "frontend": {
+          "label": "Frontend",
+          "detail": "React 19 + Vite + TypeScript, Tailwind CSS v4, shadcn/ui (Nova) + Radix UI + Kumo"
+        },
+        "editor": {
+          "label": "Editor",
+          "detail": "TipTap 3 (StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline)"
+        },
+        "backend": {
+          "label": "Backend",
+          "detail": "Cloudflare Workers + Hono, D1 (SQLite) + FTS5 full-text search"
+        },
+        "image": {
+          "label": "Images",
+          "detail": "Cloudflare R2, read back through /api/files after the session check"
+        },
+        "interaction": {
+          "label": "Interaction",
+          "detail": "react-resizable-panels (split view), dnd-kit (page tree drag and drop), Zustand (state), Lucide (icons), Motion (animation)"
+        }
+      }
+    },
+    "build": {
+      "title": "Build info",
+      "version": "Version",
+      "time": "Build time"
+    },
+    "repo": "Source: {{url}}"
+  },
+  "home": {
+    "empty": {
+      "title": "No pages yet",
+      "write": "Create a page, or paste Confluence content straight into the editor.",
+      "readOnly": "You are a read-only member of this space; ask a space admin to add pages."
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "The link may have expired, or the page was moved to the trash."
   },
   "time": {
     "justNow": "Just now",
@@ -940,10 +1091,91 @@
     "hoursAgo_one": "{{count}} hour ago",
     "hoursAgo_other": "{{count}} hours ago",
     "daysAgo_one": "{{count}} day ago",
-    "daysAgo_other": "{{count}} days ago"
+    "daysAgo_other": "{{count}} days ago",
+    "waitSeconds_one": "{{count}} second",
+    "waitSeconds_other": "{{count}} seconds",
+    "waitMinutes_one": "{{count}} minute",
+    "waitMinutes_other": "{{count}} minutes"
   },
   "errors": {
+    "ACCOUNT_PENDING_APPROVAL": "This account is waiting for an admin to approve it; you can sign in once approved.",
+    "ACCOUNT_REJECTED": "This account's registration request was rejected. Contact an admin.",
+    "RATE_LIMITED": "Too many attempts. Try again later.",
+    "ACCOUNT_LOCKED": "Too many failed sign-in attempts. Try again in {{seconds}} seconds.",
+    "REGISTRATION_DISABLED": "Registration is closed on this site. Contact an admin to get an account.",
+    "EMAIL_TAKEN": "This email is already registered — just sign in.",
+    "METHOD_NOT_ENABLED": "Email codes are not enabled for this account.",
+    "2FA_METHOD_UNAVAILABLE": "None of the two-factor methods enabled for this account are available right now. Contact an admin.",
+    "PREFIX_CONFLICT": "This project already has data under another table prefix. Setup stopped so as not to end up with two sets of tables.",
+    "LEDGER_CONFLICT": "Two migration ledgers exist at once (or the old ledger looks malformed). The upgrade stopped so as not to lose records; keep only one ledger first.",
+    "MIGRATION_REJECTED": "This database is not something this release can upgrade directly: run the previous release (the one that upgrades to schema_v8) and click “Check and upgrade database” under Admin → Database once, then switch back to this release and retry. No data was changed. If the ledger already says schema_v8, the schema was modified after the upgrade — restore the Time Travel bookmark you noted before upgrading first.",
+    "REVISION_IS_LATEST": "The latest version of a page cannot be deleted.",
+    "RETENTION_UNLIMITED": "The current setting is unlimited, so there are no versions to prune.",
+    "CLEANUP_IN_PROGRESS": "A cleanup is already running. Try again later.",
+    "REVISION_UNRENDERABLE": "This version's content cannot be rendered by the current editor, so it cannot be viewed or restored for now.",
+    "CONTENT_MISSING": "The page body is temporarily unavailable (content storage is down or the object is missing). Try again later; if it keeps failing, ask an admin to check the content storage (ciki-content).",
+    "PAGE_MOVE_CYCLE": "A page cannot be moved under one of its own subpages.",
+    "PARENT_DELETED": "The target parent page is still in the trash. Restore it first.",
+    "PAGE_NOT_DELETED": "Only deleted pages can be permanently deleted.",
+    "COMMENT_EMPTY": "A comment cannot be empty.",
+    "COMMENT_NOT_FOUND": "This comment was not found; it may have been deleted.",
+    "COMMENT_DELETED": "This comment has been deleted and cannot be edited.",
+    "INVALID_CONTENT_JSON": "The page content is not in a valid format and cannot be saved.",
+    "PAYLOAD_TOO_LARGE": "The content or image exceeds the per-save limit. Trim it and try again.",
+    "FILE_TOO_LARGE": "The image is over 10MB; compress it and upload again.",
+    "INVALID_USERNAME": "That username is not valid. Check it and try again.",
+    "USERNAME_TAKEN": "That username is taken. Choose another one.",
+    "INVALID_AVATAR": "That avatar is not valid; upload it again.",
     "INVALID_LANGUAGE": "Unsupported language. Choose Chinese or English.",
+    "INVALID_SPACE_NAME": "A space name must be 1–64 characters.",
+    "INVALID_SPACE_DESCRIPTION": "A space description can be at most 500 characters.",
+    "SPACE_NOT_FOUND": "The space does not exist, or you are no longer a member of it.",
+    "SPACE_DEFAULT_PROTECTED": "The default space cannot be deleted.",
+    "SPACE_NOT_EMPTY": "The space still has pages. Move them to another space, or permanently delete the pages in the trash.",
+    "SPACE_MISMATCH": "The target parent page is not in this space.",
+    "SPACE_FORBIDDEN": "You do not have permission to import pages into this space.",
+    "DEFAULT_SPACE_MISSING": "The site has no usable default space yet. Contact an admin.",
+    "ALREADY_MEMBER": "That user is already a member of this space.",
+    "USER_NOT_ELIGIBLE": "That user cannot join a space right now (they must be active and approved).",
+    "LAST_SPACE_ADMIN": "A space must keep at least one admin.",
+    "MEMBER_NOT_FOUND": "That member is no longer in the space.",
+    "USER_NOT_FOUND": "User not found.",
+    "INVALID_ROLE": "That member role is not valid.",
+    "EMAIL_NOT_CONFIGURED": "No usable SMTP is configured yet. Fill it in under Admin → Email first.",
+    "INVALID_EMAIL": "That email address is not valid. Check it and try again.",
+    "INVALID_CODE": "That code is not correct. Enter it again.",
+    "INVALID_CODE_RESET": "That code is incorrect or has expired. Request a new one.",
+    "INVALID_CODE_VERIFY": "That code is incorrect or has expired.",
+    "EMAIL_NOT_VERIFIED": "This email is not verified yet. Verify it first.",
+    "INVALID_RESET_TOKEN": "This reset is no longer valid (the token from the code expired or was already used). Request a new code.",
+    "WEAK_PASSWORD": "A password needs at least 8 characters.",
+    "SMTP_SEND_FAILED": "Sending failed. Check the SMTP settings.",
+    "SMTP_SEND_FAILED_REASON": "Sending failed: {{reason}}",
+    "INVALID_SMTP_CONFIG": "The SMTP settings are not valid. Check them and try again.",
+    "INVALID_SMTP_CONFIG_REASON": "Invalid SMTP settings: {{reason}}",
+    "network": "Network error. Try again later.",
+    "httpStatus": "Request failed ({{status}})",
+    "rateLimitedWait": "Too many requests. Try again in {{wait}}.",
+    "passwordRequired": "This action needs your account password to confirm it is you.",
+    "passwordIncorrect": "That password is not correct. Try again.",
+    "authFailed": "Verification failed. Try again.",
+    "sessionExpired": "Your session has expired. Sign in again.",
+    "forbidden": "You do not have permission to do this.",
+    "notFound": "It does not exist or has been deleted.",
+    "conflict": "The current state conflicts with this action; refresh and try again.",
+    "siteNameLength": "A site name must be 1–32 characters.",
+    "retentionLimit": "The retention count must be an integer of at least 1; leave it empty for unlimited.",
+    "tooLarge": "The content is too large; the server rejected this request.",
+    "tooFrequent": "Too many requests. Try again later.",
+    "cleanupFailed": "The cleanup failed. Try again later.",
+    "requestFailed": "The request failed. Try again later.",
+    "credentials": {
+      "invalidCredentials": "Email or password is incorrect.",
+      "invalidVerificationCode": "That code is not correct. Enter it again.",
+      "invalidMfaCode": "That code is not correct. Enter it again.",
+      "twoFactorSession": "Two-factor verification has expired. Go back a step and sign in again.",
+      "passkeyFailed": "Passkey verification failed. Try again."
+    },
     "webauthn": {
       "missingChallenge": "The server returned incomplete WebAuthn parameters (missing challenge)",
       "cancelled": "Passkey operation cancelled",

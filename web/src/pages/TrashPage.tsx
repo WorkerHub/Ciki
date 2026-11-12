@@ -1,6 +1,7 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
 import { RotateCcw, Trash2, TrashIcon } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { SpaceSwitcher } from "@/components/SpaceSwitcher"
 import {
@@ -24,6 +25,7 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 回收站：恢复整批删除的子树，或彻底删除（不可恢复）。 */
 export function TrashPage() {
+  const { t } = useTranslation()
   const restorePage = usePagesStore((state) => state.restorePage)
   const purgePage = usePagesStore((state) => state.purgePage)
   const currentSpaceId = useSpacesStore((state) => state.currentId)
@@ -63,12 +65,20 @@ export function TrashPage() {
         </div>
         <h1 className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight">
           <Trash2 className="size-4 text-muted-foreground" aria-hidden="true" />
-          回收站
+          {t("trash.title")}
         </h1>
+        {/* 三段分句各成一个元素：英文句子之间靠外边距留白，中文 textContent
+            与拆开前逐字一致（不插入空白字符） */}
         <p className="text-xs text-muted-foreground">
-          {spaceName ? `当前空间：${spaceName}。` : ""}
-          软删除的页面会连同子页面一起停在这里；彻底删除会连版本历史一起清掉，无法恢复。
-          {readOnly ? "你是只读成员，只能查看。" : ""}
+          {spaceName ? (
+            <span className="mr-1">
+              {t("trash.currentSpace", { name: spaceName })}
+            </span>
+          ) : null}
+          {t("trash.description")}
+          {readOnly ? (
+            <span className="ml-1">{t("trash.readOnly")}</span>
+          ) : null}
         </p>
       </header>
 
@@ -82,7 +92,11 @@ export function TrashPage() {
       ) : null}
 
       {loading ? (
-        <div className="space-y-2" role="status" aria-label="回收站加载中">
+        <div
+          className="space-y-2"
+          role="status"
+          aria-label={t("trash.loadingLabel")}
+        >
           {[0, 1, 2].map((index) => (
             <div
               key={index}
@@ -93,11 +107,11 @@ export function TrashPage() {
       ) : items.length === 0 ? (
         <Empty
           icon={<TrashIcon />}
-          title="回收站是空的"
-          description="被删除的页面会先到这里，可以恢复或彻底删除。"
+          title={t("trash.empty.title")}
+          description={t("trash.empty.description")}
           contents={
             <Button asChild size="sm" variant="outline">
-              <Link to="/">回到页面</Link>
+              <Link to="/">{t("trash.empty.action")}</Link>
             </Button>
           }
         />
@@ -111,8 +125,10 @@ export function TrashPage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{item.title}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  删除于 {formatRelative(item.deletedAt)}（
-                  {formatDateTime(item.deletedAt)}）
+                  {t("trash.deletedAt", {
+                    relative: formatRelative(item.deletedAt),
+                    absolute: formatDateTime(item.deletedAt)
+                  })}
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
@@ -137,7 +153,7 @@ export function TrashPage() {
                       }}
                     >
                       <RotateCcw aria-hidden="true" />
-                      恢复
+                      {t("trash.restore")}
                     </Button>
                     <Button
                       type="button"
@@ -145,7 +161,7 @@ export function TrashPage() {
                       variant="destructive"
                       onClick={() => setPurgeTarget(item)}
                     >
-                      彻底删除
+                      {t("trash.purge")}
                     </Button>
                   </>
                 )}
@@ -164,14 +180,16 @@ export function TrashPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              彻底删除「{purgeTarget?.title}」？
+              {t("trash.purgeDialog.title", {
+                title: purgeTarget?.title ?? ""
+              })}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              页面与它的全部版本记录会被永久删除，无法恢复。
+              {t("trash.purgeDialog.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (!purgeTarget) return
@@ -187,7 +205,7 @@ export function TrashPage() {
                 }
               }}
             >
-              彻底删除
+              {t("trash.purge")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

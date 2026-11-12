@@ -644,3 +644,79 @@ describe("describeApiError：语言偏好（规格 §4）", () => {
     ).toBe("Unsupported language. Choose Chinese or English.")
   })
 })
+
+describe("describeApiError：英文界面与兜底", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("zh")
+    vi.unstubAllGlobals()
+  })
+
+  it("错误码查 errors.<CODE>：英文下不再漏中文", async () => {
+    await i18n.changeLanguage("en")
+    expect(
+      describeApiError(
+        apiError(
+          403,
+          "Account pending approval",
+          "/auth/login",
+          "ACCOUNT_PENDING_APPROVAL"
+        )
+      )
+    ).toBe(
+      "This account is waiting for an admin to approve it; you can sign in once approved."
+    )
+    expect(
+      describeApiError(
+        apiError(409, "Space not empty", "/spaces/1", "SPACE_NOT_EMPTY")
+      )
+    ).toBe(
+      "The space still has pages. Move them to another space, or permanently delete the pages in the trash."
+    )
+  })
+
+  it("带插值的码与按 path 分流的 INVALID_CODE 在英文下同样成立", async () => {
+    await i18n.changeLanguage("en")
+    expect(
+      describeApiError(
+        apiError(
+          429,
+          "Too many failed attempts",
+          "/auth/login",
+          "ACCOUNT_LOCKED",
+          30
+        )
+      )
+    ).toBe("Too many failed sign-in attempts. Try again in 30 seconds.")
+    expect(
+      describeApiError(
+        apiError(400, "Invalid code", "/auth/password/verify", "INVALID_CODE")
+      )
+    ).toBe("That code is incorrect or has expired. Request a new one.")
+    expect(
+      describeApiError(
+        apiError(400, "Invalid code", "/auth/email/verify", "INVALID_CODE")
+      )
+    ).toBe("That code is incorrect or has expired.")
+  })
+
+  it("认不出的 code 仍回退服务端 error 原文，不翻译也不猜", async () => {
+    await i18n.changeLanguage("en")
+    expect(
+      describeApiError(
+        apiError(418, "Teapot says hi", "/pages", "SOMETHING_NEW")
+      )
+    ).toBe("Teapot says hi")
+  })
+
+  it("响应没有 error 字段时，兜底文案也跟着语言走", async () => {
+    await i18n.changeLanguage("en")
+    stubFetch(new Response("boom", { status: 500 }))
+    let caught: unknown
+    try {
+      await pagesApi.download(1)
+    } catch (downloadError) {
+      caught = downloadError
+    }
+    expect(describeApiError(caught)).toBe("Request failed (500)")
+  })
+})
