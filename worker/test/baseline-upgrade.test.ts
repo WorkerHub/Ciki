@@ -142,6 +142,26 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     await expectContentIntact(context)
   })
 
+  it("空 spaces 的 v8 库升级：不补默认空间，升级零写入", async () => {
+    const context = await v8Context()
+    // 极端数据形态：空间已被删空（连默认空间也不在），升级也不许“顺手补一行”。
+    await context.db.exec("DELETE FROM ciki_space_members")
+    await context.db.exec("DELETE FROM ciki_spaces")
+    const beforeData = businessSnapshot(context)
+
+    const result = await runSetup(context.env)
+    if (!result.success) throw new Error(result.error)
+
+    expect(result.migrations).toEqual([
+      { name: "schema_v1", status: "applied" }
+    ])
+    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(
+      context.db.db.prepare("SELECT COUNT(*) AS count FROM ciki_spaces").get()
+    ).toEqual({ count: 0 })
+    expect(businessSnapshot(context)).toEqual(beforeData)
+  })
+
   it("升级后全链路可用：既有会话、登录、读页、搜索、评论、注册验证", async () => {
     const context = await v8Context()
     const { env } = context

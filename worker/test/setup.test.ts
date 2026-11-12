@@ -5,6 +5,7 @@ import {
   getMigrations
 } from "../src/lib/migrations"
 import { splitStatements } from "../src/lib/migrations-runner"
+import { migrationsTable } from "../src/lib/tables"
 import { runSetup } from "../src/lib/setup"
 import type { SqliteD1 } from "./support/sqlite-d1"
 import {
@@ -436,10 +437,9 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
 
   /** 复现旧版部署留下的库：业务表已建好、账本仍是旧名（记录即当前迁移）。 */
   async function legacyDatabase(prefix: string, legacy: string) {
-    const context = makeContext()
-    for (const statement of splitStatements(getMigrations(prefix)[0].sql)) {
-      await context.env.DB.prepare(statement).run()
-    }
+    // 先按当前版本建出真实的库（表 + 默认空间 + 默认设置），再把账本换成旧版部署的样子。
+    const context = await initializedContext()
+    await context.db.exec(`DROP TABLE ${migrationsTable(prefix)}`)
     await createLegacyLedger(context.db, legacy, MIGRATION_NAMES)
     return context
   }

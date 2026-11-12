@@ -32,7 +32,7 @@ import {
   rejection,
   tableExists
 } from "./schema-shape"
-import { tableName, usersTable } from "./tables"
+import { migrationsTable, tableName, usersTable } from "./tables"
 
 /** 迁移执行时能拿到的东西：库、生效前缀、迁移可用的绑定、以及账本快照。 */
 export interface MigrationContext {
@@ -102,25 +102,32 @@ export const AUTH_COUNTERS_INDEX_DDL = `CREATE INDEX IF NOT EXISTS {prefix}auth_
   ON {prefix}auth_counters(action, account)`
 
 /**
- * 默认空间的初始化：新库用固定 id 1 播种（没有历史 id，固定值让书签与形态一致）。
- * `slug` 由名称生成——「默认空间」没有可用 ASCII 字符，按兜底规则就是 `space-1`。
+ * 默认空间的播种：只属于**全新安装**。
  *
- * 「spaces 为空」的守卫让存量库升级时这条一定是空转：账本手术只许改账本，不许顺
- * 手写数据（默认空间在存量库里必然已经存在）。旧版 v6→v7 重建用的页面空间回填与
- * 成员播种也一并删掉了——全新库上它们本来就是空转，而升级路径上它们会写数据。
+ * 两条守卫缺一不可：
+ * - 账本里一条记录都没有（账本名由 tables.ts 拼）：有账本记录就说明这不是新库，
+ *   升级路径只许改账本、不许顺手写数据——即使默认空间已被删空也不补；
+ * - `spaces` 为空：上一次安装中断在播种前后时不会重复插入（显式 id 1 会撞主键）。
+ *
+ * 旧版 v6→v7 重建用的页面空间回填与成员播种也一并删掉了——全新库上它们本来就是
+ * 空转，而升级路径上它们会写数据。
  */
-const SEED_DEFAULT_SPACE = `INSERT INTO {prefix}spaces
+function seedDefaultSpace(prefix: string): string {
+  const ledger = migrationsTable(prefix)
+  return `INSERT INTO ${prefix}spaces
   (id, slug, name, description, is_default, created_by, created_at, updated_at)
 SELECT ${DEFAULT_SPACE_ID}, '${DEFAULT_SPACE_SLUG}', '${DEFAULT_SPACE_NAME}', '', 1,
-  COALESCE((SELECT id FROM {prefix}users WHERE role = 'admin' ORDER BY id LIMIT 1), 0),
+  COALESCE((SELECT id FROM ${prefix}users WHERE role = 'admin' ORDER BY id LIMIT 1), 0),
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-WHERE NOT EXISTS (SELECT 1 FROM {prefix}spaces)`
+WHERE NOT EXISTS (SELECT 1 FROM ${prefix}spaces)
+  AND NOT EXISTS (SELECT 1 FROM ${ledger})`
+}
 
 /** `schema_v1` 的完整语句序列（表 + 索引 + 默认空间），`;` 分隔、按顺序执行。 */
 function schemaV1(prefix: string): string {
   const statements = baselineStatements(prefix)
-  statements.push(SEED_DEFAULT_SPACE.replaceAll("{prefix}", prefix))
+  statements.push(seedDefaultSpace(prefix))
   return statements.join(";\n\n")
 }
 
