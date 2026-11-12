@@ -38,7 +38,6 @@ import {
 } from "@tiptap/core"
 import Highlight from "@tiptap/extension-highlight"
 import Image from "@tiptap/extension-image"
-import Link from "@tiptap/extension-link"
 import { Table } from "@tiptap/extension-table"
 import TableCell from "@tiptap/extension-table-cell"
 import TableHeader from "@tiptap/extension-table-header"
@@ -46,7 +45,6 @@ import TableRow from "@tiptap/extension-table-row"
 import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
 import { TextStyle } from "@tiptap/extension-text-style"
-import Underline from "@tiptap/extension-underline"
 import {
   type DOMOutputSpec,
   DOMSerializer,
@@ -290,17 +288,25 @@ const ImportTable = Table.extend({
   }
 })
 
+/**
+ * 链接与下划线只走 StarterKit 内置的那两份：TipTap v3 的 StarterKit 已含 Link 与
+ * Underline，再单独注册一份就是同名重复——schema 里同名 mark 只留最后一个，配置
+ * 正确与否全看注册顺序，脆弱且无告警（worker 不建编辑器实例）。配置一律写进
+ * StarterKit.configure 的对应选项：输出与原先逐字节一致（worker 侧 Link 本来就没有
+ * openOnClick，别照 web 侧补进来）。
+ */
 const extensions: Extensions = [
-  StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
-  Underline,
+  StarterKit.configure({
+    heading: { levels: [1, 2, 3, 4, 5, 6] },
+    link: {
+      autolink: true,
+      HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" }
+    }
+  }),
   TextStyle,
   ImportColor,
   ImportCodeBlockCollapse,
   Highlight.configure({ multicolor: true }),
-  Link.configure({
-    autolink: true,
-    HTMLAttributes: { rel: "noopener noreferrer nofollow", target: "_blank" }
-  }),
   ImportImage.configure({ allowBase64: true, inline: false }),
   // 始终包一层 .tableWrapper：读态超宽表格要横向滚动（与 web 一致）。
   ImportTable.configure({ renderWrapper: true }),
