@@ -41,8 +41,8 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 - **Full-text search** — Search from the top bar matches both titles and bodies via FTS5 with CJK tokenization; results include snippets.
 - **Trash** — Deleting a page soft-deletes its whole subtree; restore it or delete it permanently. Permanent deletion also removes the version history.
 - **Login and two-factor auth** — Password plus TOTP / Passkey. The first registered user becomes an admin automatically; later registrations need admin approval by default and must verify their email first (a 6-digit code is sent on sign-up, and unverified accounts cannot log in). Adding a second factor requires re-entering the password once.
-- **Import tokens** — Generate a personal token in Settings and use the companion Ciki Helper browser extension to clip source pages into Ciki (title, body, code blocks, tables and images). The token plaintext is shown only once.
-- **Settings** — Appearance (light / dark / system, no first-paint flash), password change, two-factor auth, import token, signed-in devices.
+- **Browser extension** — Create a credential in the Settings "Browser extension" card (keep several, revoke them one by one, plaintext shown only once) and use the companion Ciki Helper browser extension to clip source pages into Ciki (title, body, code blocks, tables and images).
+- **Settings** — Appearance (light / dark / system, no first-paint flash), password change, two-factor auth, API Tokens, browser extension credentials, signed-in devices.
 - **Admin panel** — Users and registration approval, space overview, site settings (site name, open registration, registration approval, setup page toggle), access and security (enforce two-factor), email delivery (SMTP server settings and a test message), database maintenance.
 - **About** — Version and build time, injected by CI at build time.
 - **Mobile-friendly** — Responsive layout; reading, page tree and space switching work on phones.
@@ -218,8 +218,9 @@ web/src/pages/         Reading/edit/search/trash/settings/about/admin/space sett
 
 The complete API, fields, error codes and migration notes live in [`docs/api-contract.md`](docs/api-contract.md).
 
-- Every `/api/*` endpoint except public routes and the import endpoints requires the session cookie (`ciki_session`, HttpOnly / Secure / SameSite=Strict, sliding 7-day expiry).
-- The import endpoints under `/api/import/*` accept only `Authorization: Bearer <personal import token>`, never a session cookie. Ciki Helper uses them to list writable spaces and parent pages, check for same-title pages, upload images and write pages. Generate the token in Settings; the plaintext is shown only once.
+- Three kinds of credentials, each for its own surface: the web app and management endpoints (`/api/me/*` and the like) use the session cookie (`ciki_session`, HttpOnly / Secure / SameSite=Strict, sliding 7-day expiry); `/api/read/*` and `/api/write/*` use API Tokens (`Authorization: Bearer`); `/api/import/*` uses browser extension credentials (also `Authorization: Bearer`). The three are not interchangeable, and public routes need no credential.
+- The import endpoints under `/api/import/*` accept only `Authorization: Bearer <browser extension credential>`, never a session cookie. Ciki Helper uses them to list writable spaces and parent pages, check for same-title pages, upload images and write pages. Create the credential in the Settings "Browser extension" card; you can hold several and revoke them one by one, and the plaintext is shown only once.
+- The read and write endpoints — `/api/read/*` (space list, page tree, full-text search, single page) and `/api/write/*` (create, edit, move, soft-delete, image upload) — accept only API Tokens: the read endpoints take read-only and read-write Tokens, the write endpoints only read-write ones. Create Tokens in the Settings "API Token" card: pick read-only or read-write (fixed after creation), hold several, scope each to spaces (visible range = member permissions ∩ Token scope, narrowing only), revoke them one by one; only hashes are stored, and the plaintext is shown only once. Request bodies and error codes are in the contract.
 - Images are served from `/api/files/:key` and require a login session; there are no public links.
 
 ## License
