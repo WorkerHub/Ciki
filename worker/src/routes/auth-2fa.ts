@@ -35,6 +35,7 @@ import {
 } from "../core/challenges"
 import { clearAccountCounters, consumeCounter } from "../core/counters"
 import { decryptSecret, encryptSecret } from "../core/secret-box"
+import { normalizeLanguage, type Language } from "../core/language"
 import { generateTotpSecret, verifyTotpCode } from "../core/totp"
 import {
   buildAuthenticationOptions,
@@ -185,6 +186,7 @@ async function sendEmailCode(
     userId: number
     email: string
     purpose: EmailCodePurpose
+    language: Language
     binding?: string
   }
 ): Promise<Response | null> {
@@ -197,7 +199,8 @@ async function sendEmailCode(
   const sent = await sendEmailCodeMessage(c.env, {
     to: options.email,
     code: issued.code,
-    purpose: options.purpose
+    purpose: options.purpose,
+    language: options.language
   })
   if (sent.success) return null
   return c.json({ error: sent.error, code: "SMTP_SEND_FAILED" }, 502)
@@ -373,6 +376,7 @@ auth2faRoutes.post("/email-otp/send-login", async (c) => {
     userId: login.userId,
     email: user.email,
     purpose: "2fa_login",
+    language: normalizeLanguage(user.language),
     binding: await bindingForTempToken(tempToken)
   })
   if (failed) return failed
@@ -738,7 +742,8 @@ auth2faRoutes.post("/email-otp/send-verify", async (c) => {
   const failed = await sendEmailCode(c, {
     userId,
     email: user.email,
-    purpose: "2fa_enable"
+    purpose: "2fa_enable",
+    language: normalizeLanguage(user.language)
   })
   if (failed) return failed
   return c.json(EMAIL_OTP_SENT)

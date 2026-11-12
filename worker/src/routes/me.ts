@@ -12,6 +12,7 @@ import {
 } from "../db/queries/users"
 import { twofaSummary } from "./auth-2fa"
 import { isUsernameConflict, normalizeUsername } from "../core/identity"
+import { isLanguage, normalizeLanguage, type Language } from "../core/language"
 import { UPLOAD_KEY_RE, storeImageUpload } from "../lib/upload"
 import {
   deleteSessionById,
@@ -46,6 +47,8 @@ function meDto(user: UserRow, twofa: Awaited<ReturnType<typeof twofaSummary>>) {
     email: user.email,
     role: user.role,
     avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null,
+    // 读出口再归一一次：库里若有支持集外的历史值，前端也不会拿到未知语言码。
+    language: normalizeLanguage(user.language),
     approvalStatus: user.approval_status,
     createdAt: user.created_at,
     twofa
@@ -62,22 +65,39 @@ meRoutes.get("/", async (c) => {
 })
 
 /**
- * 个人资料：只改显示名与头像。id / email 一律只读，不接受写入；
+ * 个人资料：只改显示名、头像与界面语言。id / email 一律只读，不接受写入；
  * 头像必须是本人上传过、且 R2 里仍在的 key（null 表示清除）。前端已改走
  * `POST /api/me/avatar`，这里的 avatarKey 只作兼容保留。
+ *
+ * 语言（i18n 规格 §2.7）：支持集内值才收，非法 400 `INVALID_LANGUAGE`；三个字段
+ * 互不影响、可单独提交，校验全部前置、落库仍是一次 UPDATE。
  */
 meRoutes.put("/profile", async (c) => {
-  const body = await readJsonBody<{ username?: unknown; avatarKey?: unknown }>(
-    c
-  )
+  const body = await readJsonBody<{
+    username?: unknown
+    avatarKey?: unknown
+    language?: unknown
+  }>(c)
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return c.json({ error: "Invalid request body" }, 400)
   }
 
   const hasUsername = body.username !== undefined
   const hasAvatar = body.avatarKey !== undefined
-  if (!hasUsername && !hasAvatar) {
+  const hasLanguage = body.language !== undefined
+  if (!hasUsername && !hasAvatar && !hasLanguage) {
     return c.json({ error: "Nothing to update" }, 400)
+  }
+
+  let language: Language | undefined
+  if (hasLanguage) {
+    if (!isLanguage(body.language)) {
+      return c.json(
+        { error: "language must be zh or en", code: "INVALID_LANGUAGE" },
+        400
+      )
+    }
+    language = body.language
   }
 
   let username: string | undefined
@@ -128,6 +148,7 @@ meRoutes.put("/profile", async (c) => {
   const updates: Record<string, unknown> = {}
   if (username !== undefined) updates.username = username
   if (avatarKey !== undefined) updates.avatar_key = avatarKey ?? ""
+  if (language !== undefined) updates.language = language
   try {
     await updateUser(c.env.DB, prefix, userId, updates)
   } catch (err) {

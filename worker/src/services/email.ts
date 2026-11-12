@@ -16,6 +16,7 @@
  */
 
 import type { EmailCodePurpose } from "../core/email-code"
+import type { Language } from "../core/language"
 import { decryptSecret, encryptSecret } from "../core/secret-box"
 import { getSetting, setSetting } from "../db/queries/settings"
 import { getTablePrefix } from "../lib/table-prefix"
@@ -426,53 +427,107 @@ export async function sendTransactionalEmail(
 }
 
 /**
- * 验证码邮件文案。`intro` 为空表示「只给验证码与有效期、不加多余话术」
- * （注册验证邮件的口径）：开场句与「若非本人操作」句一并省略。
+ * 验证码邮件文案：每种语言一整个文案块（服务端不引 i18n 框架，i18n 规格 §2.8）。
+ *
+ * `purposes[*].intro` 为空表示「只给验证码与有效期、不加多余话术」（注册验证邮件
+ * 的口径）：开场句与「若非本人操作」句一并省略，末句改用 `plainTrail`。
+ * 渲染始终是同样的三段 HTML（开场句、字号放大的码、有效期），因此加语言只需加
+ * 一个文案块，不改渲染。
  */
-const EMAIL_CODE_COPY: Record<
-  EmailCodePurpose,
-  { subject: string; intro?: string }
-> = {
-  password_reset: {
-    subject: "Ciki 密码重置验证码",
-    intro: "你正在重置 Ciki 账号的密码"
+interface EmailCodeCopy {
+  /** 开场句与引导句之间的连接串（已含语言自己的标点）。 */
+  introJoin: string
+  /** 引导句（有/无开场句都用它）。 */
+  lead: string
+  /** 有开场句时的末段，`{minutes}` 在渲染时替换。 */
+  trail: string
+  /** 无开场句时的末段（注册验证邮件）。 */
+  plainTrail: string
+  purposes: Record<EmailCodePurpose, { subject: string; intro?: string }>
+}
+
+const EMAIL_CODE_COPY: Record<Language, EmailCodeCopy> = {
+  zh: {
+    introJoin: "，",
+    lead: "验证码是：",
+    trail:
+      "验证码 {minutes} 分钟内有效，且只能使用一次。若非本人操作，请忽略本邮件。",
+    plainTrail: "验证码 {minutes} 分钟内有效，只能使用一次。",
+    purposes: {
+      password_reset: {
+        subject: "Ciki 密码重置验证码",
+        intro: "你正在重置 Ciki 账号的密码"
+      },
+      "2fa_login": {
+        subject: "Ciki 登录验证码",
+        intro: "你正在使用邮箱验证码登录 Ciki"
+      },
+      "2fa_enable": {
+        subject: "Ciki 邮箱验证码启用确认",
+        intro: "你正在为 Ciki 账号启用邮箱验证码两步验证"
+      },
+      register_verify: {
+        subject: "Ciki 注册验证码"
+      }
+    }
   },
-  "2fa_login": {
-    subject: "Ciki 登录验证码",
-    intro: "你正在使用邮箱验证码登录 Ciki"
-  },
-  "2fa_enable": {
-    subject: "Ciki 邮箱验证码启用确认",
-    intro: "你正在为 Ciki 账号启用邮箱验证码两步验证"
-  },
-  register_verify: {
-    subject: "Ciki 注册验证码"
+  en: {
+    introJoin: " ",
+    lead: "Your verification code is:",
+    trail:
+      "The code is valid for {minutes} minutes and can be used only once. If you did not request this, you can ignore this email.",
+    plainTrail:
+      "The code is valid for {minutes} minutes and can be used only once.",
+    purposes: {
+      password_reset: {
+        subject: "Ciki password reset code",
+        intro: "You are resetting the password for your Ciki account."
+      },
+      "2fa_login": {
+        subject: "Ciki sign-in code",
+        intro: "You are signing in to Ciki with an email code."
+      },
+      "2fa_enable": {
+        subject: "Ciki email code setup",
+        intro:
+          "You are turning on email verification codes for your Ciki account."
+      },
+      register_verify: {
+        subject: "Ciki registration code"
+      }
+    }
   }
 }
 
-/** 验证码邮件（固定中文文案，不读用户 language；服务端无 i18n）。 */
+/**
+ * 验证码邮件：按调用方给的语言选文案（已注册用户传账号语言，注册首封传注册
+ * 入参语言；调用方用 `normalizeLanguage` 归一）。
+ */
 export async function sendEmailCodeMessage(
   env: Env,
   options: {
     to: string
     code: string
     purpose: EmailCodePurpose
+    language: Language
     expiresInSeconds?: number
   }
 ): Promise<SendEmailResult> {
-  const copy = EMAIL_CODE_COPY[options.purpose]
+  const copy = EMAIL_CODE_COPY[options.language]
+  const item = copy.purposes[options.purpose]
   const minutes = Math.round((options.expiresInSeconds ?? 600) / 60)
   const html =
-    (copy.intro ? `<p>${copy.intro}，验证码是：</p>` : "<p>验证码是：</p>") +
+    (item.intro
+      ? `<p>${item.intro}${copy.introJoin}${copy.lead}</p>`
+      : `<p>${copy.lead}</p>`) +
     `<p style="font-size:24px;font-weight:bold;letter-spacing:4px">${options.code}</p>` +
-    `<p>验证码 ${minutes} 分钟内有效，${
-      copy.intro
-        ? "且只能使用一次。若非本人操作，请忽略本邮件。"
-        : "只能使用一次。"
-    }</p>`
+    `<p>${(item.intro ? copy.trail : copy.plainTrail).replace(
+      "{minutes}",
+      String(minutes)
+    )}</p>`
   return sendTransactionalEmail(env, {
     to: options.to,
-    subject: copy.subject,
+    subject: item.subject,
     html
   })
 }
