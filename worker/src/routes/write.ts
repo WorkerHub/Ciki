@@ -25,11 +25,7 @@ import {
 } from "../db/queries/pages"
 import { findDefaultSpace } from "../db/queries/spaces"
 import { canEditPages, resolveSpaceRole } from "../core/space-access"
-import {
-  getTokenScope,
-  tokenScopeAllows,
-  type TokenScope
-} from "../core/token-scope"
+import { tokenScopeAllows, type TokenScope } from "../core/token-scope"
 import { createPage, renamePage, savePageContent } from "../core/page-write"
 import { applyPageMove } from "../core/page-move"
 import {
@@ -84,14 +80,9 @@ function contentError(
   )
 }
 
-/** 当前请求的令牌范围（`null` = 不限制）。 */
-async function tokenScope(c: Context<HonoEnv>): Promise<TokenScope> {
-  return getTokenScope(
-    c.env.DB,
-    getTablePrefix(c.env),
-    "write",
-    c.get("userId")
-  )
+/** 当前请求的令牌范围（`null` = 不限制；中间件已按令牌行读好）。 */
+function tokenScope(c: Context<HonoEnv>): TokenScope {
+  return c.get("tokenScope")
 }
 
 /** 空间可写 = 在令牌范围内 + 令牌主人有 `editor` 及以上角色；两者缺一按不存在处理。 */
@@ -125,7 +116,7 @@ async function loadWritablePage(
   if (id === null) return null
   const row = await getPageRow(c.env.DB, getTablePrefix(c.env), id)
   if (!row || row.deleted_at) return null
-  const scope = await tokenScope(c)
+  const scope = tokenScope(c)
   if (!(await canWriteSpace(c, scope, row.space_id))) return null
   return { row, scope }
 }
@@ -153,7 +144,7 @@ writeRoutes.post("/pages", async (c) => {
   }
 
   const prefix = getTablePrefix(c.env)
-  const scope = await tokenScope(c)
+  const scope = tokenScope(c)
 
   let spaceId = requestedSpace.value
   if (spaceId === null) {

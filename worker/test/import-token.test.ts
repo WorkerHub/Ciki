@@ -121,9 +121,11 @@ describe("个人导入令牌：生成、哈希落库、重置与吊销", () => {
     expect(second.token).not.toBe(first.token)
     expect((await bearer(env, first.token)).status).toBe(401)
     expect((await bearer(env, second.token)).status).toBe(200)
-    // 每用户只有一行：重置是覆盖，不是新增。
+    // 重置是「吊销旧行 + 建新行」：有效凭证始终只有一枚。
     const count = db.db
-      .prepare("SELECT COUNT(*) AS n FROM ciki_import_tokens")
+      .prepare(
+        "SELECT COUNT(*) AS n FROM ciki_import_tokens WHERE revoked_at IS NULL"
+      )
       .get() as { n: number }
     expect(count.n).toBe(1)
 

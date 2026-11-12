@@ -194,13 +194,33 @@ export async function runLedgerMigrations(
       ? await migration.isApplied(context)
       : applied.has(migration.name)
     if (done) {
+      // 结构已就绪但账本缺这一行（迁移提交后、记账前中断的自愈路径）：补记账，
+      // 让账本与结构收敛；此时没有执行任何迁移语句。
+      if (!applied.has(migration.name)) {
+        await recordMigration(db, ledger, migration)
+        for (const name of [migration.name, ...(migration.supersedes ?? [])]) {
+          applied.delete(name)
+        }
+        applied.add(migration.name)
+        results.push({ name: migration.name, status: "applied" })
+        continue
+      }
       results.push({ name: migration.name, status: "skipped" })
       continue
     }
     try {
       if (migration.prepare) await migration.prepare(context)
-      for (const statement of splitStatements(migration.sql)) {
-        await db.prepare(statement).run()
+      if (migration.apply) {
+        await migration.apply(context)
+      } else {
+        if (splitStatements(migration.sql).length === 0) {
+          throw new Error(
+            "migration has neither sql statements nor an apply step"
+          )
+        }
+        for (const statement of splitStatements(migration.sql)) {
+          await db.prepare(statement).run()
+        }
       }
       await recordMigration(db, ledger, migration)
       // 记账后账本已变：本条自己的旧同名行与被 `supersedes` 声明的旧行都不在了。

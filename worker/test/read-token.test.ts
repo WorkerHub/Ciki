@@ -73,9 +73,11 @@ describe("只读令牌：生成、哈希落库、重置与吊销", () => {
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/)
     expect(createdAt).toBe(new Date(createdAt).toISOString())
 
-    const rows = db.db.prepare("SELECT * FROM ciki_read_tokens").all() as Array<
-      Record<string, unknown>
-    >
+    const rows = db.db
+      .prepare(
+        "SELECT * FROM ciki_api_tokens WHERE kind = 'read' AND revoked_at IS NULL"
+      )
+      .all() as Array<Record<string, unknown>>
     expect(rows).toHaveLength(1)
     expect(rows[0].token_hash).toBe(await sha256Hex(token))
     expect(rows[0].token_hash).toMatch(/^[0-9a-f]{64}$/)
@@ -114,9 +116,11 @@ describe("只读令牌：生成、哈希落库、重置与吊销", () => {
     expect((await bearer(env, first.token)).status).toBe(401)
     expect((await bearer(env, second.token)).status).toBe(200)
 
-    // 覆盖不新增行（user_id 主键）。
+    // 重置是「吊销旧行 + 建新行」：有效只读令牌始终只有一枚。
     const rows = db.db
-      .prepare("SELECT COUNT(*) AS count FROM ciki_read_tokens")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM ciki_api_tokens WHERE kind = 'read' AND revoked_at IS NULL"
+      )
       .get() as {
       count: number
     }
@@ -179,12 +183,16 @@ describe("只读令牌：生成、哈希落库、重置与吊销", () => {
     ).json()) as { token: string }
     await issueToken(env, admin)
 
-    // 两张表各一行，互不覆盖。
+    // 分表存储、互不覆盖：导入凭证与接口令牌各一行。
     const importRows = db.db
-      .prepare("SELECT COUNT(*) AS count FROM ciki_import_tokens")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM ciki_import_tokens WHERE revoked_at IS NULL"
+      )
       .get() as { count: number }
     const readRows = db.db
-      .prepare("SELECT COUNT(*) AS count FROM ciki_read_tokens")
+      .prepare(
+        "SELECT COUNT(*) AS count FROM ciki_api_tokens WHERE kind = 'read' AND revoked_at IS NULL"
+      )
       .get() as { count: number }
     expect(importRows.count).toBe(1)
     expect(readRows.count).toBe(1)

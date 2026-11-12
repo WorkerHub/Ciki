@@ -1,7 +1,8 @@
 /**
- * 令牌空间范围的唯一实现（二期规格 §2.2 / §2.4）：只读令牌与读写令牌共用同一套语义。
+ * 令牌空间范围的唯一实现（二期规格 §2.2 / §2.4；`schema_v3` 起按令牌 id）。
  *
- * - 一行 `token_space_scopes` = 「该用户的该类令牌可见该空间」；无行 = 不限制。
+ * - 一行 `token_space_scopes` = 「该令牌可见该空间」；无行 = 不限制。每个令牌各存
+ *   各的范围（`token_id`），同一用户的只读 / 读写令牌互不影响。
  * - 有效可见范围 = **令牌主人凭自身权限能看的空间 ∩ 范围集合**：范围只能收窄、不能
  *   放大。主人不是成员的空间即使被写进范围也不生效；主人退出某空间后令牌立即看不见，
  *   重新加入后范围自动恢复生效。对站点管理员同样生效。
@@ -19,64 +20,60 @@ import {
 } from "../db/queries/spaces"
 import { tokenSpaceScopesTable } from "../lib/tables"
 
-/** 令牌种类：与 `token_space_scopes.token_kind` 的取值一致。 */
+/** 令牌种类：`api_tokens.kind` 的取值（建行时固定，之后不可变更）。 */
 export type TokenKind = "read" | "write"
 
 /** 空间范围：`null` = 不限制（无行）；数组 = 当前范围（升序、已去重）。 */
 export type TokenScope = number[] | null
 
 /**
- * 读取某用户某类令牌的范围：无行返回 `null`（不限制），有行按 `space_id` 升序返回。
+ * 读取某枚令牌的范围：无行返回 `null`（不限制），有行按 `space_id` 升序返回。
  * 行随空间删除留着无妨——交集会把已不存在的空间自然排除，不需要顺带清理。
  */
 export async function getTokenScope(
   db: D1Database,
   prefix: string,
-  kind: TokenKind,
-  userId: number
+  tokenId: number
 ): Promise<TokenScope> {
   const rows = await db
     .prepare(
       `SELECT space_id FROM ${tokenSpaceScopesTable(prefix)}
-        WHERE token_kind = ? AND user_id = ?
+        WHERE token_id = ?
         ORDER BY space_id`
     )
-    .bind(kind, userId)
+    .bind(tokenId)
     .all<{ space_id: number }>()
   if (rows.results.length === 0) return null
   return rows.results.map((row) => row.space_id)
 }
 
 /**
- * 把范围整体替换成 `scope` 的语句序列（先删后插），交给调用方的 `db.batch()` 执行。
- *
- * 单独抽出来是为了让「重置令牌 + 换范围」能在同一次 `db.batch()`（D1 的事务单位）里
- * 落库：不会出现「密钥换了、范围还是旧的」。`null` 只删不插。
+ * 把某枚令牌的范围整体替换成 `scope` 的语句序列（先删后插），交给调用方的
+ * `db.batch()` 执行。`null` 只删不插。
  */
 export function scopeReplaceStatements(
   db: D1Database,
   prefix: string,
-  kind: TokenKind,
-  userId: number,
+  tokenId: number,
   scope: TokenScope
 ): D1PreparedStatement[] {
   const statements = [
     db
       .prepare(
         `DELETE FROM ${tokenSpaceScopesTable(prefix)}
-          WHERE token_kind = ? AND user_id = ?`
+          WHERE token_id = ?`
       )
-      .bind(kind, userId)
+      .bind(tokenId)
   ]
   for (const spaceId of scope ?? []) {
     statements.push(
       db
         .prepare(
           `INSERT INTO ${tokenSpaceScopesTable(prefix)}
-            (token_kind, user_id, space_id)
-           VALUES (?, ?, ?)`
+            (token_id, space_id)
+           VALUES (?, ?)`
         )
-        .bind(kind, userId, spaceId)
+        .bind(tokenId, spaceId)
     )
   }
   return statements
@@ -86,11 +83,10 @@ export function scopeReplaceStatements(
 export async function setTokenScope(
   db: D1Database,
   prefix: string,
-  kind: TokenKind,
-  userId: number,
+  tokenId: number,
   scope: TokenScope
 ): Promise<void> {
-  await db.batch(scopeReplaceStatements(db, prefix, kind, userId, scope))
+  await db.batch(scopeReplaceStatements(db, prefix, tokenId, scope))
 }
 
 /** 解析结果：保留现有范围 / 设成某个范围 / 非法。 */

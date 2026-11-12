@@ -69,9 +69,9 @@ export type HonoEnv = {
     sessionId: string
     restricted: boolean
     /**
-     * 当前令牌的空间范围（`null` = 不限制），由读中间件在命中令牌后写入
-     * （`token_kind` 按命中那张表取，见 core/token-scope.ts）。
-     * `/api/read/*` 在现行成员过滤之外叠这一层。
+     * 当前令牌的空间范围（`null` = 不限制），由读 / 写中间件在命中令牌后按
+     * `token_space_scopes.token_id` 写入（见 core/token-scope.ts）。
+     * `/api/read/*` 与 `/api/write/*` 在现行成员过滤之外叠这一层。
      */
     tokenScope: TokenScope
   }

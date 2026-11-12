@@ -1,5 +1,8 @@
 /**
- * 我的：资料、改密、会话列表/吊销、个人导入令牌（规格 §12.1）、只读接口令牌（一期）。
+ * 我的：资料、改密、会话列表/吊销、个人导入令牌（规格 §12.1）、接口令牌（只读/读写）。
+ *
+ * 接口令牌的旧单令牌端点在这里保留为过渡兼容（`schema_v3` 起同一张 `api_tokens`
+ * 按 kind 区分）；B 单会用 `/api/me/tokens` 整体替换它们。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
@@ -28,23 +31,18 @@ import {
   toImportTokenStatus
 } from "../core/import-token"
 import {
-  getReadTokenRow,
-  issueReadToken,
-  revokeReadToken,
-  toReadTokenStatus
-} from "../core/read-token"
-import {
-  getWriteTokenRow,
-  issueWriteToken,
-  revokeWriteToken,
-  toWriteTokenStatus
-} from "../core/write-token"
+  getLatestTokenRow,
+  hasTokenOfKind,
+  issueApiToken,
+  revokeActiveTokensOfKind,
+  setApiTokenScope
+} from "../core/api-token"
 import {
   getTokenScope,
   isScopeWithinSpaces,
   ownerVisibleSpaceIds,
   parseTokenScopeInput,
-  setTokenScope,
+  type TokenKind,
   type TokenScope
 } from "../core/token-scope"
 import { clearPasswordResetCredentials } from "../core/password-reset"
@@ -321,7 +319,14 @@ meRoutes.post("/import-token", async (c) => {
   if (limit.count > 10) {
     return c.json({ error: "Too many requests", code: "RATE_LIMITED" }, 429)
   }
-  const { token, createdAt } = await issueImportToken(c.env.DB, prefix, userId)
+  const { token, createdAt } = await issueImportToken(
+    c.env.DB,
+    prefix,
+    userId,
+    {
+      replaceExisting: true
+    }
+  )
   return c.json({ token, createdAt })
 })
 
@@ -398,122 +403,133 @@ async function parseScopeRequest(
   return parsed
 }
 
-// ── 只读接口令牌（会话 Cookie 鉴权；令牌本身只用于 /api/read/*） ─────────
+// ── 接口令牌（`schema_v3` 起读写合表；这里保留旧单令牌端点做过渡兼容） ────
 //
-// 与导入令牌并列、互不通用：形状对齐 ImportTokenStatus / Issued，但存另一张表。
-// 二期状态多一个空间范围 `spaceIds`（null = 不限制），并新增只改范围的端点。
+// 旧端点（GET/POST/DELETE /api/me/read-token、/api/me/write-token 及其 /spaces）
+// 的唯一消费者是自家前端，B 单会用 /api/me/tokens 整体替换它们；在那之前这里用
+// 新存储保持旧语义：每用户每类只有一枚有效令牌，重置/删除作用于该类全部有效行，
+// 范围跟着令牌行走（GET 取最新一行，重置未带 spaceIds 时复制它的那一份范围）。
 
-/** 是否有可用令牌 + 时间线 + 当前空间范围；永不返回哈希或明文。 */
-meRoutes.get("/read-token", async (c) => {
+/** 旧端点的状态 DTO（形状与二期完全一致，永不返回哈希或明文）。 */
+function legacyTokenStatus(
+  row: {
+    created_at: string
+    last_used_at: string | null
+    revoked_at: string | null
+  } | null,
+  spaceIds: TokenScope
+) {
+  return {
+    active: Boolean(row && !row.revoked_at),
+    createdAt: row?.created_at ?? null,
+    lastUsedAt: row?.last_used_at ?? null,
+    revokedAt: row?.revoked_at ?? null,
+    spaceIds
+  }
+}
+
+async function legacyTokenStatusResponse(
+  c: Context<HonoEnv>,
+  kind: TokenKind
+): Promise<Response> {
   const prefix = getTablePrefix(c.env)
-  const userId = c.get("userId")
-  const row = await getReadTokenRow(c.env.DB, prefix, userId)
-  const spaceIds = await getTokenScope(c.env.DB, prefix, "read", userId)
-  return c.json(toReadTokenStatus(row, spaceIds))
-})
+  const row = await getLatestTokenRow(c.env.DB, prefix, c.get("userId"), kind)
+  const spaceIds = row ? await getTokenScope(c.env.DB, prefix, row.id) : null
+  return c.json(legacyTokenStatus(row, spaceIds))
+}
 
-/**
- * 生成或重置：明文只在这一个响应里出现一次，库里只留 SHA-256。
- *
- * 请求体可带 `spaceIds`（规格 §2.3）：带了就换成该范围，不带则**保留现有范围**——
- * 重置密钥不会悄悄放大范围；首次生成不带 = 不限制。
- */
-meRoutes.post("/read-token", async (c) => {
+/** 生成或重置：先吊销该类全部有效行，再建新行；明文只在这一个响应里出现一次。 */
+async function legacyIssueToken(
+  c: Context<HonoEnv>,
+  kind: TokenKind
+): Promise<Response> {
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
   const scope = await parseScopeRequest(c, { required: false })
   if (!scope.ok) return c.json(scope.payload, scope.status)
   const limit = await consumeCounter(c.env.DB, prefix, {
-    action: "read_token",
+    action: kind === "read" ? "read_token" : "write_token",
     account: String(userId),
     windowSeconds: 300
   })
   if (limit.count > 10) {
     return c.json({ error: "Too many requests", code: "RATE_LIMITED" }, 429)
   }
-  const { token, createdAt } = await issueReadToken(
-    c.env.DB,
-    prefix,
-    userId,
-    scope.action === "set" ? { scope: scope.scope } : {}
-  )
-  return c.json({ token, createdAt })
-})
 
-/** 吊销：从未生成过 404；已吊销再删仍成功（幂等）。范围行不动。 */
-meRoutes.delete("/read-token", async (c) => {
+  const previous = await getLatestTokenRow(c.env.DB, prefix, userId, kind)
+  // 不带 spaceIds = 保留现有范围（重置不悄悄放大）；没有旧令牌则保持不限制。
+  const nextScope: TokenScope | undefined =
+    scope.action === "set"
+      ? scope.scope
+      : previous
+        ? await getTokenScope(c.env.DB, prefix, previous.id)
+        : undefined
+
+  const { token, createdAt } = await issueApiToken(c.env.DB, prefix, userId, {
+    kind,
+    scope: nextScope,
+    replaceExistingKind: true
+  })
+  return c.json({ token, createdAt })
+}
+
+/** 吊销：从未生成过 404；已吊销再删仍成功（幂等）。 */
+async function legacyRevokeToken(
+  c: Context<HonoEnv>,
+  kind: TokenKind,
+  notFoundMessage: string
+): Promise<Response> {
   const prefix = getTablePrefix(c.env)
-  const revoked = await revokeReadToken(c.env.DB, prefix, c.get("userId"))
-  if (!revoked) return c.json({ error: "Read token not found" }, 404)
+  const userId = c.get("userId")
+  const revoked = await revokeActiveTokensOfKind(c.env.DB, prefix, userId, kind)
+  if (
+    revoked === 0 &&
+    !(await hasTokenOfKind(c.env.DB, prefix, userId, kind))
+  ) {
+    return c.json({ error: notFoundMessage }, 404)
+  }
   return c.json({ success: true })
-})
+}
+
+/** 只改范围、不换令牌：写该 kind 的最新一行；没有任何行时 404。 */
+async function legacySetTokenScope(
+  c: Context<HonoEnv>,
+  kind: TokenKind
+): Promise<Response> {
+  const prefix = getTablePrefix(c.env)
+  const scope = await parseScopeRequest(c, { required: true })
+  if (!scope.ok) return c.json(scope.payload, scope.status)
+  if (scope.action !== "set") return c.json(INVALID_SPACE_SCOPE, 400)
+  const row = await getLatestTokenRow(c.env.DB, prefix, c.get("userId"), kind)
+  if (!row) return c.json({ error: "Token not found" }, 404)
+  await setApiTokenScope(c.env.DB, prefix, row.id, scope.scope)
+  return c.json({ spaceIds: scope.scope })
+}
+
+meRoutes.get("/read-token", (c) => legacyTokenStatusResponse(c, "read"))
 
 /**
- * 只改范围、不换令牌（规格 §2.3）：`{"spaceIds": [...] | null}`。
- * `null` = 清除（不限制）；空数组与不可见空间一律 400；成功回写后的范围。
+ * 生成或重置只读令牌：明文只出现一次；`spaceIds` 缺省 = 沿用旧令牌的范围。
  */
-meRoutes.put("/read-token/spaces", async (c) => {
-  const prefix = getTablePrefix(c.env)
-  const userId = c.get("userId")
-  const scope = await parseScopeRequest(c, { required: true })
-  if (!scope.ok) return c.json(scope.payload, scope.status)
-  // required 时解析器只会给出 set（缺键 / 非法一律失败），这里兜住类型。
-  if (scope.action !== "set") return c.json(INVALID_SPACE_SCOPE, 400)
-  await setTokenScope(c.env.DB, prefix, "read", userId, scope.scope)
-  return c.json({ spaceIds: scope.scope })
-})
-
-// ── 读写接口令牌（会话 Cookie 鉴权；令牌用于 /api/write/*，读接口也认） ────
-//
-// 与只读令牌逐列一致、独立一张表：写接口只认这张表，读接口两张都认，范围各取各的。
-
-/** 是否有可用令牌 + 时间线 + 当前空间范围；永不返回哈希或明文。 */
-meRoutes.get("/write-token", async (c) => {
-  const prefix = getTablePrefix(c.env)
-  const userId = c.get("userId")
-  const row = await getWriteTokenRow(c.env.DB, prefix, userId)
-  const spaceIds = await getTokenScope(c.env.DB, prefix, "write", userId)
-  return c.json(toWriteTokenStatus(row, spaceIds))
-})
-
-/** 生成或重置：明文只出现一次；`spaceIds` 缺省 = 保留现有范围（与只读令牌同口径）。 */
-meRoutes.post("/write-token", async (c) => {
-  const prefix = getTablePrefix(c.env)
-  const userId = c.get("userId")
-  const scope = await parseScopeRequest(c, { required: false })
-  if (!scope.ok) return c.json(scope.payload, scope.status)
-  const limit = await consumeCounter(c.env.DB, prefix, {
-    action: "write_token",
-    account: String(userId),
-    windowSeconds: 300
-  })
-  if (limit.count > 10) {
-    return c.json({ error: "Too many requests", code: "RATE_LIMITED" }, 429)
-  }
-  const { token, createdAt } = await issueWriteToken(
-    c.env.DB,
-    prefix,
-    userId,
-    scope.action === "set" ? { scope: scope.scope } : {}
-  )
-  return c.json({ token, createdAt })
-})
+meRoutes.post("/read-token", (c) => legacyIssueToken(c, "read"))
 
 /** 吊销：从未生成过 404；已吊销再删仍成功（幂等）。范围行不动。 */
-meRoutes.delete("/write-token", async (c) => {
-  const prefix = getTablePrefix(c.env)
-  const revoked = await revokeWriteToken(c.env.DB, prefix, c.get("userId"))
-  if (!revoked) return c.json({ error: "Write token not found" }, 404)
-  return c.json({ success: true })
-})
+meRoutes.delete("/read-token", (c) =>
+  legacyRevokeToken(c, "read", "Read token not found")
+)
 
-/** 只改范围、不换令牌：与只读令牌同口径（`null` 清除、空数组 400）。 */
-meRoutes.put("/write-token/spaces", async (c) => {
-  const prefix = getTablePrefix(c.env)
-  const userId = c.get("userId")
-  const scope = await parseScopeRequest(c, { required: true })
-  if (!scope.ok) return c.json(scope.payload, scope.status)
-  if (scope.action !== "set") return c.json(INVALID_SPACE_SCOPE, 400)
-  await setTokenScope(c.env.DB, prefix, "write", userId, scope.scope)
-  return c.json({ spaceIds: scope.scope })
-})
+meRoutes.put("/read-token/spaces", (c) => legacySetTokenScope(c, "read"))
+
+// ── 读写接口令牌（旧端点过渡兼容；令牌用于 /api/write/*，读接口也认） ────
+
+meRoutes.get("/write-token", (c) => legacyTokenStatusResponse(c, "write"))
+
+/** 生成或重置：明文只出现一次；`spaceIds` 缺省 = 沿用旧令牌的范围。 */
+meRoutes.post("/write-token", (c) => legacyIssueToken(c, "write"))
+
+/** 吊销：从未生成过 404；已吊销再删仍成功（幂等）。范围行不动。 */
+meRoutes.delete("/write-token", (c) =>
+  legacyRevokeToken(c, "write", "Write token not found")
+)
+
+meRoutes.put("/write-token/spaces", (c) => legacySetTokenScope(c, "write"))

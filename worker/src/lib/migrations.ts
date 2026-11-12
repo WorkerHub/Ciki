@@ -1,27 +1,27 @@
 /**
  * 数据库结构的唯一真源：基线迁移 `schema_v1`（结构即 `schema.ts` 的定版 DDL）
- * ＋ 之后的追加迁移 `schema_v2`（令牌两张新表，纯追加）。
+ * ＋ 之后的追加迁移 `schema_v2`（令牌两张表，纯追加）与 `schema_v3`（令牌存储合并）。
  *
  * - 全新库：`schema_v1` 的 `sql` 按 `schema.ts` 的定版 DDL 一次建出全部基线表/索引
  *   （`users.username` 的唯一索引就在基线里）并播种默认空间（名称按建库语言），
- *   随后 `schema_v2` 补上令牌两张表；重复执行无副作用（全部 `CREATE … IF NOT EXISTS`，
- *   唯一一条播种带「spaces 为空」守卫）。
- * - 存量库：唯一支持的升级源是**当前生产形态**（`schema_v8`）。`prepare` 只做只读
- *   校验（见 `schema-shape.ts`），通过后 `sql` 全是幂等空转、结构与数据一字不动，
- *   唯一的效果是账本被改写：`supersedes` 里的旧记录（`schema_v2`…`schema_v8`，以及
- *   增量链时代与基线同名的旧 `schema_v1` 行）与本条记账在同一个 `db.batch()` 里
- *   原子清掉并写回 `schema_v1`；紧接着 `schema_v2` 补上令牌两张表并记账，账本最终
- *   为 `schema_v1` + `schema_v2` 两条。
+ *   随后 `schema_v2` 补上令牌两张表、`schema_v3` 把它们合并成最终形态；空库上
+ *   v3 的搬运是空转，一次 setup 结束即最终结构。
+ * - 存量库：唯一支持的升级源是**当前生产形态**（`schema_v8` 形态）。`prepare` 只做
+ *   只读校验（见 `schema-shape.ts`），通过后结构与数据一字不动，账本被改写
+ *   （`supersedes` 里的旧记录 + 旧同名 `schema_v1` 行原子清掉并写回 `schema_v1`）；
+ *   紧接着 `schema_v2` 建令牌两张表、`schema_v3` 把存量令牌搬进最终形态，账本最终
+ *   为 `schema_v1` + `schema_v2` + `schema_v3` 三条。
+ * - 已在本版本的库（v1+v2+v3）再 setup：全部 skipped。v3 是重建 + 搬数据，不能
+ *   用「纯追加」表达：它在单个 `db.batch()` 里完成并做前后计数校验，失败整批回滚。
  * - 其他形态一律拒绝、不改任何数据与账本：账本有 `schema_v7` 没有 `schema_v8`、
  *   结构对不上基线、更早的 v6 及以前形态。错误信息指路：先用上一版（支持 v7→v8
  *   的发布）升到 `schema_v8`，再换本版本升级。
  *
  * 基线已冻结：`schema_v1` 不得改名、改内容或调序；结构变化只在末尾追加新的
- * `schema_vN`（**纯追加**：只 `CREATE … IF NOT EXISTS`，不重建任何现有表，也不把新表
- * 写回 `schema.ts` 的基线清单——`schema-shape.ts` 拿那份清单判 v1 是否已应用）。
- * 迁移必须可重复执行；`prepare` 抛错则该迁移不记账，下次 setup 从头重跑。语句之间
- * 用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）。表名/索引名一律经
- * tables.ts / schema.ts 拼装，本文件只写 `{prefix}` 占位。
+ * `schema_vN`（不把新表写回 `schema.ts` 的基线清单——`schema-shape.ts` 拿那份清单判
+ * v1 是否已应用）。迁移必须可重复执行；`prepare` 抛错则该迁移不记账，下次 setup
+ * 从头重跑。语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）。表名/索引名
+ * 一律经 tables.ts / schema.ts 拼装，本文件只写 `{prefix}` 占位。
  */
 import type { Env } from "../types"
 import { DEFAULT_LANGUAGE, type Language } from "../core/language"
@@ -39,7 +39,12 @@ import {
   tableExists
 } from "./schema-shape"
 import {
+  apiTokensTable,
+  apiTokensTokenHashIndex,
+  importTokensTable,
+  importTokensTokenHashIndex,
   migrationsTable,
+  readTokensTable,
   tableName,
   tokenSpaceScopesTable,
   usersTable,
@@ -62,6 +67,11 @@ export interface Migration {
   /** 在 sql 之前执行的只读校验 / 幂等补齐；抛错则该条不记账，下次重跑。 */
   prepare?: (ctx: MigrationContext) => Promise<void>
   /**
+   * 需要整条迁移原子执行的场景（重建表、搬数据）：在一个 `db.batch()` 里完成。
+   * 有 `apply` 时 `sql` 必须为空，执行器只调 `apply`。
+   */
+  apply?: (ctx: MigrationContext) => Promise<void>
+  /**
    * 本条取代的旧账本记录：应用本条时，这些名字（连同本条自己的旧同名行）与本条
    * 记账放进同一个 `db.batch()` 删除 + 重写，使账本只保留当前的版本标记。
    */
@@ -79,8 +89,8 @@ export const BASELINE_MIGRATION_NAME = "schema_v1"
  * 增量链时代的旧账本记录（`schema_v2`–`schema_v8`）：应用 `schema_v1` 时一并清除。
  * `schema_v1` 自己不在列表里——它的旧同名行由执行器在记账时删掉再写。
  *
- * `schema_v2` 虽然已经是**现行**迁移（写令牌表），旧账本里的同名行仍是增量链时代
- * 的另一条迁移：不删掉的话它会让执行器把新 v2 当成「已应用」而跳过，新表永远不建。
+ * `schema_v2` / `schema_v3` 虽然已经是**现行**迁移，旧账本里的同名行仍是增量链时代
+ * 的另一条迁移：不删掉的话它会让执行器把新迁移当成「已应用」而跳过，新表永远不建。
  */
 export const SUPERSEDED_LEDGER_RECORDS = [
   "schema_v2",
@@ -93,14 +103,13 @@ export const SUPERSEDED_LEDGER_RECORDS = [
 ] as const
 
 /**
- * 已经不再存在、账本里出现即说明账本没收敛的旧记录（`schema_v3`–`schema_v8`）。
+ * 已经不再存在、账本里出现即说明账本没收敛的旧记录（`schema_v4`–`schema_v8`）。
  *
- * `schema_v2` 不在其中：它现在是活迁移，账本里的那一行代表新表已建好，不能再要求
- * 「账本里一条旧记录都没有」——否则每次 setup 都会把 `schema_v1` 判成未应用而重放，
- * 连带删掉 v2 的记账行。
+ * `schema_v2` / `schema_v3` 不在其中：它们现在是活迁移，账本里的那一行代表对应
+ * 结构已建好，不能再要求「账本里一条旧记录都没有」——否则每次 setup 都会把
+ * `schema_v1` 判成未应用而重放，连带删掉活迁移的记账行。
  */
 export const RETIRED_MIGRATIONS = [
-  "schema_v3",
   "schema_v4",
   "schema_v5",
   "schema_v6",
@@ -273,7 +282,319 @@ const SCHEMA_V2_STATEMENTS = [
 
 const SCHEMA_V2: Migration = {
   name: "schema_v2",
-  sql: ""
+  sql: "",
+  /**
+   * 账本里的行代表 v2 已建好；此外，库已经是 v3 目标形态时也判已应用——账本被重置
+   * （例如 v3 提交后记账前中断）时，绝不能再把 v3 已删掉的旧表重新建出来。
+   */
+  isApplied: async (ctx) =>
+    ctx.applied.has("schema_v2") || (await tokenMigrationDataPresent(ctx))
+}
+
+/**
+ * 表结构里实际有哪些列（迁移形态校验只看系统表，不比 DDL 文本；表不存在返回空）。
+ */
+async function tableColumns(db: D1Database, table: string): Promise<string[]> {
+  const rows = await db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all<{ name: string }>()
+  return rows.results.map((column) => column.name)
+}
+
+/** 表里的行数（迁移自愈路径判断旧表是否只是被重放建出来的空壳）。 */
+async function tableRowCount(db: D1Database, table: string): Promise<number> {
+  const row = await db
+    .prepare(`SELECT COUNT(*) AS count FROM ${table}`)
+    .first<{ count: number }>()
+  return row?.count ?? 0
+}
+
+/**
+ * 令牌数据是否已经是 v3 形态：接口令牌已合表、范围按令牌 id、导入令牌多行。
+ * 结构是唯一权威——迁移已提交但账本没记上（或账本被改回旧形态）时，靠它判定
+ * 「不需要再搬一遍」。
+ */
+async function tokenMigrationDataPresent(
+  ctx: MigrationContext
+): Promise<boolean> {
+  const { db, prefix } = ctx
+  if (!(await tableExists(db, apiTokensTable(prefix)))) return false
+  const scopes = await tableColumns(db, tokenSpaceScopesTable(prefix))
+  if (!scopes.includes("token_id") || scopes.includes("token_kind")) {
+    return false
+  }
+  const imports = await tableColumns(db, importTokensTable(prefix))
+  return imports.includes("id") && imports.includes("name")
+}
+
+/**
+ * v3 是否已完整落地：数据形态就绪、旧的两张令牌表已删。
+ *
+ * 注意「数据就绪但旧表还在」的形态是可达的：账本被改回 v1–v8 后重跑时，
+ * `schema_v1` 会按冻结的基线把 `read_tokens` 重新建出来（空表），`schema_v2`
+ * 也可能重建 `write_tokens`；这时数据早已搬完，只需清掉空壳旧表，不能再搬一遍。
+ */
+async function tokenMigrationTargetReady(
+  ctx: MigrationContext
+): Promise<boolean> {
+  const { db, prefix } = ctx
+  if (!(await tokenMigrationDataPresent(ctx))) return false
+  if (await tableExists(db, readTokensTable(prefix))) return false
+  if (await tableExists(db, writeTokensTable(prefix))) return false
+  return true
+}
+
+/**
+ * `schema_v3` 的升级闸（只读）：只接受 v2 形态的令牌四表。目标形态已就绪直接放过
+ * （自愈路径）；账本说 v3 已应用但形态不对、`api_tokens` 在而新形态不全、或数据已
+ * 搬完但旧表里还有行（说明账本与结构都被改过），一律拒绝，由 setup 转 409 并把
+ * 指路信息交给管理员——不猜、不动任何数据。
+ *
+ * 唯一放过的修复态：数据已是 v3 形态、只剩重放基线建出的**空**旧表（账本被改回
+ * v1–v8 后的自愈路径），由 `apply` 只清空壳、不再搬数据。
+ */
+async function prepareSchemaV3(ctx: MigrationContext): Promise<void> {
+  const { db, prefix, applied } = ctx
+  if (await tokenMigrationTargetReady(ctx)) return
+
+  if (applied.has("schema_v3")) {
+    throw new MigrationRejectedError(
+      "The migration ledger records schema_v3 but the token tables are not in the schema_v3 shape. " +
+        "Restore this database from the Time Travel bookmark taken before the upgrade, or repair the " +
+        "token tables by hand, then run setup again. Nothing was changed."
+    )
+  }
+
+  // 数据已搬完、只剩重放基线建出的空旧表（账本被改回旧形态后的自愈路径）：
+  // 旧表里绝不能有数据，否则说明账本与结构都被改过，不能猜。
+  if (await tokenMigrationDataPresent(ctx)) {
+    const leftovers = [readTokensTable(prefix), writeTokensTable(prefix)]
+    const dirty: string[] = []
+    for (const table of leftovers) {
+      if (
+        (await tableExists(db, table)) &&
+        (await tableRowCount(db, table)) > 0
+      ) {
+        dirty.push(table)
+      }
+    }
+    if (dirty.length > 0) {
+      throw new MigrationRejectedError(
+        `schema_v3 will not drop the legacy token table(s) ${dirty.join(", ")} because they still contain rows ` +
+          "while api_tokens is already in place. Setup will not guess which side is authoritative. " +
+          "Restore this database from the Time Travel bookmark taken before the upgrade, then run setup again. " +
+          "Nothing was changed."
+      )
+    }
+    return
+  }
+
+  if (await tableExists(db, apiTokensTable(prefix))) {
+    throw new MigrationRejectedError(
+      `schema_v3 cannot start: ${apiTokensTable(prefix)} already exists but the token tables are not in the schema_v3 shape. ` +
+        "Setup will not guess which side is authoritative. Restore this database from the Time Travel bookmark " +
+        "taken before the upgrade, then run setup again. Nothing was changed."
+    )
+  }
+
+  const required: Array<{ table: string; columns: string[] }> = [
+    {
+      table: readTokensTable(prefix),
+      columns: [
+        "user_id",
+        "token_hash",
+        "created_at",
+        "last_used_at",
+        "revoked_at"
+      ]
+    },
+    {
+      table: writeTokensTable(prefix),
+      columns: [
+        "user_id",
+        "token_hash",
+        "created_at",
+        "last_used_at",
+        "revoked_at"
+      ]
+    },
+    {
+      table: tokenSpaceScopesTable(prefix),
+      columns: ["token_kind", "user_id", "space_id"]
+    },
+    {
+      table: importTokensTable(prefix),
+      columns: [
+        "user_id",
+        "token_hash",
+        "created_at",
+        "last_used_at",
+        "revoked_at"
+      ]
+    }
+  ]
+
+  const problems: string[] = []
+  for (const item of required) {
+    if (!(await tableExists(db, item.table))) {
+      problems.push(`table ${item.table} is missing`)
+      continue
+    }
+    const columns = await tableColumns(db, item.table)
+    for (const column of item.columns) {
+      if (!columns.includes(column)) {
+        problems.push(`${item.table} is missing column ${column}`)
+      }
+    }
+  }
+  if (problems.length === 0) return
+
+  const shown = problems.slice(0, 3).join("; ")
+  const rest =
+    problems.length > 3 ? ` (and ${problems.length - 3} more problem(s))` : ""
+  throw new MigrationRejectedError(
+    `Unsupported token-table shape for schema_v3: ${shown}${rest}. ` +
+      "This version upgrades the token tables written by schema_v2 " +
+      "(read_tokens / write_tokens / token_space_scopes / import_tokens). " +
+      "Restore this database from the Time Travel bookmark taken before the upgrade, " +
+      "then run setup again. Nothing was changed."
+  )
+}
+
+/**
+ * `schema_v3` 的全部语句（单次 `db.batch()` 的原子内容）。
+ *
+ * 顺序固定：建新表 → 搬数据 → 计数守卫 → 删旧表 → 改名 → 重建导入令牌唯一索引。
+ * 守卫表用 `CHECK (id = 0)`：四组前后计数只要有一组不等就插一行 1，整批
+ * （D1 的 batch 是事务）回滚，不会出现「搬到一半、旧表已删」。
+ */
+function schemaV3Statements(prefix: string): string[] {
+  const api = apiTokensTable(prefix)
+  const scopes = tokenSpaceScopesTable(prefix)
+  const scopesTemp = tableName(prefix, "v3_token_space_scopes")
+  const imports = importTokensTable(prefix)
+  const importsTemp = tableName(prefix, "v3_import_tokens")
+  const guard = tableName(prefix, "v3_token_migration_guard")
+
+  return [
+    `CREATE TABLE IF NOT EXISTS ${api} (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('read', 'write')),
+  name         TEXT NOT NULL,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ${apiTokensTokenHashIndex(prefix)}
+  ON ${api}(token_hash)`,
+    `CREATE TABLE IF NOT EXISTS ${scopesTemp} (
+  token_id INTEGER NOT NULL,
+  space_id INTEGER NOT NULL,
+  PRIMARY KEY (token_id, space_id)
+)`,
+    `CREATE TABLE IF NOT EXISTS ${importsTemp} (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL,
+  name         TEXT NOT NULL,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+)`,
+    `INSERT INTO ${api}
+  (user_id, kind, name, token_hash, created_at, last_used_at, revoked_at)
+SELECT user_id, 'read', '只读 Token', token_hash, created_at, last_used_at, revoked_at
+  FROM ${readTokensTable(prefix)}`,
+    `INSERT INTO ${api}
+  (user_id, kind, name, token_hash, created_at, last_used_at, revoked_at)
+SELECT user_id, 'write', '读写 Token', token_hash, created_at, last_used_at, revoked_at
+  FROM ${writeTokensTable(prefix)}`,
+    `INSERT INTO ${scopesTemp} (token_id, space_id)
+SELECT t.id, s.space_id
+  FROM ${scopes} s
+  JOIN ${api} t ON t.user_id = s.user_id AND t.kind = s.token_kind`,
+    `INSERT INTO ${importsTemp}
+  (user_id, name, token_hash, created_at, last_used_at, revoked_at)
+SELECT user_id, '浏览器插件', token_hash, created_at, last_used_at, revoked_at
+  FROM ${imports}`,
+    `CREATE TABLE ${guard} (id INTEGER NOT NULL CHECK (id = 0))`,
+    `INSERT INTO ${guard} (id) SELECT 1
+ WHERE (SELECT COUNT(*) FROM ${readTokensTable(prefix)})
+    <> (SELECT COUNT(*) FROM ${api} WHERE kind = 'read')`,
+    `INSERT INTO ${guard} (id) SELECT 1
+ WHERE (SELECT COUNT(*) FROM ${writeTokensTable(prefix)})
+    <> (SELECT COUNT(*) FROM ${api} WHERE kind = 'write')`,
+    `INSERT INTO ${guard} (id) SELECT 1
+ WHERE (SELECT COUNT(*) FROM ${scopes})
+    <> (SELECT COUNT(*) FROM ${scopesTemp})`,
+    `INSERT INTO ${guard} (id) SELECT 1
+ WHERE (SELECT COUNT(*) FROM ${imports})
+    <> (SELECT COUNT(*) FROM ${importsTemp})`,
+    `DROP TABLE ${readTokensTable(prefix)}`,
+    `DROP TABLE ${writeTokensTable(prefix)}`,
+    `DROP TABLE ${scopes}`,
+    `DROP TABLE ${imports}`,
+    `ALTER TABLE ${scopesTemp} RENAME TO ${scopes}`,
+    `ALTER TABLE ${importsTemp} RENAME TO ${imports}`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS ${importTokensTokenHashIndex(prefix)}
+  ON ${imports}(token_hash)`,
+    `DROP TABLE ${guard}`
+  ]
+}
+
+/** 整条 v3 迁移在一个事务里执行；失败即整体回滚，账本不记，下次重跑。 */
+async function applySchemaV3(ctx: MigrationContext): Promise<void> {
+  if (await tokenMigrationTargetReady(ctx)) return
+
+  // 数据已就绪、只剩重放基线建出的空旧表：只清空壳，不再搬数据。
+  if (await tokenMigrationDataPresent(ctx)) {
+    const { db, prefix } = ctx
+    const drops: D1PreparedStatement[] = []
+    for (const table of [readTokensTable(prefix), writeTokensTable(prefix)]) {
+      if (!(await tableExists(db, table))) continue
+      if ((await tableRowCount(db, table)) > 0) {
+        throw new Error(
+          `legacy token table ${table} still contains rows; refusing to drop it`
+        )
+      }
+      drops.push(db.prepare(`DROP TABLE ${table}`))
+    }
+    if (drops.length > 0) await db.batch(drops)
+    return
+  }
+
+  try {
+    await ctx.db.batch(
+      schemaV3Statements(ctx.prefix).map((statement) =>
+        ctx.db.prepare(statement)
+      )
+    )
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err)
+    throw new Error(
+      `schema_v3 token migration was rolled back (${reason}); nothing was changed`,
+      { cause: err }
+    )
+  }
+}
+
+/**
+ * `schema_v3` —— 令牌存储合并（规格三期 §1 / §2）：
+ * `read_tokens` / `write_tokens` 合并为 `api_tokens`（kind 区分），`token_space_scopes`
+ * 改为按 `token_id`，`import_tokens` 改为多行；搬到同一个事务里完成并做前后计数
+ * 校验，随后删掉旧表。新装与存量（v2 形态）走同一条路径，重复执行是幂等空转。
+ *
+ * 与 v2 一样**不写进** `schema.ts`：那是基线清单，v1 的形态校验另有「v3 之后忽略
+ * read_tokens」的豁免（见 `schema-shape.ts`）。
+ */
+const SCHEMA_V3: Migration = {
+  name: "schema_v3",
+  sql: "",
+  prepare: prepareSchemaV3,
+  apply: applySchemaV3,
+  isApplied: tokenMigrationTargetReady
 }
 
 export function getMigrations(
@@ -305,6 +626,7 @@ export function getMigrations(
       sql: SCHEMA_V2_STATEMENTS.map((statement) =>
         statement.replaceAll("{prefix}", prefix)
       ).join(";\n\n")
-    }
+    },
+    SCHEMA_V3
   ]
 }

@@ -369,12 +369,16 @@ describe("只读接口：读写令牌可调读接口（§3.1）", () => {
     expect(counters[0].account).toBe(String(userId))
     expect(counters[0].count).toBe(4)
 
-    // last_used_at 只更新命中的那张表。
+    // last_used_at 只更新命中的那枚令牌行。
     const readRow = db.db
-      .prepare("SELECT last_used_at FROM ciki_read_tokens WHERE user_id = ?")
+      .prepare(
+        "SELECT last_used_at FROM ciki_api_tokens WHERE user_id = ? AND kind = 'read'"
+      )
       .get(userId) as { last_used_at: string | null }
     const writeRow = db.db
-      .prepare("SELECT last_used_at FROM ciki_write_tokens WHERE user_id = ?")
+      .prepare(
+        "SELECT last_used_at FROM ciki_api_tokens WHERE user_id = ? AND kind = 'write'"
+      )
       .get(userId) as { last_used_at: string | null }
     expect(readRow.last_used_at).toBeNull()
     expect(writeRow.last_used_at).not.toBeNull()
