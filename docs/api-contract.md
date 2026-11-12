@@ -520,15 +520,22 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "spaceCount": 3,
   "userCount": 9,
   "databaseSizeBytes": 10485760,
+  "assetsSizeBytes": 5242880,
+  "contentSizeBytes": 2097152,
+  "assetsObjectCount": 64,
+  "contentObjectCount": 342,
   "sizeScope": "own-database",
   "measure": "cloudflare-d1-api"
 }
 ```
 
 - `databaseSizeBytes` = Cloudflare D1 REST API 的 `result.file_size`（`GET /accounts/{account_id}/d1/database/{database_id}?fields=file_size`，服务端调用，令牌复用组织级共用的 `CLOUDFLARE_API_TOKEN`）。D1 运行时拒绝 `PRAGMA page_count`（`SQLITE_AUTH`），所以不再用页计数。
+- `assetsSizeBytes` / `contentSizeBytes` = 两个 R2 桶（图片 `ciki-assets` 绑定 `R2`、正文 `ciki-content` 绑定 `CONTENT`）各自的字节总量：服务端用绑定分页 `list()`（每页 1000，循环到 `truncated: false`）累加对象 `size`，**每次打开管理页现算、不加缓存**，两桶分别统计、不合并。走绑定而非 Cloudflare 分析 API：`list()` 就是桶内真实对象的权威口径。
+- `assetsObjectCount` / `contentObjectCount` = 与体积同一次遍历得到的对象数，**本期前端不显示**，随接口备用。
+- 某一桶统计失败时该项为 `null`（另一桶照常给数）：`list()` 抛错、截断页不给游标、游标原地踏步或回到见过的值（防死循环）都算失败；**不返回扫了一半的求和**，也不用 0 顶替。前端对 `null` 一律不渲染该项（空桶的真 0 正常显示 `0 B`）。
 - **`sizeScope` 恒为 `"own-database"`**：Ciki 的 D1 是本项目独占库（裸表名、无前缀），这个数字就是**本站整库**体积，前端照此标注即可（不要写成「共享库」）。
 - 取不到时 `databaseSizeBytes: null`、`measure: "unavailable"`——**不用行数估算冒充体积**，前端显示「不可得」。取不到包括：令牌/账号/库 ID 未配置或仍是占位值（这时连请求都不发）、HTTP 失败（含令牌缺 D1 读的 401/403）、超时、响应里没有可用的 `file_size`。
-- 服务端缓存：成功 5 分钟、失败 60 秒（isolate 内），避免管理页刷新反复调 API。
+- 服务端缓存：成功 5 分钟、失败 60 秒（isolate 内），避免管理页刷新反复调 API。**只缓存 D1 体积**，两个 R2 桶体积不缓存。
 - 页数等计数都从 D1 现算，不含正文对象（正文在 R2，不占库体积）。
 
 ### waker 回调（`POST /_waker/execute`，不走会话）
@@ -1643,6 +1650,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 代码块折叠：`content_html` 里三态由 `pre[data-collapsed]` 承载（`"true"` / `"false"` / 无此属性），读态由编辑器扩展还原成节点属性 `collapsed`。无属性时的初始状态由前端按代码行数自动决定（>20 行折叠、≤20 行展开）——这是前端行为，服务端不参与、也不在 `content_html` 里预判。折叠只影响显示：MD 派生仍是围栏代码块、`collapsed` 丢弃，属已知降级。
 - 上传：正文图（编辑器、粘贴、补抓）走 `POST /api/files`（落 `pages/`）；插件导入走 `POST /api/import/files`（落 `imports/`）；Profile 页头像走 `POST /api/me/avatar`，响应即最新 `Me`，不再「先上传拿 key、再 PUT /api/me/profile」。图片地址白名单（前后端同义）需同时接受平铺与 `pages|imports/` 前缀，否则新图会被判成「未转存」。
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
+- 「数据库维护」页的体积行：一行 `数据库体积 X · 图片体积 Y · 正文体积 Z · 页面 N`，体积一律用 `formatBytes` 渲染（不另写格式化）。`databaseSizeBytes` 为 `null` 时写「不可得」；`assetsSizeBytes` / `contentSizeBytes` 为 `null` 时**整项不渲染**（与 D1 同一降级思路，不显示 0 或估算数），空桶的真 0 照实显示 `0 B`；`*ObjectCount` 本期不显示。
 - 主题等纯前端偏好不进本契约（客户端持久化）。
 - 注册后按 `emailVerificationRequired` 分流：`true` → 跳「验证邮箱」页（输入 6 位码调 `POST /api/auth/email/verify`，页面提供重发按钮调 `POST /api/auth/email/resend`）；`false`（首个管理员、管理员后台建号）→ 直接去登录。该字段缺失视为 `false`。
 - 登录拿到 403 `EMAIL_NOT_VERIFIED` → 登录页给出「重新发送验证码」入口（`resend`，按钮按响应的 `cooldownSeconds` 倒计时），不要提示密码错误。403 `ACCOUNT_PENDING_APPROVAL` 是另一件事：等管理员批准。
