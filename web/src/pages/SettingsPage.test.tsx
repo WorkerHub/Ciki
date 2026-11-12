@@ -2,7 +2,9 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError } from "@/lib/api"
+import { LANGUAGE_STORAGE_KEY } from "@/lib/language"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
@@ -27,6 +29,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...actual.meApi,
       get: vi.fn(),
       sessions: vi.fn(),
+      updateProfile: vi.fn(),
       changePassword: vi.fn(),
       importToken: vi.fn(),
       createImportToken: vi.fn(),
@@ -417,5 +420,58 @@ describe("邮箱验证码 2FA", () => {
 
     expect(screen.getByRole("button", { name: "关闭邮箱验证码" })).toBeEnabled()
     expect(screen.getByText(/已开启，但站点没有配置发信/)).toBeInTheDocument()
+  })
+})
+
+/** 语言偏好：即时生效 + 只提交 language；失败回滚（规格 §2.4/§4）。 */
+describe("界面语言", () => {
+  beforeEach(() => {
+    vi.mocked(meApi.sessions).mockResolvedValue([])
+    vi.mocked(meApi.updateProfile).mockResolvedValue({
+      id: 1,
+      username: "管理员",
+      avatarUrl: null,
+      email: "admin@example.com",
+      role: "admin",
+      approvalStatus: "approved",
+      createdAt: "2026-11-07T00:00:00.000Z",
+      language: "en",
+      twofa: {
+        totpEnabled: false,
+        passkeyEnabled: false,
+        passkeyCount: 0,
+        emailOtpEnabled: false
+      }
+    })
+  })
+
+  it("切到英文即时生效，并且只把 language 写回账号", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    await user.click(screen.getByRole("radio", { name: "English" }))
+
+    expect(await screen.findByText("Language")).toBeInTheDocument()
+    expect(meApi.updateProfile).toHaveBeenCalledWith({ language: "en" })
+    expect(i18n.language).toBe("en")
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en")
+  })
+
+  it("写回失败时回滚到切换前语言并报错", async () => {
+    vi.mocked(meApi.updateProfile).mockRejectedValue(
+      new ApiError(400, "Invalid language", "INVALID_LANGUAGE")
+    )
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    await user.click(screen.getByRole("radio", { name: "English" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "语言不受支持，只支持中文和英文。"
+    )
+    expect(i18n.language).toBe("zh")
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("zh")
   })
 })

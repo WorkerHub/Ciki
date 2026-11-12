@@ -81,7 +81,7 @@ describe("注册页：邮箱验证衔接", () => {
     renderPage()
     await fillAndSubmit()
 
-    expect(authApi.register).toHaveBeenCalledWith("a@b.c", "password-1")
+    expect(authApi.register).toHaveBeenCalledWith("a@b.c", "password-1", "zh")
     expect(
       await screen.findByText("验证页占位 a@b.c 已发码 待审批")
     ).toBeInTheDocument()

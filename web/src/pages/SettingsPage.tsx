@@ -1,5 +1,6 @@
 import {
   KeyRound,
+  Languages,
   Laptop,
   Lock,
   LogOut,
@@ -9,8 +10,10 @@ import {
 } from "lucide-react"
 import QRCode from "qrcode"
 import { useCallback, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { ImportTokenCard } from "@/components/ImportTokenCard"
+import { LanguageSegmented } from "@/components/LanguageToggle"
 import { ReadTokenCard } from "@/components/ReadTokenCard"
 import { ThemeSegmented } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
@@ -32,6 +35,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { changeLanguage, currentLanguage } from "@/i18n"
 import {
   ApiError,
   authApi,
@@ -41,6 +45,7 @@ import {
   type TotpSetup
 } from "@/lib/api"
 import { formatDateTime, formatRelative } from "@/lib/format"
+import type { Language } from "@/lib/language"
 import { needsReauthToAddFactor } from "@/lib/two-factor"
 import {
   describeWebAuthnError,
@@ -113,13 +118,18 @@ function PasswordConfirmDialog({
 
 export function SettingsPage() {
   const user = useAuthStore((state) => state.user)
+  const setUser = useAuthStore((state) => state.setUser)
   const refreshMe = useAuthStore((state) => state.refreshMe)
   const setRestricted = useAuthStore((state) => state.setRestricted)
   const logout = useAuthStore((state) => state.logout)
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
+
+  // 语言：切换即时生效，再写回账号（规格 §2.4）
+  const [savingLanguage, setSavingLanguage] = useState(false)
 
   // 修改密码
   const [currentPassword, setCurrentPassword] = useState("")
@@ -221,6 +231,27 @@ export function SettingsPage() {
       setError(describeApiError(passwordError))
     } finally {
       setChangingPassword(false)
+    }
+  }
+
+  /**
+   * 语言切换：先本地即时生效，再写回账号（只提交 language，不碰用户名/头像）。
+   * 写回失败就回滚到切换前的语言，避免界面显示与账号里存的不一致。
+   */
+  const saveLanguage = async (next: Language) => {
+    const before = currentLanguage()
+    if (next === before) return
+    setError("")
+    setNotice("")
+    setSavingLanguage(true)
+    await changeLanguage(next)
+    try {
+      setUser(await meApi.updateProfile({ language: next }))
+    } catch (languageError) {
+      if (currentLanguage() === next) await changeLanguage(before)
+      setError(describeApiError(languageError))
+    } finally {
+      setSavingLanguage(false)
     }
   }
 
@@ -427,6 +458,24 @@ export function SettingsPage() {
           <p className="text-xs text-muted-foreground">
             当前账号：{user?.email}
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Languages
+              className="size-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            {t("settings.language.title")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <LanguageSegmented
+            onChange={(next) => void saveLanguage(next)}
+            disabled={savingLanguage}
+          />
         </CardContent>
       </Card>
 

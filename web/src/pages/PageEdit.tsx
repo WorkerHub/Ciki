@@ -27,7 +27,7 @@ import {
   type PageContentDetail,
   pagesApi
 } from "@/lib/api"
-import { formatDateTime } from "@/lib/format"
+import { formatTime } from "@/lib/format"
 import { pagePath, parseIdParam } from "@/lib/routes"
 import { readScrollAnchor, restoreScrollAnchor } from "@/lib/scroll-anchor"
 import { canEdit } from "@/lib/space"
@@ -338,7 +338,7 @@ export function PageEdit() {
                 : dirty
                   ? "有未保存的更改"
                   : savedAt
-                    ? `已保存 ${formatDateTime(savedAt).slice(11)}`
+                    ? `已保存 ${formatTime(savedAt)}`
                     : ""}
             </span>
             <Button
