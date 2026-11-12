@@ -496,7 +496,7 @@ describe("默认空间名：按建库语言播种", () => {
 })
 
 describe("schema_v1：基线结构上幂等空转", () => {
-  it("已是基线结构 → 全部 skipped，不重复建表、不改数据、账本仍只一行", async () => {
+  it("已是基线结构 → 全部 skipped，不重复建表、不改数据、账本不增行", async () => {
     const { env, db } = makeContext()
     await setupRequest(env, TEST_SETUP_SECRET)
     const before = db.db
@@ -514,11 +514,11 @@ describe("schema_v1：基线结构上幂等空转", () => {
       .get() as { count: number }
     expect(after.count).toBe(before.count)
 
-    // 账本就是一行 schema_v1，不因重复升级多出行来。
+    // 每条迁移在账本里恰好一行，不因重复升级多出行来。
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual([{ name: "schema_v1" }])
+    expect(ledger).toEqual(MIGRATION_NAMES.map((name) => ({ name })))
   })
 
   it("email_codes：复合主键 + purpose 校验，同键重发只留一行", async () => {

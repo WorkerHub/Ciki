@@ -36,11 +36,11 @@
 
 - 服务端入口：`worker/src/index.ts`（Hono），部署单元同时托管前端静态资源。
 - 表名一律经 `worker/src/lib/tables.ts` 拼当前部署的 `TABLE_PREFIX`（默认 `ciki_`，可显式无前缀），本文只用逻辑表名。
-- 响应字段一律 camelCase；数据库列名 snake_case，二者在路由层转换。**唯一例外**：`/api/read/*` 三个只读接口按用户冻结的接入契约逐字使用 snake_case（`parent_id` / `space_id` / `sort_order` / `updated_at` / `created_at` / `content_json`），见「只读接口（只读令牌）」。
+- 响应字段一律 camelCase；数据库列名 snake_case，二者在路由层转换。**唯一例外**：外部令牌接口（`/api/read/*` 与 `/api/write/*`）按用户冻结的接入契约逐字使用 snake_case（`parent_id` / `space_id` / `sort_order` / `updated_at` / `created_at` / `content_json`），见「只读接口（只读令牌）」与「读写接口（读写令牌）」。
 
 ## 一、通用约定
 
-- **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）；`/api/read/*` 是外部连接器入口，只认 `Authorization: Bearer <只读令牌>`，同样不接受会话 Cookie，且与导入令牌互不通用（见「只读接口（只读令牌）」）。
+- **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）；`/api/read/*` 是外部连接器入口，只认 `Authorization: Bearer <只读令牌>` 或 `<读写令牌>`，同样不接受会话 Cookie，且与导入令牌互不通用（见「只读接口（只读令牌）」）；`/api/write/*` 只认 `Authorization: Bearer <读写令牌>`，会话 Cookie、只读令牌与导入令牌在这里一律 401（见「读写接口（读写令牌）」）。
   - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/email/verify`、`POST /api/auth/email/resend`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
   - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
@@ -57,13 +57,14 @@
 
 迁移清单见下，账本表为 `_{prefix}schema_migrations`（记录 `name`、`applied_at`，已执行的迁移只做幂等检查、显示为 `skipped`）：
 
-- `schema_v1`（基线迁移，也是系统里唯一的版本标记）：**全新库**按定版 DDL 一次建出全部表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引（含 `{prefix}users_username`：`username COLLATE NOCASE` 唯一、`WHERE username <> ''` 空串除外）。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一条迁移末尾播种默认空间（id `1`、slug `space-1`、名称按 setup 请求语言：`zh` → 「默认空间」、`en` → `Default Space`、`is_default=1`），**只在新库播种**：账本里已有任何记录就不写——即使默认空间已被删空，升级也不补行（升级只改账本、不动数据）；存量库与用户改过名的空间永远不被改名。全部 `CREATE … IF NOT EXISTS`，重复执行无副作用。
+- `schema_v1`（基线迁移，冻结不可改）：**全新库**按定版 DDL 一次建出全部基线表——鉴权（`users` 含 `username` / `avatar_key` / `email_verified`、`user_2fa`、`passkey_credentials`、`sessions`、`auth_challenges`、`auth_counters`）、`system_settings`、页面（`pages` 含 `space_id` / `content_hash`、`page_revisions` 含 `version_no` / `content_hash`、`pages_fts`）、导入令牌、只读令牌、邮箱验证码、空间（`spaces` 含 `slug` / `space_members`）、评论、清理日志与回调账本，以及全部索引（含 `{prefix}users_username`：`username COLLATE NOCASE` 唯一、`WHERE username <> ''` 空串除外）。主键一律 `INTEGER PRIMARY KEY AUTOINCREMENT`。同一条迁移末尾播种默认空间（id `1`、slug `space-1`、名称按 setup 请求语言：`zh` → 「默认空间」、`en` → `Default Space`、`is_default=1`），**只在新库播种**：账本里已有任何记录就不写——即使默认空间已被删空，升级也不补行（升级只改账本、不动数据）；存量库与用户改过名的空间永远不被改名。全部 `CREATE … IF NOT EXISTS`，重复执行无副作用。
 - 存量库（**唯一支持的升级源 = 当前生产形态**，即 `schema_v8` 形态：整数 id、正文在 R2、`users` 三列已删、`username` 唯一索引在位）：`prepare` 只做**只读形态校验**，通过后结构与数据一字不动，唯一的动作是**账本手术**——把残留的 `schema_v1`–`schema_v8` 八行在同一个 `db.batch()`（事务）里清掉并写回一行 `schema_v1`。校验不过、或账本有 `schema_v7` 却没有 `schema_v8`（停在 username 唯一索引那一步）：setup 以 409 `MIGRATION_REJECTED` 中止并把指路信息回显给管理员——**先用上一版（支持 v7 → v8 的发布）升到 `schema_v8`，再换本版升级**；若账本已记着 `schema_v8` 而结构对不上，说明结构在升级后被改动过——先按升级前记下的 Time Travel bookmark 还原（或修好不符项）再试。两种情况都是数据与账本一字未动，不猜测式修复、不部分执行。
 - 更早的形态（`users` 还带 `base_currency`/`timezone`/`theme`、正文还在 `content_json`、`pages` 缺失、或删掉唯一索引冒充 v8）**一律拒绝**：错误信息列出不符项并指路，一个表都不动。
-- `schema_v1`–`schema_v8` 的增量定义已清除（含旧 `schema_v6` 的 UUID→整数全表重建路径）；升级时账本坍缩为单行 `schema_v1`，执行器只认当前列表。
-- 已是 `schema_v1` 的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本只有一次原子改写）。
+- `schema_v1`–`schema_v8` 的旧增量定义已清除（含旧 `schema_v6` 的 UUID→整数全表重建路径）；升级时账本先收敛为 `schema_v1`，再由 `schema_v2` 追加两表，执行器只认当前列表（`schema_v1`、`schema_v2`）。
+- `schema_v2`（**纯追加**）：新建令牌两张表——`write_tokens`（读写接口令牌，逐列同 `read_tokens`）与 `token_space_scopes`（令牌空间范围），外加 `{prefix}write_tokens_token_hash` 唯一索引。只 `CREATE TABLE / INDEX IF NOT EXISTS`，**不重建、不改动任何现有表与数据**：全新安装直接含两表；存量 v1 库升级就是只建这两表，现有业务数据逐行零变化；重复执行是幂等空转。
+- 已是当前形态的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本只有一次原子改写）。
 
-今后结构变化只在末尾追加 `schema_v2`、`schema_v3`…，`schema_v1` 不得改名、改内容或调序。
+今后结构变化只在末尾追加 `schema_v3`、`schema_v4`…（`schema_v2` 已用于令牌两张表），`schema_v1` 不得改名、改内容或调序。
 
 **升级前必须记下回退点**：升级入口是「系统管理 → 数据库维护 → 检查并升级数据库」，点之前先跑一次 `wrangler d1 time-travel info <库名>`，把输出的 bookmark 留档（Time Travel 始终开启，回溯窗口为最近 30 天，Workers Free 套餐 7 天；`wrangler d1 info <库名>` 需显示 `version: production`，wrangler v3.4.0+）。不要再试 `wrangler d1 export`：库里有 FTS5 虚拟表，Cloudflare 会拒绝（`cannot export databases with virtual tables (fts5)`）。回退只能按这个 bookmark 还原（`wrangler d1 time-travel restore <库名> --bookmark=<bookmark>`，原地覆盖整库）；Time Travel 只管 D1，R2 里的正文对象不可变、不参与回退。
 
@@ -152,23 +153,32 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 单条 `INSERT … ON CONFLICT(key) DO UPDATE` 原子自增，窗口过期自动重置；登录成功按账号删除失败/锁定行。
 
-| action                | account                            | 上限 / 窗口     | 说明                                                                    |
-| --------------------- | ---------------------------------- | --------------- | ----------------------------------------------------------------------- |
-| login                 | 空                                 | 10 次 / 5 分钟  | 每 IP                                                                   |
-| login_fail            | 邮箱                               | 5 次 / 15 分钟  | 第 5 次起锁 15 分钟                                                     |
-| register              | 空                                 | 5 次 / 5 分钟   | 每 IP                                                                   |
-| 2fa_verify            | 空                                 | 5 次 / 5 分钟   | 每 IP；另按 tempToken 记失败，5 次作废令牌                              |
-| password_change       | 用户 id                            | 5 次 / 5 分钟   |                                                                         |
-| reauth                | 用户 id                            | 5 次 / 5 分钟   | 2FA 敏感操作（新增/启用/关闭因子、删 passkey）的密码重认证              |
-| setup                 | 空                                 | 3 次 / 10 分钟  | 每 IP，初始化前也生效                                                   |
-| email_code_cd         | `${purpose}:${account}`            | 1 次 / 60 秒    | 发码冷却；第 2 次在窗口内即拒绝，`retryAfter` 秒级                      |
-| email_code_send       | `${purpose}:${account}`            | 5 次 / 1 小时   | 账号+用途的小时配额；找回密码的 account 是小写 trim 邮箱，2FA 是 userId |
-| email_code_send_ip    | 空                                 | 20 次 / 1 小时  | 每 IP 发码总量，防遍历账号                                              |
-| email_code_verify     | `${purpose}:${account}`            | 5 次 / 10 分钟  | 校验请求计数；成功后清零该账号+用途，第 5 次错误会删除该码              |
-| email_code_verify_ip  | 空                                 | 20 次 / 10 分钟 | 每 IP 校验总量，防单 IP 爆破                                            |
-| password_reset_submit | 有效 token 的 userId（无效时为空） | 5 次 / 5 分钟   | 设新密码接口（找回密码第三步）                                          |
-| smtp_config           | 管理员 userId                      | 10 次 / 5 分钟  | `PUT /api/admin/system/smtp`                                            |
-| smtp_test             | 管理员 userId                      | 5 次 / 5 分钟   | `POST /api/admin/system/smtp/test`                                      |
+| action                | account                            | 上限 / 窗口      | 说明                                                                    |
+| --------------------- | ---------------------------------- | ---------------- | ----------------------------------------------------------------------- |
+| login                 | 空                                 | 10 次 / 5 分钟   | 每 IP                                                                   |
+| login_fail            | 邮箱                               | 5 次 / 15 分钟   | 第 5 次起锁 15 分钟                                                     |
+| register              | 空                                 | 5 次 / 5 分钟    | 每 IP                                                                   |
+| 2fa_verify            | 空                                 | 5 次 / 5 分钟    | 每 IP；另按 tempToken 记失败，5 次作废令牌                              |
+| password_change       | 用户 id                            | 5 次 / 5 分钟    |                                                                         |
+| reauth                | 用户 id                            | 5 次 / 5 分钟    | 2FA 敏感操作（新增/启用/关闭因子、删 passkey）的密码重认证              |
+| setup                 | 空                                 | 3 次 / 10 分钟   | 每 IP，初始化前也生效                                                   |
+| email_code_cd         | `${purpose}:${account}`            | 1 次 / 60 秒     | 发码冷却；第 2 次在窗口内即拒绝，`retryAfter` 秒级                      |
+| email_code_send       | `${purpose}:${account}`            | 5 次 / 1 小时    | 账号+用途的小时配额；找回密码的 account 是小写 trim 邮箱，2FA 是 userId |
+| email_code_send_ip    | 空                                 | 20 次 / 1 小时   | 每 IP 发码总量，防遍历账号                                              |
+| email_code_verify     | `${purpose}:${account}`            | 5 次 / 10 分钟   | 校验请求计数；成功后清零该账号+用途，第 5 次错误会删除该码              |
+| email_code_verify_ip  | 空                                 | 20 次 / 10 分钟  | 每 IP 校验总量，防单 IP 爆破                                            |
+| password_reset_submit | 有效 token 的 userId（无效时为空） | 5 次 / 5 分钟    | 设新密码接口（找回密码第三步）                                          |
+| smtp_config           | 管理员 userId                      | 10 次 / 5 分钟   | `PUT /api/admin/system/smtp`                                            |
+| smtp_test             | 管理员 userId                      | 5 次 / 5 分钟    | `POST /api/admin/system/smtp/test`                                      |
+| import_token          | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/import-token`                                             |
+| import_auth_fail      | 空                                 | 20 次 / 5 分钟   | 每 IP；导入令牌校验失败（先拒后验）                                     |
+| import                | 用户 id                            | 3000 次 / 5 分钟 | 导入接口调用配额                                                        |
+| read_token            | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/read-token`                                               |
+| read_auth_fail        | 空                                 | 20 次 / 5 分钟   | 每 IP；读接口令牌校验失败（先拒后验）                                   |
+| read                  | 用户 id                            | 3000 次 / 5 分钟 | 读接口调用配额（读写令牌调读接口也计入）                                |
+| write_token           | 用户 id                            | 10 次 / 5 分钟   | `POST /api/me/write-token`                                              |
+| write_auth_fail       | 空                                 | 20 次 / 5 分钟   | 每 IP；写接口令牌校验失败（先拒后验）                                   |
+| write                 | 用户 id                            | 600 次 / 5 分钟  | 写接口调用配额                                                          |
 
 ### email_codes（邮箱验证码）
 
@@ -246,6 +256,35 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 - 失效条件：吊销、重置、用户被停用或未批准（校验每次回表并连 `users`）。
 - 令牌只用于 `/api/read/*`；令牌管理本身要会话 Cookie。
 - **双向隔离**在服务端落地：读接口的中间件只查本表，导入接口的中间件只查 `import_tokens`；所以导入令牌调读接口、只读令牌调导入接口与会话写接口都是 401，不靠前端约定。
+
+### write_tokens（读写接口令牌）
+
+与 `read_tokens` **逐列一致、表独立**（`schema_v2` 追加）。三套令牌（导入 / 只读 / 读写）互不通用，靠表隔离落地：
+
+| 列           | 类型          | 说明                                       |
+| ------------ | ------------- | ------------------------------------------ |
+| user_id      | INTEGER PK    | 每用户一行；生成/重置即覆盖，不新增行      |
+| token_hash   | TEXT NOT NULL | 令牌的 SHA-256 hex，唯一索引               |
+| created_at   | TEXT NOT NULL | ISO 时间；重置时刷新                       |
+| last_used_at | TEXT NULL     | 每次通过该令牌调用写接口（或读接口）时更新 |
+| revoked_at   | TEXT NULL     | 非空即吊销                                 |
+
+- 明文只存于生成/重置响应一次，库内只有哈希；不设过期列；失效条件与只读令牌相同。
+- 令牌用于 `/api/write/*`，**也可用于 `/api/read/*`**；令牌管理本身要会话 Cookie。
+- 与只读令牌、导入令牌互不通用：写接口只查本表，读接口认本表与 `read_tokens` 两张表。
+
+### token_space_scopes（令牌空间范围）
+
+一行 = 「该用户的该类令牌可见该空间」，由只读令牌与读写令牌共用（`token_kind` 区分）：
+
+| 列         | 类型    | 说明                                        |
+| ---------- | ------- | ------------------------------------------- |
+| token_kind | TEXT    | `read` / `write`（带 CHECK 约束）           |
+| user_id    | INTEGER | 令牌主人                                    |
+| space_id   | INTEGER | 空间 id；已删除的空间留行无妨，交集自然排除 |
+
+- **三列联合主键** `(token_kind, user_id, space_id)`；无行 = 不限制。
+- 语义与端点见「令牌空间范围」；范围只能收窄、不能放大，每次令牌校验都回表。
 
 ### spaces
 
@@ -1529,9 +1568,53 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 - 错误：400 参数非法（标题、`parentId` / `space_id` 类型、`conflict` 取值）；400 `code:"INVALID_CONTENT_JSON"`（JSON 解析失败、未知节点/mark、未声明属性、结构不合 schema）；403 `code:"SPACE_FORBIDDEN"`；404 `code:"SPACE_NOT_FOUND"`；409 `code:"DEFAULT_SPACE_MISSING"` / `code:"PARENT_DELETED"`（父页不存在或已软删）/ `code:"SPACE_MISMATCH"`；413 `code:"PAYLOAD_TOO_LARGE"`（`contentJson` ≤800,000 B、消毒后 HTML ≤800,000 B、纯文本 ≤300,000 B、四件套含派生 MD 合计 ≤1,900,000 B）；401；429。
 
+### 令牌空间范围（只读 / 读写共用）
+
+只读令牌与读写令牌都带一份**空间范围**，用来把令牌能碰到的空间再收窄一层；两种令牌共用同一套语义与端点形状，范围各存各的（`token_space_scopes.token_kind` 区分）。
+
+- **有效可见范围 = 令牌主人凭自身权限能看的空间 ∩ 范围集合**。范围为空集（没有任何行）= 不限制 = 令牌主人能看的全部空间，**存量令牌行为零变化**。
+- **范围只能收窄、不能放大**：主人不是成员的空间即使被写进范围也不生效（写入时就被 400 拒掉）；主人退出某空间后令牌立即看不见，重新加入后范围自动恢复生效。
+- 对**站点管理员**同样生效：管理员的令牌设了范围，也只能看范围内的空间。
+- 已删除的空间在范围里留行无妨，交集自然排除；删除空间不清范围行。
+- 范围每次令牌校验都回表，**改动立即生效**，不需要重新生成令牌。
+
+#### GET /api/me/read-token、GET /api/me/write-token（需会话）
+
+状态响应在原有时间线之外多一个 `spaceIds`：`null` = 不限制；数组 = 当前范围（升序、已去重）。
+
+```json
+{
+  "active": true,
+  "createdAt": "2026-11-10T12:00:00.000Z",
+  "lastUsedAt": null,
+  "revokedAt": null,
+  "spaceIds": [1, 3]
+}
+```
+
+#### POST /api/me/read-token、POST /api/me/write-token（需会话）
+
+生成/重置令牌的请求体可带 `{"spaceIds": [2, 1] | null}`：
+
+- 带数组 = 校验通过后设为该范围（去重、升序存储）；`null` = 清除范围（不限制）。
+- **不带 = 保留现有范围**（重置密钥不会悄悄放大范围）；首次生成不带 = 不限制。
+- 空数组回 400（否则等于把范围设成「什么都看不见」）。
+- 响应仍是 `{"token": "…", "createdAt": "…"}`，明文只出现一次。
+
+#### PUT /api/me/read-token/spaces、PUT /api/me/write-token/spaces（需会话）
+
+只改范围、不换令牌。请求体 `{"spaceIds": [2, 1] | null}`（`spaceIds` 必填）：`null` = 清除范围（不限制）；非空数组 = 设为该范围；空数组 400。成功回 `{"spaceIds": [...] | null}`（写入后的范围）。令牌尚未生成也可以调用，范围在下次生成时生效。
+
+#### 范围校验与错误
+
+- `spaceIds` 必须是整数数组（JSON number、正整数）；重复项去重后按升序存储。
+- 每个 id 必须是**令牌主人当前可见**的空间：有任一空间角色，或主人是站点管理员且该空间存在；任一不满足则整单 400 `{"error":"Invalid space scope","code":"INVALID_SPACE_SCOPE"}`，不做部分写入。
+- 缺 `spaceIds`（PUT）、空数组、非数组、非整数元素同样 400 `INVALID_SPACE_SCOPE`；请求体不是合法 JSON（或不是 JSON 对象）回 400 `{"error":"Invalid request body"}`。
+- 范围端点自身不设限流桶（会话接口，每次最多 1 + 空间数 条写入）；`POST` 生成/重置沿用各自的令牌桶（`read_token` / `write_token`，均 10 次 / 5 分钟）。
+
 ### 只读接口（只读令牌）
 
-一期供外部连接器（Muse）接入的一组**只读**接口：只有读，没有任何写接口；不接受会话 Cookie，导入令牌与只读令牌两边互不通用（见「read_tokens」）。
+供外部连接器（Muse）接入的**只读**接口，不接受会话 Cookie。鉴权只认 `Authorization: Bearer`，可以是**只读令牌**或**读写令牌**（二期起）：两者互不通用、各存各的表，空间范围也各取各的；导入令牌与它们同样互不通用（见「import_tokens」「read_tokens」「write_tokens」）。
 
 #### 令牌管理（均需会话 Cookie）
 
@@ -1542,11 +1625,12 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
   "active": true,
   "createdAt": "2026-11-10T12:00:00.000Z",
   "lastUsedAt": null,
-  "revokedAt": null
+  "revokedAt": null,
+  "spaceIds": null
 }
 ```
 
-从未生成过时三个时间字段均为 `null`、`active` 为 `false`。永不返回哈希或明文。
+从未生成过时时间字段均为 `null`、`active` 为 `false`；`spaceIds` 是当前空间范围（`null` = 不限制），口径见「令牌空间范围」。永不返回哈希或明文。
 
 ##### POST /api/me/read-token
 
@@ -1556,24 +1640,40 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 { "token": "…", "createdAt": "2026-11-10T12:00:00.000Z" }
 ```
 
-**明文只在此响应出现一次**。限流 10 次 / 5 分钟（按用户），超出 429 `code:"RATE_LIMITED"`。
+**明文只在此响应出现一次**。请求体可带 `spaceIds`（见「令牌空间范围」：带了就换范围，不带则保留现有范围）。限流 10 次 / 5 分钟（按用户，桶 `read_token`），超出 429 `code:"RATE_LIMITED"`。
+
+##### PUT /api/me/read-token/spaces
+
+只改空间范围、不换令牌：请求体 `{"spaceIds": [...] | null}`，响应 `{"spaceIds": [...] | null}`；空数组与不可见空间一律 400 `INVALID_SPACE_SCOPE`。完整口径见「令牌空间范围」。
 
 ##### DELETE /api/me/read-token
 
-吊销当前用户的只读令牌：200 `{"success":true}`。从未生成过 404；已吊销再调用仍 200（幂等）。
+吊销当前用户的只读令牌：200 `{"success":true}`。从未生成过 404；已吊销再调用仍 200（幂等）。吊销不清空间范围行：之后重新生成但不带 `spaceIds` 时沿用。
 
 #### 读接口通用约定
 
-- 鉴权：只认 `Authorization: Bearer <只读令牌>`。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。**会话 Cookie 与查询参数都不认**。
-- 权限 = 令牌所属用户本人的读权限：站点管理员可见全部空间，其余人只见自己是成员的空间；非成员空间的内容在 SQL 层就被过滤（与站内页面树/搜索同一口径）。
-- 限流沿用 `auth_counters`：失败按 IP（`read_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`read` 3000 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
+- 鉴权：只认 `Authorization: Bearer <只读令牌或读写令牌>`。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。**会话 Cookie 与查询参数都不认**；导入令牌在这里同样 401（表隔离）。
+- 权限 = 令牌所属用户本人的读权限 **∩ 令牌空间范围**：站点管理员可见全部空间，其余人只见自己是成员的空间；再按范围收窄（见「令牌空间范围」）。非成员或范围外的空间在 SQL 层就被过滤（与站内页面树/搜索同一口径）。
+- **范围外一律按不存在处理**：`tree` / `search` 直接不返回该空间的任何行，`pages/:id` 回 404——与非成员同一口径，不泄露存在性。
+- 限流沿用 `auth_counters`：失败按 IP（`read_auth_fail` 20 次 / 5 分钟，先拒后验，两种令牌共用），调用按用户（`read` 3000 次 / 5 分钟；读写令牌调读接口也计入这个桶）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
 - **软删页面**（`deleted_at` 非空）在三处一律排除。
-- 响应统一 JSON、UTF-8；**不加分页、不做版本协商**。字段是 snake_case（本文件 camelCase 通则的唯一例外，接入方按此对接）。
+- 响应统一 JSON、UTF-8；**不加分页、不做版本协商**。字段是 snake_case（本文件 camelCase 通则的例外，见「一、通用约定」，接入方按此对接）。
 - 每次成功调用都刷新令牌的 `lastUsedAt`。
+
+#### GET /api/read/spaces
+
+令牌的**有效可见空间**（主人可见空间 ∩ 范围），排序与站内空间列表一致：默认空间在前，其余按名称（大小写不敏感）再按创建时间。
+
+```json
+{ "spaces": [{ "id": 1, "name": "默认空间", "slug": "space-1" }] }
+```
+
+- 每项**只有** `id` / `name` / `slug` 三个键（精确键集合，接入方按此对接）。
+- `slug` 用于拼站内地址 `/s/<slug>/…`。
 
 #### GET /api/read/tree
 
-全部未删页面的扁平表（不分页、不建树；`parent_id` 给调用方自己拼层级），按「空间 → 同级顺序 → 创建时间」排序：
+令牌有效可见空间内全部未删页面的扁平表（不分页、不建树；`parent_id` 给调用方自己拼层级），按「空间 → 同级顺序 → 创建时间」排序：
 
 ```json
 [
@@ -1641,6 +1741,69 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 - 派生**永不报错**：JSON 无法解析或不合当前 schema 时退回已消毒的纯文本（`content_text`）。
 - `content_md` 不参与无改动保存的判等（判等只看正文：正文哈希 + `content_html` + `content_text` 三项；标题变化只原地改标题与索引，不计入版本增长）；历史版本不存 MD。
 
+### 读写接口（读写令牌）
+
+二期新增：读写令牌可以调 `/api/write/*`，**也可以调 `/api/read/*`**（读中间件两张表都认，范围取读写令牌自己的那一份；计入 `read` 桶）。会话 Cookie 在令牌接口上一律无效、令牌也登不上会话接口；只读令牌与导入令牌调写接口一律 401（表隔离，见「write_tokens」）。
+
+写权限判定与站内完全一致：目标空间内令牌主人角色须满足 `editor` 及以上（站点管理员恒算空间 `admin`），且该空间在令牌范围内；不满足一律 404（与非成员同一口径，不泄露存在性）。写入复用站内唯一写路径：`created_by` / `updated_by` 记令牌主人、revision 留痕、派生列（HTML / 纯文本 / MD）由同一管线生成。
+
+#### 令牌管理（均需会话 Cookie）
+
+##### GET /api/me/write-token
+
+```json
+{
+  "active": true,
+  "createdAt": "2026-11-10T12:00:00.000Z",
+  "lastUsedAt": null,
+  "revokedAt": null,
+  "spaceIds": null
+}
+```
+
+从未生成过时时间字段均为 `null`、`active` 为 `false`；永不返回哈希或明文。`spaceIds` 口径见「令牌空间范围」。
+
+##### POST /api/me/write-token
+
+生成或重置（覆盖既有令牌，旧令牌立即失效），200 `{"token": "…", "createdAt": "…"}`；**明文只出现一次**。请求体可带 `spaceIds`（不带 = 保留现有范围）。限流 10 次 / 5 分钟（按用户，桶 `write_token`），超出 429 `code:"RATE_LIMITED"`。
+
+##### PUT /api/me/write-token/spaces
+
+只改空间范围、不换令牌：请求体 `{"spaceIds": [...] | null}`，响应 `{"spaceIds": [...] | null}`；空数组与不可见空间一律 400 `INVALID_SPACE_SCOPE`。完整口径见「令牌空间范围」。
+
+##### DELETE /api/me/write-token
+
+吊销：200 `{"success":true}`；从未生成过 404；已吊销再调用仍 200（幂等）。吊销不清空间范围行。
+
+#### 写接口通用约定
+
+- 鉴权：只认 `Authorization: Bearer <读写令牌>`。缺令牌、令牌无效、已吊销、用户被停用或未批准 → 401 `{"error":"Unauthorized"}`，响应 `Cache-Control: no-store`。**会话 Cookie、查询参数、只读令牌与导入令牌都不认**。
+- 目标页面不存在、已软删、不在令牌范围内、或令牌主人没有该空间的 `editor` 及以上角色 → 一律 404 `{"error":"Page not found"}`（不泄露存在性）。
+- 请求体与响应字段一律 snake_case（本文件 camelCase 通则的例外，见「一、通用约定」）。
+- 正文**只收 TipTap JSON**（`content_json`，字符串或对象均可）：服务端渲染 HTML → 消毒 → 派生纯文本与 MD，入参规范化与体积上限沿用站内口径（400 `code:"INVALID_CONTENT_JSON"`、413 `code:"PAYLOAD_TOO_LARGE"`）。**本期不收 Markdown**——服务端没有 md→JSON 转换链，调用方自行转换。
+- 限流沿用 `auth_counters`：失败按 IP（`write_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`write` 600 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
+- 每次成功调用刷新令牌的 `lastUsedAt`。
+
+#### POST /api/write/pages
+
+请求体 `{"space_id"?: 1, "parent_id"?: 2, "title": "…", "content_json": "…"}`：
+
+- `space_id` 缺省落默认空间（默认空间不存在回 409 `code:"DEFAULT_SPACE_MISSING"`）；`parent_id` 缺省为根级，父页已软删回 409 `code:"PARENT_DELETED"`。
+- 新页排同级末尾（`sort_order` = 现行最大值 + 1）。
+- 201：`{"id": 1, "space_id": 1, "parent_id": null, "sort_order": 0, "title": "…", "updated_at": "…"}`。
+
+#### PUT /api/write/pages/:id
+
+请求体 `{"title"?: "…", "content_json"?: "…"}`，至少给一个，否则 400。响应是更新后的元信息（与建页响应同形状）。
+
+#### POST /api/write/pages/:id/move
+
+请求体 `{"parent_id": 2 | null, "index": 0, "space_id"?: 1}`：`index` 是目标同级里的位置（0 起，同级稠密重排），语义与站内 move 完全一致；`space_id` 缺省为当前页所在空间，跨空间移动时用它指定目标空间，且源、目标空间都必须在范围内、对目标空间有编辑权。父页不存在或已软删回 409 `code:"PARENT_DELETED"`。成功回 `{"success":true}`。
+
+#### DELETE /api/write/pages/:id
+
+软删（进回收站、可恢复），与站内删除完全同一语义（子树处理一致）。成功回 `{"success":true}`；页面不存在或已软删 404。
+
 ### 服务端消毒规则（content_html）
 
 保存/回滚时执行：保留结构性标签与下列属性，其余一律剥除。
@@ -1656,7 +1819,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间，名字按 setup 请求语言播种；`POST /api/admin/setup` 不带语言即 `zh`），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间，也不改名。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版起迁移只有一条 `schema_v1`，`schema_v8` 形态的存量库在同一次 setup 里只做账本手术（账本坍缩为单行 `schema_v1`，结构与数据不动）——形态不被接受时以 409 `MIGRATION_REJECTED` 中止并提示先用上一版升到 `schema_v8`（见「数据模型」）。
+- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间，名字按 setup 请求语言播种；`POST /api/admin/setup` 不带语言即 `zh`），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间，也不改名。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版迁移为 `schema_v1`（基线）+ `schema_v2`（令牌两张表，纯追加）：`schema_v8` 形态的存量库在同一次 setup 里做账本手术（账本收敛为 `schema_v1` + `schema_v2` 两条）并补建 v2 两表，基线结构与数据不动——形态不被接受时以 409 `MIGRATION_REJECTED` 中止并提示先用上一版升到 `schema_v8`（见「数据模型」）。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。

@@ -1,9 +1,10 @@
 /**
- * 版本号重置（账本手术）的演练测试：`schema_v8` 形态的存量库升级到唯一迁移 `schema_v1`。
+ * 版本号重置（账本手术）+ 追加迁移 `schema_v2` 的演练测试：`schema_v8` 形态的存量库
+ * 升级到基线 `schema_v1`，再补建 v2 的两张令牌表。
  *
  * 逐项对应验收：
- * - 升级只动账本：账本坍缩成一行 `schema_v1`，其余表逐行逐值不变、正文对象不重传、
- *   每个 `content_hash` 都能从内容桶回读并通过哈希复核；
+ * - 升级只改账本与追加结构：账本收敛为 `schema_v1` + `schema_v2` 两条，基线表逐行逐值
+ *   不变、正文对象不重传、每个 `content_hash` 都能从内容桶回读并通过哈希复核；
  * - 升级后全链路可用：既有会话仍有效、登录、读页、搜索、评论、注册→批准→验证邮箱→登录；
  * - `v7` 账本（有 v7 无 v8）、删掉唯一索引的篡改库、更早形态（`users` 还带三列）
  *   一律拒绝且指路，数据与账本一字未动；
@@ -12,6 +13,7 @@
  */
 import { describe, expect, it } from "vitest"
 import { hashContent, readContent } from "../src/core/content-store"
+import { getMigrations } from "../src/lib/migrations"
 import { SCHEMA_INDEXES, SCHEMA_TABLES } from "../src/lib/schema"
 import { runSetup } from "../src/lib/setup"
 import { migrationsTable, tableName } from "../src/lib/tables"
@@ -34,6 +36,19 @@ import {
 } from "./support/v8-schema"
 
 const PREFIX = "ciki_"
+
+/** 当前账本里应有的迁移名（顺序即执行顺序）：断言按它生成，不写死字面量。 */
+const MIGRATION_NAMES = getMigrations(PREFIX).map((migration) => migration.name)
+
+function migrationList(status: "applied" | "skipped") {
+  return MIGRATION_NAMES.map((name) => ({ name, status }))
+}
+
+/** `schema_v2` 纯追加出来的表与索引（不在基线清单里，升级后必然多出来）。 */
+const V2_TABLES = ["write_tokens", "token_space_scopes"].map((name) =>
+  tableName(PREFIX, name)
+)
+const V2_INDEX = tableName(PREFIX, "write_tokens_token_hash")
 
 /** 生产同形态的库：v8 结构 + 增量链时代账本 + 存量数据。 */
 async function v8Context(ledger: readonly string[] = V8_LEDGER_ROWS) {
@@ -101,7 +116,7 @@ function setupRequest(env: TestContext["env"]) {
 }
 
 describe("v8 形态存量库 → schema_v1：只动账本", () => {
-  it("账本坍缩成一行 schema_v1，表/索引/数据逐行不变", async () => {
+  it("账本收敛为 schema_v1 + schema_v2，基线表/索引/数据逐行不变", async () => {
     const context = await v8Context()
     const { env, db } = context
     const beforeData = businessSnapshot(context)
@@ -117,15 +132,25 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     const result = await runSetup(env)
     if (!result.success) throw new Error(result.error)
 
-    expect(result.migrations).toEqual([
-      { name: "schema_v1", status: "applied" }
-    ])
-    // 增量链时代留下的 v1–v8 八行一并清掉，只留当前版本标记。
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(result.migrations).toEqual(migrationList("applied"))
+    // 增量链时代留下的 v1–v8 八行一并清掉，账本只剩当前两条（v1 与追加的 v2）。
+    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
 
-    // 结构零变化：表、索引、users 列名与升级前逐项一致。
-    expect(tableNames(context).sort()).toEqual([...beforeTables].sort())
-    expect(indexNames(context).sort()).toEqual(beforeIndexes)
+    // 基线结构零变化：原有表、索引、users 列名与升级前逐项一致。
+    expect(
+      tableNames(context)
+        .filter((name) => beforeTables.includes(name))
+        .sort()
+    ).toEqual([...beforeTables].sort())
+    expect(
+      indexNames(context)
+        .filter((name) => beforeIndexes.includes(name))
+        .sort()
+    ).toEqual(beforeIndexes)
+
+    // 纯追加：只多出 v2 的两张表与它的 token_hash 唯一索引。
+    for (const name of V2_TABLES) expect(tableNames(context)).toContain(name)
+    expect(indexNames(context)).toContain(V2_INDEX)
     expect(
       (
         db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
@@ -152,10 +177,8 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     const result = await runSetup(context.env)
     if (!result.success) throw new Error(result.error)
 
-    expect(result.migrations).toEqual([
-      { name: "schema_v1", status: "applied" }
-    ])
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(result.migrations).toEqual(migrationList("applied"))
+    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
     expect(
       context.db.db.prepare("SELECT COUNT(*) AS count FROM ciki_spaces").get()
     ).toEqual({ count: 0 })
@@ -168,9 +191,7 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
 
     const result = await runSetup(context.env, { language: "en" })
     if (!result.success) throw new Error(result.error)
-    expect(result.migrations).toEqual([
-      { name: "schema_v1", status: "applied" }
-    ])
+    expect(result.migrations).toEqual(migrationList("applied"))
 
     // 播种只在全新库生效：升级路径即使带了英文也不会被改名。
     const row = context.db.db
@@ -227,19 +248,18 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
 })
 
 describe("全新库与幂等", () => {
-  it("全新安装：账本一行 schema_v1，18 表与全部索引（含 username 唯一部分索引）", async () => {
+  it("全新安装：账本两条，基线 18 表 + v2 两表与全部索引（含 username 唯一部分索引）", async () => {
     const context = makeContext()
     const result = await runSetup(context.env)
     if (!result.success) throw new Error(result.error)
 
-    expect(result.migrations).toEqual([
-      { name: "schema_v1", status: "applied" }
-    ])
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(result.migrations).toEqual(migrationList("applied"))
+    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
     const tables = tableNames(context)
     for (const table of SCHEMA_TABLES) {
       expect(tables).toContain(tableName(PREFIX, table.name))
     }
+    for (const name of V2_TABLES) expect(tables).toContain(name)
 
     const indexes = indexNames(context)
     for (const ddl of SCHEMA_INDEXES) {
@@ -247,6 +267,7 @@ describe("全新库与幂等", () => {
       if (!match) throw new Error(`index DDL has no name: ${ddl}`)
       expect(indexes).toContain(match[1].replaceAll("{prefix}", PREFIX))
     }
+    expect(indexes).toContain(V2_INDEX)
     const usernameIndex = (
       context.db.db.prepare("PRAGMA index_list(ciki_users)").all() as Array<{
         name: string
@@ -271,12 +292,12 @@ describe("全新库与幂等", () => {
 
     const again = await runSetup(context.env)
     if (!again.success) throw new Error(again.error)
-    expect(again.migrations).toEqual([{ name: "schema_v1", status: "skipped" }])
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(again.migrations).toEqual(migrationList("skipped"))
+    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
-  it("账本被改回 v7/v8 再点：仍收敛为一行（可重入，结果一致）", async () => {
+  it("账本被改回 v7/v8 再点：仍收敛为当前两条（可重入，结果一致）", async () => {
     const context = await v8Context()
     const first = await runSetup(context.env)
     if (!first.success) throw new Error(first.error)
@@ -292,22 +313,20 @@ describe("全新库与幂等", () => {
 
     const again = await runSetup(context.env)
     if (!again.success) throw new Error(again.error)
-    expect(again.migrations).toEqual([{ name: "schema_v1", status: "applied" }])
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(again.migrations).toEqual(migrationList("applied"))
+    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
-  it("账本只有 v7/v8 两行（没带更早的历史行）→ 同样坍缩为一行", async () => {
+  it("账本只有 v7/v8 两行（没带更早的历史行）→ 同样收敛为当前两条", async () => {
     const context = await v8Context(["schema_v7", "schema_v8"])
     const beforeData = businessSnapshot(context)
 
     const result = await runSetup(context.env)
     if (!result.success) throw new Error(result.error)
 
-    expect(result.migrations).toEqual([
-      { name: "schema_v1", status: "applied" }
-    ])
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(result.migrations).toEqual(migrationList("applied"))
+    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
     expect(businessSnapshot(context)).toEqual(beforeData)
   })
 
@@ -323,10 +342,8 @@ describe("全新库与幂等", () => {
 
     const result = await runSetup(context.env)
     if (!result.success) throw new Error(result.error)
-    expect(result.migrations).toEqual([
-      { name: "schema_v1", status: "applied" }
-    ])
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
+    expect(result.migrations).toEqual(migrationList("applied"))
+    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
     expect(tableNames(context)).toContain(tableName(PREFIX, "pages"))
   })
 })

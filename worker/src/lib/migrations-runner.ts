@@ -203,6 +203,14 @@ export async function runLedgerMigrations(
         await db.prepare(statement).run()
       }
       await recordMigration(db, ledger, migration)
+      // 记账后账本已变：本条自己的旧同名行与被 `supersedes` 声明的旧行都不在了。
+      // 不同步这个快照的话，后面的迁移会拿「记账前」的旧账本判自己是否已应用——
+      // 旧 v8 账本里的 `schema_v2` 只代表增量链时代那一版，新 v2 还没跑却被当成
+      // skipped，令牌两张表就永远建不出来。
+      for (const name of [migration.name, ...(migration.supersedes ?? [])]) {
+        applied.delete(name)
+      }
+      applied.add(migration.name)
     } catch (err) {
       // 形态/账本不被接受是可预期的操作错误：信息本身就是操作指引，原样上抛。
       if (err instanceof MigrationRejectedError) throw err

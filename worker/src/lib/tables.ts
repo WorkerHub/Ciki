@@ -54,6 +54,23 @@ export const importTokensTable = (prefix: string) =>
  */
 export const readTokensTable = (prefix: string) =>
   tableName(prefix, "read_tokens")
+/**
+ * 读写接口令牌（二期，`schema_v2` 追加）：与只读令牌**逐列一致但独立一张表**。
+ * 三套令牌（导入 / 只读 / 读写）的隔离同样靠表隔离落地：读侧中间件两张表都认，
+ * 但只认自己那种；导入令牌与只读令牌调写接口一律 401。
+ */
+export const writeTokensTable = (prefix: string) =>
+  tableName(prefix, "write_tokens")
+/** `write_tokens.token_hash` 的唯一索引名（与 `read_tokens` 同口径，不带 `idx_` 前缀）。 */
+export const writeTokensTokenHashIndex = (prefix: string) =>
+  tableName(prefix, "write_tokens_token_hash")
+/**
+ * 令牌空间范围（二期，`schema_v2` 追加）：一行 = 「该用户的该类令牌可见该空间」。
+ * 三列联合主键；无行 = 不限制。范围只收窄不放大：生效范围是「主人可见空间 ∩ 范围」，
+ * 在每次令牌校验时回表计算（见 core/token-scope.ts）。
+ */
+export const tokenSpaceScopesTable = (prefix: string) =>
+  tableName(prefix, "token_space_scopes")
 /** FTS5 虚拟表同样经前缀 helper 拼名（规格 §6）。 */
 export const pagesFtsTable = (prefix: string) => tableName(prefix, "pages_fts")
 /**
