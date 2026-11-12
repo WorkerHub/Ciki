@@ -1,16 +1,17 @@
 /**
- * 读接口鉴权：只认 `Authorization: Bearer <只读令牌 | 读写令牌>`。
+ * 读接口鉴权：只认 `Authorization: Bearer <接口令牌（read 或 write）>`。
  *
  * - **不接受会话 Cookie**（也不看查询参数）：读接口的调用方是外部连接器，职责与登录态
  *   分离；反过来，令牌也登不上任何会话接口。
- * - **两张表都认**：只读令牌与读写令牌都能调 `/api/read/*`（二期 §3.1），命中种类由
- *   `findApiToken` 判定（core/api-token.ts），空间范围与 `last_used_at` 都按命中那张表
- *   自己的一份取（`token_kind` = `read` / `write`），互不影响。
- * - **表隔离**：导入令牌的哈希不在这两张表里，所以导入令牌调 `/api/read/*` 一律 401；
- *   反过来读侧两枚令牌也进不了 `/api/import/*`。互不通用是表隔离的结果，不靠前端约定。
+ * - **两种 kind 都认**：`api_tokens.kind` 为 `read` 与 `write` 的令牌都能调
+ *   `/api/read/*`（二期 §3.1），命中行由 `findApiToken` 判定（core/api-token.ts）；
+ *   空间范围与 `last_used_at` 都按**命中的那一行令牌**取，互不影响。
+ * - **表隔离**：导入令牌在另一张表（`import_tokens`），所以导入令牌调
+ *   `/api/read/*` 一律 401；反过来接口令牌也进不了 `/api/import/*`。互不通用是表与
+ *   kind 隔离的结果，不靠前端约定。
  * - 令牌每次回表校验（吊销 / 重置 / 用户停用或未批准立即失效），哈希口径与 `sessions`
- *   一致（core/read-token.ts）。
- * - 限流沿用 §8 的 auth_counters，不另设体系，两种令牌共用同一套桶：
+ *   一致（core/api-token.ts）。
+ * - 限流沿用 §8 的 auth_counters，不另设体系，两种 kind 共用同一套桶：
  *   `read_auth_fail` 按 IP 20 次 / 5 分钟（先拒后验，挡住令牌爆破），
  *   `read` 按用户 3000 次 / 5 分钟（挡住异常狂刷，正常连接器远达不到）。
  *   读写令牌调读接口计入的正是 `read` 桶，不为它单开新桶。
@@ -26,10 +27,8 @@ import {
   readCounterWindow,
   resetCounter
 } from "../core/counters"
-import { findApiToken } from "../core/api-token"
-import { touchReadToken } from "../core/read-token"
+import { findApiToken, touchApiToken } from "../core/api-token"
 import { getTokenScope } from "../core/token-scope"
-import { touchWriteToken } from "../core/write-token"
 import { readBearerToken } from "./import-token"
 import type { HonoEnv } from "../types"
 
@@ -98,14 +97,10 @@ export async function readTokenMiddleware(c: Context<HonoEnv>, next: Next) {
     return rateLimited(c, remainingSeconds(usage.windowStart))
   }
 
-  // 范围按命中那张表自己的一份取（只读令牌与读写令牌各存各的）。
-  const scope = await getTokenScope(db, prefix, identity.kind, identity.userId)
+  // 范围按命中的那一行令牌取（只读令牌与读写令牌各存各的）。
+  const scope = await getTokenScope(db, prefix, identity.tokenId)
 
-  if (identity.kind === "read") {
-    await touchReadToken(db, prefix, identity.userId)
-  } else {
-    await touchWriteToken(db, prefix, identity.userId)
-  }
+  await touchApiToken(db, prefix, identity.tokenId)
   c.set("userId", identity.userId)
   c.set("role", identity.role)
   c.set("tokenScope", scope)

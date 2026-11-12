@@ -45,29 +45,43 @@ export const revisionsTable = (prefix: string) =>
  * 顶层评论 id（只一级，不产生二级嵌套）；软删只置 `deleted_at`，彻底删除随父页硬删。
  */
 export const commentsTable = (prefix: string) => tableName(prefix, "comments")
-/** 个人导入令牌（规格 §12.1）：每用户一枚，只存 SHA-256。 */
+/**
+ * 个人导入令牌（`schema_v3` 起为多行）：每个浏览器插件凭证一行，只存 SHA-256。
+ * 与接口令牌分表，两个入口互不通用（表隔离）。
+ */
 export const importTokensTable = (prefix: string) =>
   tableName(prefix, "import_tokens")
+/** `import_tokens.token_hash` 的唯一索引名（沿用基线里的名字，不带 `idx_` 前缀）。 */
+export const importTokensTokenHashIndex = (prefix: string) =>
+  tableName(prefix, "import_tokens_token_hash")
 /**
- * 只读接口令牌（一期）：与导入令牌并列、互不通用，形状同 `import_tokens` 但**独立一张表**
- * ——两边各查各的表，双向隔离靠表隔离落地，不靠路由层的额外判断。
+ * 接口令牌（`schema_v3` 起读写合表）：`kind` 区分只读 / 读写，一个令牌一行。
+ * 读接口接受两种 kind，写接口只接受 `write`；与导入令牌仍是两张表、互不通用。
+ */
+export const apiTokensTable = (prefix: string) =>
+  tableName(prefix, "api_tokens")
+/** `api_tokens.token_hash` 的唯一索引名（与既有令牌表同口径，不带 `idx_` 前缀）。 */
+export const apiTokensTokenHashIndex = (prefix: string) =>
+  tableName(prefix, "api_tokens_token_hash")
+/**
+ * 只读接口令牌表（一期形态）：**仅** `schema_v1` 基线建表、`schema_v2` 旧定义与
+ * `schema_v3` 迁移搬运使用；运行期不再读写它（`schema_v3` 会删掉这张表）。
  */
 export const readTokensTable = (prefix: string) =>
   tableName(prefix, "read_tokens")
 /**
- * 读写接口令牌（二期，`schema_v2` 追加）：与只读令牌**逐列一致但独立一张表**。
- * 三套令牌（导入 / 只读 / 读写）的隔离同样靠表隔离落地：读侧中间件两张表都认，
- * 但只认自己那种；导入令牌与只读令牌调写接口一律 401。
+ * 读写接口令牌表（二期 `schema_v2` 形态）：同样只供迁移与旧定义使用，
+ * 运行期已并入 `api_tokens`（见 core/api-token.ts）。
  */
 export const writeTokensTable = (prefix: string) =>
   tableName(prefix, "write_tokens")
-/** `write_tokens.token_hash` 的唯一索引名（与 `read_tokens` 同口径，不带 `idx_` 前缀）。 */
+/** `write_tokens.token_hash` 的唯一索引名（`schema_v2` 建表用，不带 `idx_` 前缀）。 */
 export const writeTokensTokenHashIndex = (prefix: string) =>
   tableName(prefix, "write_tokens_token_hash")
 /**
- * 令牌空间范围（二期，`schema_v2` 追加）：一行 = 「该用户的该类令牌可见该空间」。
- * 三列联合主键；无行 = 不限制。范围只收窄不放大：生效范围是「主人可见空间 ∩ 范围」，
- * 在每次令牌校验时回表计算（见 core/token-scope.ts）。
+ * 令牌空间范围（`schema_v3` 起按令牌 id）：一行 = 「该令牌可见该空间」。
+ * `(token_id, space_id)` 复合主键；无行 = 不限制。范围只收窄不放大：生效范围是
+ * 「主人可见空间 ∩ 范围」，在每次令牌校验时回表计算（见 core/token-scope.ts）。
  */
 export const tokenSpaceScopesTable = (prefix: string) =>
   tableName(prefix, "token_space_scopes")

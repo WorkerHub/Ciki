@@ -127,7 +127,14 @@ async function visibleSpaceIds(
   isSiteAdmin: boolean,
   kind: "read" | "write"
 ): Promise<number[]> {
-  const scope = await getTokenScope(env.DB, PREFIX, kind, userId)
+  const row = await env.DB.prepare(
+    `SELECT id FROM ciki_api_tokens
+      WHERE user_id = ? AND kind = ?
+      ORDER BY id DESC LIMIT 1`
+  )
+    .bind(userId, kind)
+    .first<{ id: number }>()
+  const scope = row ? await getTokenScope(env.DB, PREFIX, row.id) : null
   const spaces = await listTokenVisibleSpaces(env.DB, PREFIX, {
     userId,
     isSiteAdmin,
@@ -156,10 +163,15 @@ describe("令牌空间范围：管理端点", () => {
       sorted([a, b])
     )
 
-    // 去重后落库：两行、升序。
+    // 去重后落库：两行、升序，挂在最新那枚只读令牌上。
     const rows = db.db
       .prepare(
-        "SELECT space_id FROM ciki_token_space_scopes WHERE token_kind = 'read' ORDER BY space_id"
+        `SELECT space_id FROM ciki_token_space_scopes
+          WHERE token_id = (
+            SELECT id FROM ciki_api_tokens
+             WHERE kind = 'read' ORDER BY id DESC LIMIT 1
+          )
+          ORDER BY space_id`
       )
       .all() as Array<{ space_id: number }>
     expect(rows).toEqual(sorted([a, b]).map((space_id) => ({ space_id })))
@@ -217,8 +229,8 @@ describe("令牌空间范围：管理端点", () => {
     const a = await createSpace(env, admin, "甲空间")
     const b = await createSpace(env, admin, "乙空间")
 
-    await putSpaces(env, admin, READ_PATH, { spaceIds: [a] })
     await issue(env, admin, READ_PATH)
+    await putSpaces(env, admin, READ_PATH, { spaceIds: [a] })
     expect((await status(env, admin, READ_PATH)).spaceIds).toEqual([a])
 
     await issue(env, admin, READ_PATH, { spaceIds: [b] })
@@ -232,7 +244,25 @@ describe("令牌空间范围：管理端点", () => {
     expect((await status(env, admin, READ_PATH)).spaceIds).toBeNull()
   })
 
-  it("未生成令牌也能先设范围（下次生成沿用）；读写令牌的范围互不影响", async () => {
+  it("吊销后再重置且不带 spaceIds：沿用吊销行上的范围，不放大", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const a = await createSpace(env, admin, "甲空间")
+
+    await issue(env, admin, READ_PATH)
+    await putSpaces(env, admin, READ_PATH, { spaceIds: [a] })
+
+    const revoke = await jsonRequest(env, "DELETE", READ_PATH, undefined, admin)
+    expect(revoke.status).toBe(200)
+    // 吊销只标记行、不删范围；旧端点读最新一行，范围仍在。
+    expect((await status(env, admin, READ_PATH)).spaceIds).toEqual([a])
+
+    // 吊销后的下一次重置（不带 spaceIds）必须沿用这一份，而不是回到不限制。
+    await issue(env, admin, READ_PATH)
+    expect((await status(env, admin, READ_PATH)).spaceIds).toEqual([a])
+  })
+
+  it("没有令牌时不能预设范围（404）；读写两类令牌的范围互不影响", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const user = await userSession(env, admin)
@@ -242,17 +272,16 @@ describe("令牌空间范围：管理端点", () => {
     await addMember(env, admin, a, userId)
     await addMember(env, admin, b, userId)
 
-    // 先设范围、后生成：生成不带 spaceIds 时沿用。
+    // 范围挂在具体令牌行上：还没有令牌时没有可写的对象。
     expect(
       (await putSpaces(env, user, READ_PATH, { spaceIds: [a] })).status
-    ).toBe(200)
-    await issue(env, user, READ_PATH)
-    expect((await status(env, user, READ_PATH)).spaceIds).toEqual([a])
+    ).toBe(404)
+    expect((await status(env, user, READ_PATH)).spaceIds).toBeNull()
 
-    await putSpaces(env, user, WRITE_PATH, { spaceIds: [b] })
-    await issue(env, user, WRITE_PATH)
-    expect((await status(env, user, WRITE_PATH)).spaceIds).toEqual([b])
+    await issue(env, user, READ_PATH, { spaceIds: [a] })
+    await issue(env, user, WRITE_PATH, { spaceIds: [b] })
     expect((await status(env, user, READ_PATH)).spaceIds).toEqual([a])
+    expect((await status(env, user, WRITE_PATH)).spaceIds).toEqual([b])
   })
 })
 
@@ -293,6 +322,7 @@ describe("令牌空间范围：校验与交集语义", () => {
     expect((await status(env, user, READ_PATH)).spaceIds).toEqual([s1])
 
     // 站点管理员可以设任何**存在**的空间，但不存在的 id 同样拒绝。
+    await issue(env, admin, READ_PATH)
     const adminMissing = await putSpaces(env, admin, READ_PATH, {
       spaceIds: [s2, 999999]
     })
@@ -309,7 +339,7 @@ describe("令牌空间范围：校验与交集语义", () => {
     await addMember(env, admin, s1, userId)
     await addMember(env, admin, s2, userId)
 
-    await putSpaces(env, user, READ_PATH, { spaceIds: [s1, s2] })
+    await issue(env, user, READ_PATH, { spaceIds: [s1, s2] })
     expect(sorted(await visibleSpaceIds(env, userId, false, "read"))).toEqual(
       sorted([s1, s2])
     )
@@ -343,12 +373,14 @@ describe("令牌空间范围：校验与交集语义", () => {
     expect(rejected.status).toBe(400)
 
     await addMember(env, admin, s2, userId)
+    await issue(env, user, READ_PATH)
     await putSpaces(env, user, READ_PATH, { spaceIds: [s1] })
     const visible = await visibleSpaceIds(env, userId, false, "read")
     expect(visible).toEqual([s1])
     expect(tokenScopeAllows([s1], s2)).toBe(false)
 
     // 站点管理员同样受限：范围之外的空间不因站点角色而可见。
+    await issue(env, admin, READ_PATH)
     await putSpaces(env, admin, READ_PATH, { spaceIds: [s2] })
     const adminId = await userIdOf(env, admin)
     expect(sorted(await visibleSpaceIds(env, adminId, true, "read"))).toEqual([

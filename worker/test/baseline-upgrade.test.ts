@@ -1,9 +1,9 @@
 /**
- * 版本号重置（账本手术）+ 追加迁移 `schema_v2` 的演练测试：`schema_v8` 形态的存量库
- * 升级到基线 `schema_v1`，再补建 v2 的两张令牌表。
+ * 版本号重置（账本手术）+ 追加迁移 `schema_v2` / `schema_v3` 的演练测试：`schema_v8`
+ * 形态的存量库升级到基线 `schema_v1`，补建 v2 的令牌表，再由 v3 合并成最终形态。
  *
  * 逐项对应验收：
- * - 升级只改账本与追加结构：账本收敛为 `schema_v1` + `schema_v2` 两条，基线表逐行逐值
+ * - 升级只改账本与追加结构：账本收敛为 `schema_v1` + `schema_v2` + `schema_v3` 三条，基线表逐行逐值
  *   不变、正文对象不重传、每个 `content_hash` 都能从内容桶回读并通过哈希复核；
  * - 升级后全链路可用：既有会话仍有效、登录、读页、搜索、评论、注册→批准→验证邮箱→登录；
  * - `v7` 账本（有 v7 无 v8）、删掉唯一索引的篡改库、更早形态（`users` 还带三列）
@@ -44,11 +44,21 @@ function migrationList(status: "applied" | "skipped") {
   return MIGRATION_NAMES.map((name) => ({ name, status }))
 }
 
-/** `schema_v2` 纯追加出来的表与索引（不在基线清单里，升级后必然多出来）。 */
-const V2_TABLES = ["write_tokens", "token_space_scopes"].map((name) =>
-  tableName(PREFIX, name)
-)
-const V2_INDEX = tableName(PREFIX, "write_tokens_token_hash")
+/** v3 之后才存在的最终令牌表与索引（不在基线清单里）。 */
+const FINAL_TOKEN_TABLES = [
+  "api_tokens",
+  "import_tokens",
+  "token_space_scopes"
+].map((name) => tableName(PREFIX, name))
+const FINAL_TOKEN_INDEXES = [
+  tableName(PREFIX, "api_tokens_token_hash"),
+  tableName(PREFIX, "import_tokens_token_hash")
+]
+/** 被 v3 有意删除 / 改形的基线令牌表：不能再按「基线原样」比对。 */
+const V3_RETIRED_TABLES = new Set([tableName(PREFIX, "read_tokens")])
+const V3_RETIRED_INDEXES = new Set([
+  tableName(PREFIX, "read_tokens_token_hash")
+])
 
 /** 生产同形态的库：v8 结构 + 增量链时代账本 + 存量数据。 */
 async function v8Context(ledger: readonly string[] = V8_LEDGER_ROWS) {
@@ -70,6 +80,9 @@ function ledgerNames(ctx: TestContext): string[] {
 function businessSnapshot(ctx: TestContext): Record<string, unknown[]> {
   const snapshot: Record<string, unknown[]> = {}
   for (const table of SCHEMA_TABLES) {
+    // 令牌表被 v3 有意改形 / 删除，单独断言（见上方 FINAL_TOKEN_*）。
+    if (V3_RETIRED_TABLES.has(tableName(PREFIX, table.name))) continue
+    if (table.name === "import_tokens") continue
     snapshot[table.name] = rowsOf(ctx.db, tableName(PREFIX, table.name))
   }
   return snapshot
@@ -116,7 +129,7 @@ function setupRequest(env: TestContext["env"]) {
 }
 
 describe("v8 形态存量库 → schema_v1：只动账本", () => {
-  it("账本收敛为 schema_v1 + schema_v2，基线表/索引/数据逐行不变", async () => {
+  it("账本收敛为 schema_v1 + schema_v2 + schema_v3，基线表/索引/数据逐行不变", async () => {
     const context = await v8Context()
     const { env, db } = context
     const beforeData = businessSnapshot(context)
@@ -133,24 +146,60 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     if (!result.success) throw new Error(result.error)
 
     expect(result.migrations).toEqual(migrationList("applied"))
-    // 增量链时代留下的 v1–v8 八行一并清掉，账本只剩当前两条（v1 与追加的 v2）。
+    // 增量链时代留下的 v1–v8 八行一并清掉，账本只剩当前三条（v1、v2、v3）。
     expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
 
-    // 基线结构零变化：原有表、索引、users 列名与升级前逐项一致。
+    // 基线结构零变化：除 v3 有意删除的 read_tokens 外，原有表/索引逐项一致。
+    const survivingTables = beforeTables.filter(
+      (name) => !V3_RETIRED_TABLES.has(name)
+    )
     expect(
       tableNames(context)
         .filter((name) => beforeTables.includes(name))
         .sort()
-    ).toEqual([...beforeTables].sort())
+    ).toEqual([...survivingTables].sort())
+    const survivingIndexes = beforeIndexes.filter(
+      (name) => !V3_RETIRED_INDEXES.has(name)
+    )
     expect(
       indexNames(context)
         .filter((name) => beforeIndexes.includes(name))
         .sort()
-    ).toEqual(beforeIndexes)
+    ).toEqual(survivingIndexes)
 
-    // 纯追加：只多出 v2 的两张表与它的 token_hash 唯一索引。
-    for (const name of V2_TABLES) expect(tableNames(context)).toContain(name)
-    expect(indexNames(context)).toContain(V2_INDEX)
+    // v3 之后：旧 token 表不在，最终令牌表与唯一索引在位。
+    const tables = tableNames(context)
+    for (const name of V3_RETIRED_TABLES) expect(tables).not.toContain(name)
+    expect(tables).not.toContain(tableName(PREFIX, "write_tokens"))
+    for (const name of FINAL_TOKEN_TABLES) expect(tables).toContain(name)
+    for (const name of FINAL_TOKEN_INDEXES) {
+      expect(indexNames(context)).toContain(name)
+    }
+
+    // 存量令牌被搬到最终形态：只读令牌 + 导入令牌各一行，名称按迁移口径。
+    expect(rowsOf(context.db, tableName(PREFIX, "api_tokens"))).toEqual([
+      {
+        id: 1,
+        user_id: 2,
+        kind: "read",
+        name: "只读 Token",
+        token_hash: "read-hash",
+        created_at: "2026-03-01T00:00:00.000Z",
+        last_used_at: null,
+        revoked_at: null
+      }
+    ])
+    expect(rowsOf(context.db, tableName(PREFIX, "import_tokens"))).toEqual([
+      {
+        id: 1,
+        user_id: 1,
+        name: "浏览器插件",
+        token_hash: "import-hash",
+        created_at: "2026-03-01T00:00:00.000Z",
+        last_used_at: null,
+        revoked_at: null
+      }
+    ])
     expect(
       (
         db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
@@ -248,7 +297,7 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
 })
 
 describe("全新库与幂等", () => {
-  it("全新安装：账本两条，基线 18 表 + v2 两表与全部索引（含 username 唯一部分索引）", async () => {
+  it("全新安装：账本三条，基线 18 表减去 v3 删掉的表 + 最终令牌表与全部索引", async () => {
     const context = makeContext()
     const result = await runSetup(context.env)
     if (!result.success) throw new Error(result.error)
@@ -257,17 +306,21 @@ describe("全新库与幂等", () => {
     expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
     const tables = tableNames(context)
     for (const table of SCHEMA_TABLES) {
+      if (V3_RETIRED_TABLES.has(tableName(PREFIX, table.name))) continue
       expect(tables).toContain(tableName(PREFIX, table.name))
     }
-    for (const name of V2_TABLES) expect(tables).toContain(name)
+    for (const name of FINAL_TOKEN_TABLES) expect(tables).toContain(name)
+    expect(tables).not.toContain(tableName(PREFIX, "write_tokens"))
 
     const indexes = indexNames(context)
     for (const ddl of SCHEMA_INDEXES) {
       const match = /INDEX IF NOT EXISTS (\S+)/.exec(ddl)
       if (!match) throw new Error(`index DDL has no name: ${ddl}`)
-      expect(indexes).toContain(match[1].replaceAll("{prefix}", PREFIX))
+      const name = match[1].replaceAll("{prefix}", PREFIX)
+      if (V3_RETIRED_INDEXES.has(name)) continue
+      expect(indexes).toContain(name)
     }
-    expect(indexes).toContain(V2_INDEX)
+    for (const name of FINAL_TOKEN_INDEXES) expect(indexes).toContain(name)
     const usernameIndex = (
       context.db.db.prepare("PRAGMA index_list(ciki_users)").all() as Array<{
         name: string
@@ -297,7 +350,7 @@ describe("全新库与幂等", () => {
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
-  it("账本被改回 v7/v8 再点：仍收敛为当前两条（可重入，结果一致）", async () => {
+  it("账本被改回 v7/v8 再点：仍收敛为当前三条（可重入，结果一致）", async () => {
     const context = await v8Context()
     const first = await runSetup(context.env)
     if (!first.success) throw new Error(first.error)
@@ -318,7 +371,7 @@ describe("全新库与幂等", () => {
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
-  it("账本只有 v7/v8 两行（没带更早的历史行）→ 同样收敛为当前两条", async () => {
+  it("账本只有 v7/v8 两行（没带更早的历史行）→ 同样收敛为当前三条", async () => {
     const context = await v8Context(["schema_v7", "schema_v8"])
     const beforeData = businessSnapshot(context)
 
