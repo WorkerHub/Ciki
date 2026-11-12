@@ -1576,8 +1576,20 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 全部未删页面的扁平表（不分页、不建树；`parent_id` 给调用方自己拼层级），按「空间 → 同级顺序 → 创建时间」排序：
 
 ```json
-[{ "id": 1, "title": "首页", "parent_id": null, "updated_at": "…" }]
+[
+  {
+    "id": 1,
+    "title": "首页",
+    "parent_id": null,
+    "space_id": 1,
+    "sort_order": 0,
+    "updated_at": "…"
+  }
+]
 ```
+
+- `space_id` 即 `pages.space_id`（页面所属空间的整数 id）。
+- `sort_order` 即 `pages.sort_order`：同空间同父级内 `0..n-1` 的稠密序号，就是站内页面树显示的序号（拖拽后由 move 整组重排维护）。因为排序本来就是「空间 → 同级顺序 → 创建时间」，同一父级下 `sort_order` 与数组次序一致。
 
 #### GET /api/read/search?q=<词>
 
@@ -1603,6 +1615,8 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
   "id": 1,
   "title": "…",
   "parent_id": null,
+  "space_id": 1,
+  "sort_order": 0,
   "created_at": "…",
   "updated_at": "…",
   "markdown": "## 小节\n\n正文"
@@ -1610,6 +1624,7 @@ Confluence 插件用的入口：插件在设置页拿到个人导入令牌后，
 ```
 
 - `id` / `parent_id` 是整数（JSON number）。接入方若把 id 当字符串存，需要自己转。
+- `space_id` / `sort_order` 与 `tree` 同一口径（所属空间 id、同空间同父级内的稠密序号），`markdown` 与 `?format=json` 两种形态都带这两个字段。
 - `markdown` 即 `pages.content_md`（不含标题行），D1 里现成就有（写路径保证非空）。
 - 带 `?format=json` 时改回真源：`{…, "content_json": "{\"type\":\"doc\",…}"}`（不再返回 `markdown`），正文从内容桶按 `pages.content_hash` 取回；`content_json` 的 snake_case 字段名与内容都是冻结契约的一部分，**不随内容上 R2 改变**。
 - 页面不存在或已软删 → 404 `{"error":"Page not found"}`；所属空间非令牌用户可见也同样 404（不泄露存在性）。
