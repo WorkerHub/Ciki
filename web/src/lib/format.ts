@@ -1,32 +1,56 @@
 /**
- * 展示层格式化：全站时间统一按 `Asia/Shanghai`（UTC+8）展示。
+ * 展示层格式化：全站时间统一按 `Asia/Shanghai`（UTC+8）展示，
+ * 文案与日期格式跟随当前界面语言（规格 §2.11）。
  * 例外：要求按注入值原样呈现的时刻（如关于页的构建时间）用 formatIsoUtc 直出 UTC。
  */
+import { currentLanguage, i18n } from "@/i18n"
+import { intlLocale, type Language } from "@/lib/language"
 
 const TIME_ZONE = "Asia/Shanghai"
 
-const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
-  timeZone: TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  hour12: false
-})
+const dateTimeFormatters = new Map<Language, Intl.DateTimeFormat>()
+const dateFormatters = new Map<Language, Intl.DateTimeFormat>()
 
-const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  timeZone: TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit"
-})
+function dateTimeFormatter(language: Language): Intl.DateTimeFormat {
+  const cached = dateTimeFormatters.get(language)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat(intlLocale(language), {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  })
+  dateTimeFormatters.set(language, formatter)
+  return formatter
+}
+
+function dateFormatter(language: Language): Intl.DateTimeFormat {
+  const cached = dateFormatters.get(language)
+  if (cached) return cached
+  const formatter = new Intl.DateTimeFormat(intlLocale(language), {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  })
+  dateFormatters.set(language, formatter)
+  return formatter
+}
+
+/** zh-CN 的 `/` 分隔符换成 `-`（现网口径）；en-US 用原生分隔符。 */
+function localizeSeparators(text: string, language: Language): string {
+  return language === "zh" ? text.replace(/\//g, "-") : text
+}
 
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—"
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return "—"
-  return dateTimeFormatter.format(date).replace(/\//g, "-")
+  const language = currentLanguage()
+  return localizeSeparators(dateTimeFormatter(language).format(date), language)
 }
 
 /**
@@ -45,7 +69,8 @@ export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—"
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return "—"
-  return dateFormatter.format(date).replace(/\//g, "-")
+  const language = currentLanguage()
+  return localizeSeparators(dateFormatter(language).format(date), language)
 }
 
 export function formatRelative(iso: string | null | undefined): string {
@@ -56,10 +81,18 @@ export function formatRelative(iso: string | null | undefined): string {
   const minute = 60_000
   const hour = 60 * minute
   const day = 24 * hour
-  if (diffMs < minute) return "刚刚"
-  if (diffMs < hour) return `${Math.floor(diffMs / minute)} 分钟前`
-  if (diffMs < day) return `${Math.floor(diffMs / hour)} 小时前`
-  if (diffMs < 7 * day) return `${Math.floor(diffMs / day)} 天前`
+  if (diffMs < minute) return i18n.t("time.justNow")
+  if (diffMs < hour) {
+    return i18n.t("time.minutesAgo", {
+      count: Math.floor(diffMs / minute)
+    })
+  }
+  if (diffMs < day) {
+    return i18n.t("time.hoursAgo", { count: Math.floor(diffMs / hour) })
+  }
+  if (diffMs < 7 * day) {
+    return i18n.t("time.daysAgo", { count: Math.floor(diffMs / day) })
+  }
   return formatDate(iso)
 }
 

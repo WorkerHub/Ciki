@@ -1,0 +1,31 @@
+{
+  "app": {
+    "title": "{{siteName}}"
+  },
+  "common": {
+    "languages": {
+      "zh": "中文",
+      "en": "English"
+    }
+  },
+  "settings": {
+    "language": {
+      "title": "语言",
+      "label": "界面语言"
+    }
+  },
+  "auth": {
+    "language": {
+      "switch": "界面语言：{{language}}，点击切换"
+    }
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_other": "{{count}} 天前"
+  },
+  "errors": {
+    "INVALID_LANGUAGE": "语言不受支持，只支持中文和英文。"
+  }
+}

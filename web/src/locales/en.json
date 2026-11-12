@@ -1,0 +1,34 @@
+{
+  "app": {
+    "title": "{{siteName}}"
+  },
+  "common": {
+    "languages": {
+      "zh": "中文",
+      "en": "English"
+    }
+  },
+  "settings": {
+    "language": {
+      "title": "Language",
+      "label": "Language"
+    }
+  },
+  "auth": {
+    "language": {
+      "switch": "Language: {{language}}. Click to switch."
+    }
+  },
+  "time": {
+    "justNow": "Just now",
+    "minutesAgo_one": "{{count}} minute ago",
+    "minutesAgo_other": "{{count}} minutes ago",
+    "hoursAgo_one": "{{count}} hour ago",
+    "hoursAgo_other": "{{count}} hours ago",
+    "daysAgo_one": "{{count}} day ago",
+    "daysAgo_other": "{{count}} days ago"
+  },
+  "errors": {
+    "INVALID_LANGUAGE": "Unsupported language. Choose Chinese or English."
+  }
+}

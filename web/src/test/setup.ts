@@ -1,7 +1,14 @@
 // jsdom 环境的测试公共准备：jest-dom 断言 + 每个用例后清理 DOM 与本地存储。
 import "@testing-library/jest-dom/vitest"
 import { cleanup } from "@testing-library/react"
-import { afterEach } from "vitest"
+import { afterEach, beforeEach } from "vitest"
+import { i18n } from "@/i18n"
+
+// 默认测试语言固定 zh：现有用例大量断言中文原文，而 jsdom 的
+// navigator.language 是 en-US，不钉死会让它们整体变红（规格 §3）。
+beforeEach(async () => {
+  await i18n.changeLanguage("zh")
+})
 
 afterEach(() => {
   cleanup()

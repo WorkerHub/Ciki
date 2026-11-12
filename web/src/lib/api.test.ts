@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError, adminApi, describeApiError, pagesApi } from "@/lib/api"
 import { describeWebAuthnError } from "@/lib/webauthn"
 
@@ -615,5 +616,24 @@ describe("整数 id 与新增端点的 URL", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/api/admin/storage")
     expect(storage.pageCount).toBe(12)
     expect(storage.databaseSizeBytes).toBe(1024)
+  })
+})
+
+describe("describeApiError：语言偏好（规格 §4）", () => {
+  it("INVALID_LANGUAGE 在中文界面给中文说明", () => {
+    expect(
+      describeApiError(
+        apiError(400, "Invalid language", "/me/profile", "INVALID_LANGUAGE")
+      )
+    ).toBe("语言不受支持，只支持中文和英文。")
+  })
+
+  it("INVALID_LANGUAGE 在英文界面给英文说明", async () => {
+    await i18n.changeLanguage("en")
+    expect(
+      describeApiError(
+        apiError(400, "Invalid language", "/me/profile", "INVALID_LANGUAGE")
+      )
+    ).toBe("Unsupported language. Choose Chinese or English.")
   })
 })

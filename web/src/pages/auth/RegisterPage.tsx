@@ -4,6 +4,7 @@ import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { currentLanguage } from "@/i18n"
 import { ApiError, type AuthConfig, authApi, describeApiError } from "@/lib/api"
 import {
   VERIFY_EMAIL_PATH,
@@ -72,7 +73,11 @@ export function RegisterPage() {
     }
     setBusy(true)
     try {
-      const result = await authApi.register(email.trim(), password)
+      const result = await authApi.register(
+        email.trim(),
+        password,
+        currentLanguage()
+      )
       if (result.emailVerificationRequired === true) {
         // 那次注册请求里服务端已发码：带去验证页，重发先按冷却计
         const state: VerifyEmailNavState = {
