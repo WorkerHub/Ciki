@@ -591,11 +591,29 @@
         "revokeTitle": "Revoke the read-only API token?",
         "revokeDescription": "After revoking, external apps cannot read pages until you generate a new token."
       },
+      "write": {
+        "title": "Read-write API token",
+        "empty": "No read-write API token yet",
+        "revoked": "Token revoked. The old token in external apps no longer works.",
+        "rotateTitle": "Reset the read-write API token?",
+        "rotateDescription": "The old token stops working immediately and read-write clients must use the new one. The new token is also shown only once.",
+        "revokeTitle": "Revoke the read-write API token?",
+        "revokeDescription": "After revoking, external apps cannot read or write pages until you generate a new token."
+      },
       "notices": {
         "generated": "Token generated.",
         "rotated": "Token reset. The old token no longer works.",
         "regenerated": "Token regenerated.",
         "missing": "The token no longer exists; status refreshed."
+      },
+      "scope": {
+        "label": "Space scope",
+        "all": "All spaces",
+        "selected": "Selected spaces",
+        "save": "Save scope",
+        "saving": "Saving…",
+        "saved": "Space scope saved.",
+        "empty": "No spaces available"
       },
       "common": {
         "loading": "Loading…",
@@ -1180,6 +1198,7 @@
       "missingChallenge": "The server returned incomplete WebAuthn parameters (missing challenge)",
       "cancelled": "Passkey operation cancelled",
       "failed": "The passkey operation failed; try again"
-    }
+    },
+    "INVALID_SPACE_SCOPE": "That space scope isn't valid. Choose again."
   }
 }

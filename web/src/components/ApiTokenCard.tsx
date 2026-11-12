@@ -1,6 +1,7 @@
-import { BookOpen, Check, Copy, KeySquare } from "lucide-react"
+import { BookOpen, Check, Copy, KeySquare, PenLine } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { TokenSpaceScope } from "@/components/TokenSpaceScope"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,13 +18,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ApiError,
   type ApiTokenIssued,
+  type ApiTokenSpaces,
   type ApiTokenStatus,
   describeApiError,
-  meApi
+  meApi,
+  type TokenSpaceIds
 } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
 
-type TokenKind = "import" | "read"
+type TokenKind = "import" | "read" | "write"
 
 type ConfirmAction = "rotate" | "revoke"
 
@@ -51,6 +54,11 @@ interface TokenKindConfig {
     status: () => Promise<ApiTokenStatus>
     issue: () => Promise<ApiTokenIssued>
     revoke: () => Promise<{ success: true }>
+    /**
+     * 只改空间范围、不换令牌。导入令牌没有范围（服务端那条接口也不回
+     * `spaceIds`），不填就不会渲染范围编辑，保持一期原样。
+     */
+    saveSpaces?: (spaceIds: TokenSpaceIds) => Promise<ApiTokenSpaces>
   }
 }
 
@@ -102,13 +110,39 @@ const KINDS: Record<TokenKind, TokenKindConfig> = {
     api: {
       status: () => meApi.readToken(),
       issue: () => meApi.createReadToken(),
-      revoke: () => meApi.revokeReadToken()
+      revoke: () => meApi.revokeReadToken(),
+      saveSpaces: (spaceIds) => meApi.setReadTokenSpaces(spaceIds)
+    }
+  },
+  write: {
+    titleKey: "settings.tokens.write.title",
+    icon: PenLine,
+    emptyKey: "settings.tokens.write.empty",
+    notices: {
+      generated: "settings.tokens.notices.generated",
+      rotated: "settings.tokens.notices.rotated",
+      regenerated: "settings.tokens.notices.regenerated",
+      revoked: "settings.tokens.write.revoked",
+      missing: "settings.tokens.notices.missing"
+    },
+    confirm: {
+      rotateTitle: "settings.tokens.write.rotateTitle",
+      rotateDescription: "settings.tokens.write.rotateDescription",
+      revokeTitle: "settings.tokens.write.revokeTitle",
+      revokeDescription: "settings.tokens.write.revokeDescription"
+    },
+    api: {
+      status: () => meApi.writeToken(),
+      issue: () => meApi.createWriteToken(),
+      revoke: () => meApi.revokeWriteToken(),
+      saveSpaces: (spaceIds) => meApi.setWriteTokenSpaces(spaceIds)
     }
   }
 }
 
 /**
- * 个人 API 令牌卡（导入令牌 / 只读接口令牌共用）：生成 / 重置 / 吊销。
+ * 个人 API 令牌卡（导入令牌 / 只读接口令牌 / 读写接口令牌共用）：生成 / 重置 / 吊销，
+ * 只读与读写两种还带空间范围编辑（导入令牌没有范围，不渲染那一块）。
  *
  * 明文只在生成 / 重置那一次显示，之后只显示状态 —— 服务端只存 SHA-256，
  * GET 从不回哈希。三个接口都是 Cookie 会话鉴权，与令牌本身的用途无关；
@@ -156,7 +190,10 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
         active: true,
         createdAt: result.createdAt,
         lastUsedAt: null,
-        revokedAt: null
+        revokedAt: null,
+        // 生成 / 重置不带 spaceIds，服务端保留现有范围；界面跟着沿用，别闪回
+        // 「全部空间」。
+        spaceIds: previous?.spaceIds ?? null
       })
       if (previous?.active) setNoticeKey(config.notices.rotated)
       else if (previous?.revokedAt) setNoticeKey(config.notices.regenerated)
@@ -419,6 +456,19 @@ export function ApiTokenCard({ kind }: { kind: TokenKind }) {
                   </Button>
                 </div>
               </div>
+            ) : null}
+
+            {config.api.saveSpaces ? (
+              <TokenSpaceScope
+                spaceIds={current.spaceIds ?? null}
+                save={config.api.saveSpaces}
+                onSaved={(spaceIds) =>
+                  setStatus((previous) =>
+                    previous ? { ...previous, spaceIds } : previous
+                  )
+                }
+                disabled={busy}
+              />
             ) : null}
           </>
         )}

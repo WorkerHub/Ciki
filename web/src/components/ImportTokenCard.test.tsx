@@ -60,6 +60,8 @@ describe("导入令牌卡", () => {
       await screen.findByRole("button", { name: "生成令牌" })
     ).toBeInTheDocument()
     expect(screen.getByText("还没有导入令牌")).toBeInTheDocument()
+    // 导入令牌没有空间范围（一期口径不动）：那张范围编辑只出现在只读 / 读写卡
+    expect(screen.queryByText("空间范围")).toBeNull()
     expect(screen.queryByRole("button", { name: "重置" })).toBeNull()
     expect(screen.queryByRole("button", { name: "吊销" })).toBeNull()
   })

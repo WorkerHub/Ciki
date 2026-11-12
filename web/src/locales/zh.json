@@ -586,11 +586,29 @@
         "revokeTitle": "吊销只读接口令牌？",
         "revokeDescription": "吊销后外部应用无法再读取页面，直到你重新生成令牌。"
       },
+      "write": {
+        "title": "读写接口令牌",
+        "empty": "还没有读写接口令牌",
+        "revoked": "令牌已吊销，外部应用里的旧令牌立即失效。",
+        "rotateTitle": "重置读写接口令牌？",
+        "rotateDescription": "旧令牌立即失效，外部读写客户端要重新填新令牌。新令牌同样只显示这一次。",
+        "revokeTitle": "吊销读写接口令牌？",
+        "revokeDescription": "吊销后外部应用无法再读写页面，直到你重新生成令牌。"
+      },
       "notices": {
         "generated": "令牌已生成。",
         "rotated": "令牌已重置，旧令牌立即失效。",
         "regenerated": "已重新生成令牌。",
         "missing": "令牌已不存在，已刷新状态。"
+      },
+      "scope": {
+        "label": "空间范围",
+        "all": "全部空间",
+        "selected": "指定空间",
+        "save": "保存范围",
+        "saving": "保存中…",
+        "saved": "空间范围已保存。",
+        "empty": "没有可选的空间"
       },
       "common": {
         "loading": "读取中…",
@@ -1160,6 +1178,7 @@
       "missingChallenge": "服务器返回的 WebAuthn 参数不完整（缺少 challenge）",
       "cancelled": "已取消 Passkey 操作",
       "failed": "Passkey 操作失败，请重试"
-    }
+    },
+    "INVALID_SPACE_SCOPE": "空间范围无效，请重新选择。"
   }
 }

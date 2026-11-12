@@ -16,6 +16,7 @@ import { ImportTokenCard } from "@/components/ImportTokenCard"
 import { LanguageSegmented } from "@/components/LanguageToggle"
 import { ReadTokenCard } from "@/components/ReadTokenCard"
 import { ThemeSegmented } from "@/components/ThemeToggle"
+import { WriteTokenCard } from "@/components/WriteTokenCard"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -803,6 +804,8 @@ export function SettingsPage() {
       <ImportTokenCard />
 
       <ReadTokenCard />
+
+      <WriteTokenCard />
 
       <Card>
         <CardHeader>

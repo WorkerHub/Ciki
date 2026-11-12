@@ -387,14 +387,27 @@ export interface PasswordResetGrant {
 }
 
 /**
+ * 令牌的空间范围（二期）：`null` = 不限制；数组 = 当前范围（升序、已去重）。
+ * 空数组在契约里永不出现（服务端一律 400），所以「什么都看不见」无法被表达。
+ */
+export type TokenSpaceIds = number[] | null
+
+/**
  * 个人 API 令牌状态：只回状态与时间，从不回哈希与明文。
- * 导入令牌与只读接口令牌同形（两张卡共用一套展示）。
+ * 导入令牌 / 只读接口令牌 / 读写接口令牌同形（三张卡共用一套展示）。
  */
 export interface ApiTokenStatus {
   active: boolean
   createdAt: string | null
   lastUsedAt: string | null
   revokedAt: string | null
+  /** 当前空间范围；导入令牌没有范围，那条接口不回这个字段。 */
+  spaceIds?: TokenSpaceIds
+}
+
+/** `PUT /me/{read,write}-token/spaces` 的回执：写入后的范围。 */
+export interface ApiTokenSpaces {
+  spaceIds: TokenSpaceIds
 }
 
 /** 生成 / 重置时唯一的明文返回，展示一次后即不可再取。 */
@@ -859,7 +872,19 @@ export const meApi = {
   /** 只读接口令牌：与导入令牌同一套契约形状，互相独立、各管各的。 */
   readToken: () => api.get<ApiTokenStatus>("/me/read-token"),
   createReadToken: () => api.post<ApiTokenIssued>("/me/read-token", {}),
-  revokeReadToken: () => api.del<{ success: true }>("/me/read-token")
+  revokeReadToken: () => api.del<{ success: true }>("/me/read-token"),
+  /** 读写接口令牌：与只读令牌逐列一致，存另一张表（写接口只认它）。 */
+  writeToken: () => api.get<ApiTokenStatus>("/me/write-token"),
+  createWriteToken: () => api.post<ApiTokenIssued>("/me/write-token", {}),
+  revokeWriteToken: () => api.del<{ success: true }>("/me/write-token"),
+  /**
+   * 只改空间范围、不换令牌（规格 §2.3）：`null` = 清除范围（不限制）。
+   * 空数组服务端回 400 `INVALID_SPACE_SCOPE`，前端按「一个没勾就禁用保存」拦住。
+   */
+  setReadTokenSpaces: (spaceIds: TokenSpaceIds) =>
+    api.put<ApiTokenSpaces>("/me/read-token/spaces", { spaceIds }),
+  setWriteTokenSpaces: (spaceIds: TokenSpaceIds) =>
+    api.put<ApiTokenSpaces>("/me/write-token/spaces", { spaceIds })
 }
 
 /**
@@ -1135,6 +1160,8 @@ export const ERROR_TEXT_CODES = new Set<string>([
   "SPACE_DEFAULT_PROTECTED",
   "SPACE_NOT_EMPTY",
   "SPACE_MISMATCH",
+  // 令牌空间范围（二期）：空数组 / 含不可见空间时整个请求被拒，不部分写入
+  "INVALID_SPACE_SCOPE",
   // 导入是唯一带这个码的入口（页面直链无权时仍走 404 口径）
   "SPACE_FORBIDDEN",
   // 导入与建页面都可能在站点缺默认空间时撞上（409）
