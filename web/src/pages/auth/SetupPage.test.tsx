@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError } from "@/lib/api"
 import { SetupPage } from "@/pages/auth/SetupPage"
 import { useSetupGateStore } from "@/stores/setup"
@@ -99,5 +100,43 @@ describe("初始化页", () => {
     expect(
       screen.queryByRole("button", { name: "初始化数据库" })
     ).not.toBeInTheDocument()
+  })
+})
+
+/** 英文界面：初始化页全英文，前缀冲突那段在英文下也要完整。 */
+describe("初始化页：英文界面", () => {
+  beforeEach(() => {
+    // 上个用例会把根门状态留在「已关闭」，这里复位，让页面按未初始化渲染
+    useSetupGateStore.setState({ state: null, loading: false })
+  })
+
+  it("密钥表单分支全英文，无中文残留", async () => {
+    await i18n.changeLanguage("en")
+    const { container } = renderSetup()
+
+    expect(
+      await screen.findByRole("heading", { name: "Ciki setup" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Set up database" })
+    ).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/[\u4e00-\u9fff]/)
+  })
+
+  it("前缀冲突整段在英文下也完整", async () => {
+    vi.mocked(setupApi.run).mockRejectedValue(
+      new ApiError(409, "prefix conflict", "PREFIX_CONFLICT", undefined, {
+        detectedPrefixes: ["other_"],
+        resolvedPrefix: "ciki_"
+      })
+    )
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    renderSetup()
+    await user.type(await screen.findByLabelText("SETUP_SECRET"), "s3cret")
+    await user.click(screen.getByRole("button", { name: "Set up database" }))
+
+    expect(await screen.findByText(/other_/)).toBeInTheDocument()
+    expect(screen.getAllByText(/setup was aborted/).length).toBeGreaterThan(0)
   })
 })

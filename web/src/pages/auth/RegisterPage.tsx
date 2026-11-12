@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ import { useSiteStore } from "@/stores/site"
  *   服务端在那一次请求里已把 6 位码发出，这里直接带去验证页并锁住重发冷却。
  */
 export function RegisterPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const siteName = useSiteStore((state) => state.name)
   const emailConfigured = useSiteStore((state) => state.emailConfigured)
@@ -64,11 +66,11 @@ export function RegisterPage() {
     event.preventDefault()
     setError("")
     if (password.length < 8) {
-      setError("密码至少 8 位")
+      setError(t("auth.register.passwordTooShort"))
       return
     }
     if (password !== repeat) {
-      setError("两次输入的密码不一致")
+      setError(t("auth.common.passwordMismatch"))
       return
     }
     setBusy(true)
@@ -107,15 +109,15 @@ export function RegisterPage() {
 
   if (done) {
     return (
-      <AuthShell title="注册申请已提交">
+      <AuthShell title={t("auth.register.doneTitle")}>
         <div className="space-y-3 text-sm">
           <p>
             {done.approvalRequired
-              ? "账号已创建，正在等待管理员批准。批准后即可用同一邮箱登录。"
-              : "账号已创建并激活，现在可以登录了。"}
+              ? t("auth.register.donePending")
+              : t("auth.register.doneActive")}
           </p>
           <Button asChild size="sm" className="w-full">
-            <Link to="/login">去登录</Link>
+            <Link to="/login">{t("auth.common.goLogin")}</Link>
           </Button>
         </div>
       </AuthShell>
@@ -124,14 +126,14 @@ export function RegisterPage() {
 
   if (config && !config.registrationEnabled) {
     return (
-      <AuthShell title={`注册 ${siteName}`}>
+      <AuthShell title={t("auth.register.title", { siteName })}>
         <div className="space-y-2 text-sm">
-          <p>站点当前关闭了自助注册。</p>
+          <p>{t("auth.register.closed")}</p>
           <p className="text-muted-foreground">
-            请联系管理员创建账号，或直接登录已有账号。
+            {t("auth.register.closedHint")}
           </p>
           <Button asChild size="sm" variant="outline" className="w-full">
-            <Link to="/login">返回登录</Link>
+            <Link to="/login">{t("auth.common.backToLogin")}</Link>
           </Button>
         </div>
       </AuthShell>
@@ -140,16 +142,14 @@ export function RegisterPage() {
 
   if (unavailable) {
     return (
-      <AuthShell title={`注册 ${siteName}`}>
+      <AuthShell title={t("auth.register.title", { siteName })}>
         <div className="space-y-3 text-sm">
-          <p>站点还没有配置发信（SMTP），自助注册暂不可用。</p>
+          <p>{t("auth.register.unavailable")}</p>
           <p className="text-muted-foreground">
-            {
-              "注册后需要用邮箱验证码验证邮箱，所以必须先配好发信：请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。"
-            }
+            {t("auth.register.unavailableHint")}
           </p>
           <Button asChild size="sm" variant="outline" className="w-full">
-            <Link to="/login">返回登录</Link>
+            <Link to="/login">{t("auth.common.backToLogin")}</Link>
           </Button>
         </div>
       </AuthShell>
@@ -158,16 +158,16 @@ export function RegisterPage() {
 
   return (
     <AuthShell
-      title={`注册 ${siteName}`}
+      title={t("auth.register.title", { siteName })}
       subtitle={
         config?.registrationApprovalRequired
-          ? "注册后需要验证邮箱并经管理员批准才能登录"
-          : "注册后需要验证邮箱才能登录"
+          ? t("auth.register.subtitleApproval")
+          : t("auth.register.subtitle")
       }
     >
       <form key="register-form" className="space-y-4" onSubmit={submit}>
         <div className="space-y-1.5">
-          <Label htmlFor="register-email">邮箱</Label>
+          <Label htmlFor="register-email">{t("auth.register.email")}</Label>
           <Input
             id="register-email"
             name="email"
@@ -180,7 +180,9 @@ export function RegisterPage() {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="register-password">密码（至少 8 位）</Label>
+          <Label htmlFor="register-password">
+            {t("auth.register.password")}
+          </Label>
           <Input
             id="register-password"
             name="password"
@@ -192,7 +194,7 @@ export function RegisterPage() {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="register-repeat">再次输入密码</Label>
+          <Label htmlFor="register-repeat">{t("auth.register.repeat")}</Label>
           <Input
             id="register-repeat"
             name="repeat-password"
@@ -209,13 +211,17 @@ export function RegisterPage() {
           </p>
         ) : null}
         <Button type="submit" size="sm" className="w-full" disabled={busy}>
-          {busy ? "提交中…" : "注册"}
+          {busy ? t("auth.register.submitting") : t("auth.register.submit")}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          已有账号？
-          <Link to="/login" className="underline underline-offset-4">
-            登录
-          </Link>
+          <Trans
+            i18nKey="auth.register.hasAccount"
+            components={{
+              signin: (
+                <Link to="/login" className="underline underline-offset-4" />
+              )
+            }}
+          />
         </p>
       </form>
     </AuthShell>

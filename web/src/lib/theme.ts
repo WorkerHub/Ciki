@@ -5,10 +5,27 @@ export type Theme = "auto" | "light" | "dark"
 /** zustand persist 的存储键；web/index.html 的内联脚本也读这个键。 */
 export const THEME_STORAGE_KEY = "ciki-theme"
 
-export const THEME_OPTIONS: { value: Theme; label: string; hint: string }[] = [
-  { value: "auto", label: "自动", hint: "跟随系统外观切换" },
-  { value: "light", label: "浅色", hint: "始终使用浅色" },
-  { value: "dark", label: "深色", hint: "始终使用深色" }
+/** 三档的可选值与其文案 key：文案在 `locales/*.json` 的 `common.theme.*`。 */
+export const THEME_OPTIONS: {
+  value: Theme
+  labelKey: string
+  hintKey: string
+}[] = [
+  {
+    value: "auto",
+    labelKey: "common.theme.auto.label",
+    hintKey: "common.theme.auto.hint"
+  },
+  {
+    value: "light",
+    labelKey: "common.theme.light.label",
+    hintKey: "common.theme.light.hint"
+  },
+  {
+    value: "dark",
+    labelKey: "common.theme.dark.label",
+    hintKey: "common.theme.dark.hint"
+  }
 ]
 
 export function systemPrefersDark(): boolean {

@@ -1,4 +1,5 @@
 import { Monitor, Moon, Sun } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { THEME_OPTIONS, type Theme } from "@/lib/theme"
@@ -12,6 +13,7 @@ const ICONS = {
 
 /** 设置页里的三档选择（明示「自动」的含义）。 */
 export function ThemeSegmented() {
+  const { t } = useTranslation()
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
   return (
@@ -23,7 +25,7 @@ export function ThemeSegmented() {
       onValueChange={(value) => {
         if (value) setTheme(value as Theme)
       }}
-      aria-label="主题"
+      aria-label={t("common.theme.label")}
     >
       {THEME_OPTIONS.map((option) => {
         const Icon = ICONS[option.value]
@@ -31,10 +33,10 @@ export function ThemeSegmented() {
           <ToggleGroupItem
             key={option.value}
             value={option.value}
-            title={option.hint}
+            title={t(option.hintKey)}
           >
             <Icon aria-hidden="true" />
-            {option.label}
+            {t(option.labelKey)}
           </ToggleGroupItem>
         )
       })}
@@ -44,22 +46,24 @@ export function ThemeSegmented() {
 
 /** 顶栏的快捷切换：自动 → 浅色 → 深色 循环。 */
 export function ThemeCycleButton() {
+  const { t } = useTranslation()
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
   const Icon = ICONS[theme]
   const order: Theme[] = ["auto", "light", "dark"]
   const label: Record<Theme, string> = {
-    auto: "自动（跟随系统）",
-    light: "浅色",
-    dark: "深色"
+    auto: t("common.theme.cycle.auto"),
+    light: t("common.theme.cycle.light"),
+    dark: t("common.theme.cycle.dark")
   }
+  const hint = t("common.theme.cycle.switch", { label: label[theme] })
   return (
     <Button
       type="button"
       size="icon-sm"
       variant="ghost"
-      title={`主题：${label[theme]}，点击切换`}
-      aria-label={`主题：${label[theme]}，点击切换`}
+      title={hint}
+      aria-label={hint}
       onClick={() => {
         const index = order.indexOf(theme)
         setTheme(order[(index + 1) % order.length])

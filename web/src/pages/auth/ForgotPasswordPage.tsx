@@ -1,5 +1,6 @@
 import { ArrowLeft, KeyRound, Mail } from "lucide-react"
 import { useEffect, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
@@ -23,6 +24,7 @@ import { useSiteStore } from "@/stores/site"
 type Step = "email" | "code" | "password"
 
 export function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const emailConfigured = useSiteStore((state) => state.emailConfigured)
   const siteLoaded = useSiteStore((state) => state.loaded)
   const setEmailConfigured = useSiteStore((state) => state.setEmailConfigured)
@@ -47,7 +49,7 @@ export function ForgotPasswordPage() {
   const [wrongCode, setWrongCode] = useState(0)
 
   const unavailable = emailUnavailable || (siteLoaded && !emailConfigured)
-  const accountEmail = email.trim() || "账号邮箱"
+  const accountEmail = email.trim() || t("auth.common.accountEmailFallback")
 
   useEffect(() => {
     if (cooldown <= 0) return
@@ -120,7 +122,7 @@ export function ForgotPasswordPage() {
       if (failed >= 5) {
         // 契约：第 5 次错误删除该码，只能重新发码
         setCode("")
-        setError("验证码连续输错 5 次已作废，请重新发送验证码。")
+        setError(t("auth.forgot.wrongCode"))
         return
       }
       setError(describeApiError(verifyError))
@@ -134,11 +136,11 @@ export function ForgotPasswordPage() {
     setError("")
     // 强度校验沿用注册 / 改密口径（至少 8 位），服务端同样会拦（WEAK_PASSWORD）
     if (newPassword.length < 8) {
-      setError("新密码至少 8 位")
+      setError(t("auth.forgot.passwordTooShort"))
       return
     }
     if (newPassword !== repeat) {
-      setError("两次输入的密码不一致")
+      setError(t("auth.common.passwordMismatch"))
       return
     }
     setBusy(true)
@@ -168,14 +170,12 @@ export function ForgotPasswordPage() {
 
   if (done) {
     return (
-      <AuthShell title="密码已重置">
+      <AuthShell title={t("auth.forgot.doneTitle")}>
         <div className="space-y-3 text-sm">
-          <p>新密码已生效。这个账号之前的所有登录状态都已失效。</p>
-          <p className="text-muted-foreground">
-            请用新密码重新登录；两步验证的配置不受影响。
-          </p>
+          <p>{t("auth.forgot.doneBody")}</p>
+          <p className="text-muted-foreground">{t("auth.forgot.doneHint")}</p>
           <Button asChild size="sm" className="w-full">
-            <Link to="/login">去登录</Link>
+            <Link to="/login">{t("auth.common.goLogin")}</Link>
           </Button>
         </div>
       </AuthShell>
@@ -184,16 +184,14 @@ export function ForgotPasswordPage() {
 
   if (unavailable) {
     return (
-      <AuthShell title="找回密码">
+      <AuthShell title={t("auth.forgot.title")}>
         <div className="space-y-3 text-sm">
-          <p>站点还没有配置发信（SMTP），暂时无法通过邮件找回密码。</p>
+          <p>{t("auth.forgot.unavailable")}</p>
           <p className="text-muted-foreground">
-            {
-              "请联系管理员在「系统管理 → 邮件配置」中填写 SMTP；管理员也可以直接为你重置密码。"
-            }
+            {t("auth.forgot.unavailableHint")}
           </p>
           <Button asChild size="sm" variant="outline" className="w-full">
-            <Link to="/login">返回登录</Link>
+            <Link to="/login">{t("auth.common.backToLogin")}</Link>
           </Button>
         </div>
       </AuthShell>
@@ -203,8 +201,8 @@ export function ForgotPasswordPage() {
   if (step === "code") {
     return (
       <AuthShell
-        title="输入验证码"
-        subtitle={`如果 ${accountEmail} 已注册，验证码会在几分钟内送达，请同时检查垃圾邮件文件夹。`}
+        title={t("auth.forgot.codeTitle")}
+        subtitle={t("auth.forgot.codeSubtitle", { email: accountEmail })}
       >
         <form
           key="forgot-code-step"
@@ -214,7 +212,7 @@ export function ForgotPasswordPage() {
         >
           <div className="space-y-2">
             <div className="space-y-1.5">
-              <Label htmlFor="reset-code">邮箱验证码</Label>
+              <Label htmlFor="reset-code">{t("auth.forgot.codeLabel")}</Label>
               <Input
                 id="reset-code"
                 name="reset-code"
@@ -235,7 +233,7 @@ export function ForgotPasswordPage() {
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Mail className="size-3.5" aria-hidden="true" />
-                10 分钟内有效，连续输错 5 次会作废
+                {t("auth.forgot.codeHint")}
               </span>
               <Button
                 type="button"
@@ -244,7 +242,9 @@ export function ForgotPasswordPage() {
                 disabled={busy || cooldown > 0}
                 onClick={() => void sendCode()}
               >
-                {cooldown > 0 ? `${cooldown}s 后可重发` : "重新发送验证码"}
+                {cooldown > 0
+                  ? t("auth.common.resendIn", { seconds: cooldown })
+                  : t("auth.common.resend")}
               </Button>
             </div>
           </div>
@@ -260,7 +260,7 @@ export function ForgotPasswordPage() {
             className="w-full"
             disabled={busy || verifyWait > 0 || code.length !== 6}
           >
-            {busy ? "验证中…" : "验证"}
+            {busy ? t("auth.forgot.verifying") : t("auth.forgot.submit")}
           </Button>
           <Button
             type="button"
@@ -271,7 +271,7 @@ export function ForgotPasswordPage() {
             onClick={restart}
           >
             <ArrowLeft aria-hidden="true" />
-            返回上一步
+            {t("auth.forgot.back")}
           </Button>
         </form>
       </AuthShell>
@@ -281,8 +281,8 @@ export function ForgotPasswordPage() {
   if (step === "password") {
     return (
       <AuthShell
-        title="设置新密码"
-        subtitle="保存后这个账号的全部登录状态都会失效，需要用新密码重新登录。"
+        title={t("auth.forgot.passwordTitle")}
+        subtitle={t("auth.forgot.passwordSubtitle")}
       >
         <form
           key="forgot-password-step"
@@ -291,10 +291,12 @@ export function ForgotPasswordPage() {
           onSubmit={submitPassword}
         >
           <p className="text-xs text-muted-foreground">
-            验证已通过，请在 10 分钟内完成设置；过期后需要重新收码。
+            {t("auth.forgot.passwordHint")}
           </p>
           <div className="space-y-1.5">
-            <Label htmlFor="reset-new-password">新密码（至少 8 位）</Label>
+            <Label htmlFor="reset-new-password">
+              {t("auth.forgot.newPassword")}
+            </Label>
             <Input
               id="reset-new-password"
               name="new-password"
@@ -306,7 +308,9 @@ export function ForgotPasswordPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="reset-repeat-password">再次输入新密码</Label>
+            <Label htmlFor="reset-repeat-password">
+              {t("auth.forgot.repeat")}
+            </Label>
             <Input
               id="reset-repeat-password"
               name="repeat-password"
@@ -324,7 +328,7 @@ export function ForgotPasswordPage() {
           ) : null}
           <Button type="submit" size="sm" className="w-full" disabled={busy}>
             <KeyRound aria-hidden="true" />
-            {busy ? "保存中…" : "保存新密码"}
+            {busy ? t("auth.forgot.saving") : t("auth.forgot.save")}
           </Button>
           <Button
             type="button"
@@ -334,7 +338,7 @@ export function ForgotPasswordPage() {
             disabled={busy}
             onClick={restart}
           >
-            重新获取验证码
+            {t("auth.forgot.resend")}
           </Button>
         </form>
       </AuthShell>
@@ -343,8 +347,8 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthShell
-      title="找回密码"
-      subtitle="用账号邮箱收一封验证码，验证通过后设置新密码。"
+      title={t("auth.forgot.title")}
+      subtitle={t("auth.forgot.subtitle")}
     >
       <form
         key="forgot-email-step"
@@ -353,7 +357,7 @@ export function ForgotPasswordPage() {
         onSubmit={sendCode}
       >
         <div className="space-y-1.5">
-          <Label htmlFor="reset-email">邮箱</Label>
+          <Label htmlFor="reset-email">{t("auth.forgot.email")}</Label>
           <Input
             id="reset-email"
             name="email"
@@ -366,8 +370,7 @@ export function ForgotPasswordPage() {
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          账号是否存在不会在页面上体现：如果这个邮箱已注册，会收到一封 6
-          位验证码的邮件。
+          {t("auth.forgot.emailHint")}
         </p>
         {error ? (
           <p role="alert" className="text-xs text-destructive">
@@ -376,13 +379,17 @@ export function ForgotPasswordPage() {
         ) : null}
         <Button type="submit" size="sm" className="w-full" disabled={busy}>
           <Mail aria-hidden="true" />
-          {busy ? "发送中…" : "发送验证码"}
+          {busy ? t("auth.forgot.sending") : t("auth.forgot.send")}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          想起密码了？
-          <Link to="/login" className="underline underline-offset-4">
-            返回登录
-          </Link>
+          <Trans
+            i18nKey="auth.forgot.remembered"
+            components={{
+              signin: (
+                <Link to="/login" className="underline underline-offset-4" />
+              )
+            }}
+          />
         </p>
       </form>
     </AuthShell>

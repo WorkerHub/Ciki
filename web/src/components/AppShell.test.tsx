@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AppShell } from "@/components/AppShell"
+import { i18n } from "@/i18n"
 import type { Me, Space } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
@@ -59,8 +60,8 @@ const defaultSpace: Space = {
  * 打开账号菜单。jsdom 没有布局，pointerdown 默认落在 (0,0) 会被
  * react-resizable-panels 的全局命中测试吃掉；指到顶栏坐标即可走真实点击路径。
  */
-function openAccountMenu() {
-  const trigger = screen.getByRole("button", { name: "账号菜单" })
+function openAccountMenu(name = "账号菜单") {
+  const trigger = screen.getByRole("button", { name })
   fireEvent.pointerDown(trigger, {
     button: 0,
     ctrlKey: false,
@@ -268,5 +269,62 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
 
     const settings = renderShell("/settings")
     expect(settings.container.querySelector("[data-page-canvas]")).toBeNull()
+  })
+})
+
+/** 英文界面：外壳与导航文案全走 locale，中文一个字都不留。 */
+describe("应用外壳：英文界面", () => {
+  beforeEach(async () => {
+    useAuthStore.setState({ user: admin, status: "ready", restricted: false })
+    usePagesStore.setState({ tree: [], loading: false, expanded: [] })
+    useSiteStore.setState({ name: "Ciki", loaded: true })
+    useSpacesStore.setState({
+      spaces: [defaultSpace],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(spacesApi.list).mockResolvedValue([defaultSpace])
+    await i18n.changeLanguage("en")
+  })
+
+  it("侧栏、搜索框与账号菜单都用英文，菜单入口一个不少", async () => {
+    renderShell("/")
+
+    expect(await screen.findByText("Pages")).toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText("Search titles and content…")
+    ).toBeInTheDocument()
+    expect(
+      screen.getAllByRole("button", { name: "New page" }).length
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getByRole("button", {
+        name: "Theme: Auto (follow system). Click to switch."
+      })
+    ).toBeInTheDocument()
+
+    openAccountMenu("Account menu")
+    const items = await screen.findAllByRole("menuitem")
+    expect(items.map((item) => item.textContent)).toEqual([
+      "Profile",
+      "Admin",
+      "Trash",
+      "Settings",
+      "About",
+      "Help",
+      "Sign out"
+    ])
+  })
+
+  it("空间切换器与页面空态也是英文", async () => {
+    renderShell("/p/abc")
+
+    expect(
+      await screen.findByRole("button", { name: "Switch space" })
+    ).toBeInTheDocument()
+    // 空树提示随语言走（空间名是用户数据，不翻译）
+    expect(await screen.findByText(/No pages in/)).toBeInTheDocument()
   })
 })

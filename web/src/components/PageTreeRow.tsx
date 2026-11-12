@@ -11,6 +11,7 @@ import {
   Plus,
   Trash2
 } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -54,6 +55,7 @@ export function PageTreeRow({
   onOpen: () => void
   onAction: (action: TreeRowAction) => void
 }) {
+  const { t } = useTranslation()
   const {
     attributes,
     listeners,
@@ -84,7 +86,9 @@ export function PageTreeRow({
             type="button"
             size="icon-xs"
             variant="ghost"
-            aria-label={expanded ? "收起子页面" : "展开子页面"}
+            aria-label={
+              expanded ? t("shell.tree.collapse") : t("shell.tree.expand")
+            }
             aria-expanded={expanded}
             onClick={onToggle}
             className="text-muted-foreground"
@@ -110,7 +114,7 @@ export function PageTreeRow({
             active ? "font-medium" : "text-foreground/90"
           )}
         >
-          {row.title || "未命名页面"}
+          {row.title || t("shell.tree.unnamed")}
         </button>
         {readOnly ? null : (
           // 控件组退出 flex 流、悬浮在行右端：标题吃满整行，hover 前后标题盒子零变化。
@@ -129,8 +133,8 @@ export function PageTreeRow({
               type="button"
               {...attributes}
               {...listeners}
-              aria-label="拖动调整位置"
-              title="拖动调整位置"
+              aria-label={t("shell.tree.drag")}
+              title={t("shell.tree.drag")}
               className="cursor-grab touch-none rounded p-1 text-muted-foreground active:cursor-grabbing"
             >
               <GripVertical className="size-3.5" aria-hidden="true" />
@@ -141,7 +145,7 @@ export function PageTreeRow({
                   type="button"
                   size="icon-xs"
                   variant="ghost"
-                  aria-label={`页面「${row.title}」操作`}
+                  aria-label={t("shell.tree.rowActions", { title: row.title })}
                   className="text-muted-foreground"
                 >
                   <MoreHorizontal aria-hidden="true" />
@@ -150,16 +154,16 @@ export function PageTreeRow({
               <DropdownMenuContent align="start" className="w-44">
                 <DropdownMenuItem onSelect={() => onAction("add-child")}>
                   <Plus aria-hidden="true" />
-                  新建子页面
+                  {t("shell.tree.addChild")}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => onAction("rename")}>
                   <Pencil aria-hidden="true" />
-                  重命名
+                  {t("shell.tree.rename")}
                 </DropdownMenuItem>
                 {canMoveToSpace ? (
                   <DropdownMenuItem onSelect={() => onAction("move-to-space")}>
                     <ArrowRightLeft aria-hidden="true" />
-                    移动到空间…
+                    {t("shell.tree.moveToSpace")}
                   </DropdownMenuItem>
                 ) : null}
                 <DropdownMenuSeparator />
@@ -167,13 +171,13 @@ export function PageTreeRow({
                   disabled={!canMoveUp}
                   onSelect={() => onAction("move-up")}
                 >
-                  上移
+                  {t("shell.tree.moveUp")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={!canMoveDown}
                   onSelect={() => onAction("move-down")}
                 >
-                  下移
+                  {t("shell.tree.moveDown")}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -181,7 +185,7 @@ export function PageTreeRow({
                   onSelect={() => onAction("delete")}
                 >
                   <Trash2 aria-hidden="true" />
-                  删除（含子页面）
+                  {t("shell.tree.delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

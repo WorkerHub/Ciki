@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError } from "@/lib/api"
 import type { VerifyEmailNavState } from "@/lib/email-verification"
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage"
@@ -230,5 +231,23 @@ describe("验证页：站点没配发信", () => {
 
     expect(screen.getByLabelText("邮箱验证码")).toBeInTheDocument()
     expect(screen.queryByText(/暂时无法通过邮件验证邮箱/)).toBeNull()
+  })
+})
+
+/** 英文界面：验证邮箱页全英文，无中文残留。 */
+describe("验证页：英文界面", () => {
+  it("标题、说明、有效期与按钮都是英文", async () => {
+    await i18n.changeLanguage("en")
+    const { container } = renderPage({ email: "a@b.c" })
+
+    expect(
+      screen.getByRole("heading", { name: "Verify email" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Enter the 6-digit code sent to a@b\.c/)
+    ).toBeInTheDocument()
+    expect(screen.getByText("Valid for 10 minutes")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Verify" })).toBeDisabled()
+    expect(container.textContent).not.toMatch(/[\u4e00-\u9fff]/)
   })
 })

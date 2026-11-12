@@ -18,6 +18,7 @@ import {
 } from "@dnd-kit/sortable"
 import { FilePlus2, GripVertical } from "lucide-react"
 import { useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { MovePageDialog } from "@/components/MovePageDialog"
@@ -59,6 +60,7 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 侧边栏页面树：展开/收起、点击进页面、拖拽改层级与排序、行内菜单做增删改。 */
 export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const params = useParams<{ pageId?: string }>()
   const activePageId = parseIdParam(params.pageId)
@@ -94,7 +96,8 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   const [renameValue, setRenameValue] = useState("")
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState("")
-  const [actionNotice, setActionNotice] = useState("")
+  /** 移动成功后要提示的目标空间名；存名字而不是拼好的句子，切语言时提示跟着变。 */
+  const [movedTo, setMovedTo] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -130,7 +133,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   const handleAction = (row: TreeRow, action: TreeRowAction) => {
     if (readOnly) return
     setActionError("")
-    setActionNotice("")
+    setMovedTo(null)
     switch (action) {
       case "add-child":
         openCreate(row)
@@ -193,11 +196,15 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
         variant="outline"
         onClick={() => void loadTree(currentSpaceId)}
       >
-        重试
+        {t("common.retry")}
       </Button>
     </div>
   ) : loading && rows.length === 0 ? (
-    <div className="space-y-2 p-2" role="status" aria-label="页面树加载中">
+    <div
+      className="space-y-2 p-2"
+      role="status"
+      aria-label={t("shell.tree.loading")}
+    >
       {[0, 1, 2, 3].map((index) => (
         <div key={index} className="h-6 animate-pulse rounded bg-muted" />
       ))}
@@ -205,17 +212,19 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   ) : tree.length === 0 ? (
     <Empty
       icon={<FilePlus2 />}
-      title={spaceName ? `「${spaceName}」还没有页面` : "还没有页面"}
+      title={
+        spaceName
+          ? t("shell.tree.emptyNamed", { spaceName })
+          : t("shell.tree.empty")
+      }
       description={
-        readOnly
-          ? "你在这个空间是只读成员，可以让空间管理员添加页面。"
-          : "从新建一个页面开始，或直接把 Confluence 内容粘贴进编辑器。"
+        readOnly ? t("shell.tree.emptyReadOnly") : t("shell.tree.emptyHint")
       }
       contents={
         readOnly ? undefined : (
           <Button size="sm" variant="outline" onClick={() => openCreate(null)}>
             <FilePlus2 aria-hidden="true" />
-            新建页面
+            {t("shell.newPage")}
           </Button>
         )
       }
@@ -232,12 +241,12 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
           {actionError}
         </p>
       ) : null}
-      {actionNotice ? (
+      {movedTo ? (
         <p
           role="status"
           className="mx-2 rounded bg-muted px-2 py-1 text-xs text-muted-foreground"
         >
-          {actionNotice}
+          {t("shell.tree.movedTo", { name: movedTo })}
         </p>
       ) : null}
       {content}
@@ -318,8 +327,8 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
         onMoved={(targetSpaceId) => {
           const name =
             moveTargets.find((space) => space.id === targetSpaceId)?.name ??
-            "目标空间"
-          setActionNotice(`已移动到「${name}」。`)
+            t("shell.tree.targetSpace")
+          setMovedTo(name)
           if (activePageId === moveTarget?.id) navigate("/")
           setMoveTarget(null)
         }}
@@ -333,10 +342,8 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>重命名页面</DialogTitle>
-            <DialogDescription>
-              只改标题，正文与版本历史不变。
-            </DialogDescription>
+            <DialogTitle>{t("shell.tree.renameTitle")}</DialogTitle>
+            <DialogDescription>{t("shell.tree.renameHint")}</DialogDescription>
           </DialogHeader>
           <form
             className="space-y-3"
@@ -357,7 +364,9 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="rename-page-title">标题</Label>
+              <Label htmlFor="rename-page-title">
+                {t("shell.tree.titleLabel")}
+              </Label>
               <Input
                 id="rename-page-title"
                 name="page-title"
@@ -373,10 +382,10 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
                 variant="ghost"
                 onClick={() => setRenameTarget(null)}
               >
-                取消
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={busy}>
-                保存
+                {t("common.save")}
               </Button>
             </DialogFooter>
           </form>
@@ -391,13 +400,15 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>删除「{deleteTarget?.title}」？</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t("shell.tree.deleteTitle", { title: deleteTarget?.title })}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              页面会连同全部子页面一起移入回收站，之后可以在回收站里恢复。
+              {t("shell.tree.deleteHint")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (!deleteTarget) return
@@ -413,7 +424,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
                 }
               }}
             >
-              移入回收站
+              {t("shell.tree.deleteConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

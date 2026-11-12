@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError } from "@/lib/api"
 import type { VerifyEmailNavState } from "@/lib/email-verification"
 import { LoginPage } from "@/pages/auth/LoginPage"
@@ -576,5 +577,57 @@ describe("注册入口与发信状态", () => {
     renderLogin()
 
     expect(screen.getByRole("link", { name: "注册" })).toBeInTheDocument()
+  })
+})
+
+/** 英文界面：登录页（含两步验证步）全英文，无中文残留。 */
+describe("登录页：英文界面", () => {
+  it("第一步的标题、标签与两个入口都是英文", async () => {
+    useSiteStore.setState({ name: "Ciki", loaded: true, emailConfigured: true })
+    await i18n.changeLanguage("en")
+    const { container } = renderLogin()
+
+    expect(
+      screen.getByRole("heading", { name: "Sign in to Ciki" })
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Email")).toBeInTheDocument()
+    expect(screen.getByLabelText("Password")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Register" })).toHaveAttribute(
+      "href",
+      "/register"
+    )
+    expect(
+      screen.getByRole("link", { name: "Forgot password?" })
+    ).toHaveAttribute("href", "/forgot-password")
+    expect(container.textContent).not.toMatch(/[\u4e00-\u9fff]/)
+  })
+
+  it("第二步的方式名与按钮也是英文", async () => {
+    vi.mocked(authApi.login).mockResolvedValue({
+      requires2fa: true,
+      tempToken: "temp-token",
+      availableMethods: ["totp", "email_otp"]
+    })
+    await i18n.changeLanguage("en")
+    const events = userEvent.setup()
+    const { container } = renderLogin()
+    await events.type(screen.getByLabelText("Email"), "a@b.c")
+    await events.type(screen.getByLabelText("Password"), "secret-password")
+    await events.click(screen.getByRole("button", { name: "Sign in" }))
+
+    expect(
+      await screen.findByRole("heading", { name: "Two-factor authentication" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("radio", { name: "Authenticator app" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Verify and sign in" })
+    ).toBeDisabled()
+    expect(
+      await screen.findByLabelText("Authentication code")
+    ).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/[\u4e00-\u9fff]/)
   })
 })

@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { Suspense, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import {
   Group,
   Panel,
@@ -86,6 +87,7 @@ function isArticlePath(pathname: string): boolean {
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const siteName = useSiteStore((state) => state.name)
   const currentSpaceId = useSpacesStore((state) => state.currentId)
@@ -100,15 +102,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <span className="text-xs font-medium tracking-wide text-muted-foreground">
-          页面
+          {t("shell.sidebar.pages")}
         </span>
         {canWrite ? (
           <Button
             type="button"
             size="icon-xs"
             variant="ghost"
-            aria-label="新建页面"
-            title="新建页面"
+            aria-label={t("shell.newPage")}
+            title={t("shell.newPage")}
             onClick={() => setCreateOpen(true)}
           >
             <Plus aria-hidden="true" />
@@ -136,6 +138,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function UserMenu() {
+  const { t } = useTranslation()
   const user = useAuthStore((state) => state.user)
   const logout = useAuthStore((state) => state.logout)
   const spaces = useSpacesStore((state) => state.spaces)
@@ -157,7 +160,7 @@ function UserMenu() {
             variant="ghost"
             size="sm"
             className="max-w-[12rem] gap-1.5"
-            aria-label="账号菜单"
+            aria-label={t("shell.userMenu.trigger")}
           >
             <UserAvatar user={user} className="size-6 text-[11px]" />
             <span className="max-w-[6rem] truncate text-xs text-muted-foreground sm:max-w-[10rem]">
@@ -185,12 +188,12 @@ function UserMenu() {
           {/* 顺序：个人资料 → 系统管理（仅管理员）→ 回收站 → 设置 → 关于 → 帮助 */}
           <DropdownMenuItem onSelect={() => navigate("/profile")}>
             <UserRound aria-hidden="true" />
-            个人资料
+            {t("shell.userMenu.profile")}
           </DropdownMenuItem>
           {user.role === "admin" ? (
             <DropdownMenuItem onSelect={() => navigate("/admin")}>
               <ShieldCheck aria-hidden="true" />
-              系统管理
+              {t("shell.userMenu.admin")}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem
@@ -199,19 +202,19 @@ function UserMenu() {
             }
           >
             <Trash2 aria-hidden="true" />
-            回收站
+            {t("shell.userMenu.trash")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => navigate("/settings")}>
             <Settings aria-hidden="true" />
-            设置
+            {t("shell.userMenu.settings")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => navigate("/about")}>
             <Info aria-hidden="true" />
-            关于
+            {t("shell.userMenu.about")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
             <CircleHelp aria-hidden="true" />
-            帮助
+            {t("shell.userMenu.help")}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -221,7 +224,7 @@ function UserMenu() {
             }}
           >
             <LogOut aria-hidden="true" />
-            退出登录
+            {t("shell.userMenu.logout")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -231,6 +234,7 @@ function UserMenu() {
 }
 
 export function AppShell() {
+  const { t } = useTranslation()
   const isMobile = useIsMobile()
   const siteName = useSiteStore((state) => state.name)
   const loadTree = usePagesStore((state) => state.load)
@@ -270,7 +274,11 @@ export function AppShell() {
   const content = (
     <Suspense
       fallback={
-        <div className="space-y-3" role="status" aria-label="页面加载中">
+        <div
+          className="space-y-3"
+          role="status"
+          aria-label={t("shell.loadingPage")}
+        >
           <div className="h-7 w-2/5 animate-pulse rounded bg-muted" />
           <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
         </div>
@@ -320,7 +328,7 @@ export function AppShell() {
   const createButton = canWrite ? (
     <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
       <Plus aria-hidden="true" />
-      新建页面
+      {t("shell.newPage")}
     </Button>
   ) : null
 
@@ -337,7 +345,7 @@ export function AppShell() {
         type="button"
         size="icon-sm"
         variant="ghost"
-        aria-label="搜索"
+        aria-label={t("shell.search.action")}
         onClick={() =>
           navigate(currentSlug ? spaceSearchPath(currentSlug) : "/")
         }
@@ -349,7 +357,7 @@ export function AppShell() {
           type="button"
           size="icon-sm"
           variant="ghost"
-          aria-label="新建页面"
+          aria-label={t("shell.newPage")}
           onClick={() => setCreateOpen(true)}
         >
           <Plus aria-hidden="true" />
@@ -368,13 +376,13 @@ export function AppShell() {
             type="button"
             size="icon-sm"
             variant="ghost"
-            aria-label="打开页面树"
+            aria-label={t("shell.openTree")}
           >
             <Menu aria-hidden="true" />
           </Button>
         </SheetTrigger>
         <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
-          <SheetTitle className="sr-only">页面树</SheetTitle>
+          <SheetTitle className="sr-only">{t("shell.pageTree")}</SheetTitle>
           <SidebarContent onNavigate={() => setSheetOpen(false)} />
         </SheetContent>
       </Sheet>
@@ -427,7 +435,7 @@ export function AppShell() {
           </Panel>
           <Separator
             className="w-px bg-border transition-colors hover:bg-primary/40 data-[separator=active]:bg-primary/60"
-            aria-label="调整侧边栏宽度"
+            aria-label={t("shell.sidebar.resize")}
           />
           <Panel id="main" minSize={360} className="h-full">
             <div className="flex h-full flex-col">
