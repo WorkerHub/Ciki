@@ -8,15 +8,14 @@
 import { describe, expect, it } from "vitest"
 import {
   adminSession,
+  createApiToken,
+  createImportToken,
   initializedContext,
   jsonRequest,
   request,
   userSession
 } from "./support/app"
 import type { Env } from "../src/types"
-
-const READ_TOKEN_PATH = "/api/me/read-token"
-const IMPORT_TOKEN_PATH = "/api/me/import-token"
 
 const TREE_KEYS = [
   "id",
@@ -29,9 +28,7 @@ const TREE_KEYS = [
 const SEARCH_KEYS = ["id", "snippet", "title", "updated_at"]
 
 async function readToken(env: Env, cookie: string): Promise<string> {
-  const res = await jsonRequest(env, "POST", READ_TOKEN_PATH, {}, cookie)
-  expect(res.status).toBe(200)
-  return ((await res.json()) as { token: string }).token
+  return (await createApiToken(env, cookie, "read")).token
 }
 
 function readGet(env: Env, token: string, path: string): Promise<Response> {
@@ -391,9 +388,7 @@ describe("双向令牌隔离（服务端校验，不靠前端）", () => {
   it("导入令牌调读接口 401；只读令牌调导入接口与写接口 401", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const importToken = (await (
-      await jsonRequest(env, "POST", IMPORT_TOKEN_PATH, {}, admin)
-    ).json()) as { token: string }
+    const importToken = await createImportToken(env, admin)
     const token = await readToken(env, admin)
 
     // 导入令牌 → 读接口：按说被读接口中间件拒（两张表都不含它的哈希）。

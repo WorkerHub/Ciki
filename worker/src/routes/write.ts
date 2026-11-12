@@ -1,5 +1,5 @@
 /**
- * 写接口（二期规格 §3.2）：外部连接器用的四个写端点。
+ * 写接口（二期规格 §3.2 + 三期 §4）：外部连接器用的四个写端点与一个图片上传端点。
  *
  * 鉴权只认读写令牌（`Authorization: Bearer`，见 middleware/write-token.ts）；会话
  * Cookie、只读令牌与导入令牌在这里一律 401（表隔离）。
@@ -35,6 +35,7 @@ import {
 } from "../lib/page-input"
 import { toPlainText } from "../lib/sanitize"
 import { parseId, readJsonBody, readParentId, readSpaceId } from "../lib/http"
+import { handleImageUpload } from "../lib/upload"
 import { getTablePrefix } from "../lib/table-prefix"
 import { writeTokenMiddleware } from "../middleware/write-token"
 import type { HonoEnv } from "../types"
@@ -120,6 +121,20 @@ async function loadWritablePage(
   if (!(await canWriteSpace(c, scope, row.space_id))) return null
   return { row, scope }
 }
+
+/**
+ * POST /api/write/files：写接口的图片上传。
+ *
+ * - 校验与 R2 落盘复用 `lib/upload.ts` 的 `handleImageUpload`（与 `/api/import/files`
+ *   同一份实现、同一响应形状），不另写一套；落 `pages/`（正文图目录）——与插件的
+ *   `imports/` 分开，且该前缀已在图片白名单内，页面正文引用不会被消毒剥掉。
+ * - 上传没有空间维度，不查令牌范围（引用它的页面写入仍走页面级范围与角色校验）。
+ * - 鉴权与限流零改动：整段已挂 `writeTokenMiddleware`，只认 `kind = write` 的令牌，
+ *   调用计入现有 `write` 桶。
+ */
+writeRoutes.post("/files", (c) =>
+  handleImageUpload(c, c.get("userId"), "pages")
+)
 
 /**
  * POST /api/write/pages：建页。

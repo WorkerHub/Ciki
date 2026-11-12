@@ -1,32 +1,31 @@
 /**
- * 令牌存储层（B 单直接复用的地基能力）与名称规则的单测。
+ * 令牌存储层（管理 API 直接复用的地基能力）与名称规则的单测。
  *
  * 这里只驱动 `core/api-token.ts` / `core/import-token.ts`，不经路由：
  * - 名称规则是规格 §1 的硬口径（trim、≤40 码点、留空默认名），必须钉住；
  * - `api_tokens` 的 kind 建行固定、有效行列表、改名、按 id 吊销都要能独立验证；
- * - `import_tokens` 多行、`replaceExisting` 只留一枚有效行。
+ * - `import_tokens` 多行、吊销按行、创建是追加。
  */
 import { describe, expect, it } from "vitest"
 import {
   API_TOKEN_NAME_MAX,
   defaultTokenName,
-  getLatestTokenRow,
   getTokenRowById,
   issueApiToken,
   listActiveTokens,
   parseTokenName,
+  parseTokenNameUpdate,
   renameToken,
   revokeTokenById
 } from "../src/core/api-token"
 import {
-  getImportTokenById,
   issueImportToken,
   listActiveImportTokens,
   parseImportTokenName,
   revokeImportTokenById
 } from "../src/core/import-token"
-import { getTokenScope } from "../src/core/token-scope"
-import { adminSession, initializedContext } from "./support/app"
+import { getTokenScope, listUserTokenScopes } from "../src/core/token-scope"
+import { adminSession, initializedContext, userSession } from "./support/app"
 import type { TestContext } from "./support/app"
 
 const PREFIX = "ciki_"
@@ -56,6 +55,31 @@ describe("令牌名称规则（规格 §1）", () => {
     expect(parseTokenName("  My Key  ", "read")).toEqual({
       ok: true,
       name: "My Key"
+    })
+  })
+
+  it("改名口径：trim 后 1–40 码点，空白不是「用默认名」", () => {
+    expect(parseTokenNameUpdate("  新名  ")).toEqual({ ok: true, name: "新名" })
+    expect(parseTokenNameUpdate("")).toEqual({
+      ok: false,
+      reason: "INVALID_TOKEN_NAME"
+    })
+    expect(parseTokenNameUpdate("   ")).toEqual({
+      ok: false,
+      reason: "INVALID_TOKEN_NAME"
+    })
+    expect(parseTokenNameUpdate("字".repeat(41))).toEqual({
+      ok: false,
+      reason: "INVALID_TOKEN_NAME"
+    })
+    expect(parseTokenNameUpdate("😀".repeat(API_TOKEN_NAME_MAX))).toMatchObject(
+      {
+        ok: true
+      }
+    )
+    expect(parseTokenNameUpdate(42)).toEqual({
+      ok: false,
+      reason: "INVALID_TOKEN_NAME"
     })
   })
 
@@ -121,7 +145,7 @@ describe("api_tokens 存储层", () => {
     expect(await getTokenScope(ctx.env.DB, PREFIX, issued.id)).toEqual([1])
   })
 
-  it("有效行列表、改名不改 kind、按 id 吊销幂等；最新行含已吊销", async () => {
+  it("有效行列表、改名不改 kind、按 id 吊销幂等；范围按令牌行各存各的", async () => {
     const ctx = await initializedContext()
     const userId = await adminUserId(ctx)
 
@@ -157,15 +181,49 @@ describe("api_tokens 存储层", () => {
       await renameToken(ctx.env.DB, PREFIX, userId, second.id, "再改")
     ).toBe(false)
 
-    // 最新一行含已吊销：旧端点的范围沿用与状态回读都依赖这一点。
-    const latest = await getLatestTokenRow(ctx.env.DB, PREFIX, userId, "read")
-    expect(latest?.id).toBe(second.id)
-    expect(latest?.revoked_at).not.toBeNull()
+    // 列表只含未吊销行（已吊销的 second 不再出现）。
+    const active = await listActiveTokens(ctx.env.DB, PREFIX, userId)
+    expect(active.map((row) => row.id)).toEqual([first.id])
+  })
+
+  it("listUserTokenScopes：一次查齐本人有效令牌的范围，无行不在 Map 里", async () => {
+    const ctx = await initializedContext()
+    const admin = await adminSession(ctx.env)
+    const userId = (
+      ctx.db.db
+        .prepare("SELECT id FROM ciki_users WHERE email = ?")
+        .get("admin@example.com") as { id: number }
+    ).id
+    const scoped = await issueApiToken(ctx.env.DB, PREFIX, userId, {
+      kind: "read",
+      scope: [3, 1]
+    })
+    const plain = await issueApiToken(ctx.env.DB, PREFIX, userId, {
+      kind: "write"
+    })
+    await userSession(ctx.env, admin, "other@example.com")
+    const other = (
+      ctx.db.db
+        .prepare("SELECT id FROM ciki_users WHERE email = ?")
+        .get("other@example.com") as { id: number }
+    ).id
+
+    const scopes = await listUserTokenScopes(ctx.env.DB, PREFIX, userId)
+    expect(scopes.get(scoped.id)).toEqual([1, 3])
+    expect(scopes.has(plain.id)).toBe(false)
+    // 别人的令牌不在结果里。
+    const foreign = await issueApiToken(ctx.env.DB, PREFIX, other, {
+      kind: "read",
+      scope: [2]
+    })
+    expect(
+      (await listUserTokenScopes(ctx.env.DB, PREFIX, userId)).has(foreign.id)
+    ).toBe(false)
   })
 })
 
 describe("import_tokens 存储层", () => {
-  it("多行新建、默认名、按 id 吊销；replaceExisting 只留一枚有效行", async () => {
+  it("多行新建、默认名、按 id 吊销只断一枚", async () => {
     const ctx = await initializedContext()
     const userId = await adminUserId(ctx)
 
@@ -179,7 +237,7 @@ describe("import_tokens 存储层", () => {
       )
     ).toEqual(["浏览器插件", "插件乙"])
     expect(
-      (await getImportTokenById(ctx.env.DB, PREFIX, userId, first.id))?.name
+      (await listActiveImportTokens(ctx.env.DB, PREFIX, userId))[0].name
     ).toBe("浏览器插件")
 
     expect(
@@ -194,14 +252,12 @@ describe("import_tokens 存储层", () => {
       )
     ).toEqual([second.id])
 
-    // 旧端点的「重置」走 replaceExisting：旧有效行吊销，只留新行有效。
-    const third = await issueImportToken(ctx.env.DB, PREFIX, userId, {
-      replaceExisting: true
-    })
+    // 新建是追加：吊销一枚不影响另一枚，新行也不覆盖旧行。
+    const third = await issueImportToken(ctx.env.DB, PREFIX, userId)
     expect(
       (await listActiveImportTokens(ctx.env.DB, PREFIX, userId)).map(
         (row) => row.id
       )
-    ).toEqual([third.id])
+    ).toEqual([second.id, third.id])
   })
 })

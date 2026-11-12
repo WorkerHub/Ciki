@@ -18,7 +18,7 @@ import {
   listSpacesForUser,
   type SpaceRow
 } from "../db/queries/spaces"
-import { tokenSpaceScopesTable } from "../lib/tables"
+import { apiTokensTable, tokenSpaceScopesTable } from "../lib/tables"
 
 /** 令牌种类：`api_tokens.kind` 的取值（建行时固定，之后不可变更）。 */
 export type TokenKind = "read" | "write"
@@ -45,6 +45,35 @@ export async function getTokenScope(
     .all<{ space_id: number }>()
   if (rows.results.length === 0) return null
   return rows.results.map((row) => row.space_id)
+}
+
+/**
+ * 某用户全部有效令牌的范围，一次查齐（`GET /api/me/tokens` 列表用）：
+ * 返回 `tokenId → 范围`，没有范围行的令牌不在 Map 里（调用方按 `null` 处理）。
+ * 一条 JOIN 取代「每枚令牌各查一次」，顺序与 `getTokenScope` 一致（空间 id 升序）。
+ */
+export async function listUserTokenScopes(
+  db: D1Database,
+  prefix: string,
+  userId: number
+): Promise<Map<number, TokenScope>> {
+  const rows = await db
+    .prepare(
+      `SELECT s.token_id AS tokenId, s.space_id AS spaceId
+         FROM ${tokenSpaceScopesTable(prefix)} s
+         JOIN ${apiTokensTable(prefix)} t ON t.id = s.token_id
+        WHERE t.user_id = ? AND t.revoked_at IS NULL
+        ORDER BY s.token_id, s.space_id`
+    )
+    .bind(userId)
+    .all<{ tokenId: number; spaceId: number }>()
+  const scopes = new Map<number, TokenScope>()
+  for (const row of rows.results) {
+    const current = scopes.get(row.tokenId)
+    if (current) current.push(row.spaceId)
+    else scopes.set(row.tokenId, [row.spaceId])
+  }
+  return scopes
 }
 
 /**

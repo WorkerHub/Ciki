@@ -1,18 +1,28 @@
+/**
+ * 浏览器插件凭证（`/api/me/import-tokens`）：多行、互不影响、没有空间范围。
+ *
+ * `schema_v3` 起导入凭证一行一枚：创建是追加（不再「重置即覆盖」），吊销按行，
+ * 列表只回未吊销行。明文只在 201 响应里出现一次，库里只有 SHA-256。
+ */
 import { describe, expect, it } from "vitest"
 import {
   adminSession,
+  createImportToken,
   initializedContext,
   jsonRequest,
   request,
   userSession
 } from "./support/app"
 
-interface TokenStatus {
-  active: boolean
-  createdAt: string | null
+interface ImportTokenSummary {
+  id: number
+  name: string
+  createdAt: string
   lastUsedAt: string | null
-  revokedAt: string | null
 }
+
+const LIST_PATH = "/api/me/import-tokens"
+const DEFAULT_NAME = "浏览器插件"
 
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest(
@@ -24,34 +34,15 @@ async function sha256Hex(value: string): Promise<string> {
     .join("")
 }
 
-async function issueToken(
+async function tokens(
   env: Parameters<typeof adminSession>[0],
   cookie: string
-): Promise<{ token: string; createdAt: string }> {
-  const res = await jsonRequest(
-    env,
-    "POST",
-    "/api/me/import-token",
-    undefined,
-    cookie
-  )
+): Promise<ImportTokenSummary[]> {
+  const res = await jsonRequest(env, "GET", LIST_PATH, undefined, cookie)
   expect(res.status).toBe(200)
-  return (await res.json()) as { token: string; createdAt: string }
-}
-
-async function tokenStatus(
-  env: Parameters<typeof adminSession>[0],
-  cookie: string
-): Promise<TokenStatus> {
-  const res = await jsonRequest(
-    env,
-    "GET",
-    "/api/me/import-token",
-    undefined,
-    cookie
-  )
-  expect(res.status).toBe(200)
-  return (await res.json()) as TokenStatus
+  const body = (await res.json()) as { tokens: ImportTokenSummary[] }
+  expect(Object.keys(body)).toEqual(["tokens"])
+  return body.tokens
 }
 
 function bearer(
@@ -64,144 +55,140 @@ function bearer(
   })
 }
 
-describe("个人导入令牌：生成、哈希落库、重置与吊销", () => {
-  it("未生成时状态恒 inactive；生成只回一次明文，库里只有 SHA-256", async () => {
+function revoke(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  id: number
+): Promise<Response> {
+  return jsonRequest(env, "DELETE", `${LIST_PATH}/${id}`, undefined, cookie)
+}
+
+describe("浏览器插件凭证：多行、哈希落库与默认名", () => {
+  it("未生成过时列表为空；创建只回一次明文，库里只有 SHA-256", async () => {
     const { env, db } = await initializedContext()
     const admin = await adminSession(env)
 
-    expect(await tokenStatus(env, admin)).toEqual({
-      active: false,
-      createdAt: null,
-      lastUsedAt: null,
-      revokedAt: null
-    })
+    expect(await tokens(env, admin)).toEqual([])
 
-    const { token, createdAt } = await issueToken(env, admin)
+    const issued = (await (
+      await jsonRequest(env, "POST", LIST_PATH, {}, admin)
+    ).json()) as { id: number; name: string; token: string }
+    expect(Object.keys(issued).sort()).toEqual(["id", "name", "token"])
+    expect(issued.name).toBe(DEFAULT_NAME)
     // 与会话令牌同口径：32 字节随机 → base64url，无填充。
-    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/)
-    expect(createdAt).toBe(new Date(createdAt).toISOString())
+    expect(issued.token).toMatch(/^[A-Za-z0-9_-]{43}$/)
 
     const rows = db.db
       .prepare("SELECT * FROM ciki_import_tokens")
       .all() as Array<Record<string, unknown>>
     expect(rows).toHaveLength(1)
-    expect(rows[0].user_id).toBeTruthy()
-    expect(rows[0].token_hash).toBe(await sha256Hex(token))
+    expect(rows[0].id).toBe(issued.id)
+    expect(rows[0].name).toBe(DEFAULT_NAME)
+    expect(rows[0].token_hash).toBe(await sha256Hex(issued.token))
     expect(rows[0].token_hash).toMatch(/^[0-9a-f]{64}$/)
-    expect(rows[0].created_at).toBe(createdAt)
     expect(rows[0].last_used_at).toBeNull()
     expect(rows[0].revoked_at).toBeNull()
     // 明文绝不落库。
-    expect(JSON.stringify(rows[0])).not.toContain(token)
+    expect(JSON.stringify(rows[0])).not.toContain(issued.token)
 
-    const status = await tokenStatus(env, admin)
-    expect(status).toEqual({
-      active: true,
-      createdAt,
-      lastUsedAt: null,
-      revokedAt: null
-    })
-    // 状态响应里没有哈希、没有明文。
-    expect(JSON.stringify(status)).not.toContain(token)
+    const list = await tokens(env, admin)
+    expect(list).toHaveLength(1)
+    expect(Object.keys(list[0]).sort()).toEqual([
+      "createdAt",
+      "id",
+      "lastUsedAt",
+      "name"
+    ])
+    expect(list[0].lastUsedAt).toBeNull()
+    expect(JSON.stringify(list)).not.toContain(issued.token)
 
-    // 令牌真的能用。
-    const res = await bearer(env, token)
+    // 令牌真的能用，且用后刷新自己的 lastUsedAt。
+    const res = await bearer(env, issued.token)
     expect(res.status).toBe(200)
     expect(res.headers.get("cache-control")).toContain("no-store")
+    expect((await tokens(env, admin))[0].lastUsedAt).not.toBeNull()
   })
 
-  it("重置即覆盖：旧令牌立即失效、新令牌可用；吊销后 401 且状态可查", async () => {
-    const { env, db } = await initializedContext()
-    const admin = await adminSession(env)
-
-    const first = await issueToken(env, admin)
-    expect((await bearer(env, first.token)).status).toBe(200)
-
-    const second = await issueToken(env, admin)
-    expect(second.token).not.toBe(first.token)
-    expect((await bearer(env, first.token)).status).toBe(401)
-    expect((await bearer(env, second.token)).status).toBe(200)
-    // 重置是「吊销旧行 + 建新行」：有效凭证始终只有一枚。
-    const count = db.db
-      .prepare(
-        "SELECT COUNT(*) AS n FROM ciki_import_tokens WHERE revoked_at IS NULL"
-      )
-      .get() as { n: number }
-    expect(count.n).toBe(1)
-
-    const beforeRevoke = await tokenStatus(env, admin)
-    expect(beforeRevoke.active).toBe(true)
-    expect(beforeRevoke.lastUsedAt).not.toBeNull()
-
-    const revoke = await jsonRequest(
-      env,
-      "DELETE",
-      "/api/me/import-token",
-      undefined,
-      admin
-    )
-    expect(revoke.status).toBe(200)
-    expect(await revoke.json()).toEqual({ success: true })
-
-    expect((await bearer(env, second.token)).status).toBe(401)
-    const afterRevoke = await tokenStatus(env, admin)
-    expect(afterRevoke.active).toBe(false)
-    expect(afterRevoke.revokedAt).not.toBeNull()
-    expect(afterRevoke.lastUsedAt).toBe(beforeRevoke.lastUsedAt)
-
-    // 吊销是幂等的：已吊销再删仍成功，从未生成过才 404。
-    const again = await jsonRequest(
-      env,
-      "DELETE",
-      "/api/me/import-token",
-      undefined,
-      admin
-    )
-    expect(again.status).toBe(200)
-  })
-
-  it("从未生成过就吊销 → 404", async () => {
+  it("自定义名 trim 后保留；空白回默认名；超 40 码点与非字符串 400", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const res = await jsonRequest(
+
+    const named = await createImportToken(env, admin, "  插件甲  ")
+    expect(named.name).toBe("插件甲")
+
+    const blank = await createImportToken(env, admin, "   ")
+    expect(blank.name).toBe(DEFAULT_NAME)
+
+    const tooLong = await jsonRequest(
       env,
-      "DELETE",
-      "/api/me/import-token",
-      undefined,
+      "POST",
+      LIST_PATH,
+      { name: "字".repeat(41) },
       admin
     )
-    expect(res.status).toBe(404)
+    expect(tooLong.status).toBe(400)
+    expect(await tooLong.json()).toEqual({ error: "Invalid token name" })
+
+    const notString = await jsonRequest(
+      env,
+      "POST",
+      LIST_PATH,
+      { name: 42 },
+      admin
+    )
+    expect(notString.status).toBe(400)
+
+    const badJson = await request(env, LIST_PATH, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: admin },
+      body: "{"
+    })
+    expect(badJson.status).toBe(400)
+    expect(await badJson.json()).toEqual({ error: "Invalid request body" })
   })
 
-  it("重置后旧令牌（含被重置前用过的）不能再用；每用户互不影响", async () => {
+  it("多行并存：吊销一枚只断一枚，另一枚照常；已吊销 / 他人 404", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const alice = await userSession(env, admin, "alice@example.com")
     const bob = await userSession(env, admin, "bob@example.com")
 
-    const aliceToken = await issueToken(env, alice)
-    const bobToken = await issueToken(env, bob)
-    expect((await bearer(env, aliceToken.token)).status).toBe(200)
-    expect((await bearer(env, bobToken.token)).status).toBe(200)
+    const first = await createImportToken(env, alice, "甲")
+    const second = await createImportToken(env, alice, "乙")
+    expect((await bearer(env, first.token)).status).toBe(200)
+    expect((await bearer(env, second.token)).status).toBe(200)
+    expect((await tokens(env, alice)).map((row) => row.id)).toEqual([
+      first.id,
+      second.id
+    ])
 
-    const rotated = await issueToken(env, alice)
-    expect((await bearer(env, aliceToken.token)).status).toBe(401)
-    expect((await bearer(env, rotated.token)).status).toBe(200)
-    // 吊销 alice 不影响 bob。
-    await jsonRequest(env, "DELETE", "/api/me/import-token", undefined, alice)
-    expect((await bearer(env, rotated.token)).status).toBe(401)
-    expect((await bearer(env, bobToken.token)).status).toBe(200)
+    const removed = await revoke(env, alice, first.id)
+    expect(removed.status).toBe(200)
+    expect(await removed.json()).toEqual({ success: true })
+    expect((await bearer(env, first.token)).status).toBe(401)
+    expect((await bearer(env, second.token)).status).toBe(200)
+    expect((await tokens(env, alice)).map((row) => row.id)).toEqual([second.id])
+
+    // 已吊销再来 404（不是旧端点的幂等 200），他人 id 同样 404。
+    const again = await revoke(env, alice, first.id)
+    expect(again.status).toBe(404)
+    expect(await again.json()).toEqual({ error: "Import token not found" })
+    expect((await revoke(env, bob, second.id)).status).toBe(404)
+    expect((await bearer(env, second.token)).status).toBe(200)
+
+    const missing = await revoke(env, bob, 999999)
+    expect(missing.status).toBe(404)
   })
 
-  it("令牌管理接口要会话：Bearer 令牌调不动；导入接口不认会话 Cookie", async () => {
+  it("管理端点要会话：Bearer 令牌调不动；导入接口不认会话 Cookie", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
-    const { token } = await issueToken(env, admin)
+    const { id, token } = await createImportToken(env, admin)
 
     for (const [method, path] of [
-      ["GET", "/api/me/import-token"],
-      ["POST", "/api/me/import-token"],
-      ["DELETE", "/api/me/import-token"]
+      ["GET", LIST_PATH],
+      ["POST", LIST_PATH],
+      ["DELETE", `${LIST_PATH}/${id}`]
     ] as const) {
       const res = await request(env, path, {
         method,
@@ -230,7 +217,7 @@ describe("个人导入令牌：生成、哈希落库、重置与吊销", () => {
     const { env, db } = await initializedContext()
     const admin = await adminSession(env)
     const alice = await userSession(env, admin, "alice@example.com")
-    const { token } = await issueToken(env, alice)
+    const { token } = await createImportToken(env, alice)
     expect((await bearer(env, token)).status).toBe(200)
 
     const aliceRow = db.db
@@ -248,19 +235,13 @@ describe("个人导入令牌：生成、哈希落库、重置与吊销", () => {
     expect((await bearer(env, token)).status).toBe(401)
   })
 
-  it("生成/重置限流：10 次 / 5 分钟，第 11 次 429", async () => {
+  it("创建限流：10 次 / 5 分钟，第 11 次 429", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     for (let i = 0; i < 10; i++) {
-      await issueToken(env, admin)
+      await createImportToken(env, admin)
     }
-    const res = await jsonRequest(
-      env,
-      "POST",
-      "/api/me/import-token",
-      undefined,
-      admin
-    )
+    const res = await jsonRequest(env, "POST", LIST_PATH, {}, admin)
     expect(res.status).toBe(429)
     expect(await res.json()).toMatchObject({ code: "RATE_LIMITED" })
   })
