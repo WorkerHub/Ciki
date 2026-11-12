@@ -1079,6 +1079,10 @@ export function describeApiError(error: unknown): string {
       return "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。"
     case "LEDGER_CONFLICT":
       return "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。"
+    case "MIGRATION_REJECTED":
+      // 结构/账本停在中间版本：服务端的详细信息在错误体 error 里，这里给管理员一句
+      // 能照着做的下一步（数据没有被改动）。
+      return "这个库的形态不是本版支持的升级来源：请先用上一版升到最新，再回来点一次；数据库没有被改动。"
     case "REVISION_IS_LATEST":
       return "每页最新的一条版本不能删除。"
     case "RETENTION_UNLIMITED":

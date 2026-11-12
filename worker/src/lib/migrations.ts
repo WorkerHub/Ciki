@@ -1,46 +1,80 @@
 /**
- * 数据库结构的唯一真源：单一迁移 `schema_v7`（结构坍缩后系统里只剩一个版本标记）。
+ * 数据库结构的唯一真源：单一迁移 `schema_v1`（基线），结构即 `schema.ts` 的定版 DDL。
  *
- * - 全新库：`schema_v7` 的 sql 按 `schema.ts` 的定版 DDL 一次建出全部表/索引，并播种
- *   默认空间；重复执行无副作用（全部 `CREATE … IF NOT EXISTS` / `INSERT OR IGNORE`）。
- * - 存量库：唯一支持的升级源是**当前生产形态**（`schema_v6` 之后的结构：整数 id、正文
- *   在 R2，`users` 仍带 base_currency/timezone/theme）。`prepare` 先按定版 DDL 全表重建
- *   （三列丢弃、存量用户一律置已验证），随后 sql 的建表语句变成幂等空操作。
- * - 更早的开发期形态（UUID 时代）不提供升级路径：`rebuild.ts` 明确报错中止，旧数据
- *   一字不动，账本不记账。
+ * - 全新库：`sql` 按 `schema.ts` 的定版 DDL 一次建出全部表/索引（`users.username`
+ *   的唯一索引就在基线里）并播种默认空间；重复执行无副作用（全部
+ *   `CREATE … IF NOT EXISTS`，唯一一条播种带「spaces 为空」守卫）。
+ * - 存量库：唯一支持的升级源是**当前生产形态**（`schema_v8`）。`prepare` 只做只读
+ *   校验（见 `schema-shape.ts`），通过后 `sql` 全是幂等空转、结构与数据一字不动，
+ *   唯一的效果是账本被改写：`supersedes` 里的旧记录（`schema_v2`…`schema_v8`，以及
+ *   增量链时代与基线同名的旧 `schema_v1` 行）与本条记账在同一个 `db.batch()` 里
+ *   原子清掉并写回 `schema_v1`，账本从此只剩一行。
+ * - 其他形态一律拒绝、不改任何数据与账本：账本有 `schema_v7` 没有 `schema_v8`、
+ *   结构对不上基线、更早的 v6 及以前形态。错误信息指路：先用上一版（支持 v7→v8
+ *   的发布）升到 `schema_v8`，再换本版本升级。
  *
- * v1–v6 的增量定义与 v6 的一次性重建已清除；今后结构变化从 `schema_v9` 往后追加，
- * `schema_v7` / `schema_v8` 不得改名、改内容或调序。迁移必须可重复执行；`prepare`
- * 抛错则该迁移不记账，下次 setup 从头重跑。语句之间用 `;` 分隔，语句内部不得出现
- * `;`（含字符串字面量）。表名/索引名一律经 tables.ts / schema.ts 拼装，本文件只写
- * `{prefix}` 占位。
+ * 基线已冻结：今后结构变化从 `schema_v2` 往后追加，`schema_v1` 不得改名、改内容
+ * 或调序。迁移必须可重复执行；`prepare` 抛错则该迁移不记账，下次 setup 从头重跑。
+ * 语句之间用 `;` 分隔，语句内部不得出现 `;`（含字符串字面量）。表名/索引名一律经
+ * tables.ts / schema.ts 拼装，本文件只写 `{prefix}` 占位。
  */
 import type { Env } from "../types"
-import { resolveDuplicateUsernames } from "../core/username"
-import { rebuildSchema } from "./rebuild"
 import {
   SCHEMA_INDEXES,
   SCHEMA_TABLES,
-  USERS_USERNAME_UNIQUE_INDEX,
   baselineStatements,
   tableDdl,
   withTable
 } from "./schema"
-import { tableName } from "./tables"
+import {
+  MigrationRejectedError,
+  findBaselineMismatches,
+  rejection,
+  tableExists
+} from "./schema-shape"
+import { tableName, usersTable } from "./tables"
 
-/** 迁移执行时能拿到的东西：库、生效前缀、以及 R2 绑定（重建要校验内容桶）。 */
+/** 迁移执行时能拿到的东西：库、生效前缀、迁移可用的绑定、以及账本快照。 */
 export interface MigrationContext {
   db: D1Database
   prefix: string
   env: Env
+  /** 账本里已应用的迁移名（执行器在跑之前读一次）。 */
+  applied: ReadonlySet<string>
 }
 
 export interface Migration {
   name: string
   sql: string
-  /** 在 sql 之前执行的幂等补齐（存量库的全表重建），见文件头注释。 */
+  /** 在 sql 之前执行的只读校验 / 幂等补齐；抛错则该条不记账，下次重跑。 */
   prepare?: (ctx: MigrationContext) => Promise<void>
+  /**
+   * 本条取代的旧账本记录：应用本条时，这些名字（连同本条自己的旧同名行）与本条
+   * 记账放进同一个 `db.batch()` 删除 + 重写，使账本只保留当前的版本标记。
+   */
+  supersedes?: readonly string[]
+  /**
+   * 是否已应用（缺省只按账本行判定）。`schema_v1` 额外要求「账本已收敛、结构确是
+   * 基线」：增量链时代留下的同名 `schema_v1` 行不代表新基线已经应用。
+   */
+  isApplied?: (ctx: MigrationContext) => boolean | Promise<boolean>
 }
+
+export const BASELINE_MIGRATION_NAME = "schema_v1"
+
+/**
+ * 增量链时代留下的旧账本记录（`schema_v2`–`schema_v8`）：升级时一并清除。
+ * `schema_v1` 自己不在列表里——它的旧同名行由执行器在记账时删掉再写。
+ */
+export const RETIRED_MIGRATIONS = [
+  "schema_v2",
+  "schema_v3",
+  "schema_v4",
+  "schema_v5",
+  "schema_v6",
+  "schema_v7",
+  "schema_v8"
+] as const
 
 export const DEFAULT_SPACE_NAME = "默认空间"
 
@@ -68,89 +102,97 @@ export const AUTH_COUNTERS_INDEX_DDL = `CREATE INDEX IF NOT EXISTS {prefix}auth_
   ON {prefix}auth_counters(action, account)`
 
 /**
- * 默认空间的初始化：用固定 id 1 播种（全新库没有任何历史 id，固定值让书签与
- * 迁移后的形态一致）。`slug` 由名称生成——「默认空间」没有可用 ASCII 字符，按兜底
- * 规则就是 `space-1`。
+ * 默认空间的初始化：新库用固定 id 1 播种（没有历史 id，固定值让书签与形态一致）。
+ * `slug` 由名称生成——「默认空间」没有可用 ASCII 字符，按兜底规则就是 `space-1`。
+ *
+ * 「spaces 为空」的守卫让存量库升级时这条一定是空转：账本手术只许改账本，不许顺
+ * 手写数据（默认空间在存量库里必然已经存在）。旧版 v6→v7 重建用的页面空间回填与
+ * 成员播种也一并删掉了——全新库上它们本来就是空转，而升级路径上它们会写数据。
  */
-const SEED_DEFAULT_SPACE = `INSERT OR IGNORE INTO {prefix}spaces
+const SEED_DEFAULT_SPACE = `INSERT INTO {prefix}spaces
   (id, slug, name, description, is_default, created_by, created_at, updated_at)
-VALUES (${DEFAULT_SPACE_ID}, '${DEFAULT_SPACE_SLUG}', '${DEFAULT_SPACE_NAME}', '', 1,
+SELECT ${DEFAULT_SPACE_ID}, '${DEFAULT_SPACE_SLUG}', '${DEFAULT_SPACE_NAME}', '', 1,
   COALESCE((SELECT id FROM {prefix}users WHERE role = 'admin' ORDER BY id LIMIT 1), 0),
   strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-  strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))`
+  strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+WHERE NOT EXISTS (SELECT 1 FROM {prefix}spaces)`
 
-/** 页面归属回填：空/缺失的 `space_id` 落到默认空间（新结构下是 0 表示缺失）。 */
-const BACKFILL_PAGE_SPACE = `UPDATE {prefix}pages SET space_id = COALESCE(
-  (SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1), 1)
-  WHERE space_id IS NULL OR space_id = 0`
-
-/** 已有用户加入默认空间：站点管理员 `admin`、其余 `editor`。 */
-const SEED_SPACE_MEMBERS = `INSERT OR IGNORE INTO {prefix}space_members
-  (space_id, user_id, role, created_at)
-SELECT COALESCE((SELECT id FROM {prefix}spaces WHERE is_default = 1 LIMIT 1), 1),
-       id,
-       CASE WHEN role = 'admin' THEN 'admin' ELSE 'editor' END,
-       strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-  FROM {prefix}users`
-
-/** `schema_v7` 的完整语句序列（表 + 索引 + 播种），`;` 分隔、原子地交给执行器。 */
-function schemaV7(prefix: string): string {
+/** `schema_v1` 的完整语句序列（表 + 索引 + 默认空间），`;` 分隔、按顺序执行。 */
+function schemaV1(prefix: string): string {
   const statements = baselineStatements(prefix)
-  for (const statement of [
-    SEED_DEFAULT_SPACE,
-    BACKFILL_PAGE_SPACE,
-    SEED_SPACE_MEMBERS
-  ]) {
-    statements.push(statement.replaceAll("{prefix}", prefix))
-  }
+  statements.push(SEED_DEFAULT_SPACE.replaceAll("{prefix}", prefix))
   return statements.join(";\n\n")
 }
 
 /**
- * `schema_v7` —— 结构坍缩后的唯一版本标记。
+ * `schema_v1` 的升级闸（只读，见 `schema-shape.ts`）。
  *
- * `prepare` 只处理存量库（v6 形态 → 定版结构）；全新库空转，随后 sql 建表。
- * 细节与校验闸见 `rebuild.ts`。
+ * ①账本守卫：有 `schema_v7` 却没有 `schema_v8` → 拒绝并指路（那条发布支持 v7→v8）；
+ *   即使结构看起来已经完整也不猜「其实只差账本」。
+ * ②账本一行都没有 = 全新安装，或上一次安装中断在半路：只允许「表/索引还没建」这类
+ *   建表语句能补齐的缺口，交给 `sql` 补齐。
+ * ③其余（含账本为空但已有旧形态的表：手工删过账本的库）一律要求结构即基线，不符
+ *   就拒绝，一个表都不动。
  */
-const SCHEMA_V7: Migration = {
-  name: "schema_v7",
-  sql: "",
-  prepare: (ctx) => rebuildSchema(ctx)
+async function prepareBaseline(ctx: MigrationContext): Promise<void> {
+  const { db, prefix, applied } = ctx
+
+  if (applied.has("schema_v7") && !applied.has("schema_v8")) {
+    throw new MigrationRejectedError(
+      "Unsupported upgrade source: the migration ledger has schema_v7 but not schema_v8, " +
+        "so this database stopped before the users.username unique index step. " +
+        "Upgrade it to schema_v8 with the previous release (the one that supports the v7 → v8 step), " +
+        "then run this upgrade again. Nothing was changed."
+    )
+  }
+
+  const problems = await findBaselineMismatches(db, prefix)
+  if (problems.length === 0) return
+
+  // 全新/中断的安装：只有「表或索引还没建」这种可以靠建表语句补齐的项。
+  const fillable = problems.every((problem) => problem.kind === "missing")
+  if (applied.size === 0 && fillable) return
+
+  throw rejection(problems.map((problem) => problem.message))
 }
 
 /**
- * `schema_v8` —— `users.username` 唯一索引（契约「username 有唯一索引、空串除外」）。
+ * 已应用 = 账本里有 `schema_v1`、旧记录一条不剩、库里有表且结构确为基线。
  *
- * 存量库可能已经有重名（注册/建号过去只取邮箱前缀、不查重），直接建唯一索引会
- * 失败，所以 `prepare` 先把重名消解掉：同一名字里 id 最小者保留原名，其余按
- * `-2`、`-3`…递增（后缀算在 40 码点内）。**其它用户名一字不改**：不 trim、不截断，
- * 空串也不改写（索引的 `WHERE username <> ''` 已把空串排除在唯一约束之外）。
- * 消解在单次 `db.batch()`（事务）里完成，失败时一条用户名都不改。
- *
- * 两步都幂等：干净的库上 `prepare` 一条 UPDATE 都不发，`CREATE … IF NOT EXISTS`
- * 在已建过索引的库（全新库的 `schema_v7`、已重建的存量库）上是空操作。
+ * 只看名字不够：增量链时代的账本里本来就有同名 `schema_v1` 行（另一份定义），手工
+ * 改过账本的开发库也可能「名字对、结构不对」。结构是唯一权威。
  */
-const SCHEMA_V8: Migration = {
-  name: "schema_v8",
+async function baselineApplied(ctx: MigrationContext): Promise<boolean> {
+  const { db, prefix, applied } = ctx
+  if (!applied.has(BASELINE_MIGRATION_NAME)) return false
+  if (RETIRED_MIGRATIONS.some((name) => applied.has(name))) return false
+  if (!(await tableExists(db, usersTable(prefix)))) return false
+  return (await findBaselineMismatches(db, prefix)).length === 0
+}
+
+/**
+ * `schema_v1` —— 唯一的版本标记，即冻结的基线结构（定版 DDL + username 唯一索引 +
+ * 默认空间种子）。结构变化从 `schema_v2` 往后追加，本条不得改名、改内容或调序。
+ */
+const SCHEMA_V1: Migration = {
+  name: BASELINE_MIGRATION_NAME,
   sql: "",
-  prepare: async ({ db, prefix }) => {
-    await resolveDuplicateUsernames(db, tableName(prefix, "users"))
-  }
+  prepare: prepareBaseline,
+  supersedes: RETIRED_MIGRATIONS,
+  isApplied: baselineApplied
 }
 
 export function getMigrations(prefix: string): Migration[] {
-  const sql = schemaV7(prefix)
-  const usernameIndex = USERS_USERNAME_UNIQUE_INDEX.replaceAll(
-    "{prefix}",
-    prefix
-  )
+  const sql = schemaV1(prefix)
 
   // 表名统一由 tables.ts 的 helper 提供；这里断言 schema.ts 与它用的是同一套名字
   // （改一处就会在这里暴露）。
   for (const table of SCHEMA_TABLES) {
     const expected = tableName(prefix, table.name)
     if (!sql.includes(expected)) {
-      throw new Error(`migration schema_v7 is missing table ${expected}`)
+      throw new Error(
+        `migration ${BASELINE_MIGRATION_NAME} is missing table ${expected}`
+      )
     }
   }
   for (const ddl of SCHEMA_INDEXES) {
@@ -159,8 +201,5 @@ export function getMigrations(prefix: string): Migration[] {
     }
   }
 
-  return [
-    { ...SCHEMA_V7, sql },
-    { ...SCHEMA_V8, sql: usernameIndex }
-  ]
+  return [{ ...SCHEMA_V1, sql }]
 }

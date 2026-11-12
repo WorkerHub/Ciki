@@ -364,8 +364,8 @@ describe("初始化迁移：默认空间与播种", () => {
   })
 })
 
-describe("schema_v7：重建在新结构上幂等空转", () => {
-  it("已是定版结构 → 只补索引，不重复建表、不改数据", async () => {
+describe("schema_v1：基线结构上幂等空转", () => {
+  it("已是基线结构 → 全部 skipped，不重复建表、不改数据、账本仍只一行", async () => {
     const { env, db } = makeContext()
     await setupRequest(env, TEST_SETUP_SECRET)
     const before = db.db
@@ -383,13 +383,11 @@ describe("schema_v7：重建在新结构上幂等空转", () => {
       .get() as { count: number }
     expect(after.count).toBe(before.count)
 
-    // 历史结构遗留的临时表不会被留成孤儿（重建迁移开头会清）。
-    const names = (
-      db.db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-        .all() as Array<{ name: string }>
-    ).map((row) => row.name)
-    expect(names.filter((name) => name.includes("v7_"))).toEqual([])
+    // 账本就是一行 schema_v1，不因重复升级多出行来。
+    const ledger = db.db
+      .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
+      .all() as Array<{ name: string }>
+    expect(ledger).toEqual([{ name: "schema_v1" }])
   })
 
   it("email_codes：复合主键 + purpose 校验，同键重发只留一行", async () => {
@@ -517,8 +515,8 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，两套账本与记录都不动", async () => {
     const { env, db } = makeContext()
-    // 旧版部署遗留的账本行，字面量不参与判定（只要不是当前的 schema_v7）。
-    await createLegacyLedger(db, "ciki_schema_migrations", ["schema_v1"])
+    // 旧版部署遗留的账本行，字面量不参与判定（只要不是当前的 schema_v1）。
+    await createLegacyLedger(db, "ciki_schema_migrations", ["schema_v0"])
     await createLegacyLedger(db, "_ciki_schema_migrations", MIGRATION_NAMES)
 
     const res = await setupRequest(env, TEST_SETUP_SECRET)
@@ -543,7 +541,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       db.db
         .prepare("SELECT name FROM ciki_schema_migrations ORDER BY name")
         .all()
-    ).toEqual([{ name: "schema_v1" }])
+    ).toEqual([{ name: "schema_v0" }])
     expect(
       db.db
         .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
