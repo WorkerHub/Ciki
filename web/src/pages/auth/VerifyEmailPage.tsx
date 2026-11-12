@@ -1,5 +1,6 @@
 import { CircleCheck, Mail } from "lucide-react"
 import { useEffect, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
 import { Link, useLocation, useSearchParams } from "react-router"
 import { AuthShell } from "@/components/AuthShell"
 import { Button } from "@/components/ui/button"
@@ -14,11 +15,8 @@ import {
 } from "@/lib/email-verification"
 import { useSiteStore } from "@/stores/site"
 
-/** 输入框下方的一行反馈：成功是中性说明，失败才用 alert 语气。 */
-interface Note {
-  tone: "info" | "error"
-  text: string
-}
+/** 输入框下方的一行反馈：成功存目标邮箱、失败存原始错误，显示时再按当前语言取文案。 */
+type Note = { tone: "info"; email: string } | { tone: "error"; text: string }
 
 /**
  * 注册邮箱验证页（#85 冻结契约的前端部分）。
@@ -32,6 +30,7 @@ interface Note {
  * - 重发一律 200（账号存在与否同形），页面只看冷却秒数，不据此宣布「已发送到」以外的事。
  */
 export function VerifyEmailPage() {
+  const { t } = useTranslation()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const entry = verifyEmailEntry(location.state, searchParams.get("email"))
@@ -78,7 +77,7 @@ export function VerifyEmailPage() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!target) {
-      setError("请先填写要验证的邮箱。")
+      setError(t("auth.verify.missingEmail"))
       return
     }
     setBusy(true)
@@ -111,10 +110,7 @@ export function VerifyEmailPage() {
       setCooldown(sent.cooldownSeconds || RESEND_COOLDOWN_SECONDS)
       // 新码换掉旧码：把已输入的旧码清掉，免得反复拿它去试
       setCode("")
-      setNote({
-        tone: "info",
-        text: `验证码已发送到 ${target}，${VERIFY_CODE_TTL_MINUTES} 分钟内有效。`
-      })
+      setNote({ tone: "info", email: target })
     } catch (sendError) {
       if (sendError instanceof ApiError && sendError.retryAfter) {
         setCooldown(sendError.retryAfter)
@@ -135,7 +131,7 @@ export function VerifyEmailPage() {
 
   if (done) {
     return (
-      <AuthShell title="邮箱已验证">
+      <AuthShell title={t("auth.verify.doneTitle")}>
         <div className="space-y-3 text-sm">
           <p className="flex items-start gap-1.5">
             <CircleCheck
@@ -144,12 +140,12 @@ export function VerifyEmailPage() {
             />
             <span>
               {entry.approvalRequired
-                ? `${target} 已验证通过。账号还在等待管理员批准，批准后就能用这个邮箱登录。`
-                : `${target} 已验证通过，现在可以用它登录了。`}
+                ? t("auth.verify.donePending", { email: target })
+                : t("auth.verify.doneApproved", { email: target })}
             </span>
           </p>
           <Button asChild size="sm" className="w-full">
-            <Link to="/login">去登录</Link>
+            <Link to="/login">{t("auth.common.goLogin")}</Link>
           </Button>
         </div>
       </AuthShell>
@@ -158,16 +154,14 @@ export function VerifyEmailPage() {
 
   if (unavailable) {
     return (
-      <AuthShell title="验证邮箱">
+      <AuthShell title={t("auth.verify.title")}>
         <div className="space-y-3 text-sm">
-          <p>站点还没有配置发信（SMTP），暂时无法通过邮件验证邮箱。</p>
+          <p>{t("auth.verify.unavailable")}</p>
           <p className="text-muted-foreground">
-            {
-              "请联系管理员在「系统管理 → 邮件配置」中填写 SMTP，配置好后重新发送验证码即可。"
-            }
+            {t("auth.verify.unavailableHint")}
           </p>
           <Button asChild size="sm" variant="outline" className="w-full">
-            <Link to="/login">返回登录</Link>
+            <Link to="/login">{t("auth.common.backToLogin")}</Link>
           </Button>
         </div>
       </AuthShell>
@@ -176,11 +170,11 @@ export function VerifyEmailPage() {
 
   return (
     <AuthShell
-      title="验证邮箱"
+      title={t("auth.verify.title")}
       subtitle={
         target
-          ? `输入发到 ${target} 的 6 位验证码，验证后才能登录。`
-          : "输入注册邮箱与邮件里的 6 位验证码，验证后才能登录。"
+          ? t("auth.verify.subtitleWithEmail", { email: target })
+          : t("auth.verify.subtitle")
       }
     >
       <form
@@ -190,7 +184,7 @@ export function VerifyEmailPage() {
         onSubmit={submit}
       >
         <div className="space-y-1.5">
-          <Label htmlFor="verify-email">邮箱</Label>
+          <Label htmlFor="verify-email">{t("auth.verify.email")}</Label>
           <Input
             id="verify-email"
             name="email"
@@ -204,7 +198,7 @@ export function VerifyEmailPage() {
         </div>
         <div className="space-y-2">
           <div className="space-y-1.5">
-            <Label htmlFor="verify-code">邮箱验证码</Label>
+            <Label htmlFor="verify-code">{t("auth.verify.code")}</Label>
             <Input
               id="verify-code"
               name="verify-code"
@@ -225,7 +219,7 @@ export function VerifyEmailPage() {
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Mail className="size-3.5" aria-hidden="true" />
-              {VERIFY_CODE_TTL_MINUTES} 分钟内有效
+              {t("auth.verify.ttl", { minutes: VERIFY_CODE_TTL_MINUTES })}
             </span>
             <Button
               type="button"
@@ -234,7 +228,9 @@ export function VerifyEmailPage() {
               disabled={busy || cooldown > 0 || !target}
               onClick={() => void resend()}
             >
-              {cooldown > 0 ? `${cooldown}s 后可重发` : "重新发送验证码"}
+              {cooldown > 0
+                ? t("auth.common.resendIn", { seconds: cooldown })
+                : t("auth.common.resend")}
             </Button>
           </div>
         </div>
@@ -253,7 +249,12 @@ export function VerifyEmailPage() {
                 : "text-xs text-muted-foreground"
             }
           >
-            {note.text}
+            {note.tone === "error"
+              ? note.text
+              : t("auth.common.codeSentTo", {
+                  email: note.email,
+                  minutes: VERIFY_CODE_TTL_MINUTES
+                })}
           </p>
         ) : null}
 
@@ -263,13 +264,17 @@ export function VerifyEmailPage() {
           className="w-full"
           disabled={busy || verifyWait > 0 || code.length !== 6}
         >
-          {busy ? "验证中…" : "验证"}
+          {busy ? t("auth.verify.verifying") : t("auth.verify.submit")}
         </Button>
         <p className="text-center text-xs text-muted-foreground">
-          已经验证过了？
-          <Link to="/login" className="underline underline-offset-4">
-            去登录
-          </Link>
+          <Trans
+            i18nKey="auth.verify.alreadyVerified"
+            components={{
+              signin: (
+                <Link to="/login" className="underline underline-offset-4" />
+              )
+            }}
+          />
         </p>
       </form>
     </AuthShell>

@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes, useLocation } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError } from "@/lib/api"
 import type { VerifyEmailNavState } from "@/lib/email-verification"
 import { RegisterPage } from "@/pages/auth/RegisterPage"
@@ -170,5 +171,28 @@ describe("注册页：入口开关", () => {
       await screen.findByText("站点当前关闭了自助注册。")
     ).toBeInTheDocument()
     expect(screen.queryByLabelText("邮箱")).toBeNull()
+  })
+})
+
+/** 英文界面：注册页全英文，无中文残留。 */
+describe("注册页：英文界面", () => {
+  it("标题、标签、按钮与底部入口都是英文", async () => {
+    vi.mocked(authApi.config).mockResolvedValue(CONFIG)
+    await i18n.changeLanguage("en")
+    const { container } = renderPage()
+
+    expect(
+      await screen.findByRole("heading", { name: "Register for Ciki" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByLabelText("Password (at least 8 characters)")
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Repeat password")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Register" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login"
+    )
+    expect(container.textContent).not.toMatch(/[\u4e00-\u9fff]/)
   })
 })

@@ -1,6 +1,7 @@
 import { cn } from "cn"
 import { Boxes, Check, ChevronsUpDown, Plus, Settings } from "lucide-react"
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,7 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { describeApiError, type Space } from "@/lib/api"
 import { spaceSettingsPath } from "@/lib/routes"
-import { canManage, effectiveRole, SPACE_ROLE_LABELS } from "@/lib/space"
+import { canManage, effectiveRole } from "@/lib/space"
 import { useAuthStore } from "@/stores/auth"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -46,6 +47,7 @@ export function SpaceSwitcher({
   switchPath?: (space: Space) => string
 }) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const spaces = useSpacesStore((state) => state.spaces)
   const status = useSpacesStore((state) => state.status)
   const error = useSpacesStore((state) => state.error)
@@ -81,7 +83,7 @@ export function SpaceSwitcher({
   const submitCreate = async () => {
     const value = name.trim()
     if (!value) {
-      setCreateError("请填写空间名称")
+      setCreateError(t("shell.spaces.create.nameRequired"))
       return
     }
     setBusy(true)
@@ -101,7 +103,9 @@ export function SpaceSwitcher({
   if (status === "error" && spaces.length === 0) {
     return (
       <div className="mx-2 space-y-1 rounded-md border border-border px-2 py-2">
-        <p className="text-[11px] text-muted-foreground">空间列表加载失败</p>
+        <p className="text-[11px] text-muted-foreground">
+          {t("shell.spaces.loadFailed")}
+        </p>
         <Button
           type="button"
           size="sm"
@@ -109,7 +113,7 @@ export function SpaceSwitcher({
           className="w-full"
           onClick={() => void load()}
         >
-          重试
+          {t("common.retry")}
         </Button>
       </div>
     )
@@ -122,7 +126,7 @@ export function SpaceSwitcher({
           <Button
             type="button"
             variant="ghost"
-            aria-label="切换空间"
+            aria-label={t("shell.spaces.switch")}
             title={error ?? undefined}
             className="h-auto w-full justify-between gap-1.5 px-2 py-1.5"
           >
@@ -132,11 +136,13 @@ export function SpaceSwitcher({
             />
             <span className="min-w-0 flex-1 truncate text-left text-[13px] font-medium">
               {current?.name ??
-                (status === "loading" ? "加载空间…" : "没有空间")}
+                (status === "loading"
+                  ? t("shell.spaces.loading")
+                  : t("shell.spaces.none"))}
             </span>
             {current ? (
               <Badge variant="secondary" className="shrink-0 text-[10px]">
-                {SPACE_ROLE_LABELS[currentRole ?? "viewer"]}
+                {t(`common.roles.${currentRole ?? "viewer"}`)}
               </Badge>
             ) : null}
             <ChevronsUpDown
@@ -147,7 +153,7 @@ export function SpaceSwitcher({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuLabel className="text-[11px] text-muted-foreground">
-            切换空间
+            {t("shell.spaces.switch")}
           </DropdownMenuLabel>
           {spaces.map((space) => {
             const active = space.id === currentId
@@ -167,11 +173,11 @@ export function SpaceSwitcher({
                 <span className="min-w-0 flex-1 truncate">{space.name}</span>
                 {space.isDefault ? (
                   <Badge variant="outline" className="text-[10px]">
-                    默认
+                    {t("shell.spaces.default")}
                   </Badge>
                 ) : null}
                 <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {SPACE_ROLE_LABELS[effectiveRole(space, isSiteAdmin)]}
+                  {t(`common.roles.${effectiveRole(space, isSiteAdmin)}`)}
                 </span>
               </DropdownMenuItem>
             )
@@ -185,12 +191,12 @@ export function SpaceSwitcher({
               }}
             >
               <Settings aria-hidden="true" />
-              空间设置
+              {t("shell.spaces.settings")}
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
             <Plus aria-hidden="true" />
-            新建空间
+            {t("shell.spaces.new")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -198,9 +204,9 @@ export function SpaceSwitcher({
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>新建空间</DialogTitle>
+            <DialogTitle>{t("shell.spaces.new")}</DialogTitle>
             <DialogDescription>
-              空间是一组页面与成员。创建后你是这个空间的管理员。
+              {t("shell.spaces.create.hint")}
             </DialogDescription>
           </DialogHeader>
           <form
@@ -211,7 +217,9 @@ export function SpaceSwitcher({
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="new-space-name">空间名称</Label>
+              <Label htmlFor="new-space-name">
+                {t("shell.spaces.create.name")}
+              </Label>
               <Input
                 id="new-space-name"
                 name="space-name"
@@ -219,11 +227,13 @@ export function SpaceSwitcher({
                 maxLength={64}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                placeholder="例如：支付团队"
+                placeholder={t("shell.spaces.create.namePlaceholder")}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="new-space-description">描述（可选）</Label>
+              <Label htmlFor="new-space-description">
+                {t("shell.spaces.create.description")}
+              </Label>
               <Textarea
                 id="new-space-description"
                 name="space-description"
@@ -231,7 +241,7 @@ export function SpaceSwitcher({
                 rows={3}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="这个空间用来放什么内容"
+                placeholder={t("shell.spaces.create.descriptionPlaceholder")}
               />
             </div>
             {createError ? (
@@ -245,10 +255,12 @@ export function SpaceSwitcher({
                 variant="ghost"
                 onClick={() => setCreateOpen(false)}
               >
-                取消
+                {t("common.cancel")}
               </Button>
               <Button type="submit" disabled={busy}>
-                {busy ? "创建中…" : "创建空间"}
+                {busy
+                  ? t("shell.spaces.create.creating")
+                  : t("shell.spaces.create.submit")}
               </Button>
             </DialogFooter>
           </form>

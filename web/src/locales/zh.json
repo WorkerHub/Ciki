@@ -6,17 +6,255 @@
     "languages": {
       "zh": "中文",
       "en": "English"
+    },
+    "cancel": "取消",
+    "save": "保存",
+    "retry": "重试",
+    "theme": {
+      "label": "主题",
+      "auto": {
+        "label": "自动",
+        "hint": "跟随系统外观切换"
+      },
+      "light": {
+        "label": "浅色",
+        "hint": "始终使用浅色"
+      },
+      "dark": {
+        "label": "深色",
+        "hint": "始终使用深色"
+      },
+      "cycle": {
+        "auto": "自动（跟随系统）",
+        "light": "浅色",
+        "dark": "深色",
+        "switch": "主题：{{label}}，点击切换"
+      }
+    },
+    "roles": {
+      "admin": "管理员",
+      "editor": "编辑",
+      "viewer": "只读"
+    }
+  },
+  "shell": {
+    "sidebar": {
+      "pages": "页面",
+      "resize": "调整侧边栏宽度"
+    },
+    "newPage": "新建页面",
+    "loadingPage": "页面加载中",
+    "pageTree": "页面树",
+    "openTree": "打开页面树",
+    "search": {
+      "placeholder": "搜索标题与正文…",
+      "label": "搜索页面",
+      "action": "搜索"
+    },
+    "userMenu": {
+      "trigger": "账号菜单",
+      "profile": "个人资料",
+      "admin": "系统管理",
+      "trash": "回收站",
+      "settings": "设置",
+      "about": "关于",
+      "help": "帮助",
+      "logout": "退出登录"
+    },
+    "spaces": {
+      "switch": "切换空间",
+      "loadFailed": "空间列表加载失败",
+      "loading": "加载空间…",
+      "none": "没有空间",
+      "default": "默认",
+      "settings": "空间设置",
+      "new": "新建空间",
+      "create": {
+        "hint": "空间是一组页面与成员。创建后你是这个空间的管理员。",
+        "name": "空间名称",
+        "namePlaceholder": "例如：支付团队",
+        "description": "描述（可选）",
+        "descriptionPlaceholder": "这个空间用来放什么内容",
+        "nameRequired": "请填写空间名称",
+        "creating": "创建中…",
+        "submit": "创建空间"
+      }
+    },
+    "tree": {
+      "loading": "页面树加载中",
+      "emptyNamed": "「{{spaceName}}」还没有页面",
+      "empty": "还没有页面",
+      "emptyReadOnly": "你在这个空间是只读成员，可以让空间管理员添加页面。",
+      "emptyHint": "从新建一个页面开始，或直接把 Confluence 内容粘贴进编辑器。",
+      "movedTo": "已移动到「{{name}}」。",
+      "targetSpace": "目标空间",
+      "renameTitle": "重命名页面",
+      "renameHint": "只改标题，正文与版本历史不变。",
+      "titleLabel": "标题",
+      "deleteTitle": "删除「{{title}}」？",
+      "deleteHint": "页面会连同全部子页面一起移入回收站，之后可以在回收站里恢复。",
+      "deleteConfirm": "移入回收站",
+      "expand": "展开子页面",
+      "collapse": "收起子页面",
+      "unnamed": "未命名页面",
+      "drag": "拖动调整位置",
+      "rowActions": "页面「{{title}}」操作",
+      "addChild": "新建子页面",
+      "rename": "重命名",
+      "moveToSpace": "移动到空间…",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "delete": "删除（含子页面）"
+    }
+  },
+  "auth": {
+    "language": {
+      "switch": "界面语言：{{language}}，点击切换"
+    },
+    "common": {
+      "resendIn": "{{seconds}}s 后可重发",
+      "resend": "重新发送验证码",
+      "codeSentTo": "验证码已发送到 {{email}}，{{minutes}} 分钟内有效。",
+      "accountEmailFallback": "账号邮箱",
+      "passwordMismatch": "两次输入的密码不一致",
+      "goLogin": "去登录",
+      "backToLogin": "返回登录"
+    },
+    "login": {
+      "title": "登录 {{siteName}}",
+      "email": "邮箱",
+      "password": "密码",
+      "forgot": "忘记密码？",
+      "forgotUnavailable": "站点未配置发信，暂时无法通过邮件找回密码",
+      "unverified": "{{email}} 还没有验证邮箱，验证后才能登录。",
+      "verifyNow": "去验证",
+      "submit": "登录",
+      "submitting": "登录中…",
+      "smtpMissing": "站点未配置发信，邮件找回密码与自助注册暂不可用；请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。",
+      "accountViaAdmin": "账号请联系管理员开通。",
+      "noAccount": "还没有账号？<signup>注册</signup>"
+    },
+    "twofa": {
+      "title": "两步验证",
+      "subtitleEmail": "继续验证 {{account}}，验证码会发到账号邮箱。",
+      "subtitlePasskey": "继续验证 {{account}}，使用已登记的 Passkey。",
+      "subtitleTotp": "继续验证 {{account}}，输入验证器里的 6 位动态码。",
+      "methodsLabel": "验证方式",
+      "methods": {
+        "totp": "验证器 App",
+        "passkey": "Passkey",
+        "emailOtp": "邮箱验证码"
+      },
+      "passkeyHint": "浏览器会弹出指纹 / 面容 / 安全钥匙验证，不需要输入验证码。",
+      "passkeyUnsupported": "当前浏览器不支持 WebAuthn",
+      "passkeyWaiting": "等待验证…",
+      "passkeySubmit": "使用 Passkey 验证",
+      "codeLabelEmail": "邮箱验证码",
+      "codeLabelTotp": "动态验证码",
+      "codeSent": "验证码已发送到 {{email}}",
+      "codeWillSend": "选这个方式会向账号邮箱发送 6 位验证码",
+      "resend": "重新发送",
+      "sendCode": "发送验证码",
+      "verify": "验证并登录",
+      "verifying": "验证中…",
+      "back": "返回上一步"
+    },
+    "register": {
+      "title": "注册 {{siteName}}",
+      "subtitleApproval": "注册后需要验证邮箱并经管理员批准才能登录",
+      "subtitle": "注册后需要验证邮箱才能登录",
+      "email": "邮箱",
+      "password": "密码（至少 8 位）",
+      "repeat": "再次输入密码",
+      "passwordTooShort": "密码至少 8 位",
+      "submit": "注册",
+      "submitting": "提交中…",
+      "hasAccount": "已有账号？<signin>登录</signin>",
+      "doneTitle": "注册申请已提交",
+      "donePending": "账号已创建，正在等待管理员批准。批准后即可用同一邮箱登录。",
+      "doneActive": "账号已创建并激活，现在可以登录了。",
+      "closed": "站点当前关闭了自助注册。",
+      "closedHint": "请联系管理员创建账号，或直接登录已有账号。",
+      "unavailable": "站点还没有配置发信（SMTP），自助注册暂不可用。",
+      "unavailableHint": "注册后需要用邮箱验证码验证邮箱，所以必须先配好发信：请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。"
+    },
+    "verify": {
+      "title": "验证邮箱",
+      "subtitleWithEmail": "输入发到 {{email}} 的 6 位验证码，验证后才能登录。",
+      "subtitle": "输入注册邮箱与邮件里的 6 位验证码，验证后才能登录。",
+      "email": "邮箱",
+      "code": "邮箱验证码",
+      "ttl": "{{minutes}} 分钟内有效",
+      "missingEmail": "请先填写要验证的邮箱。",
+      "submit": "验证",
+      "verifying": "验证中…",
+      "alreadyVerified": "已经验证过了？<signin>去登录</signin>",
+      "doneTitle": "邮箱已验证",
+      "doneApproved": "{{email}} 已验证通过，现在可以用它登录了。",
+      "donePending": "{{email}} 已验证通过。账号还在等待管理员批准，批准后就能用这个邮箱登录。",
+      "unavailable": "站点还没有配置发信（SMTP），暂时无法通过邮件验证邮箱。",
+      "unavailableHint": "请联系管理员在「系统管理 → 邮件配置」中填写 SMTP，配置好后重新发送验证码即可。"
+    },
+    "forgot": {
+      "title": "找回密码",
+      "subtitle": "用账号邮箱收一封验证码，验证通过后设置新密码。",
+      "email": "邮箱",
+      "emailHint": "账号是否存在不会在页面上体现：如果这个邮箱已注册，会收到一封 6 位验证码的邮件。",
+      "send": "发送验证码",
+      "sending": "发送中…",
+      "remembered": "想起密码了？<signin>返回登录</signin>",
+      "codeTitle": "输入验证码",
+      "codeSubtitle": "如果 {{email}} 已注册，验证码会在几分钟内送达，请同时检查垃圾邮件文件夹。",
+      "codeLabel": "邮箱验证码",
+      "codeHint": "10 分钟内有效，连续输错 5 次会作废",
+      "submit": "验证",
+      "verifying": "验证中…",
+      "back": "返回上一步",
+      "wrongCode": "验证码连续输错 5 次已作废，请重新发送验证码。",
+      "passwordTitle": "设置新密码",
+      "passwordSubtitle": "保存后这个账号的全部登录状态都会失效，需要用新密码重新登录。",
+      "passwordHint": "验证已通过，请在 10 分钟内完成设置；过期后需要重新收码。",
+      "newPassword": "新密码（至少 8 位）",
+      "repeat": "再次输入新密码",
+      "passwordTooShort": "新密码至少 8 位",
+      "save": "保存新密码",
+      "saving": "保存中…",
+      "resend": "重新获取验证码",
+      "doneTitle": "密码已重置",
+      "doneBody": "新密码已生效。这个账号之前的所有登录状态都已失效。",
+      "doneHint": "请用新密码重新登录；两步验证的配置不受影响。",
+      "unavailable": "站点还没有配置发信（SMTP），暂时无法通过邮件找回密码。",
+      "unavailableHint": "请联系管理员在「系统管理 → 邮件配置」中填写 SMTP；管理员也可以直接为你重置密码。"
+    },
+    "setup": {
+      "title": "{{siteName}} 初始化",
+      "checking": "正在检查初始化状态…",
+      "subtitle": "第一次部署需要先建表，然后用 SETUP_SECRET 完成初始化；之后注册的首个账号会成为管理员。",
+      "doneSubtitle": "站点已完成初始化。",
+      "submit": "初始化数据库",
+      "running": "初始化中…",
+      "secretPlaceholder": "部署时配置的初始化密钥",
+      "secretHint": "密钥只会放进请求头，不会出现在地址栏；每次尝试都按来源 IP 限流。",
+      "idempotentHint": "重复执行只会做幂等检查/迁移，不会重建表，也不会清空数据。",
+      "conflict": "检测到另一套表前缀下已有数据，初始化已中止。",
+      "invalidSecret": "初始化密钥不正确，请确认部署时配置的 SETUP_SECRET。",
+      "rateLimited": "尝试过于频繁（同一 IP 每 10 分钟 3 次），请稍后再试。",
+      "conflictResolved": "当前解析出的前缀是 <code>{{resolved}}</code>{{others}}。为避免出现两套表，初始化已中止，请联系部署负责人确认 TABLE_PREFIX。",
+      "conflictOthers": "，但另一个前缀 {{prefixes}} 下已经存在本项目的数据",
+      "prefixSeparator": "、",
+      "doneTitle": "初始化完成",
+      "tablePrefix": "生效的表前缀",
+      "noPrefix": "（无前缀）",
+      "migrationApplied": "已应用",
+      "migrationCurrent": "已是最新",
+      "registerAdmin": "注册首个管理员账号",
+      "disabled": "初始化页已经在系统设置里关闭，说明数据库已就绪。"
     }
   },
   "settings": {
     "language": {
       "title": "语言",
       "label": "界面语言"
-    }
-  },
-  "auth": {
-    "language": {
-      "switch": "界面语言：{{language}}，点击切换"
     }
   },
   "time": {

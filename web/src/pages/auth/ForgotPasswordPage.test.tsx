@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { i18n } from "@/i18n"
 import { ApiError } from "@/lib/api"
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage"
 import { DEFAULT_SITE_NAME, useSiteStore } from "@/stores/site"
@@ -268,5 +269,25 @@ describe("找回密码：站点没配发信", () => {
       expect(screen.getByText(/站点还没有配置发信（SMTP）/)).toBeInTheDocument()
     })
     expect(useSiteStore.getState().emailConfigured).toBe(false)
+  })
+})
+
+/** 英文界面：找回密码首步全英文，无中文残留。 */
+describe("找回密码：英文界面", () => {
+  it("标题、输入框与两个入口都是英文", async () => {
+    await i18n.changeLanguage("en")
+    const { container } = renderPage()
+
+    expect(
+      screen.getByRole("heading", { name: "Reset password" })
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Email")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Send code" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: "Back to sign in" })
+    ).toHaveAttribute("href", "/login")
+    expect(container.textContent).not.toMatch(/[\u4e00-\u9fff]/)
   })
 })
