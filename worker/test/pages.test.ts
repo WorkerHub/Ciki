@@ -794,3 +794,36 @@ describe("页面：原始输入粗筛不误伤消毒后合规的内容", () => {
     expect(body.contentText).toBe("")
   })
 })
+
+describe("页面：新建失败不留半成品", () => {
+  it("版本+索引这一批失败时，刚插入的页面行被收回", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    // 让新建的第二步（版本 + 索引）必然失败：版本行插入被触发器打断。
+    db.db.exec(
+      `CREATE TRIGGER fail_revision_insert BEFORE INSERT ON ciki_page_revisions
+         BEGIN SELECT RAISE(ABORT, 'revision insert blocked'); END`
+    )
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "建不成的页",
+        parentId: null,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>正文</p>",
+        contentText: "正文"
+      },
+      admin
+    )
+    expect(res.status).toBe(500)
+
+    const count = (sql: string) =>
+      (db.db.prepare(sql).get() as { count: number }).count
+    expect(count("SELECT COUNT(*) AS count FROM ciki_pages")).toBe(0)
+    expect(count("SELECT COUNT(*) AS count FROM ciki_page_revisions")).toBe(0)
+    expect(count("SELECT COUNT(*) AS count FROM ciki_pages_fts")).toBe(0)
+  })
+})

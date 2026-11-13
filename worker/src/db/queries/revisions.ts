@@ -28,7 +28,10 @@ export type RevisionSummaryRow = Pick<
 >
 
 /**
- * 追加一条版本。
+ * 追加一条版本（新建页面的首条版本也走这里：此前没有版本行，算出来就是 1）。
+ *
+ * `page_id` 一律由调用方显式传入：自增 id 只认页面 INSERT 的返回值，不从语句在
+ * batch 里的位置推断（`last_insert_rowid()` 会被上一条 INSERT 覆盖）。
  *
  * `version_no` 由同一条语句里的子查询发号（`MAX(version_no)+1`）：单语句原子，
  * 唯一索引 `(page_id, version_no)` 再兜并发（撞了整批事务回滚，不会写出半条）。
@@ -55,39 +58,6 @@ export function insertRevision(
     .bind(
       revision.page_id,
       revision.page_id,
-      revision.title,
-      revision.content_hash,
-      revision.editor_id,
-      revision.created_at
-    )
-}
-
-/**
- * 新建页面的首条版本：`page_id` 取同一条 batch 里刚插入的页面行。
- *
- * 为什么用 `last_insert_rowid()`：页面 id 是自增整数，写版本时必须先知道它，而
- * 「建页 + 首版本 + FTS」要求同一个事务（否则可能留下没有版本、搜不到的页面）。
- * SQLite 的 `last_insert_rowid()` 是**连接级**的，D1 的 batch 在同一连接的同一事务里
- * 顺序执行，所以紧跟在页面 INSERT 之后的这条语句必然拿到刚插入的 id。
- * 调用方必须保证它是 batch 里紧跟页面 INSERT 的第一条语句。
- */
-export function insertFirstRevision(
-  db: D1Database,
-  prefix: string,
-  revision: {
-    title: string
-    content_hash: string
-    editor_id: number
-    created_at: string
-  }
-): D1PreparedStatement {
-  return db
-    .prepare(
-      `INSERT INTO ${revisionsTable(prefix)}
-        (page_id, version_no, title, content_hash, editor_id, created_at)
-       VALUES (last_insert_rowid(), 1, ?, ?, ?, ?)`
-    )
-    .bind(
       revision.title,
       revision.content_hash,
       revision.editor_id,

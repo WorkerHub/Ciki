@@ -208,6 +208,52 @@ describe("搜索：空间过滤与标注", () => {
   })
 })
 
+describe("搜索：新建页的索引行按页面 id 写入", () => {
+  it("先保存一页让版本 rowid 与页面 id 错位，再新建的页面仍按自己的标题搜到自己", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const older = await createPage(env, admin, "旧页面", "旧的正文")
+    // 保存一次：该页产生第二条版本，此后新建页面的版本 rowid 会领先于页面 id。
+    const saved = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${older.id}`,
+      {
+        title: "旧页面",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>旧的正文改</p>",
+        contentText: "旧的正文改"
+      },
+      admin
+    )
+    expect(saved.status).toBe(200)
+    const fresh = await createPage(env, admin, "新页面", "新的正文")
+
+    // 新页按自己的标题搜到自己，且只命中自己。
+    expect(
+      (await search(env, admin, "新页面")).results.map((hit) => hit.pageId)
+    ).toEqual([fresh.id])
+    // 旧页仍按自己的标题搜到自己。
+    expect(
+      (await search(env, admin, "旧页面")).results.map((hit) => hit.pageId)
+    ).toEqual([older.id])
+
+    // 索引行的 page_id 必须等于真实页面 id，且没有指向不存在页面的行。
+    const rows = db.db
+      .prepare("SELECT page_id FROM ciki_pages_fts")
+      .all() as Array<{ page_id: number }>
+    expect(
+      rows.map((row) => Number(row.page_id)).sort((a, b) => a - b)
+    ).toEqual([Number(older.id), Number(fresh.id)].sort((a, b) => a - b))
+    const orphans = db.db
+      .prepare(
+        "SELECT COUNT(*) AS count FROM ciki_pages_fts WHERE page_id NOT IN (SELECT id FROM ciki_pages)"
+      )
+      .get() as { count: number }
+    expect(orphans.count).toBe(0)
+  })
+})
+
 describe("搜索：纯数字按页面编号置顶", () => {
   it("编号命中置顶，即使标题与正文都不含这串数字", async () => {
     const { env } = await initializedContext()

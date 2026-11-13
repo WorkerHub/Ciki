@@ -60,7 +60,7 @@ export function makeSnippet(text: string, query: string, max = 160): string {
   return `${from > 0 ? "…" : ""}${body.slice(from, to)}${to < body.length ? "…" : ""}`
 }
 
-/** 页面索引行（删除旧索引 + 插入新索引）。 */
+/** 页面索引行（删除旧索引 + 插入新索引）：新建页与保存/改名共用这一个写入口。 */
 export function indexPageStatements(
   db: D1Database,
   prefix: string,
@@ -75,25 +75,6 @@ export function indexPageStatements(
       )
       .bind(page.id, toIndexText(page.title), toIndexText(page.contentText))
   ]
-}
-
-/**
- * 新页面的索引行：`page_id` 取同一 batch 里刚插入的页面行（`last_insert_rowid()`）。
- *
- * 与 {@link insertFirstRevision} 同一口径：建页时 id 由自增分配，页面 INSERT 之后
- * 紧跟着的这条语句才能拿到它。调用方必须把它排在页面 INSERT 之后。
- */
-export function firstPageIndexStatement(
-  db: D1Database,
-  prefix: string,
-  page: { title: string; contentText: string }
-): D1PreparedStatement {
-  return db
-    .prepare(
-      `INSERT INTO ${pagesFtsTable(prefix)} (page_id, title, content_text)
-       VALUES (last_insert_rowid(), ?, ?)`
-    )
-    .bind(toIndexText(page.title), toIndexText(page.contentText))
 }
 
 /** 从索引里删除若干页面（软删/彻底删用）。 */
