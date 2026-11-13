@@ -92,13 +92,16 @@ export function WikiEditorSurface({
   editor,
   error,
   onError,
-  actions
+  actions,
+  currentPageId
 }: {
   editor: Editor | null
   error?: string
   onError?: (message: string) => void
   /** 工具条行尾的操作，主要是保存状态与保存按钮 */
   actions?: ReactNode
+  /** 正在编辑的页面 id（链接对话框拿它把自己从站内页面候选里排掉） */
+  currentPageId?: number | null
 }) {
   if (!editor) {
     return (
@@ -116,7 +119,12 @@ export function WikiEditorSurface({
         data-editor-sticky-bar=""
         className="sticky top-0 z-30 bg-background pt-2"
       >
-        <EditorToolbar editor={editor} onError={onError} actions={actions} />
+        <EditorToolbar
+          editor={editor}
+          onError={onError}
+          actions={actions}
+          currentPageId={currentPageId}
+        />
         {error ? (
           <p
             role="alert"

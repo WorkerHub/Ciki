@@ -421,7 +421,12 @@
         "title": "Insert link",
         "description": "Leave it empty and save to remove the link from the current text.",
         "urlLabel": "Link URL",
-        "apply": "Apply"
+        "apply": "Apply",
+        "search": {
+          "label": "Search pages",
+          "placeholder": "Search pages",
+          "noMatch": "No matching pages"
+        }
       }
     },
     "paragraph": {

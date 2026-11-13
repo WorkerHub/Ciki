@@ -417,7 +417,12 @@
         "title": "插入链接",
         "description": "留空并保存可移除当前文字的链接。",
         "urlLabel": "链接地址",
-        "apply": "应用"
+        "apply": "应用",
+        "search": {
+          "label": "搜索站内页面",
+          "placeholder": "搜索站内页面",
+          "noMatch": "无匹配页面"
+        }
       }
     },
     "paragraph": {
