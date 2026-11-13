@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>链接选择器候选行：修复前后</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --fg: #18181b;
+        --muted: #71717a;
+        --line: #e4e4e7;
+        --card: #fafafa;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #09090b;
+          --fg: #fafafa;
+          --muted: #a1a1aa;
+          --line: #27272a;
+          --card: #18181b;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 28px 24px 40px;
+        background: var(--bg);
+        color: var(--fg);
+        font: 15px/1.65 "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+      }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 20px;
+        letter-spacing: -0.01em;
+      }
+      p {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .pair {
+        display: grid;
+        gap: 20px;
+        grid-template-columns: 1fr;
+        max-width: 1180px;
+      }
+      @media (min-width: 900px) {
+        .pair {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      figure {
+        margin: 0;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+        overflow: hidden;
+      }
+      figcaption {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      figure.bad figcaption {
+        color: #dc2626;
+      }
+      figure.good figcaption {
+        color: #16a34a;
+      }
+      img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      ul {
+        margin: 0 0 18px;
+        padding-left: 20px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      code {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--card);
+        border: 1px solid var(--line);
+        color: var(--fg);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>链接选择器候选行：长标题溢出（修复前后）</h1>
+    <p>
+      本地真机：1280×900 视口、2 倍截屏、真实 API 与真实数据；搜索词
+      <code>Spark</code>，候选为两篇长标题页面。截图只裁了对话框周边。
+    </p>
+    <div class="pair">
+      <figure class="bad">
+        <figcaption>修复前：对话框被撑出 51px，徽标与编号顶到框外</figcaption>
+        <img src="link-picker-before.png" alt="修复前：长标题不截断，对话框内容溢出右边界" />
+      </figure>
+      <figure class="good">
+        <figcaption>修复后：标题单行省略，徽标与编号完整在框内</figcaption>
+        <img src="link-picker-after.png" alt="修复后：标题单行截断带省略号，徽标与编号完整可见" />
+      </figure>
+    </div>
+    <p style="margin-top: 22px">实测数字（同一视口、同一批数据）：</p>
+    <ul>
+      <li>对话框内容溢出：修复前 <code>scrollWidth 499 &gt; 448</code>（溢出 51px），修复后 <code>448 = 448</code>。</li>
+      <li>第一个候选行的 <code>#编号</code> 右缘：修复前在对话框右边界之外 24px，修复后在右边界内 27px。</li>
+      <li>行高：两行候选修复前后都是 <code>32px</code>，长标题与短标题一致。</li>
+      <li>长标题截断：修复前 <code>scrollWidth 357 = clientWidth 357</code>（没截断），修复后 <code>357 &gt; 306</code>（带省略号截断）。</li>
+    </ul>
+    <p>
+      这组图片只是本单的验收证据，不属于产品文档；合并前用
+      <code>git rm -r .review</code> 一条命令即可清掉。
+    </p>
+  </body>
+</html>
