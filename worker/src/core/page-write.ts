@@ -6,7 +6,8 @@
  * 搜索索引，没有第二套写法。
  *
  * 顺序定死（规格「读写路径」）：算 JSON → 算哈希 → PUT 对象 → 单次 `db.batch()`
- * 落衍生件 + `content_hash` + 新版本行。先 R2 后 D1，失败只产孤儿对象（由月度内容 GC
+ * 落衍生件 + `content_hash` + 新版本行（新建页例外：先插入页面行拿到自增 id，再用
+ * 一次 batch 写版本与索引，见 `createPage`）。先 R2 后 D1，失败只产孤儿对象（由月度内容 GC
  * 收），绝不允许 D1 指针悬空。正文全等的保存在 PUT 之前就返回：不写行、不追加版本；
  * 只有标题变则原地更新标题与搜索索引（同样不追加版本、不新增对象）。
  *
@@ -20,18 +21,17 @@
 import {
   insertPage,
   maxSortOrder,
+  permanentDeleteSubtree,
   updatePageContent,
   updatePageTitle,
   type PageRow
 } from "../db/queries/pages"
 import {
-  insertFirstRevision,
   insertRevision,
   trimPageRevisionStatement
 } from "../db/queries/revisions"
 import { hashContent, putContent, putContentHashed } from "./content-store"
-import { firstPageIndexStatement, indexPageStatements } from "../lib/fts"
-import { revisionsTable } from "../lib/tables"
+import { indexPageStatements } from "../lib/fts"
 import type { PageContent } from "../lib/page-input"
 import type { Env } from "../types"
 import { readRetentionLimit } from "./revision-retention"
@@ -88,35 +88,15 @@ export async function createPage(
     deleted_at: null
   }
 
-  // 页面行 + 首条版本 + FTS 在同一个事务里：页面 INSERT 之后的语句用
-  // `last_insert_rowid()` 取刚分配的整数 id（见 insertFirstRevision 的说明），
-  // 所以不会出现「页面建了、版本或索引没写」的半套数据。
-  const inserted = await db.batch([
-    insertPage(db, prefix, row),
-    insertFirstRevision(db, prefix, {
-      title: content.title,
-      content_hash: hash,
-      editor_id: userId,
-      created_at: now
-    }),
-    firstPageIndexStatement(db, prefix, {
-      title: content.title,
-      contentText: content.contentText
-    })
-  ])
-  const id = inserted[0].meta.last_row_id
+  // 页面 id 只认 INSERT 返回的 `last_row_id`：自增 id 由 SQLite 当场发号，这是唯一
+  // 可信的来源。首条版本与索引行都按这个显式 id 写，绝不从语句在 batch 里的位置
+  // 推断——`last_insert_rowid()` 会被上一条 INSERT（版本行）覆盖，正是索引行写成
+  // 版本 rowid、搜索命中错页的成因。
+  const pageInsert = await insertPage(db, prefix, row).run()
+  const id = pageInsert.meta.last_row_id
 
-  // 自检：D1 文档保证 batch 内语句「顺序、非并发」执行，所以 `last_insert_rowid()`
-  // 一定拿到刚插入的页面 id。万一某个运行时不满足（例如 batch 被拆到不同连接），
-  // 首条版本或索引就会写错/写空——这里按 id 复核一次，缺什么补什么，绝不留下
-  // 「有页面、没版本、搜不到」的静默坏数据（新建是低频操作，多一次查询可接受）。
-  const hasFirstRevision = await db
-    .prepare(
-      `SELECT 1 AS ok FROM ${revisionsTable(prefix)} WHERE page_id = ? LIMIT 1`
-    )
-    .bind(id)
-    .first<{ ok: number }>()
-  if (!hasFirstRevision) {
+  try {
+    // 版本 + 索引同一个事务：不会出现「有版本、没索引」的半套。
     await db.batch([
       insertRevision(db, prefix, {
         page_id: id,
@@ -131,6 +111,14 @@ export async function createPage(
         contentText: content.contentText
       })
     ])
+  } catch (error) {
+    // 页面行已经落地而这一步失败：把该行收回（此时没有版本、评论或索引行可删），
+    // 保持「要么整页建好、要么什么都没建」；正文对象成孤儿，由月度 GC 收。
+    // 收回本身失败不掩盖原错误。
+    await db
+      .batch(permanentDeleteSubtree(db, prefix, id))
+      .catch(() => undefined)
+    throw error
   }
 
   return { id, ...row }
