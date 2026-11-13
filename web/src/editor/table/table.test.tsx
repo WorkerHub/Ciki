@@ -254,3 +254,80 @@ describe("保存负载的单列表格口径", () => {
     expect(payload.contentJson).toContain('"colwidth":[200]')
   })
 })
+
+/**
+ * 表格宽度 CSS 的判据（web/src/index.css）：带列宽的表格要放开 max-width，否则总宽被
+ * 正文宽钳住，末列右边线拖不出正文宽。这里锁的是那条选择器依赖的 DOM 形态——TipTap
+ * 升级若改了 col 的 style 写法，规则会静默失效；jsdom 没有布局，量不出尺寸，只能锁形态。
+ */
+describe("表格宽度 CSS 的判据", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  afterEach(() => {
+    while (editors.length) editors.pop()?.destroy()
+  })
+
+  // 与 index.css 里那条规则同源：多列 + 至少一列带明确列宽
+  const WIDTH_RULE =
+    '.tableWrapper > table:has(> colgroup > col[style^="width:"], > colgroup > col[style*="; width:"]):not(:has(> colgroup > col:only-child))'
+
+  const rendered = (html: string) => {
+    const editor = makeEditor(html)
+    const table = editor.view.dom.querySelector(".tableWrapper > table")
+    expect(table).not.toBeNull()
+    return table as HTMLTableElement
+  }
+
+  it("colgroup 带列宽的多列表格命中", () => {
+    const table = rendered(
+      [
+        '<table><colgroup><col width="120"><col width="200"></colgroup><tbody>',
+        "<tr><td>a</td><td>b</td></tr></tbody></table>"
+      ].join("")
+    )
+    // 列宽落在 col 的 inline style 上，判据才认得出「这张表有列宽」
+    expect(table.querySelector("col")?.getAttribute("style")).toBe(
+      "width: 120px;"
+    )
+    expect(table.matches(WIDTH_RULE)).toBe(true)
+  })
+
+  it("没设过列宽的多列表格不命中（仍按内容定宽）", () => {
+    const table = rendered(
+      "<table><tbody><tr><td>a</td><td>b</td><td>c</td></tr></tbody></table>"
+    )
+    expect(table.querySelector("col")?.getAttribute("style")).toBe(
+      "min-width: 25px;"
+    )
+    expect(table.matches(WIDTH_RULE)).toBe(false)
+  })
+
+  /**
+   * 首拖之后：TableView 只给被拖那列写 width、不清原来的 min-width，
+   * Chrome 于是把这一列序列化成 `min-width: 25px; width: 285px;`（实测形态）。
+   */
+  it("首拖之后某一列同时带 min-width 与 width 的形态命中", () => {
+    const wrapper = document.createElement("div")
+    wrapper.className = "tableWrapper"
+    wrapper.innerHTML = [
+      '<table><colgroup><col style="min-width: 25px; width: 285px;">',
+      '<col style="min-width: 25px;"></colgroup>',
+      "<tbody><tr><td>a</td><td>b</td></tr></tbody></table>"
+    ].join("")
+    const table = wrapper.querySelector("table") as HTMLTableElement
+    expect(table.matches(WIDTH_RULE)).toBe(true)
+  })
+
+  it("单列表格即使带着列宽也不命中（恒满宽那条规则专管）", () => {
+    const wrapper = document.createElement("div")
+    wrapper.className = "tableWrapper"
+    wrapper.innerHTML = [
+      '<table><colgroup><col style="min-width: 25px; width: 1030px;"></colgroup>',
+      "<tbody><tr><td>只有一个格子</td></tr></tbody></table>"
+    ].join("")
+    const table = wrapper.querySelector("table") as HTMLTableElement
+    expect(table.matches(WIDTH_RULE)).toBe(false)
+  })
+})

@@ -503,6 +503,23 @@
   table-layout: fixed;
 }
 
+/* 带列宽的表格（粘贴换算来的 colgroup，或用户在编辑态拖过列宽）：总宽就是各列之和，
+   可以超出正文宽，超出部分交给 .tableWrapper 横滚。不放开这条的话 max-width: 100%
+   会把总宽钳在正文宽上：末列右边线往右拖时，模型里那一列确实变宽了，但总宽涨不上去，
+   浏览器只能把多出来的宽度从其他列匀出来，右边线因此纹丝不动（用户实测：末列拖不动）。
+   判据看 col 的 inline style：没有列宽是 `min-width: 25px`，有列宽是 `width: Npx`；
+   同一列先没设、后来被拖过列宽时 Chrome 序列化成 `min-width: 25px; width: Npx`——
+   所以行首的 width 与分号后的 width 都要认，只认前者会漏掉首拖之后的表格。
+   单列表格有自己的恒满宽规则（上一条），这里用 :not() 排掉，不让它参与放开。 */
+.wiki-content
+  .tableWrapper
+  > table:has(
+    > colgroup > col[style^="width:"],
+    > colgroup > col[style*="; width:"]
+  ):not(:has(> colgroup > col:only-child)) {
+  max-width: none;
+}
+
 .wiki-content .tableWrapper > table {
   margin: 0;
 }
