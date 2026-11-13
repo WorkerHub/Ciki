@@ -32,6 +32,21 @@ function codePanel(container: HTMLElement): HTMLElement {
   return panel
 }
 
+/** 展开态头部：左组随语言名、右组放复制/编辑控件（与 CodeBlockView 结构一一对应）。 */
+function headerGroups(container: HTMLElement): {
+  left: HTMLElement
+  right: HTMLElement
+} {
+  const header = container.querySelector<HTMLElement>("[data-code-header]")
+  if (!header) throw new Error("代码块头部没渲染出来")
+  const [left, right] = Array.from(
+    header.children,
+    (child) => child as HTMLElement
+  )
+  if (!left || !right) throw new Error("代码块头部只有一组控件")
+  return { left, right }
+}
+
 function codeDoc(attrs: Record<string, unknown>, rows: number): JSONContent {
   return {
     type: "doc",
@@ -121,8 +136,57 @@ describe("阅读页代码块折叠（三态）", () => {
 
     await user.click(bar)
     expect(screen.getByRole("button", { name: /收起代码/ })).toBeInTheDocument()
-    // 展开后语言名回到头部左侧（与现行代码块头部一致）
+    // 展开后语言名回到头部左侧，「收起代码」就排在它后面
     expect(screen.getByText("SQL")).toBeInTheDocument()
+  })
+
+  it("展开态「收起代码」在头部左侧语言名之后，复制按钮在右侧", async () => {
+    const user = userEvent.setup()
+    const { container } = render(
+      <ReadView
+        html={
+          '<pre data-collapsed="true"><code class="language-sql">select 1;</code></pre>'
+        }
+      />
+    )
+
+    await user.click(await screen.findByRole("button", { name: /展开代码/ }))
+
+    const { left, right } = headerGroups(container)
+    const collapse = screen.getByRole("button", { name: /收起代码/ })
+    const copy = screen.getByRole("button", { name: "复制代码" })
+
+    // 左侧顺序：图标 → 语言名 → 收起代码（与折叠态「展开代码」同一位置）
+    expect(left.children).toHaveLength(3)
+    expect(left.lastElementChild).toBe(collapse)
+    expect(left.querySelector("[data-code-language]")).toHaveTextContent("SQL")
+    // 右侧阅读态只剩复制按钮
+    expect(right.querySelectorAll("button")).toHaveLength(1)
+    expect(right.querySelector("button")).toBe(copy)
+    expect(right).not.toContainElement(collapse)
+  })
+
+  it("反复展开/收起，开关始终在左侧同一位置、复制按钮始终在右侧", async () => {
+    const user = userEvent.setup()
+    // 自动折叠的块（> 20 行、未表态）与显式 collapsed=true 走同一套开关
+    const { container } = render(<ReadView html={codeHtml(lines(30))} />)
+
+    for (let round = 0; round < 2; round += 1) {
+      await user.click(await screen.findByRole("button", { name: /展开代码/ }))
+
+      const { left, right } = headerGroups(container)
+      const collapse = screen.getByRole("button", { name: /收起代码/ })
+      expect(codePanel(container)).toBeVisible()
+      expect(left.lastElementChild).toBe(collapse)
+      expect(right.querySelector("button")).toBe(
+        screen.getByRole("button", { name: "复制代码" })
+      )
+
+      await user.click(collapse)
+
+      expect(codePanel(container)).not.toBeVisible()
+      expect(screen.queryByRole("button", { name: "复制代码" })).toBeNull()
+    }
   })
 
   it("无语言名的折叠块只有「展开代码」，不写「纯文本」", async () => {
