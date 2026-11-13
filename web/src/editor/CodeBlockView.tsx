@@ -22,7 +22,9 @@ const NO_LANGUAGE = "none"
 
 /**
  * 折叠栏与「展开代码/收起代码」入口共用一套外观（11px、浅色、悬停变深），
- * 位置都固定在代码块顶那条栏上。两份类名各自完整，不靠覆盖（cn 不合并 tailwind）。
+ * 位置都固定在代码块顶那条栏的左侧：折叠栏整条可点，展开态的「收起代码」紧跟语言名之后，
+ * 右侧只留复制按钮（编辑态控件与语言 Select 仍在右侧，位置不变）。
+ * 两份类名各自完整，不靠覆盖（cn 不合并 tailwind）。
  */
 const COLLAPSE_BAR =
   "flex w-full items-center gap-1.5 bg-[#eef1f4] px-2.5 py-1 text-left text-[11px] font-medium text-[#57606a] hover:bg-black/5"
@@ -35,7 +37,8 @@ const COLLAPSE_ENTRY =
  * 所以复制出来的永远是代码本身，不会带上 span。
  *
  * 折叠只在阅读态生效（规格 §三：编辑态永不折叠，作者要能改全文）：
- * - 初始折叠的块渲染成一条折叠栏，展开后栏内换成「收起代码」入口；
+ * - 初始折叠的块渲染成一条折叠栏；展开后「收起代码」入口落在同一条栏的左侧、语言名之后，
+ *   展开/收起来回切换时开关不左右跳位；
  * - <pre> 始终留在 DOM 里（NodeViewContent 的 contentDOM 不能摘），靠 hidden 属性藏起来。
  */
 export function CodeBlockView({
@@ -92,20 +95,20 @@ export function CodeBlockView({
             <span className="truncate" data-code-language="">
               {languageLabel(language) ?? t("editor.languages.plaintext")}
             </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
             {collapsible ? (
               <button
                 type="button"
                 onClick={() => setOpened(false)}
                 aria-expanded={true}
                 aria-controls={panelId}
-                className={COLLAPSE_ENTRY}
+                className={`${COLLAPSE_ENTRY} shrink-0`}
               >
-                <ChevronDown aria-hidden="true" />
+                <ChevronDown className="size-3.5 shrink-0" aria-hidden="true" />
                 {t("editor.codeBlock.hide")}
               </button>
             ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
             {editor.isEditable ? (
               <>
                 <span id={toggleLabelId} className="text-[11px] text-[#57606a]">

@@ -331,6 +331,7 @@ export function PageEdit() {
         editor={editor}
         error={saveError}
         onError={setSaveError}
+        currentPageId={pageId}
         actions={
           <>
             <span
