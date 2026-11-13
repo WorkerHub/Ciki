@@ -142,6 +142,39 @@ describe("链接对话框：站内页面搜索选择", () => {
     expect(linkHrefs(editor)).toEqual(["/p/42"])
   })
 
+  it("长标题候选行：标题单行截断带 title，徽标与编号不被顶出行外", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor("<p>正文</p>")
+    const longTitle = "4.10 Spark中的共享变量之累加器变量(Accumulator)剖析☆☆"
+    mockResults([
+      result(42, longTitle, "运维空间"),
+      result(43, "部署手册", "运维空间")
+    ])
+    render(<EditorToolbar editor={editor} />)
+
+    await openLinkDialog(user)
+    await user.type(screen.getByLabelText("搜索站内页面"), "Spark")
+
+    const rows = await screen.findAllByRole("button", { name: /运维空间/ })
+    const [longRow] = rows
+    const title = longRow?.children[0]
+    // 标题：单行截断（truncate）之外，悬停能看完整标题
+    expect(title).toHaveClass("min-w-0", "flex-1", "truncate")
+    expect(title).toHaveAttribute("title", longTitle)
+    // 右侧徽标与编号：不被标题挤压、不被推出行外
+    expect(longRow?.querySelector('[data-slot="badge"]')).toHaveClass(
+      "shrink-0"
+    )
+    expect(longRow?.lastElementChild).toHaveClass("shrink-0")
+    // 对话框 grid 的直接子项必须 min-w-0：否则 auto 轨道被 nowrap 标题撑出 max-width，
+    // 上面那条 truncate 永远不生效
+    expect(longRow?.closest("ul")?.parentElement).toHaveClass("min-w-0")
+    expect(longRow?.closest("ul")).toHaveClass(
+      "max-w-full",
+      "overflow-x-hidden"
+    )
+  })
+
   it("正在编辑的页面不出现在自己的候选里", async () => {
     const user = userEvent.setup()
     const editor = makeEditor("<p>正文</p>")

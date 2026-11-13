@@ -452,8 +452,16 @@ export function EditorToolbar({
             </DialogFooter>
           </form>
 
-          {/* 站内页面：输入即搜、点选插入；不输入时这块一条文字都不占 */}
-          <div className="space-y-1.5">
+          {/*
+            站内页面：输入即搜、点选插入；不输入时这块一条文字都不占。
+
+            `min-w-0` 是候选行截断能生效的前提：本块是 DialogContent（grid）的
+            直接子项，grid 项的自动最小尺寸取内容的 min-content，而候选行里的
+            标题是 nowrap 文本，min-content 就等于整条标题宽。缺这一条，对话框的
+            auto 轨道会被这条标题撑到 max-width 之外，标题那侧的 `truncate`
+            永远轮不到收缩，右侧徽标与编号被顶出弹层。
+          */}
+          <div className="min-w-0 space-y-1.5">
             <Input
               type="search"
               name="link-page-search"
@@ -465,7 +473,7 @@ export function EditorToolbar({
               className="h-8"
             />
             {candidates.length ? (
-              <ul className="max-h-56 overflow-y-auto rounded-md border border-border">
+              <ul className="max-h-56 max-w-full overflow-x-hidden overflow-y-auto rounded-md border border-border">
                 {candidates.map((candidate, index) => (
                   <li key={candidate.pageId}>
                     <button
@@ -475,18 +483,21 @@ export function EditorToolbar({
                         index === activeIndex ? "bg-accent/60" : ""
                       }`}
                     >
-                      <span className="min-w-0 flex-1 truncate">
+                      <span
+                        className="min-w-0 flex-1 truncate"
+                        title={candidate.title}
+                      >
                         {candidate.title}
                       </span>
                       {candidate.spaceName ? (
                         <Badge
                           variant="outline"
-                          className="text-[10px] font-normal"
+                          className="shrink-0 text-[10px] font-normal"
                         >
                           {candidate.spaceName}
                         </Badge>
                       ) : null}
-                      <span className="text-xs text-muted-foreground tabular-nums">
+                      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         #{candidate.pageId}
                       </span>
                     </button>
