@@ -22,7 +22,8 @@ async function createPage(
   env: Parameters<typeof adminSession>[0],
   cookie: string,
   title: string,
-  contentText: string
+  contentText: string,
+  spaceId?: string
 ) {
   const res = await jsonRequest(
     env,
@@ -30,6 +31,7 @@ async function createPage(
     "/api/pages",
     {
       title,
+      ...(spaceId ? { spaceId } : {}),
       parentId: null,
       contentJson: JSON.stringify({ type: "doc" }),
       contentHtml: `<p>${contentText}</p>`,
@@ -44,12 +46,13 @@ async function createPage(
 async function search(
   env: Parameters<typeof adminSession>[0],
   cookie: string,
-  query: string
+  query: string,
+  limit?: number
 ): Promise<SearchResult> {
   const res = await jsonRequest(
     env,
     "GET",
-    `/api/search?q=${encodeURIComponent(query)}`,
+    `/api/search?q=${encodeURIComponent(query)}${limit ? `&limit=${limit}` : ""}`,
     undefined,
     cookie
   )
@@ -202,5 +205,99 @@ describe("搜索：空间过滤与标注", () => {
       spaceId: space.id,
       spaceName: "机密空间"
     })
+  })
+})
+
+describe("搜索：纯数字按页面编号置顶", () => {
+  it("编号命中置顶，即使标题与正文都不含这串数字", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(env, admin, "发布流程", "与编号无关的正文")
+
+    const result = await search(env, admin, page.id)
+    expect(result.results.map((item) => item.pageId)).toEqual([page.id])
+    expect(result.results[0]).toMatchObject({
+      title: "发布流程",
+      spaceName: "默认空间"
+    })
+
+    // 置顶不越界：总数仍不超过 limit
+    const single = await search(env, admin, page.id, 1)
+    expect(single.results.map((item) => item.pageId)).toEqual([page.id])
+  })
+
+  it("与 FTS 命中重合时只出现一次，且编号命中在最前", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const target = await createPage(env, admin, "周会纪要", "无关正文")
+    // 标题里带上目标页的编号：这条会被 FTS 词法命中，编号查也命中
+    const other = await createPage(
+      env,
+      admin,
+      `${target.id} 号笔记`,
+      "编号出现在标题里"
+    )
+
+    const result = await search(env, admin, target.id)
+    const ids = result.results.map((item) => item.pageId)
+    expect(ids[0]).toBe(target.id)
+    expect(ids.filter((id) => id === target.id)).toHaveLength(1)
+    expect(ids).toContain(other.id)
+  })
+
+  it("无权空间的页面按编号也查不到", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "机密空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const space = (await spaceRes.json()) as { id: string }
+    const secret = await createPage(
+      env,
+      admin,
+      "机密编号页",
+      "专属正文",
+      space.id
+    )
+
+    const invisible = await search(env, user, secret.id)
+    expect(invisible.results).toEqual([])
+    expect(JSON.stringify(invisible)).not.toContain("机密编号页")
+
+    const visible = await search(env, admin, secret.id)
+    expect(visible.results[0]).toMatchObject({
+      pageId: secret.id,
+      title: "机密编号页",
+      spaceName: "机密空间"
+    })
+  })
+
+  it("已软删的页面按编号查不到", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const page = await createPage(env, admin, "待删除页", "待删除正文")
+
+    await jsonRequest(env, "DELETE", `/api/pages/${page.id}`, undefined, admin)
+    const result = await search(env, admin, page.id)
+    expect(result.results.map((item) => item.pageId)).not.toContain(page.id)
+  })
+
+  it("非数字查询不受编号规则影响", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const first = await createPage(env, admin, "部署手册", "部署的正文")
+    const second = await createPage(env, admin, "部署记录", "部署的历史")
+
+    const result = await search(env, admin, "部署")
+    expect(result.results.map((item) => item.pageId).sort()).toEqual(
+      [first.id, second.id].sort()
+    )
   })
 })
