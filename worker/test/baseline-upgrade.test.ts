@@ -456,7 +456,9 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
     expect(businessSnapshot(context)).toEqual(beforeData)
     expect(
       (
-        context.db.db.prepare("PRAGMA table_info(ciki_api_tokens)").all() as Array<{
+        context.db.db
+          .prepare("PRAGMA table_info(ciki_api_tokens)")
+          .all() as Array<{
           name: string
         }>
       ).map((column) => column.name)
@@ -492,7 +494,9 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
     expect(businessSnapshot(context)).toEqual(beforeData)
     expect(
       (
-        context.db.db.prepare("PRAGMA table_info(ciki_api_tokens)").all() as Array<{
+        context.db.db
+          .prepare("PRAGMA table_info(ciki_api_tokens)")
+          .all() as Array<{
           name: string
         }>
       ).map((column) => column.name)
