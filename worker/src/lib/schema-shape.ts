@@ -5,7 +5,7 @@
  * 整数主键、正文在 R2、`users` 的 base_currency/timezone/theme 已删、
  * `users.username` 的唯一部分索引在位、`email_codes` 的 CHECK 已含
  * `register_verify`、令牌三表（`api_tokens` / 按 `token_id` 的
- * `token_space_scopes` / 多行 `import_tokens`）在位。不符就抛
+ * `token_space_scopes` / 多行 `import_tokens`）在位且逐列核对。不符就抛
  * {@link MigrationRejectedError}，由 setup 转成 409 原样回显给管理员——错误信息
  * 自带下一步（先用上一版升到 schema_v3），不猜测式修复、不部分执行。
  *
@@ -99,6 +99,33 @@ function indexIdentifier(ddl: string): string {
 /** 定版结构里三列已删的旧形态特征（v6 及以前）。 */
 const RETIRED_USER_COLUMNS = ["base_currency", "timezone", "theme"]
 
+/**
+ * 令牌三表的最终形态全列（含主键），与 `schema.ts` 的冻结 DDL 逐字对应。
+ * `token_space_scopes` 是复合主键、没有自增 `id`，它的两个列都在这里。
+ */
+const TOKEN_TABLE_COLUMNS: Record<string, string[]> = {
+  api_tokens: [
+    "id",
+    "user_id",
+    "kind",
+    "name",
+    "token_hash",
+    "created_at",
+    "last_used_at",
+    "revoked_at"
+  ],
+  import_tokens: [
+    "id",
+    "user_id",
+    "name",
+    "token_hash",
+    "created_at",
+    "last_used_at",
+    "revoked_at"
+  ],
+  token_space_scopes: ["token_id", "space_id"]
+}
+
 /** 定版 `users` 必须有、旧形态没有的列。 */
 const REQUIRED_USER_COLUMNS = [
   "email_verified",
@@ -112,8 +139,9 @@ const REQUIRED_USER_COLUMNS = [
  *
  * 覆盖面（宁全勿缺）：全部表在位；`users` 三列已删且身份列齐备；`pages` /
  * `page_revisions` 是「正文在 R2」的形态；每个 `INTEGER PRIMARY KEY AUTOINCREMENT`
- * 的 `id` 确为整数主键；`email_codes` 的 CHECK 已含 `register_verify`；`SCHEMA_INDEXES`
- * 里的索引全部在位，`users.username` 那条还必须是「唯一 + 部分索引」。
+ * 的 `id` 确为整数主键；令牌三表逐列核对（缺列/多列/改列都拦下），
+ * `token_space_scopes` 的复合主键位置也对；`email_codes` 的 CHECK 已含 `register_verify`；
+ * `SCHEMA_INDEXES` 里的索引全部在位，`users.username` 那条还必须是「唯一 + 部分索引」。
  */
 export async function findBaselineMismatches(
   db: D1Database,
@@ -208,6 +236,46 @@ export async function findBaselineMismatches(
       problems.push({
         kind: "shape",
         message: `${name}.id is not an INTEGER PRIMARY KEY`
+      })
+    }
+  }
+
+  // 令牌三表逐列核对：缺列、多列、改列都会被拦下；表不存在则跳过（前面已报）。
+  for (const [logical, expected] of Object.entries(TOKEN_TABLE_COLUMNS)) {
+    const name = tableName(prefix, logical)
+    if (!tables.has(name)) continue
+    const actual = new Set(
+      (await columnsOf(db, name)).map((column) => column.name)
+    )
+    for (const column of expected) {
+      if (!actual.has(column)) {
+        problems.push({
+          kind: "shape",
+          message: `${name} is missing column ${column}`
+        })
+      }
+    }
+    for (const column of actual) {
+      if (!expected.includes(column)) {
+        problems.push({
+          kind: "shape",
+          message: `${name} has unexpected column ${column}`
+        })
+      }
+    }
+  }
+
+  // `token_space_scopes` 没有自增 `id`，通用整数主键循环不碰它：它的结构就体现在
+  // 复合主键 (token_id, space_id) 上，逐列核对之外还要确认这两列确实是主键。
+  const scopes = tableName(prefix, "token_space_scopes")
+  if (tables.has(scopes)) {
+    const pkOf = new Map(
+      (await columnsOf(db, scopes)).map((column) => [column.name, column.pk])
+    )
+    if (pkOf.get("token_id") !== 1 || pkOf.get("space_id") !== 2) {
+      problems.push({
+        kind: "shape",
+        message: `${scopes} is not keyed on (token_id, space_id)`
       })
     }
   }
