@@ -71,3 +71,14 @@ describe("关于页文案：删三处 + 换介绍段 + TipTap 3", () => {
     ).toBeInTheDocument()
   })
 })
+
+describe("关于页标题与版本行", () => {
+  it("标题是「关于Ciki」，版本行渲染「版本 1.0.0」", () => {
+    render(<AboutPage />)
+
+    expect(
+      screen.getByRole("heading", { level: 1, name: "关于Ciki" })
+    ).toBeInTheDocument()
+    expect(screen.getByText("版本 1.0.0")).toBeInTheDocument()
+  })
+})

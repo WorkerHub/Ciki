@@ -38,7 +38,7 @@ export function AuthShell({
         </div>
       </main>
       <footer className="px-4 pb-4 text-center text-[11px] text-muted-foreground">
-        {siteName} · {__APP_VERSION__}
+        {siteName} · {__APP_PACKAGE_VERSION__} · {__APP_VERSION__}
       </footer>
     </div>
   )

@@ -184,6 +184,11 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(await screen.findByText("页面")).toBeInTheDocument()
   })
 
+  it("侧边栏页脚是三段式：站点名 · 版本号 · 构建版本", () => {
+    renderShell("/")
+    expect(screen.getByText("Ciki · 1.0.0 · test-build")).toBeInTheDocument()
+  })
+
   it("桌面普通页的搜索框落在正文那一栏，左缘与正文左缘同一条基线", () => {
     const { container, unmount } = renderShell("/p/a")
     // 顶栏按两栏拆开：站点名在侧栏栏顶部，搜索框行只在正文栏

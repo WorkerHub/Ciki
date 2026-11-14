@@ -7,5 +7,8 @@
  */
 declare const __APP_VERSION__: string
 
+/** 根 package.json 的 version（唯一版本来源，构建期注入）；页脚与关于页的「版本」用它。 */
+declare const __APP_PACKAGE_VERSION__: string
+
 /** 构建时刻（ISO 8601，UTC），同样由 vite.config.ts 注入。 */
 declare const __APP_BUILD_TIME__: string
