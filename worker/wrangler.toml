@@ -1,0 +1,57 @@
+name = "ciki"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# 部署期由 scripts/materialize-secrets.mjs 注入（组织级 secret，只引用不新建）。
+# 真实值绝不进仓库：本文件提交的只有占位符。
+account_id = "CLOUDFLARE_ACCOUNT_ID_PLACEHOLDER"
+
+# 前端构建产物与 Worker 同一部署单元，绑定名固定 ASSETS。
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+
+# 共享 D1（既有 workerhub 库，不为本项目新建）：名称来自组织级 Variable，
+# ID 来自组织级 Secret，均由部署脚本替换。
+[[d1_databases]]
+binding = "DB"
+database_name = "D1_DATABASE_NAME_PLACEHOLDER"
+database_id = "D1_DATABASE_ID_PLACEHOLDER"
+
+# 图片存储（规格 §2.4）：专用 bucket，非机密可明文。绑定名用 R2 而不是
+# ASSETS——ASSETS 已被上面的静态资源绑定占用，同一部署单元不能重名。
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "ciki-assets"
+
+# 正文内容存储（本单：内容上 R2）：与图片桶**完全不同**的 bucket，绑定名 CONTENT。
+# 页面正文 JSON 以 `content/<sha256>` 为 key、gzip 字节为值存在这里；D1 只留
+# `content_hash` 指针。两个桶各自独立清理（kind = images / content），互不影响。
+[[r2_buckets]]
+binding = "CONTENT"
+bucket_name = "ciki-content"
+
+# 月度 R2 孤儿清理（规格 §3）的内置触发器。
+#
+# Cloudflare Cron Trigger **只按 UTC 解释**（没有时区字段，也不支持 `L`），
+# 因此「`Asia/Shanghai` 时区每月 1 日凌晨」这个时刻无法直接表达（它落在 UTC 上个月的最后一天）。
+# 取 UTC 每月 1 日 17:00 = **`Asia/Shanghai` 每月 2 日 01:00**（凌晨低峰、每月一次）；
+# waker 侧的任务则按自己的时区写 `0 1 1 * *` + Asia/Shanghai，正好是 `Asia/Shanghai` 的 1 日 01:00。
+#
+# 两个入口只看 `WAKER_SIGNING_KEY` 的三态：未配置 → 走下面这条 Cron；
+# 配了真 key → waker 接管，`scheduled()` 检测到就跳过；
+# 设为保留值 `false` → 显式关闭自动清理（两个入口都不跑，手动清理照旧）。
+# 删掉该 secret 重新部署即回到 Cron，改成 `false` 则是关闭。
+# 这一段必须保留（不能注释掉 `crons`）：wrangler 只在 `crons` 有定义时才更新
+# Cloudflare 侧的 schedule，删掉整段并不会停掉已存在的 Cron Trigger。
+[triggers]
+crons = ["0 17 1 * *"]
+
+# 刻意不提交 [vars]：TABLE_PREFIX 只在部署期由 scripts/materialize-secrets.mjs
+# 按三态注入（未设置/空 → "ciki"，保留字 none → ""，其他值原样）；不带该变量
+# 时运行时回落到 worker/src/lib/table-prefix.ts 的默认前缀 "ciki_"，共享库上
+# 零配置也不会串表。
+#
+# 密钥一律走 wrangler secrets（CI: deploy --secrets-file；本地：worker/.dev.vars），
+# 见 worker/.dev.vars.example。

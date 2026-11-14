@@ -1,0 +1,1202 @@
+{
+  "app": {
+    "title": "{{siteName}}"
+  },
+  "common": {
+    "languages": {
+      "zh": "中文",
+      "en": "English"
+    },
+    "cancel": "取消",
+    "save": "保存",
+    "retry": "重试",
+    "theme": {
+      "label": "主题",
+      "auto": {
+        "label": "自动",
+        "hint": "跟随系统外观切换"
+      },
+      "light": {
+        "label": "浅色",
+        "hint": "始终使用浅色"
+      },
+      "dark": {
+        "label": "深色",
+        "hint": "始终使用深色"
+      },
+      "cycle": {
+        "auto": "自动（跟随系统）",
+        "light": "浅色",
+        "dark": "深色",
+        "switch": "主题：{{label}}，点击切换"
+      }
+    },
+    "roles": {
+      "admin": "管理员",
+      "editor": "编辑",
+      "viewer": "只读"
+    },
+    "table": {
+      "actions": "操作"
+    },
+    "image": {
+      "unsupported": "只支持 PNG / JPG / GIF / WebP 图片（SVG 不收）",
+      "tooLarge": "图片超过 10MB，请压缩后再上传"
+    },
+    "loading": "加载中…",
+    "close": "关闭",
+    "userFallback": "用户"
+  },
+  "shell": {
+    "sidebar": {
+      "pages": "页面",
+      "resize": "调整侧边栏宽度"
+    },
+    "newPage": "新建页面",
+    "loadingPage": "页面加载中",
+    "pageTree": "页面树",
+    "openTree": "打开页面树",
+    "search": {
+      "placeholder": "搜索标题与正文…",
+      "label": "搜索页面",
+      "action": "搜索"
+    },
+    "userMenu": {
+      "trigger": "账号菜单",
+      "profile": "个人资料",
+      "admin": "系统管理",
+      "trash": "回收站",
+      "settings": "设置",
+      "about": "关于",
+      "help": "帮助",
+      "logout": "退出登录"
+    },
+    "spaces": {
+      "switch": "切换空间",
+      "loadFailed": "空间列表加载失败",
+      "loading": "加载空间…",
+      "none": "没有空间",
+      "default": "默认",
+      "settings": "空间设置",
+      "new": "新建空间",
+      "create": {
+        "hint": "空间是一组页面与成员。创建后你是这个空间的管理员。",
+        "name": "空间名称",
+        "namePlaceholder": "例如：支付团队",
+        "description": "描述（可选）",
+        "descriptionPlaceholder": "这个空间用来放什么内容",
+        "nameRequired": "请填写空间名称",
+        "creating": "创建中…",
+        "submit": "创建空间"
+      }
+    },
+    "tree": {
+      "loading": "页面树加载中",
+      "emptyNamed": "「{{spaceName}}」还没有页面",
+      "empty": "还没有页面",
+      "emptyReadOnly": "你在这个空间是只读成员，可以让空间管理员添加页面。",
+      "emptyHint": "从新建一个页面开始，或直接把 Confluence 内容粘贴进编辑器。",
+      "movedTo": "已移动到「{{name}}」。",
+      "targetSpace": "目标空间",
+      "renameTitle": "重命名页面",
+      "renameHint": "只改标题，正文与版本历史不变。",
+      "titleLabel": "标题",
+      "deleteTitle": "删除「{{title}}」？",
+      "deleteHint": "页面会连同全部子页面一起移入回收站，之后可以在回收站里恢复。",
+      "deleteConfirm": "移入回收站",
+      "expand": "展开子页面",
+      "collapse": "收起子页面",
+      "unnamed": "未命名页面",
+      "drag": "拖动调整位置",
+      "rowActions": "页面「{{title}}」操作",
+      "addChild": "新建子页面",
+      "rename": "重命名",
+      "move": "移动…",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "delete": "删除（含子页面）"
+    }
+  },
+  "auth": {
+    "language": {
+      "switch": "界面语言：{{language}}，点击切换"
+    },
+    "common": {
+      "resendIn": "{{seconds}}s 后可重发",
+      "resend": "重新发送验证码",
+      "codeSentTo": "验证码已发送到 {{email}}，{{minutes}} 分钟内有效。",
+      "accountEmailFallback": "账号邮箱",
+      "passwordMismatch": "两次输入的密码不一致",
+      "goLogin": "去登录",
+      "backToLogin": "返回登录"
+    },
+    "login": {
+      "title": "登录 {{siteName}}",
+      "email": "邮箱",
+      "password": "密码",
+      "forgot": "忘记密码？",
+      "forgotUnavailable": "站点未配置发信，暂时无法通过邮件找回密码",
+      "unverified": "{{email}} 还没有验证邮箱，验证后才能登录。",
+      "verifyNow": "去验证",
+      "submit": "登录",
+      "submitting": "登录中…",
+      "smtpMissing": "站点未配置发信，邮件找回密码与自助注册暂不可用；请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。",
+      "accountViaAdmin": "账号请联系管理员开通。",
+      "noAccount": "还没有账号？<signup>注册</signup>"
+    },
+    "twofa": {
+      "title": "两步验证",
+      "subtitleEmail": "继续验证 {{account}}，验证码会发到账号邮箱。",
+      "subtitlePasskey": "继续验证 {{account}}，使用已登记的 Passkey。",
+      "subtitleTotp": "继续验证 {{account}}，输入验证器里的 6 位动态码。",
+      "methodsLabel": "验证方式",
+      "methods": {
+        "totp": "验证器 App",
+        "passkey": "Passkey",
+        "emailOtp": "邮箱验证码"
+      },
+      "passkeyHint": "浏览器会弹出指纹 / 面容 / 安全钥匙验证，不需要输入验证码。",
+      "passkeyUnsupported": "当前浏览器不支持 WebAuthn",
+      "passkeyWaiting": "等待验证…",
+      "passkeySubmit": "使用 Passkey 验证",
+      "codeLabelEmail": "邮箱验证码",
+      "codeLabelTotp": "动态验证码",
+      "codeSent": "验证码已发送到 {{email}}",
+      "codeWillSend": "选这个方式会向账号邮箱发送 6 位验证码",
+      "resend": "重新发送",
+      "sendCode": "发送验证码",
+      "verify": "验证并登录",
+      "verifying": "验证中…",
+      "back": "返回上一步"
+    },
+    "register": {
+      "title": "注册 {{siteName}}",
+      "subtitleApproval": "注册后需要验证邮箱并经管理员批准才能登录",
+      "subtitle": "注册后需要验证邮箱才能登录",
+      "email": "邮箱",
+      "password": "密码（至少 8 位）",
+      "repeat": "再次输入密码",
+      "passwordTooShort": "密码至少 8 位",
+      "submit": "注册",
+      "submitting": "提交中…",
+      "hasAccount": "已有账号？<signin>登录</signin>",
+      "doneTitle": "注册申请已提交",
+      "donePending": "账号已创建，正在等待管理员批准。批准后即可用同一邮箱登录。",
+      "doneActive": "账号已创建并激活，现在可以登录了。",
+      "closed": "站点当前关闭了自助注册。",
+      "closedHint": "请联系管理员创建账号，或直接登录已有账号。",
+      "unavailable": "站点还没有配置发信（SMTP），自助注册暂不可用。",
+      "unavailableHint": "注册后需要用邮箱验证码验证邮箱，所以必须先配好发信：请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。"
+    },
+    "verify": {
+      "title": "验证邮箱",
+      "subtitleWithEmail": "输入发到 {{email}} 的 6 位验证码，验证后才能登录。",
+      "subtitle": "输入注册邮箱与邮件里的 6 位验证码，验证后才能登录。",
+      "email": "邮箱",
+      "code": "邮箱验证码",
+      "ttl": "{{minutes}} 分钟内有效",
+      "missingEmail": "请先填写要验证的邮箱。",
+      "submit": "验证",
+      "verifying": "验证中…",
+      "alreadyVerified": "已经验证过了？<signin>去登录</signin>",
+      "doneTitle": "邮箱已验证",
+      "doneApproved": "{{email}} 已验证通过，现在可以用它登录了。",
+      "donePending": "{{email}} 已验证通过。账号还在等待管理员批准，批准后就能用这个邮箱登录。",
+      "unavailable": "站点还没有配置发信（SMTP），暂时无法通过邮件验证邮箱。",
+      "unavailableHint": "请联系管理员在「系统管理 → 邮件配置」中填写 SMTP，配置好后重新发送验证码即可。"
+    },
+    "forgot": {
+      "title": "找回密码",
+      "subtitle": "用账号邮箱收一封验证码，验证通过后设置新密码。",
+      "email": "邮箱",
+      "emailHint": "账号是否存在不会在页面上体现：如果这个邮箱已注册，会收到一封 6 位验证码的邮件。",
+      "send": "发送验证码",
+      "sending": "发送中…",
+      "remembered": "想起密码了？<signin>返回登录</signin>",
+      "codeTitle": "输入验证码",
+      "codeSubtitle": "如果 {{email}} 已注册，验证码会在几分钟内送达，请同时检查垃圾邮件文件夹。",
+      "codeLabel": "邮箱验证码",
+      "codeHint": "10 分钟内有效，连续输错 5 次会作废",
+      "submit": "验证",
+      "verifying": "验证中…",
+      "back": "返回上一步",
+      "wrongCode": "验证码连续输错 5 次已作废，请重新发送验证码。",
+      "passwordTitle": "设置新密码",
+      "passwordSubtitle": "保存后这个账号的全部登录状态都会失效，需要用新密码重新登录。",
+      "passwordHint": "验证已通过，请在 10 分钟内完成设置；过期后需要重新收码。",
+      "newPassword": "新密码（至少 8 位）",
+      "repeat": "再次输入新密码",
+      "passwordTooShort": "新密码至少 8 位",
+      "save": "保存新密码",
+      "saving": "保存中…",
+      "resend": "重新获取验证码",
+      "doneTitle": "密码已重置",
+      "doneBody": "新密码已生效。这个账号之前的所有登录状态都已失效。",
+      "doneHint": "请用新密码重新登录；两步验证的配置不受影响。",
+      "unavailable": "站点还没有配置发信（SMTP），暂时无法通过邮件找回密码。",
+      "unavailableHint": "请联系管理员在「系统管理 → 邮件配置」中填写 SMTP；管理员也可以直接为你重置密码。"
+    },
+    "setup": {
+      "title": "{{siteName}} 初始化",
+      "checking": "正在检查初始化状态…",
+      "subtitle": "第一次部署需要先建表，然后用 SETUP_SECRET 完成初始化；之后注册的首个账号会成为管理员。",
+      "doneSubtitle": "站点已完成初始化。",
+      "submit": "初始化数据库",
+      "running": "初始化中…",
+      "secretPlaceholder": "部署时配置的初始化密钥",
+      "secretHint": "密钥只会放进请求头，不会出现在地址栏；每次尝试都按来源 IP 限流。",
+      "idempotentHint": "重复执行只会做幂等检查/迁移，不会重建表，也不会清空数据。",
+      "conflict": "检测到另一套表前缀下已有数据，初始化已中止。",
+      "invalidSecret": "初始化密钥不正确，请确认部署时配置的 SETUP_SECRET。",
+      "rateLimited": "尝试过于频繁（同一 IP 每 10 分钟 3 次），请稍后再试。",
+      "conflictResolved": "当前解析出的前缀是 <code>{{resolved}}</code>{{others}}。为避免出现两套表，初始化已中止，请联系部署负责人确认 TABLE_PREFIX。",
+      "conflictOthers": "，但另一个前缀 {{prefixes}} 下已经存在本项目的数据",
+      "prefixSeparator": "、",
+      "doneTitle": "初始化完成",
+      "tablePrefix": "生效的表前缀",
+      "noPrefix": "（无前缀）",
+      "migrationApplied": "已应用",
+      "migrationCurrent": "已是最新",
+      "registerAdmin": "注册首个管理员账号",
+      "disabled": "初始化页已经在系统设置里关闭，说明数据库已就绪。"
+    }
+  },
+  "page": {
+    "untitled": "未命名页面",
+    "loading": "页面加载中",
+    "loadFailed": "页面加载失败",
+    "backHome": "回到首页",
+    "toc": {
+      "label": "本页索引"
+    },
+    "view": {
+      "notFound": {
+        "title": "页面不存在或已删除",
+        "description": "它可能被移进了回收站，或者链接里的页面 id 不对。"
+      },
+      "home": "首页",
+      "updatedAt": "更新于 {{time}}",
+      "readOnlyMember": "只读成员",
+      "refresh": "刷新",
+      "edit": "编辑",
+      "newChild": "子页面",
+      "move": "移动",
+      "download": "下载 .md",
+      "history": "历史",
+      "delete": "删除",
+      "empty": {
+        "body": "这个页面还是空的。点「编辑」，把 Confluence 里的内容直接粘进来。",
+        "start": "开始编辑"
+      },
+      "deleteDialog": {
+        "title": "删除「{{title}}」？",
+        "description": "页面与全部子页面会移入回收站，之后可以在回收站里恢复。",
+        "confirm": "移入回收站"
+      }
+    },
+    "edit": {
+      "notFound": "页面不存在或已删除。",
+      "loadGuard": "为了不覆盖已有内容，加载完成前不会打开编辑器。",
+      "reload": "重新加载",
+      "readOnly": "你是这个空间的只读成员，不能编辑页面。",
+      "backToRead": "返回阅读",
+      "titleLabel": "页面标题",
+      "titlePlaceholder": "页面标题",
+      "styleHint": "编辑态与阅读态使用同一套渲染样式；每次保存都会生成一条可回滚的版本记录。",
+      "saving": "保存中…",
+      "unsaved": "有未保存的更改",
+      "savedAt": "已保存 {{time}}",
+      "leaveDialog": {
+        "title": "还有未保存的修改",
+        "description": "离开后这些修改会丢失。要先保存再走吗？",
+        "stay": "留在此页",
+        "saveAndLeave": "保存并离开",
+        "discard": "放弃修改"
+      },
+      "cancelDialog": {
+        "title": "放弃未保存的修改？",
+        "keepEditing": "继续编辑",
+        "discard": "放弃修改"
+      }
+    },
+    "revisions": {
+      "title": "版本历史",
+      "listLabel": "版本列表",
+      "loading": "加载中…",
+      "count_other": "{{count}} 个版本",
+      "keepLatest": "只保留最新一条",
+      "empty": "还没有版本记录。",
+      "versionNo": "第 {{no}} 版",
+      "latest": "最新",
+      "deleteOneLabel": "删除这个版本",
+      "previewLabel": "版本预览",
+      "previewVersion": "第 {{no}} 版 · {{time}}",
+      "restoring": "回滚中…",
+      "restore": "回滚到这个版本",
+      "selectHint": "选择左侧任一版本查看内容",
+      "deleted": "版本已删除。",
+      "deletedCount_other": "已删除 {{count}} 条版本。",
+      "nothingToDelete": "没有可删除的版本。",
+      "delete": "删除",
+      "deleteDialog": {
+        "title": "删除这个版本？",
+        "target": "第 {{no}} 版（{{time}}）",
+        "targetFallback": "这个版本",
+        "description": "{{target}}将被永久删除，无法恢复。页面当前内容与其他版本不受影响。"
+      },
+      "pruneDialog": {
+        "title": "只保留最新的一条版本？",
+        "description_other": "将删除其余 {{count}} 条版本，删除后无法恢复。页面当前内容与最新的一条版本不受影响。",
+        "confirm_other": "删除 {{count}} 条"
+      }
+    },
+    "create": {
+      "title": "新建页面",
+      "targetUnder": "将创建在「{{title}}」下面。",
+      "targetTop": "将创建在页面树的顶层。",
+      "titleLabel": "页面标题",
+      "titlePlaceholder": "例如：支付服务部署手册",
+      "titleRequired": "请填写页面标题",
+      "creating": "创建中…",
+      "submit": "创建并编辑"
+    },
+    "move": {
+      "title": "移动「{{title}}」",
+      "description": "页面连同它的子页面会一起移动。",
+      "noTargets": "没有可移动到的空间。你需要在某个空间里拥有编辑权限。",
+      "targetSpace": "目标空间",
+      "targetPlaceholder": "选择空间",
+      "targetRequired": "请选择目标空间",
+      "parentPage": "父页面",
+      "parentPlaceholder": "选择父页面",
+      "topLevel": "顶层（无父页面）",
+      "moving": "移动中…",
+      "submit": "移动"
+    }
+  },
+  "editor": {
+    "placeholder": "开始输入，或直接粘贴内容…",
+    "surface": {
+      "label": "页面正文"
+    },
+    "toolbar": {
+      "label": "编辑器工具条",
+      "bold": {
+        "label": "粗体",
+        "hint": "粗体（Ctrl/⌘ + B）"
+      },
+      "italic": {
+        "label": "斜体",
+        "hint": "斜体（Ctrl/⌘ + I）"
+      },
+      "underline": {
+        "label": "下划线",
+        "hint": "下划线（Ctrl/⌘ + U）"
+      },
+      "strike": "删除线",
+      "textColor": "文字颜色",
+      "highlight": "高亮",
+      "bulletList": "无序列表",
+      "orderedList": "有序列表",
+      "taskList": "任务列表",
+      "blockquote": "引用",
+      "codeBlock": "代码块",
+      "divider": "分割线",
+      "cellBackground": "单元格背景",
+      "link": "插入链接",
+      "image": "上传图片",
+      "undo": {
+        "label": "撤销",
+        "hint": "撤销（Ctrl/⌘ + Z）"
+      },
+      "redo": {
+        "label": "重做",
+        "hint": "重做（Ctrl/⌘ + Shift + Z）"
+      },
+      "linkDialog": {
+        "title": "插入链接",
+        "description": "留空并保存可移除当前文字的链接。",
+        "urlLabel": "链接地址",
+        "apply": "应用",
+        "search": {
+          "label": "搜索站内页面",
+          "placeholder": "搜索站内页面",
+          "noMatch": "无匹配页面"
+        }
+      }
+    },
+    "paragraph": {
+      "label": "段落样式",
+      "body": "正文",
+      "heading": "标题 {{level}}"
+    },
+    "codeBlock": {
+      "show": "展开代码",
+      "hide": "收起代码",
+      "collapseByDefault": "默认折叠",
+      "language": "代码语言",
+      "languagePlaceholder": "选择语言",
+      "copy": "复制代码",
+      "copied": "已复制"
+    },
+    "languages": {
+      "plaintext": "纯文本"
+    },
+    "colors": {
+      "black": "黑色",
+      "gray": "灰色",
+      "red": "红色",
+      "orange": "橙色",
+      "yellow": "黄色",
+      "green": "绿色",
+      "blue": "蓝色",
+      "purple": "紫色",
+      "cyan": "青色",
+      "clearText": "清除颜色",
+      "clearHighlight": "清除高亮",
+      "clearCell": "清除底色"
+    },
+    "table": {
+      "label": "表格",
+      "current": "当前表格",
+      "insertRowBelow": "在下方插入行",
+      "insertColumnRight": "在右侧插入列",
+      "deleteRow": "删除当前行",
+      "deleteColumn": "删除当前列",
+      "deleteTable": "删除表格",
+      "cell": "{{cols}} 列 × {{rows}} 行"
+    },
+    "image": {
+      "untransferred": "未转存的图片",
+      "originalSrc": "原地址：{{src}}",
+      "originalSrcLink": "原地址：<url>{{src}}</url>",
+      "capturing": "补抓中…",
+      "retryCapture": "重试自动转存",
+      "uploading": "上传中…",
+      "uploadReplace": "上传替换",
+      "editHint": "点右上角「编辑」进入编辑页即可上传替换。",
+      "captureTimeout": "没等到 Ciki 插件补抓，请手动上传替换。",
+      "captureInvalid": "插件给的图片没有解码成功",
+      "captureEmpty": "插件给的图片是空的"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "language": {
+      "title": "语言",
+      "label": "界面语言"
+    },
+    "appearance": {
+      "title": "外观",
+      "account": "当前账号：{{email}}"
+    },
+    "password": {
+      "title": "修改密码",
+      "current": "当前密码",
+      "new": "新密码（至少 8 位）",
+      "repeat": "再次输入新密码",
+      "submit": "更新密码",
+      "submitting": "更新中…",
+      "tooShort": "新密码至少 8 位",
+      "mismatch": "两次输入的新密码不一致",
+      "accountLabel": "账号密码",
+      "busy": "处理中…"
+    },
+    "twofa": {
+      "title": "两步验证",
+      "enable": "启用",
+      "disable": "关闭",
+      "totp": {
+        "label": "验证器 App（TOTP）",
+        "enabled": "已开启：登录第二步输入 6 位动态码。",
+        "disabled": "未开启。",
+        "preparing": "准备中…",
+        "start": "开始配置",
+        "qrAlt": "TOTP 配置二维码",
+        "scanHint": "用 Bitwarden / 1Password 等验证器扫描二维码，或手动输入密钥：",
+        "codeLabel": "6 位验证码"
+      },
+      "passkey": {
+        "registered_other": "已登记 {{count}} 个 Passkey（指纹 / 面容 / 安全钥匙）。",
+        "none": "未登记。",
+        "add": "添加 Passkey",
+        "waiting": "等待验证…",
+        "removeAll": "全部移除",
+        "unsupported": "当前浏览器不支持 WebAuthn"
+      },
+      "email": {
+        "label": "邮箱验证码",
+        "hintEnabledConfigured": "已开启：登录第二步可以向 {{email}} 发送 6 位验证码。",
+        "hintEnabledUnconfigured": "已开启，但站点没有配置发信，登录时不会出现这个方式；可随时关闭。",
+        "hintNotEnabled": "未开启：需要先收一封验证码邮件确认邮箱可达。",
+        "hintUnavailable": "站点未配置发信，邮箱验证码不可用；请联系管理员在「系统管理 → 邮件配置」中填写 SMTP。",
+        "enable": "开启邮箱验证码",
+        "sending": "发送中…",
+        "resendIn": "重新发送（{{seconds}}s）",
+        "resend": "重新发送",
+        "disableLabel": "关闭邮箱验证码"
+      }
+    },
+    "dialogs": {
+      "disableTotp": {
+        "title": "关闭两步验证",
+        "description": "关闭后登录只需要密码。"
+      },
+      "reauth": {
+        "title": "验证身份",
+        "description": "账号已有可用的两步验证方式，新增前需要输入当前密码确认身份。",
+        "confirm": "继续"
+      },
+      "disableEmail": {
+        "title": "关闭邮箱验证码",
+        "description": "关闭后登录第二步不再发送邮件验证码，其它方式不受影响。",
+        "confirm": "确认关闭"
+      },
+      "removePasskey": {
+        "title": "移除全部 Passkey",
+        "description": "移除后只能使用动态验证码或密码登录。"
+      }
+    },
+    "sessions": {
+      "title": "登录设备",
+      "description": "吊销后该设备需要重新登录。",
+      "empty": "没有其它会话。",
+      "unknownDevice": "未知设备",
+      "current": "当前",
+      "meta": "{{ip}} · 最近活动 {{relative}} · 创建于 {{time}}",
+      "revoke": "吊销"
+    },
+    "notices": {
+      "passwordUpdated": "密码已更新，其它设备上的登录会话已失效。",
+      "totpEnabled": "两步验证已开启，下次登录需要输入动态验证码。",
+      "totpDisabled": "两步验证已关闭。",
+      "passkeyAdded": "Passkey 已添加。",
+      "passkeyRemoved": "Passkey 已全部移除。",
+      "emailOtpEnabled": "邮箱验证码已开启，下次登录可以改用邮箱收码。",
+      "emailOtpDisabled": "邮箱验证码已关闭。"
+    },
+    "tokens": {
+      "api": {
+        "title": "API Token",
+        "new": "新建 Token",
+        "empty": "还没有 API Token",
+        "kindLabel": "类型",
+        "kind": {
+          "read": "只读",
+          "write": "读写"
+        },
+        "autoName": {
+          "read": "只读 Token",
+          "write": "读写 Token"
+        },
+        "nameLabel": "名称",
+        "nameAutoHint": "留空将自动命名：{{name}}",
+        "create": "创建",
+        "creating": "创建中…",
+        "created": "Token 已创建。",
+        "rename": "改名",
+        "renameTitle": "修改 Token 名称",
+        "renameConfirm": "保存",
+        "renamed": "名称已修改。",
+        "editScope": "改范围",
+        "revoke": "吊销",
+        "revokeTitle": "吊销这个 Token？",
+        "revokeDescription": "吊销后使用「{{name}}」的应用立即失效，且不能恢复。",
+        "revokeConfirm": "吊销 Token",
+        "revoked": "Token 已吊销，使用它的应用立即失效。",
+        "missing": "Token 已不存在，列表已刷新。",
+        "issuedHint": "这串 Token 只显示这一次，离开设置页后无法再查看。请现在复制。"
+      },
+      "plugin": {
+        "title": "浏览器插件",
+        "new": "新建凭证",
+        "empty": "还没有插件凭证",
+        "nameLabel": "名称",
+        "autoName": "浏览器插件",
+        "nameAutoHint": "留空将自动命名：{{name}}",
+        "create": "创建",
+        "creating": "创建中…",
+        "created": "凭证已创建。",
+        "plaintextHint": "这串凭证只显示这一次，离开设置页后无法再查看。请现在复制。",
+        "pasteHint": "把凭证粘贴到浏览器插件的设置里，插件只需要这一串。",
+        "revoke": "吊销",
+        "revokeTitle": "吊销这个凭证？",
+        "revokeDescription": "吊销后「{{name}}」立即停止导入，且不能恢复。",
+        "revokeConfirm": "吊销凭证",
+        "revoked": "凭证已吊销，插件里的旧凭证立即失效。",
+        "missing": "凭证已不存在，列表已刷新。",
+        "copyLabel": "复制凭证"
+      },
+      "scope": {
+        "label": "空间范围",
+        "all": "全部空间",
+        "selected": "指定空间",
+        "save": "保存范围",
+        "saving": "保存中…",
+        "saved": "空间范围已保存。",
+        "empty": "没有可选的空间",
+        "summary": {
+          "all": "全部空间",
+          "selected": "指定空间（{{count}} 个）"
+        }
+      },
+      "common": {
+        "loading": "读取中…",
+        "neverUsed": "尚未使用",
+        "lastUsed": "最近使用 {{time}}",
+        "createdAt": "创建于 {{time}}",
+        "nameTooLong": "名称最多 40 个字。",
+        "copyFailed": "复制失败，请手动选中令牌文本复制。",
+        "copy": "复制",
+        "copyLabel": "复制 Token",
+        "copied": "已复制",
+        "saved": "我已保存"
+      }
+    }
+  },
+  "profile": {
+    "title": "个人资料",
+    "emptyUsername": "用户名不能为空。",
+    "saved": "个人资料已保存。",
+    "avatar": {
+      "title": "头像",
+      "description": "PNG / JPG / GIF / WebP，单张不超过 10MB；保存后生效。",
+      "change": "更换头像",
+      "select": "选择头像"
+    },
+    "info": {
+      "title": "显示信息",
+      "username": "用户名",
+      "email": "邮箱"
+    },
+    "saving": "保存中…"
+  },
+  "admin": {
+    "title": "系统管理",
+    "tabs": {
+      "users": "用户管理",
+      "spaces": "空间总览",
+      "settings": "应用设置",
+      "security": "访问与安全",
+      "email": "邮件配置",
+      "database": "数据库维护"
+    },
+    "common": {
+      "loading": "加载中…",
+      "refresh": "刷新",
+      "saving": "保存中…"
+    },
+    "roles": {
+      "admin": "管理员",
+      "user": "普通用户"
+    },
+    "users": {
+      "filterLabel": "用户筛选",
+      "filterAll": "全部用户",
+      "create": "新建用户",
+      "table": {
+        "email": "邮箱",
+        "role": "角色",
+        "status": "状态",
+        "createdAt": "注册于"
+      },
+      "emptyPending": "没有待批准的注册申请。",
+      "empty": "还没有用户。",
+      "you": "（你）",
+      "actionsLabel": "{{email}} 的操作",
+      "menuLabel": "账号操作",
+      "approve": "批准并激活",
+      "reject": "拒绝申请",
+      "setUser": "设为普通用户",
+      "setAdmin": "设为管理员",
+      "deactivate": "停用账号",
+      "activate": "启用账号",
+      "resetPassword": "重置密码",
+      "delete": "删除用户",
+      "createDescription": "新建的账号直接批准并激活，无需再走审批。",
+      "initialPassword": "初始密码（至少 8 位）",
+      "creating": "创建中…",
+      "createSubmit": "创建用户",
+      "resetDescription": "{{email}} · 重置后该用户的全部会话会被吊销。",
+      "resetPasswordLabel": "新密码（至少 8 位）",
+      "deleteTitle": "删除用户「{{email}}」？",
+      "deleteDescription": "该账号、它的两步验证与全部会话都会被删除。这个操作不可恢复。",
+      "deleteConfirm": "删除",
+      "status": {
+        "pending": "待批准",
+        "rejected": "已拒绝",
+        "inactive": "已停用",
+        "active": "正常"
+      }
+    },
+    "spaces": {
+      "title": "空间总览",
+      "description": "全部空间的成员数与页面数；页面数只算未删除页面，回收站单独统计。",
+      "loadingLabel": "空间总览加载中",
+      "emptyTitle": "还没有空间",
+      "emptyDescription": "完成数据库升级后会自动建出默认空间。",
+      "table": {
+        "space": "空间",
+        "description": "描述",
+        "members": "成员",
+        "pages": "页面",
+        "trashed": "回收站",
+        "createdAt": "创建时间"
+      },
+      "default": "默认"
+    },
+    "settings": {
+      "siteName": {
+        "label": "站点名称",
+        "description": "显示在浏览器页签、左上品牌区与登录页；保存后全站即时生效，不需要重新部署。",
+        "tooLong": "站点名称需为 1–32 个字符。",
+        "notSaved": "站点名称没有保存成功，请刷新后重试。",
+        "saved": "站点名称已保存，全站即时生效。"
+      },
+      "setupPage": {
+        "label": "显示初始化页面",
+        "description": "初始化完成后通常应关闭，避免把 setup 入口暴露在登录页。"
+      },
+      "mailConfigured": "邮件服务已配置：邮箱验证码两步验证与找回密码可用，修改在「邮件配置」。",
+      "mailMissing": "邮件服务未配置：邮箱验证码两步验证与找回密码不可用，请到「邮件配置」填写 SMTP。"
+    },
+    "security": {
+      "require2fa": {
+        "label": "强制两步验证",
+        "description": "开启后，未配置 TOTP 或 Passkey 的账号登录后会先被引导到「设置 → 两步验证」，配置完成前只能访问安全设置。"
+      },
+      "registration": {
+        "label": "开放注册",
+        "description": "关闭后新账号只能由管理员在「用户管理」里创建。"
+      },
+      "approval": {
+        "label": "注册需要管理员批准",
+        "description": "开启时，自助注册的账号先进入待批准状态，批准后才能登录。"
+      },
+      "model": {
+        "title": "权限模型",
+        "roles": "两级角色：管理员（admin）与普通用户（user），系统管理仅管理员可见、可调用。",
+        "wiki": "wiki 语义：登录用户可以阅读与编辑任何页面。",
+        "delete": "删除页面、回滚版本限页面作者本人与管理员；彻底删除只对回收站里的页面生效。",
+        "admin": "自助注册与「注册需要管理员批准」在上面的开关里；待批准用户的处理、账号停用与密码重置都在「用户管理」里操作。"
+      }
+    },
+    "smtp": {
+      "title": "SMTP 服务器",
+      "configured": "已配置",
+      "unconfigured": "未配置",
+      "hintConfigured": "邮箱验证码两步验证与找回密码都使用这份配置。",
+      "hintUnconfigured": "填好并保存后，邮箱验证码两步验证与找回密码才会启用。",
+      "host": {
+        "label": "服务器地址"
+      },
+      "port": {
+        "label": "端口",
+        "hint": "TLS 常用 465，STARTTLS 常用 587。"
+      },
+      "encryption": {
+        "label": "加密方式",
+        "tls": "TLS（465 端口，全程加密）",
+        "starttls": "STARTTLS（587 端口，先连接再升级加密）",
+        "none": "不加密（仅限内网自建服务）"
+      },
+      "username": {
+        "label": "用户名",
+        "hint": "多数服务商要求填邮箱全称；留空表示匿名登录。"
+      },
+      "password": {
+        "label": "密码",
+        "hintSaved": "已保存密码，留空不会改动它；重录才会覆盖。",
+        "hintEmpty": "按服务商要求填写；有的服务商要用「授权码」而不是登录密码。",
+        "maskHint": "•••••••• 已保存，留空保持不变",
+        "unset": "未设置"
+      },
+      "from": {
+        "label": "发件人地址"
+      },
+      "fromName": {
+        "label": "发件人名称",
+        "hint": "收件人看到的显示名，留空只显示地址。"
+      },
+      "save": "保存配置",
+      "test": "发送测试邮件",
+      "testing": "发送中…",
+      "testDisabled": "先保存一份可用的配置",
+      "testNote": "测试邮件只会发到当前管理员邮箱{{email}}，用的是已保存的配置。",
+      "testNoteEmail": "（{{email}}）",
+      "testNoteDisabled": "先保存配置，按钮才可用。",
+      "errors": {
+        "host": "请填写 SMTP 服务器地址。",
+        "port": "端口需为 1–65535 的整数。",
+        "from": "请填写发件人地址。",
+        "fromFormat": "发件人地址格式不正确。",
+        "usernameRequired": "填了（或已保存）密码时，用户名也要一起填。",
+        "passwordRequired": "填了用户名就要一起填密码；匿名中继请把用户名留空。"
+      },
+      "notices": {
+        "saved": "SMTP 配置已保存。",
+        "savedIncomplete": "SMTP 配置已保存，但还不能发信；请补全服务器地址、端口、加密方式与发件人地址。",
+        "testSent": "测试邮件已发送到 {{email}}，请查收（也看一下垃圾箱）。",
+        "testSentUnknown": "测试邮件已发送，请查收当前管理员邮箱。"
+      }
+    },
+    "database": {
+      "title": "数据库升级",
+      "checking": "检查中…",
+      "check": "检查并升级数据库",
+      "prefix": "当前表前缀",
+      "noPrefix": "（无前缀）",
+      "applied": "已应用",
+      "current": "已是最新",
+      "storage": {
+        "database": "数据库体积 {{size}}",
+        "databaseUnavailable": "数据库体积 不可得",
+        "assets": "图片体积 {{size}}",
+        "content": "正文体积 {{size}}",
+        "pages": "页面 {{pages}}"
+      },
+      "lastRun": "最近清理 {{time}} · 扫描 {{scanned}} · 引用 {{referenced}} · 删除 {{deleted}} · 未满 30 天跳过 {{youngSkipped}} · 失败 {{failed}}"
+    },
+    "orphan": {
+      "title": "孤儿图片清理",
+      "missingCounts": "扫描结果缺少可清理数与总大小，请确认后端版本后重试。",
+      "waitMinutes_other": "{{count}} 分钟",
+      "waitSeconds_other": "{{count}} 秒",
+      "running": "清理进行中，约 {{wait}}后可再试",
+      "scanning": "扫描中…",
+      "scan": "扫描孤儿图片",
+      "cleaning": "清理中…",
+      "clean": "立即清理",
+      "scanResult": "扫描 {{scanned}} · 引用 {{referenced}} · 可清理 {{prunable}}（{{bytes}}） · 未满 30 天跳过 {{skipped}}",
+      "runResult": "本轮已删除 {{deleted}} · 失败 {{failed}}",
+      "runRemaining": "，仍有剩余，可再扫描一轮",
+      "confirmTitle": "立即清理孤儿图片？",
+      "confirmDescription_other": "将永久删除 {{count}} 个对象（{{bytes}}），删除后无法恢复。",
+      "confirm_other": "删除 {{count}} 个"
+    },
+    "retention": {
+      "invalid": "保留数需为不小于 1 的整数，留空表示不限。",
+      "notSaved": "保留数没有保存成功，请刷新后重试。",
+      "savedUnlimited": "保留数已设为不限。",
+      "saved_other": "保留数已设为 {{count}} 条。",
+      "deleted_other": "已删除 {{count}} 条版本。",
+      "nothingToDelete": "没有可删除的版本。",
+      "previewing": "正在统计将删除的版本…",
+      "unlimited": "当前设置为不限，没有可修剪的版本。",
+      "nothingToPrune": "当前没有超出保留数的版本，不需要修剪。",
+      "preview_other": "将删除 {{count}} 条旧版本（每页保留最新 {{limit}} 条），删除后无法恢复。页面当前内容与最新的一条版本不受影响。",
+      "limit": {
+        "label": "每页保留历史版本数",
+        "description": "留空表示不限。设置后每次保存会自动删掉该页超出的旧版本；已有版本不会自动清理，可用下面的按钮按当前设置修剪。",
+        "placeholder": "不限"
+      },
+      "pruneDescription": "按当前设置为全部页面修剪：只删历史版本记录，不动页面当前内容。执行前会显示将删除的版本总数。",
+      "prune": "按当前设置修剪全部页面",
+      "pruneTitle": "按当前设置修剪全部页面？",
+      "pruneConfirm_other": "删除 {{count}} 条"
+    }
+  },
+  "space": {
+    "settings": {
+      "loadingLabel": "空间设置加载中",
+      "notFound": {
+        "title": "空间不存在或你已不是它的成员",
+        "description": "它可能已被删除，或者成员资格被移除。"
+      },
+      "back": "回到页面",
+      "loadFailed": "空间设置加载失败",
+      "reload": "重新加载",
+      "forbidden": {
+        "title": "仅空间管理员可以打开空间设置",
+        "description": "你在这个空间是编辑或只读成员；改名称、成员与删除空间需要空间管理员权限。"
+      },
+      "defaultBadge": "默认空间",
+      "subtitle": "空间设置只对空间管理员可见。名称与描述会即时出现在侧栏切换器里。",
+      "info": {
+        "title": "空间信息",
+        "description": "名称 1–64 个字符，描述最多 500 个字符。",
+        "name": "名称",
+        "descriptionLabel": "描述",
+        "saved": "已保存，切换器里的名称同步更新。"
+      },
+      "saving": "保存中…",
+      "members": {
+        "title": "成员",
+        "description": "成员从已注册用户里选；每个空间至少要保留一名管理员。",
+        "loadingLabel": "成员加载中",
+        "column": "成员",
+        "roleColumn": "角色",
+        "joinedAt": "加入时间",
+        "roleLabel": "{{name}} 的角色",
+        "lastAdmin": "最后一名管理员",
+        "remove": "移除",
+        "add": "添加成员",
+        "searchPlaceholder": "按用户名、邮箱或用户 ID 搜索",
+        "newRoleLabel": "新成员角色",
+        "searching": "搜索中…",
+        "search": "搜索",
+        "adding": "添加中…",
+        "addSubmit": "添加",
+        "removeTitle": "把「{{name}}」移出空间？",
+        "removeDescription": "移除后对方会立即失去这个空间的页面访问权限，可以再加回来。",
+        "removeConfirm": "移除成员"
+      },
+      "danger": {
+        "title": "危险区",
+        "description": "删除空间不可恢复；默认空间与还有页面的空间不能删除。",
+        "default": "默认空间不能删除。",
+        "countsFailed": "页面统计失败，暂时无法删除空间；请刷新重试。",
+        "counting": "正在统计空间内的页面…",
+        "hasPages_other": "空间里还有 {{count}} 个页面{{trash}}。请先在页面里用「移动到空间」把页面迁到别的空间，或彻底删除回收站里的页面，再回来删除空间。",
+        "trashSuffix_other": "，回收站里另有 {{count}} 个",
+        "empty": "空间里没有页面，可以删除。",
+        "delete": "删除空间",
+        "deleteTitle": "删除空间「{{name}}」？",
+        "deleteDescription": "空间本身与成员关系会被删除。页面必须先迁走或彻底删除，这个操作不可恢复。",
+        "deleting": "删除中…"
+      }
+    },
+    "loading": "空间加载中"
+  },
+  "search": {
+    "title": "搜索",
+    "subtitleWithQuery": "关键词「{{query}}」· 标题与正文都能命中",
+    "subtitle": "在顶栏输入关键词，回车开始搜索",
+    "loadingLabel": "搜索中",
+    "empty": {
+      "title": "输入关键词开始搜索",
+      "description": "支持多关键词（空格分隔），标题与正文命中都会出现在结果里。"
+    },
+    "noResults": {
+      "title": "没有找到匹配的页面",
+      "description": "换个关键词试试，或者确认页面没有被删除。"
+    }
+  },
+  "trash": {
+    "title": "回收站",
+    "currentSpace": "当前空间：{{name}}。",
+    "description": "软删除的页面会连同子页面一起停在这里；彻底删除会连版本历史一起清掉，无法恢复。",
+    "readOnly": "你是只读成员，只能查看。",
+    "loadingLabel": "回收站加载中",
+    "empty": {
+      "title": "回收站是空的",
+      "description": "被删除的页面会先到这里，可以恢复或彻底删除。",
+      "action": "回到页面"
+    },
+    "deletedAt": "删除于 {{relative}}（{{absolute}}）",
+    "restore": "恢复",
+    "purge": "彻底删除",
+    "purgeDialog": {
+      "title": "彻底删除「{{title}}」？",
+      "description": "页面与它的全部版本记录会被永久删除，无法恢复。"
+    }
+  },
+  "comments": {
+    "title": "评论",
+    "loadingLabel": "评论加载中",
+    "post": "发表",
+    "postLabel": "发表评论",
+    "reply": "回复",
+    "replyLabel": "回复内容",
+    "edit": "编辑",
+    "editLabel": "编辑评论",
+    "delete": "删除",
+    "preview": "预览",
+    "edited": "已编辑",
+    "deleted": "该评论已删除",
+    "deleteDialog": {
+      "title": "删除这条评论？",
+      "description": "删除后无法恢复。"
+    }
+  },
+  "help": {
+    "title": "粘贴与编辑说明",
+    "description": "直接把 Confluence 页面里的内容选中复制，粘到编辑器里即可。结构会尽量保真，少数源侧限制无法恢复。",
+    "supported": {
+      "title": "支持的结构",
+      "rows": {
+        "headings": {
+          "item": "标题 H1–H6、引用、分割线",
+          "detail": "完整保留"
+        },
+        "codeBlock": {
+          "item": "代码块",
+          "detail": "含阅读页行号列形态；浅色高亮 + 语言角标 + 复制按钮"
+        },
+        "table": {
+          "item": "表格",
+          "detail": "保留表头、合并单元格（colspan/rowspan）与源列宽比例，超宽可横向滚动"
+        },
+        "list": {
+          "item": "列表",
+          "detail": "嵌套层级保留；Confluence 任务列表保留勾选状态"
+        },
+        "inline": {
+          "item": "链接、行内代码、粗体/斜体/下划线/删除线",
+          "detail": "完整保留"
+        },
+        "image": {
+          "item": "图片（剪贴板里带着图片文件）",
+          "detail": "自动上传到图床并插入"
+        },
+        "attachment": {
+          "item": "Confluence 附件图片（只有链接）",
+          "detail": "保留原链接并标黄「未转存」，在编辑页手动上传替换"
+        }
+      }
+    },
+    "limits": {
+      "title": "已知限制",
+      "tableHeader": "某些 Confluence 插件表格的表头在页面上无法选中、根本不会进剪贴板，粘贴后表头会是空的 —— 这是源侧限制，wiki 这边无法恢复，需要手动补。",
+      "colors": "文字颜色与表格背景色不保留（列宽比例保留）。",
+      "panels": "Info / Note / Warning / Success 面板会降级成带标签的引用块。"
+    },
+    "shortcuts": {
+      "save": "快捷键：Ctrl/⌘ + S 保存页面；工具条里可以插表格、链接，也可以单独上传图片。",
+      "versions": "每次保存都会生成一条版本记录，可以在阅读页的「历史」里查看与回滚。"
+    }
+  },
+  "about": {
+    "title": "关于 ciki",
+    "intro": {
+      "title": "这是什么",
+      "body": "ciki 是团队内部使用的 wiki。页面按树组织，编辑器支持标题、代码块、表格、任务列表与图片；每次保存都会留下版本记录，可随时回滚，正文支持全文检索。成员按空间协作，登录支持 Passkey 与两步验证，也可用浏览器插件把外部页面剪藏进来。"
+    },
+    "stack": {
+      "title": "技术栈",
+      "rows": {
+        "frontend": {
+          "label": "前端",
+          "detail": "React 19 + Vite + TypeScript，Tailwind CSS v4，shadcn/ui（Nova 风格）+ Radix UI + Kumo"
+        },
+        "editor": {
+          "label": "编辑器",
+          "detail": "TipTap 3（StarterKit / CodeBlockLowlight / Table / TaskList / Image / Link / Underline）"
+        },
+        "backend": {
+          "label": "后端",
+          "detail": "Cloudflare Workers + Hono，D1（SQLite）+ FTS5 全文检索"
+        },
+        "image": {
+          "label": "图片",
+          "detail": "Cloudflare R2，经 /api/files 会话校验后回源"
+        },
+        "interaction": {
+          "label": "交互基础",
+          "detail": "react-resizable-panels（分栏）、dnd-kit（页面树拖拽）、Zustand（状态）、Lucide（图标）、Motion（动效）"
+        }
+      }
+    },
+    "build": {
+      "title": "构建信息",
+      "version": "版本号",
+      "time": "构建时间"
+    },
+    "repo": "开源地址：{{url}}"
+  },
+  "home": {
+    "empty": {
+      "title": "还没有页面",
+      "write": "新建一个页面，或者直接把 Confluence 里的内容粘贴进编辑器。",
+      "readOnly": "你在这个空间是只读成员，可以让空间管理员添加页面。"
+    }
+  },
+  "notFound": {
+    "title": "页面不存在",
+    "description": "链接可能已经失效，或者页面被移进了回收站。"
+  },
+  "time": {
+    "justNow": "刚刚",
+    "minutesAgo_other": "{{count}} 分钟前",
+    "hoursAgo_other": "{{count}} 小时前",
+    "daysAgo_other": "{{count}} 天前",
+    "waitSeconds_other": "{{count}} 秒",
+    "waitMinutes_other": "{{count}} 分钟"
+  },
+  "errors": {
+    "ACCOUNT_PENDING_APPROVAL": "账号正在等待管理员批准，批准后即可登录。",
+    "ACCOUNT_REJECTED": "该账号的注册申请已被拒绝，请联系管理员。",
+    "RATE_LIMITED": "尝试次数过多，请稍后再试。",
+    "ACCOUNT_LOCKED": "连续登录失败次数过多，请在 {{seconds}} 秒后重试。",
+    "REGISTRATION_DISABLED": "站点已关闭注册，请联系管理员开通账号。",
+    "EMAIL_TAKEN": "这个邮箱已经注册过，直接登录即可。",
+    "METHOD_NOT_ENABLED": "这个账号没有开启邮箱验证码。",
+    "2FA_METHOD_UNAVAILABLE": "该账号开启的两步验证方式当前都不可用，请联系管理员。",
+    "PREFIX_CONFLICT": "检测到另一个表前缀下已有本项目的数据，为避免出现两套表，初始化已中止。",
+    "LEDGER_CONFLICT": "检测到两套迁移账本同时存在（或旧账本结构异常），为避免丢记录，升级已中止，请先确认只保留一套账本。",
+    "MIGRATION_REJECTED": "这个库的结构不是本版能直接升级的来源：请先用上一版（支持升到 schema_v8 的发布）在「系统管理 → 数据库维护」点一次「检查并升级数据库」，再换回本版重试；本次没有改动任何数据。如果账本已记着 schema_v8，说明结构在升级后被改动过，请先按升级前记下的 Time Travel 回退点恢复。",
+    "REVISION_IS_LATEST": "每页最新的一条版本不能删除。",
+    "RETENTION_UNLIMITED": "当前设置为不限，没有可修剪的版本。",
+    "CLEANUP_IN_PROGRESS": "清理正在进行，请稍后再试。",
+    "REVISION_UNRENDERABLE": "这个版本的内容无法在当前编辑器版本下渲染，暂时不能查看或回滚。",
+    "CONTENT_MISSING": "页面正文暂时取不到（内容存储不可用或对象缺失），请稍后重试；持续失败请让管理员检查内容存储（ciki-content）。",
+    "PAGE_MOVE_CYCLE": "不能把页面移动到它自己的子页面下。",
+    "PARENT_DELETED": "目标父页面还在回收站里，请先恢复父页面。",
+    "PAGE_NOT_DELETED": "只有已删除的页面才能彻底删除。",
+    "COMMENT_EMPTY": "评论内容不能为空。",
+    "COMMENT_NOT_FOUND": "找不到这条评论，可能已被删除。",
+    "COMMENT_DELETED": "这条评论已被删除，不能再修改。",
+    "INVALID_CONTENT_JSON": "页面内容的格式不正确，无法保存。",
+    "PAYLOAD_TOO_LARGE": "内容或图片超过了单次保存上限，请精简后重试。",
+    "FILE_TOO_LARGE": "图片超过 10MB，请压缩后再上传。",
+    "INVALID_USERNAME": "用户名不合法，请检查后重试。",
+    "USERNAME_TAKEN": "这个用户名已经有人用了，请换一个。",
+    "INVALID_AVATAR": "头像无效，请重新上传。",
+    "INVALID_LANGUAGE": "语言不受支持，只支持中文和英文。",
+    "INVALID_SPACE_NAME": "空间名称需为 1–64 个字符。",
+    "INVALID_SPACE_DESCRIPTION": "空间描述最多 500 个字符。",
+    "SPACE_NOT_FOUND": "空间不存在，或你已不是它的成员。",
+    "SPACE_DEFAULT_PROTECTED": "默认空间不能删除。",
+    "SPACE_NOT_EMPTY": "空间里还有页面，请先把页面移动到其他空间，或彻底删除回收站里的页面。",
+    "SPACE_MISMATCH": "目标父页面不在这个空间里。",
+    "SPACE_FORBIDDEN": "你在这个空间里没有导入页面的权限。",
+    "DEFAULT_SPACE_MISSING": "站点还没有可用的默认空间，请联系管理员。",
+    "ALREADY_MEMBER": "该用户已经是这个空间的成员。",
+    "USER_NOT_ELIGIBLE": "该用户当前不可加入空间（需处于启用且已批准状态）。",
+    "LAST_SPACE_ADMIN": "空间至少需要保留一名管理员。",
+    "MEMBER_NOT_FOUND": "这个成员已经不在空间里了。",
+    "USER_NOT_FOUND": "找不到这个用户。",
+    "INVALID_ROLE": "成员角色不合法。",
+    "EMAIL_NOT_CONFIGURED": "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。",
+    "INVALID_EMAIL": "邮箱格式不正确，请检查后重试。",
+    "INVALID_CODE": "验证码不正确，请重新输入。",
+    "INVALID_CODE_RESET": "验证码不正确或已过期，请重新获取。",
+    "INVALID_CODE_VERIFY": "验证码不正确或已过期。",
+    "EMAIL_NOT_VERIFIED": "邮箱还没有验证，请先完成邮箱验证。",
+    "INVALID_RESET_TOKEN": "这次重置已失效（验证码换来的凭证过期或已被使用），请重新获取验证码。",
+    "WEAK_PASSWORD": "密码至少 8 位。",
+    "SMTP_SEND_FAILED": "发信失败，请检查 SMTP 配置。",
+    "SMTP_SEND_FAILED_REASON": "发信失败：{{reason}}",
+    "INVALID_SMTP_CONFIG": "SMTP 配置不合法，请检查后重试。",
+    "INVALID_SMTP_CONFIG_REASON": "SMTP 配置不合法：{{reason}}",
+    "network": "网络异常，请稍后重试",
+    "httpStatus": "请求失败（{{status}}）",
+    "rateLimitedWait": "操作过于频繁，请在 {{wait}}后重试。",
+    "passwordRequired": "这个操作需要输入账号密码确认身份。",
+    "passwordIncorrect": "密码不正确，请重试。",
+    "authFailed": "验证未通过，请重试。",
+    "sessionExpired": "登录状态已失效，请重新登录。",
+    "forbidden": "没有权限执行这个操作。",
+    "notFound": "对象不存在，或已被删除。",
+    "conflict": "当前状态冲突，请刷新后重试。",
+    "siteNameLength": "站点名称需为 1–32 个字符。",
+    "retentionLimit": "保留数需为不小于 1 的整数，留空表示不限。",
+    "tooLarge": "内容太大，服务器拒绝了这次请求。",
+    "tooFrequent": "操作太频繁，请稍后再试。",
+    "cleanupFailed": "清理失败，请稍后重试。",
+    "requestFailed": "请求失败，请稍后重试。",
+    "credentials": {
+      "invalidCredentials": "邮箱或密码不正确。",
+      "invalidVerificationCode": "验证码不正确，请重新输入。",
+      "invalidMfaCode": "验证码不正确，请重新输入。",
+      "twoFactorSession": "两步验证已失效，请返回上一步重新登录。",
+      "passkeyFailed": "Passkey 验证未通过，请重试。"
+    },
+    "webauthn": {
+      "missingChallenge": "服务器返回的 WebAuthn 参数不完整（缺少 challenge）",
+      "cancelled": "已取消 Passkey 操作",
+      "failed": "Passkey 操作失败，请重试"
+    },
+    "INVALID_SPACE_SCOPE": "空间范围无效，请重新选择。"
+  }
+}

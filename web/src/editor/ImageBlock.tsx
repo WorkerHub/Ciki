@@ -1,0 +1,180 @@
+import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
+import { ImageOff, RefreshCw, Upload } from "lucide-react"
+import { useRef, useState } from "react"
+import { Trans, useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
+import { imageWidth } from "@/editor/image-attributes"
+import { ResizableImage } from "@/editor/ResizableImage"
+import { describeApiError } from "@/lib/api"
+import { isSafeExternalUrl } from "@/lib/media"
+import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
+import { CAPTURE_TIMEOUT, useImageBridgeStore } from "@/stores/image-bridge"
+
+/**
+ * 图片节点：本站 /api/files 的图片直接显示；Confluence 附件或其它外链图在清洗时
+ * 已经把 src 换成了 data-original-src，这里渲染成「未转存」占位，并提供两条出路：
+ * 装了 Ciki 插件就让插件补抓（走 bridge 事件），否则手动上传替换（规格 §5.7）。
+ * 阅读态只展示提示与原始链接，两个替换动作都在编辑页完成。
+ *
+ * alt 只作为 <img> 的无障碍文本，不再渲染成可见图注：剪藏导入的图片 alt 兜底取的是
+ * 附件文件名，渲染成图注就等于在图下反复念文件名。
+ */
+export function ImageBlock({
+  node,
+  updateAttributes,
+  editor,
+  getPos
+}: NodeViewProps) {
+  const src = (node.attrs.src as string | null) || ""
+  const originalSrc = (node.attrs.originalSrc as string | null) || ""
+  const alt = (node.attrs.alt as string | null) || ""
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { t } = useTranslation()
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState("")
+  // 事件桥的补抓状态按原图地址记（同一张图可能在正文里出现多次）
+  const capturePending = useImageBridgeStore((state) =>
+    originalSrc ? Boolean(state.pending[originalSrc]) : false
+  )
+  const captureError = useImageBridgeStore((state) =>
+    originalSrc ? (state.errors[originalSrc] ?? "") : ""
+  )
+  const requestCapture = useImageBridgeStore((state) => state.requestCapture)
+  // store 里只存哨兵或已经翻译好的错误文案：超时文案渲染时才取，切语言即时生效
+  const captureMessage =
+    captureError === CAPTURE_TIMEOUT
+      ? t("editor.image.captureTimeout")
+      : captureError
+
+  if (src) {
+    return (
+      <NodeViewWrapper as="figure" className="my-4" data-image-block="">
+        {editor.isEditable ? (
+          // 编辑态：缩放手柄由 @tiptap/core 的 ResizableNodeView 提供
+          <ResizableImage
+            node={node}
+            editor={editor}
+            getPos={getPos}
+            updateAttributes={updateAttributes}
+          />
+        ) : (
+          // 阅读态/版本预览：只按已存宽度渲染，不出任何手柄
+          <img
+            src={src}
+            alt={alt}
+            title={(node.attrs.title as string | null) || undefined}
+            width={imageWidth(node.attrs) ?? undefined}
+          />
+        )}
+      </NodeViewWrapper>
+    )
+  }
+
+  const pickFile = () => {
+    setError("")
+    inputRef.current?.click()
+  }
+
+  const onFile = async (file: File | undefined) => {
+    if (!file) return
+    setUploading(true)
+    setError("")
+    try {
+      const uploaded = await uploadImage(file)
+      updateAttributes({
+        src: uploaded.url,
+        originalSrc: null,
+        confluenceImg: false,
+        alt: alt || file.name
+      })
+    } catch (uploadError) {
+      setError(describeApiError(uploadError))
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ""
+    }
+  }
+
+  return (
+    <NodeViewWrapper
+      as="div"
+      className="my-4 rounded-lg border border-amber-400/70 bg-amber-50 px-3 py-2.5 text-amber-950 dark:border-amber-500/50 dark:bg-amber-950/30 dark:text-amber-100"
+      data-image-block=""
+      data-untransferred-image=""
+    >
+      <div className="flex items-center gap-1 text-xs font-medium">
+        <ImageOff className="size-3.5" aria-hidden="true" />
+        {t("editor.image.untransferred")}
+      </div>
+      {originalSrc ? (
+        <p className="mt-1 truncate text-xs opacity-80" title={originalSrc}>
+          {/* 只有 http(s)/根相对路径才给链接：contentJson 里的 originalSrc 来自他人编辑，
+              绝不能把 javascript:/data:text/html 变成可点击的 href */}
+          {isSafeExternalUrl(originalSrc) ? (
+            <Trans
+              i18nKey="editor.image.originalSrcLink"
+              values={{ src: originalSrc }}
+              components={{
+                url: (
+                  // biome-ignore lint/a11y/useAnchorContent: 链接文字由 <Trans> 从资源串注入，锚点本身没有静态文本
+                  <a
+                    href={originalSrc}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="underline underline-offset-2"
+                  />
+                )
+              }}
+            />
+          ) : (
+            t("editor.image.originalSrc", { src: originalSrc })
+          )}
+        </p>
+      ) : null}
+      {editor.isEditable ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {originalSrc ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={() => requestCapture(originalSrc)}
+              disabled={uploading || capturePending}
+            >
+              <RefreshCw aria-hidden="true" />
+              {capturePending
+                ? t("editor.image.capturing")
+                : t("editor.image.retryCapture")}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={pickFile}
+            disabled={uploading}
+          >
+            <Upload aria-hidden="true" />
+            {uploading
+              ? t("editor.image.uploading")
+              : t("editor.image.uploadReplace")}
+          </Button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPT_IMAGE_ATTR}
+            className="hidden"
+            onChange={(event) => void onFile(event.target.files?.[0])}
+          />
+          {error || captureMessage ? (
+            <span className="text-xs text-destructive">
+              {error || captureMessage}
+            </span>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-1 text-xs opacity-80">{t("editor.image.editHint")}</p>
+      )}
+    </NodeViewWrapper>
+  )
+}

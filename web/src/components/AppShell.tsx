@@ -1,0 +1,465 @@
+import { cn } from "cn"
+import {
+  CircleHelp,
+  Info,
+  LogOut,
+  Menu,
+  Plus,
+  Search,
+  Settings,
+  ShieldCheck,
+  Trash2,
+  UserRound
+} from "lucide-react"
+import { motion, useReducedMotion } from "motion/react"
+import { Suspense, useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+import {
+  Group,
+  Panel,
+  Separator,
+  useDefaultLayout
+} from "react-resizable-panels"
+import { Link, Outlet, useLocation, useNavigate } from "react-router"
+import { CikiLogo } from "@/components/CikiLogo"
+import { CreatePageDialog } from "@/components/CreatePageDialog"
+import { HelpDialog } from "@/components/HelpDialog"
+import { PageCanvas } from "@/components/PageCanvas"
+import { PageTree } from "@/components/PageTree"
+import { SearchBox } from "@/components/SearchBox"
+import { SpaceSwitcher } from "@/components/SpaceSwitcher"
+import { ThemeCycleButton } from "@/components/ThemeToggle"
+import { displayUsername, UserAvatar } from "@/components/UserAvatar"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger
+} from "@/components/ui/sheet"
+import { useIsMobile } from "@/hooks/useMediaQuery"
+import { useSpaceRole } from "@/hooks/useSpaceRole"
+import { pageEditPath, spaceSearchPath, spaceTrashPath } from "@/lib/routes"
+import { canEdit } from "@/lib/space"
+import { useAuthStore } from "@/stores/auth"
+import { usePagesStore } from "@/stores/pages"
+import { useSiteStore } from "@/stores/site"
+import { useSpacesStore } from "@/stores/spaces"
+
+/**
+ * 这些页面不显示页面树侧栏：内容区全宽，移动端也不给抽屉入口。
+ * 空间上下文里的回收站/设置在 `/s/:slug/` 下面，不能按前缀判；搜索页沿用原来的
+ * 「带侧栏的分类页」口径（改路径不改版式），`/s/:slug` 本身是空间首页，也带侧栏。
+ */
+const SYSTEM_ROUTE_PREFIXES = ["/settings", "/about", "/admin", "/profile"]
+
+const SPACE_SYSTEM_SEGMENTS = new Set(["trash", "settings"])
+
+function isSystemPath(pathname: string): boolean {
+  if (
+    SYSTEM_ROUTE_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    )
+  )
+    return true
+  const segments = pathname.split("/").filter(Boolean)
+  return (
+    segments.length === 3 &&
+    segments[0] === "s" &&
+    SPACE_SYSTEM_SEGMENTS.has(segments[2])
+  )
+}
+
+/**
+ * 文章页（阅读 /p/:id 与编辑 /p/:id/edit）：正文宽度交给 PageCanvas，
+ * 壳层不再套 1140px 上限，否则正文到不了 1600px 封顶。
+ */
+function isArticlePath(pathname: string): boolean {
+  return pathname.startsWith("/p/")
+}
+
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const siteName = useSiteStore((state) => state.name)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const role = useSpaceRole(currentSpaceId)
+  const canWrite = canEdit(role)
+  const [createOpen, setCreateOpen] = useState(false)
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground">
+      <div className="border-b border-sidebar-border pt-2">
+        <SpaceSwitcher onNavigate={onNavigate} />
+      </div>
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <span className="text-xs font-medium tracking-wide text-muted-foreground">
+          {t("shell.sidebar.pages")}
+        </span>
+        {canWrite ? (
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            aria-label={t("shell.newPage")}
+            title={t("shell.newPage")}
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus aria-hidden="true" />
+          </Button>
+        ) : null}
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-4">
+        <PageTree onNavigate={onNavigate} />
+      </div>
+      <p className="truncate border-t border-sidebar-border px-3 py-2 text-[11px] text-muted-foreground">
+        {siteName} · {__APP_VERSION__}
+      </p>
+
+      <CreatePageDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        parentId={null}
+        onCreated={(page) => {
+          onNavigate?.()
+          navigate(pageEditPath(page.id))
+        }}
+      />
+    </div>
+  )
+}
+
+function UserMenu() {
+  const { t } = useTranslation()
+  const user = useAuthStore((state) => state.user)
+  const logout = useAuthStore((state) => state.logout)
+  const spaces = useSpacesStore((state) => state.spaces)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const currentSlug =
+    spaces.find((space) => space.id === currentSpaceId)?.slug ?? null
+  const navigate = useNavigate()
+  const [helpOpen, setHelpOpen] = useState(false)
+
+  if (!user) return null
+  const username = displayUsername(user)
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="max-w-[12rem] gap-1.5"
+            aria-label={t("shell.userMenu.trigger")}
+          >
+            <UserAvatar user={user} className="size-6 text-[11px]" />
+            <span className="max-w-[6rem] truncate text-xs text-muted-foreground sm:max-w-[10rem]">
+              {username}
+            </span>
+          </Button>
+        </DropdownMenuTrigger>
+        {/* 宽度按内容自适应，上限 12.5rem（200px） */}
+        <DropdownMenuContent
+          align="end"
+          className="w-auto min-w-[11rem] max-w-[12.5rem]"
+        >
+          <DropdownMenuLabel className="flex items-center gap-2 px-1.5 py-1.5">
+            <UserAvatar user={user} className="size-8 shrink-0 text-xs" />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-foreground">
+                {username}
+              </span>
+              <span className="block truncate text-[11px] font-normal text-muted-foreground">
+                {user.email}
+              </span>
+            </span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {/* 顺序：个人资料 → 系统管理（仅管理员）→ 回收站 → 设置 → 关于 → 帮助 */}
+          <DropdownMenuItem onSelect={() => navigate("/profile")}>
+            <UserRound aria-hidden="true" />
+            {t("shell.userMenu.profile")}
+          </DropdownMenuItem>
+          {user.role === "admin" ? (
+            <DropdownMenuItem onSelect={() => navigate("/admin")}>
+              <ShieldCheck aria-hidden="true" />
+              {t("shell.userMenu.admin")}
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem
+            onSelect={() =>
+              navigate(currentSlug ? spaceTrashPath(currentSlug) : "/")
+            }
+          >
+            <Trash2 aria-hidden="true" />
+            {t("shell.userMenu.trash")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate("/settings")}>
+            <Settings aria-hidden="true" />
+            {t("shell.userMenu.settings")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => navigate("/about")}>
+            <Info aria-hidden="true" />
+            {t("shell.userMenu.about")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setHelpOpen(true)}>
+            <CircleHelp aria-hidden="true" />
+            {t("shell.userMenu.help")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => {
+              void logout().then(() => navigate("/login"))
+            }}
+          >
+            <LogOut aria-hidden="true" />
+            {t("shell.userMenu.logout")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+    </>
+  )
+}
+
+export function AppShell() {
+  const { t } = useTranslation()
+  const isMobile = useIsMobile()
+  const siteName = useSiteStore((state) => state.name)
+  const loadTree = usePagesStore((state) => state.load)
+  const loadSpaces = useSpacesStore((state) => state.load)
+  const spacesStatus = useSpacesStore((state) => state.status)
+  const spaces = useSpacesStore((state) => state.spaces)
+  const currentSpaceId = useSpacesStore((state) => state.currentId)
+  const currentSlug =
+    spaces.find((space) => space.id === currentSpaceId)?.slug ?? null
+  const role = useSpaceRole(currentSpaceId)
+  const canWrite = canEdit(role)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
+  const navigate = useNavigate()
+  const location = useLocation()
+  const reduceMotion = useReducedMotion()
+  const isSystemRoute = isSystemPath(location.pathname)
+  const isArticleRoute = isArticlePath(location.pathname)
+  const layout = useDefaultLayout({
+    id: "ciki-shell",
+    panelIds: ["sidebar", "main"]
+  })
+
+  useEffect(() => {
+    void loadSpaces()
+  }, [loadSpaces])
+
+  // 空间列表到手后再拉树：默认空间用 null（不带 spaceId 交给后端缺省）；
+  // 列表失败时也退回默认空间的树，应用不白屏。
+  useEffect(() => {
+    if (spacesStatus === "ready") void loadTree(currentSpaceId)
+    else if (spacesStatus === "error") void loadTree(null)
+  }, [loadTree, spacesStatus, currentSpaceId])
+
+  // 移动端抽屉在点击树节点/导航项时由 onNavigate 关闭，不需要额外的路由副作用。
+
+  const content = (
+    <Suspense
+      fallback={
+        <div
+          className="space-y-3"
+          role="status"
+          aria-label={t("shell.loadingPage")}
+        >
+          <div className="h-7 w-2/5 animate-pulse rounded bg-muted" />
+          <div className="h-48 animate-pulse rounded-xl bg-muted/60" />
+        </div>
+      }
+    >
+      <Outlet />
+    </Suspense>
+  )
+
+  // 文章页读、写两态走同一条分支：宽度只由 PageCanvas 决定，两处不会各写一份。
+  const main = isArticleRoute ? (
+    <PageCanvas>{content}</PageCanvas>
+  ) : (
+    // 分类页（搜索等）与文章页共用同一条左缘：贴着分割线 16px/24px 起排，
+    // 不再用 1140px 居中容器把内容推得比正文更靠右；宽度上限保留，只去掉居中。
+    <div
+      className={cn(
+        "w-full px-4 py-5 sm:px-6 sm:py-6",
+        isSystemRoute ? "mx-auto max-w-[1400px]" : "max-w-[1140px]"
+      )}
+    >
+      {content}
+    </div>
+  )
+
+  const animatedMain = (
+    <motion.div
+      key={location.pathname}
+      initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
+      {main}
+    </motion.div>
+  )
+
+  const siteLink = (
+    <Link
+      to="/"
+      className="flex min-w-0 items-center gap-1.5 font-heading text-sm font-semibold tracking-tight"
+    >
+      <CikiLogo />
+      <span className="max-w-[8rem] truncate sm:max-w-[14rem]">{siteName}</span>
+    </Link>
+  )
+
+  const createButton = canWrite ? (
+    <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+      <Plus aria-hidden="true" />
+      {t("shell.newPage")}
+    </Button>
+  ) : null
+
+  const accountActions = (
+    <div className="ml-auto flex items-center gap-0.5">
+      <ThemeCycleButton />
+      <UserMenu />
+    </div>
+  )
+
+  const mobileActions = (
+    <div className="ml-auto flex items-center gap-1">
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        aria-label={t("shell.search.action")}
+        onClick={() =>
+          navigate(currentSlug ? spaceSearchPath(currentSlug) : "/")
+        }
+      >
+        <Search aria-hidden="true" />
+      </Button>
+      {canWrite ? (
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label={t("shell.newPage")}
+          onClick={() => setCreateOpen(true)}
+        >
+          <Plus aria-hidden="true" />
+        </Button>
+      ) : null}
+      <ThemeCycleButton />
+      <UserMenu />
+    </div>
+  )
+
+  const mobileMenu =
+    isMobile && !isSystemRoute ? (
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetTrigger asChild>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label={t("shell.openTree")}
+          >
+            <Menu aria-hidden="true" />
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
+          <SheetTitle className="sr-only">{t("shell.pageTree")}</SheetTitle>
+          <SidebarContent onNavigate={() => setSheetOpen(false)} />
+        </SheetContent>
+      </Sheet>
+    ) : null
+
+  return (
+    <div className="flex h-svh flex-col bg-background">
+      {isMobile || isSystemRoute ? (
+        <>
+          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+            {mobileMenu}
+            {siteLink}
+            {isMobile ? (
+              mobileActions
+            ) : (
+              <>
+                <SearchBox className="mx-3 max-w-md flex-1" />
+                {createButton}
+                {accountActions}
+              </>
+            )}
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
+        </>
+      ) : (
+        // 桌面普通页：顶栏按两栏拆开——站点名落在侧栏那一栏，搜索框落在正文那一栏、
+        // 左缘与正文左缘同一条基线（贴着分割线 24px）。顶栏跟着可拖拽的栏宽走，
+        // 所以这里不写死宽度、不用 JS 同步栏宽，交给布局本身定位。
+        <Group
+          orientation="horizontal"
+          className="min-h-0 flex-1"
+          defaultLayout={layout.defaultLayout}
+          onLayoutChanged={layout.onLayoutChanged}
+        >
+          <Panel
+            id="sidebar"
+            defaultSize="18%"
+            minSize={200}
+            maxSize={420}
+            className="h-full"
+          >
+            <div className="flex h-full flex-col overflow-hidden border-r border-border">
+              <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+                {siteLink}
+              </div>
+              <div className="min-h-0 flex-1">
+                <SidebarContent />
+              </div>
+            </div>
+          </Panel>
+          <Separator
+            className="w-px bg-border transition-colors hover:bg-primary/40 data-[separator=active]:bg-primary/60"
+            aria-label={t("shell.sidebar.resize")}
+          />
+          <Panel id="main" minSize={360} className="h-full">
+            <div className="flex h-full flex-col">
+              {/* 左内边距与 PageCanvas 同口径（手机 16px、≥640px 24px）；
+                  右侧保持原样 8px/12px，不给账号按钮换位置。 */}
+              <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4 sm:pr-3 sm:pl-6">
+                <SearchBox className="max-w-md flex-1" />
+                {createButton}
+                {accountActions}
+              </header>
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {animatedMain}
+              </div>
+            </div>
+          </Panel>
+        </Group>
+      )}
+
+      <CreatePageDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        parentId={null}
+        onCreated={(page) => navigate(pageEditPath(page.id))}
+      />
+    </div>
+  )
+}

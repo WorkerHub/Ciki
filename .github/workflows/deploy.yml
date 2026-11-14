@@ -1,0 +1,107 @@
+name: Deploy
+run-name: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.display_title || format('Manual deploy by {0}', github.actor) }}
+
+# 合并即部署：main 上 CI 绿了才跑，也可手动触发。
+# 合并关口归用户——团队不自行合并、不自行部署；本工作流只描述合并之后发生什么。
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# 部署不并发：两个 run 同时跑会争同一个 Worker 与 bucket。
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # 只认"main 上 push 触发的 CI 成功"：
+    # - event == 'push' 排除 PR（fork PR 的分支名也可能是 main）；
+    # - head_repository 排除来自其他仓库的 push；
+    # - 检出的是那次 CI 成功的那个 commit（见 checkout 的 ref）。
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      # 显式检出 CI 实际验证过的那个 commit：workflow_run 下的 GITHUB_SHA 是
+      # 默认分支最新提交，等排队期间 main 再前进就会部署未经验证的代码。
+      # fetch-depth: 0 是为了版本号——页脚/关于页用 git describe 的结果，
+      # 浅克隆里 describe 拿不到 tag。
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build web
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: pnpm build:web
+
+      # secrets.json（0600）+ wrangler.toml 占位符解析，逐键校验；缺任何一把
+      # secret/variable 就中止并点名，绝不带空值或占位值部署。
+      # 资源 ID 走 secrets.*（GitHub 自动掩码，不需要 add-mask）；
+      # D1_DATABASE_NAME 保持 variable 明文；WAKER_SIGNING_KEY 是**可选**项
+      # （配了月度清理走 waker、不配走内置 Cron），所以缺它不会中止部署。
+      # CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID 除了解析
+      # wrangler.toml，也会作为 Worker secret 上传：/api/admin/storage 调
+      # Cloudflare D1 REST API 取库体积要用（令牌需含 D1 读；不新增 secret 名）。
+      - name: Materialize secrets + wrangler config
+        env:
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          SETUP_SECRET: ${{ secrets.SETUP_SECRET }}
+          WAKER_SIGNING_KEY: ${{ secrets.WAKER_SIGNING_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
+          D1_DATABASE_NAME: ${{ vars.D1_DATABASE_NAME }}
+          TABLE_PREFIX: ${{ vars.TABLE_PREFIX }}
+        run: node scripts/materialize-secrets.mjs
+
+      # R2 绑定要求 bucket 先存在。这里幂等补建**两个**桶（图片 ciki-assets +
+      # 正文 ciki-content）：只有"已存在"算通过，其他错误（例如组织级 token 未授予
+      # R2 编辑权限）必须让本次 run 变红。
+      - name: Ensure R2 buckets
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for bucket in ciki-assets ciki-content; do
+            if out=$(pnpm exec wrangler r2 bucket create "$bucket" 2>&1); then
+              echo "$out"
+            elif printf '%s' "$out" | grep -qiE "already exists|\(10004\)"; then
+              echo "R2 bucket $bucket 已存在，跳过创建"
+            else
+              printf '%s\n' "$out"
+              echo "::error::创建 R2 bucket $bucket 失败：请确认组织级 CLOUDFLARE_API_TOKEN 具备 R2 编辑权限，或先在 Cloudflare 控制台建好该 bucket 后重跑。"
+              exit 1
+            fi
+          done
+
+      # 表结构与数据迁移不在这里跑：部署完成后由管理员触发一次 setup /
+      # 数据库维护迁移（见 README「部署」章），那时才会真正建表。
+      - name: Deploy Worker
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: pnpm exec wrangler deploy --secrets-file "$RUNNER_TEMP/secrets.json"

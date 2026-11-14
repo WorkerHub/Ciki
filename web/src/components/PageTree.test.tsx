@@ -1,0 +1,260 @@
+import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { MemoryRouter } from "react-router"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { PageTree } from "@/components/PageTree"
+import type { Space } from "@/lib/api"
+import { usePagesStore } from "@/stores/pages"
+import { useSpacesStore } from "@/stores/spaces"
+
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/api")>()
+  return {
+    ...actual,
+    pagesApi: { ...actual.pagesApi, tree: vi.fn(), create: vi.fn() }
+  }
+})
+
+const { pagesApi } = await import("@/lib/api")
+
+function space(role: Space["myRole"]): Space {
+  return {
+    id: 1,
+    slug: "default",
+    name: "默认空间",
+    description: "",
+    myRole: role,
+    isDefault: true,
+    createdAt: "2026-11-08T00:00:00.000Z",
+    updatedAt: "2026-11-08T00:00:00.000Z"
+  }
+}
+
+const renderTree = () =>
+  render(
+    <MemoryRouter>
+      <PageTree />
+    </MemoryRouter>
+  )
+
+describe("页面树空状态", () => {
+  beforeEach(() => {
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space("editor")],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+  })
+
+  it("空树时「新建页面」能真的打开新建对话框", async () => {
+    const user = userEvent.setup()
+    renderTree()
+
+    expect(screen.getByText(/还没有页面/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "新建页面" }))
+
+    // 之前空状态提前 return，导致对话框根本不在 DOM 里，按钮点了没反应
+    const dialog = await screen.findByRole("dialog")
+    expect(dialog).toBeInTheDocument()
+    expect(screen.getByLabelText("页面标题")).toBeInTheDocument()
+  })
+
+  it("空树状态下提交标题会调用创建接口", async () => {
+    const user = userEvent.setup()
+    vi.mocked(pagesApi.create).mockResolvedValue({
+      id: 1,
+      parentId: null,
+      spaceId: 1,
+      title: "新页面",
+      sortOrder: 0,
+      contentHtml: "",
+      contentText: "",
+      contentMd: "",
+      createdBy: 1,
+      updatedBy: 1,
+      createdAt: "2026-11-07T00:00:00.000Z",
+      updatedAt: "2026-11-07T00:00:00.000Z"
+    })
+    renderTree()
+
+    await user.click(screen.getByRole("button", { name: "新建页面" }))
+    await user.type(await screen.findByLabelText("页面标题"), "新页面")
+    await user.click(screen.getByRole("button", { name: "创建并编辑" }))
+
+    expect(pagesApi.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "新页面",
+        parentId: null,
+        spaceId: 1
+      })
+    )
+  })
+
+  it("编辑及以上才有「移动」入口，点开是移动对话框", async () => {
+    const user = userEvent.setup()
+    useSpacesStore.setState({
+      spaces: [
+        space("editor"),
+        {
+          ...space("editor"),
+          id: 2,
+          slug: "space-2",
+          name: "另一个空间",
+          isDefault: false
+        }
+      ],
+      currentId: 1
+    })
+    usePagesStore.setState({
+      tree: [
+        {
+          id: 1,
+          parentId: null,
+          title: "可移动页面",
+          sortOrder: 0,
+          updatedAt: "2026-11-08T00:00:00.000Z",
+          children: []
+        }
+      ]
+    })
+    renderTree()
+
+    await user.click(
+      screen.getByRole("button", { name: "页面「可移动页面」操作" })
+    )
+    await user.click(await screen.findByRole("menuitem", { name: "移动…" }))
+
+    expect(await screen.findByText("移动「可移动页面」")).toBeInTheDocument()
+  })
+
+  it("只有一个空间时也给「移动」入口（同空间改父页面）", async () => {
+    const user = userEvent.setup()
+    usePagesStore.setState({
+      tree: [
+        {
+          id: 1,
+          parentId: null,
+          title: "唯一页面",
+          sortOrder: 0,
+          updatedAt: "2026-11-08T00:00:00.000Z",
+          children: []
+        }
+      ]
+    })
+    renderTree()
+
+    await user.click(
+      screen.getByRole("button", { name: "页面「唯一页面」操作" })
+    )
+    expect(
+      await screen.findByRole("menuitem", { name: "重命名" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "移动…" })).toBeInTheDocument()
+  })
+
+  it("只读空间：行内不给操作菜单与拖拽手柄", () => {
+    useSpacesStore.setState({
+      spaces: [space("viewer")],
+      currentId: 1
+    })
+    usePagesStore.setState({
+      tree: [
+        {
+          id: 1,
+          parentId: null,
+          title: "只读页面",
+          sortOrder: 0,
+          updatedAt: "2026-11-08T00:00:00.000Z",
+          children: []
+        }
+      ]
+    })
+    renderTree()
+
+    expect(screen.getByText("只读页面")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "页面「只读页面」操作" })
+    ).toBeNull()
+    expect(screen.queryByRole("button", { name: "拖动调整位置" })).toBeNull()
+  })
+
+  it("树行控件是悬浮覆盖层：不占标题宽度、平时不挡点击", () => {
+    const title = "很长很长很长很长很长很长很长很长的页面标题"
+    useSpacesStore.setState({
+      spaces: [space("editor")],
+      currentId: 1
+    })
+    usePagesStore.setState({
+      tree: [
+        {
+          id: 1,
+          parentId: null,
+          title,
+          sortOrder: 0,
+          updatedAt: "2026-11-08T00:00:00.000Z",
+          children: []
+        }
+      ]
+    })
+    renderTree()
+
+    const titleButton = screen.getByRole("button", { name: title })
+    // 标题吃满整行，只给行尾的小 padding 让路
+    expect(titleButton).toHaveClass("min-w-0", "flex-1", "truncate")
+
+    const controls = screen.getByRole("button", {
+      name: `页面「${title}」操作`
+    }).parentElement
+    // 覆盖层：绝对定位，平时不可见也不拦点击；hover / 行内聚焦 / 菜单打开时显形
+    expect(controls).toHaveClass(
+      "absolute",
+      "opacity-0",
+      "pointer-events-none",
+      "group-hover:opacity-100",
+      "group-hover:pointer-events-auto",
+      "group-focus-within:opacity-100",
+      "group-focus-within:pointer-events-auto"
+    )
+    expect(controls?.className).toContain(
+      "group-has-[[data-state=open]]:opacity-100"
+    )
+    // 控件不再参与 flex 布局：与标题同级，定位由行容器负责
+    expect(controls?.parentElement).toBe(titleButton.parentElement)
+    expect(controls?.parentElement).toHaveClass("relative")
+  })
+
+  it("只读空间的空状态说明只读身份，且没有新建入口", () => {
+    useSpacesStore.setState({
+      spaces: [space("viewer")],
+      currentId: 1
+    })
+    renderTree()
+
+    expect(screen.getByText(/只读成员/)).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "新建页面" })).toBeNull()
+  })
+
+  it("页面树加载失败时给重试入口，而不是误报没有页面", () => {
+    usePagesStore.setState({
+      tree: [],
+      loading: false,
+      error: "对象不存在，或已被删除。"
+    })
+    renderTree()
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "对象不存在，或已被删除。"
+    )
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+    expect(screen.queryByText(/还没有页面/)).toBeNull()
+  })
+})

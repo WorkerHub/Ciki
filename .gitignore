@@ -1,0 +1,25 @@
+node_modules
+dist
+.wrangler
+.dev.vars
+*.local
+.DS_Store
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build
+web/dist
+worker/dist
+*.tsbuildinfo
+
+# Logs
+*.log

@@ -1,0 +1,698 @@
+@import "tailwindcss";
+@import "@cloudflare/kumo/styles";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+
+/* Kumo 组件内部的类名写在它自己的产物里，不声明 @source 就会被 Tailwind 漏掉。 */
+@source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: "Geist Variable", sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * wiki 正文：编辑态（.ProseMirror）与阅读态（ReadView）共用同一组样式，
+ * 保证「编辑看到什么，保存后就读到什么」。样式来源是粘贴验证小样 v0.4
+ * 的定版（表格按内容定宽、代码块浅色高亮、任务列表勾选态）。
+ * ------------------------------------------------------------------ */
+.wiki-content {
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--foreground);
+  word-break: break-word;
+}
+
+.wiki-content:focus,
+.wiki-content:focus-visible {
+  outline: none;
+}
+
+.wiki-content > *:first-child {
+  margin-top: 0;
+}
+
+.wiki-content > *:last-child {
+  margin-bottom: 0;
+}
+
+.wiki-content p {
+  margin: 0.625em 0;
+  text-wrap: pretty;
+}
+
+.wiki-content h1,
+.wiki-content h2,
+.wiki-content h3,
+.wiki-content h4,
+.wiki-content h5,
+.wiki-content h6 {
+  margin: 1.25em 0 0.5em;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  /* 索引跳转的落点：标题不贴滚动容器顶边，留出画布上边距量级 */
+  scroll-margin-top: 1.5rem;
+}
+
+/*
+ * 标题刻度：阅读态、编辑态与「段落样式」下拉的示范共用这一组值——改这里只有一处生效，
+ * 三处自动一致。下拉只把整块等比缩小（.wiki-style-menu 的基准字号），不另设预览数值。
+ */
+:root {
+  --wiki-heading-1: 1.875em;
+  --wiki-heading-2: 1.5em;
+  --wiki-heading-3: 1.25em;
+  --wiki-heading-4: 1.125em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+.wiki-content h1 {
+  font-size: var(--wiki-heading-1);
+  text-wrap: balance;
+}
+
+.wiki-content h2 {
+  font-size: var(--wiki-heading-2);
+  text-wrap: balance;
+}
+
+.wiki-content h3 {
+  font-size: var(--wiki-heading-3);
+}
+
+.wiki-content h4 {
+  font-size: var(--wiki-heading-4);
+}
+
+.wiki-content h5 {
+  font-size: var(--wiki-heading-5);
+}
+
+.wiki-content h6 {
+  font-size: var(--wiki-heading-6);
+  color: var(--muted-foreground);
+}
+
+/*
+ * 「段落样式」下拉的层级示范：每项的字号直接引用上面的标题刻度（em 相对面板基准解析），
+ * 字重/行高/字距与 .wiki-content 的标题同口径。面板基准字号只决定下拉整体高度。
+ */
+.wiki-style-menu {
+  font-size: 0.8125rem;
+}
+
+.wiki-style-item[data-style^="h"] {
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.wiki-style-item[data-style="p"] {
+  font-size: 1em;
+  font-weight: 400;
+  line-height: 1.6;
+  letter-spacing: normal;
+}
+
+.wiki-style-item[data-style="h1"] {
+  font-size: var(--wiki-heading-1);
+}
+
+.wiki-style-item[data-style="h2"] {
+  font-size: var(--wiki-heading-2);
+}
+
+.wiki-style-item[data-style="h3"] {
+  font-size: var(--wiki-heading-3);
+}
+
+.wiki-style-item[data-style="h4"] {
+  font-size: var(--wiki-heading-4);
+}
+
+.wiki-style-item[data-style="h5"] {
+  font-size: var(--wiki-heading-5);
+}
+
+.wiki-style-item[data-style="h6"] {
+  font-size: var(--wiki-heading-6);
+  color: var(--muted-foreground);
+}
+
+.wiki-content ul,
+.wiki-content ol {
+  margin: 0.625em 0;
+  padding-left: 1.5em;
+}
+
+.wiki-content ul {
+  list-style: disc;
+}
+
+.wiki-content ol {
+  list-style: decimal;
+}
+
+.wiki-content li > p {
+  margin: 0.2em 0;
+}
+
+.wiki-content li > ul,
+.wiki-content li > ol {
+  margin: 0.2em 0;
+}
+
+.wiki-content blockquote {
+  margin: 0.875em 0;
+  padding: 0.25em 1em;
+  border-left: 3px solid var(--border);
+  border-radius: 0 0.5rem 0.5rem 0;
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+  color: color-mix(in oklch, var(--foreground) 85%, transparent);
+}
+
+.wiki-content blockquote > p:first-child {
+  margin-top: 0.25em;
+}
+
+.wiki-content blockquote > p:last-child {
+  margin-bottom: 0.25em;
+}
+
+.wiki-content hr {
+  margin: 1.5em 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.wiki-content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 行内代码 */
+.wiki-content :not(pre) > code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.25rem;
+  background: var(--muted);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  word-break: break-word;
+}
+
+/* 代码块：容器（头部 + pre）由 CodeBlockView 渲染；浅色主题在明暗两态都保留，
+   因为 GitHub 浅色配色的高亮色是定版效果，深色底会让关键字对比度崩掉。 */
+.wiki-content .code-block {
+  margin: 1em 0;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  overflow: hidden;
+  background: #f6f8fa;
+}
+
+.wiki-content .code-block > pre {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  border: 0;
+  border-radius: 0;
+  background: #f6f8fa;
+  color: #24292f;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.wiki-content .code-block > pre > code {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  white-space: pre;
+}
+
+/* 代码块永不折行（含表格单元格里的代码块）：正文的 word-break: break-word 是给中文
+   段落用的，漏进代码块会把超长行从词中间断开，这里复位成 normal；white-space: pre
+   与 CodeBlockView 给 NodeViewContent 的同一个值一致（那个行内值来自依赖的默认，
+   在组件里就地覆盖），超宽交给 pre 的 overflow-x 横滚。
+   格内代码与独立代码块的渲染口径就此一致；行内代码（:not(pre) > code）不在本条范围内，
+   仍按普通文本折行。 */
+.wiki-content .code-block > pre,
+.wiki-content .code-block > pre > code {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* 评论正文的代码围栏：服务端下发的是裸 <pre><code class="language-*">，没有
+   CodeBlockView 的 .code-block 壳，上面那套匹配不上，这里按同一套视觉补上
+   （浅色底在明暗两态都保留，与正文代码块同口径；语言标注留在 code 的 class 上）。 */
+.wiki-content.comment-body pre {
+  margin: 0.875em 0;
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: #f6f8fa;
+  color: #24292f;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  tab-size: 2;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.wiki-content.comment-body pre > code {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+/* highlight.js —— GitHub 浅色配色（小样 index.html 定版） */
+.wiki-content .hljs-comment,
+.wiki-content .hljs-punctuation {
+  color: #6a737d;
+}
+
+.wiki-content .hljs-comment {
+  font-style: italic;
+}
+
+.wiki-content .hljs-keyword,
+.wiki-content .hljs-tag,
+.wiki-content .hljs-selector-tag,
+.wiki-content .hljs-doctag,
+.wiki-content .hljs-template-tag {
+  color: #d73a49;
+}
+
+.wiki-content .hljs-string,
+.wiki-content .hljs-regexp,
+.wiki-content .hljs-meta .hljs-string {
+  color: #032f62;
+}
+
+.wiki-content .hljs-number,
+.wiki-content .hljs-literal {
+  color: #005cc5;
+}
+
+.wiki-content .hljs-title,
+.wiki-content .hljs-title.function_,
+.wiki-content .hljs-section {
+  color: #6f42c1;
+}
+
+.wiki-content .hljs-title.class_,
+.wiki-content .hljs-type,
+.wiki-content .hljs-built_in,
+.wiki-content .hljs-builtin-name {
+  color: #e36209;
+}
+
+.wiki-content .hljs-attr,
+.wiki-content .hljs-attribute,
+.wiki-content .hljs-variable,
+.wiki-content .hljs-template-variable,
+.wiki-content .hljs-selector-id,
+.wiki-content .hljs-name {
+  color: #005cc5;
+}
+
+.wiki-content .hljs-symbol,
+.wiki-content .hljs-bullet,
+.wiki-content .hljs-link {
+  color: #735c0f;
+}
+
+.wiki-content .hljs-emphasis {
+  font-style: italic;
+}
+
+.wiki-content .hljs-strong {
+  font-weight: 700;
+}
+
+.wiki-content .hljs-addition {
+  color: #22863a;
+  background: #f0fff4;
+}
+
+.wiki-content .hljs-deletion {
+  color: #b31d28;
+  background: #ffeef0;
+}
+
+/* 表格：按内容定宽 + 保留源列宽比例 + 超宽横向滚动 */
+.wiki-content .tableWrapper {
+  margin: 0.875em 0;
+  overflow-x: auto;
+}
+
+.wiki-content table {
+  width: auto;
+  max-width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+/* 单列表格（列数=1）：唯一列一律占满正文宽，存储的 colwidth 对它不生效
+   （粘贴转换、读态、编辑态都已把单列表格的列宽归一掉，这里只负责撑满）。
+   判据用 TableView 实际渲染的列定义：col 由 colspan 展开，所以「只有一条合并
+   表头行」的多列表格、colspan=2 的单单元格表格都不会被误判成单列。 */
+.wiki-content .tableWrapper > table:has(> colgroup > col:only-child) {
+  width: 100%;
+  /* 固定布局：单列只有一列，宽度就是表格宽（= 正文宽）；格内超长的代码不许把整张表
+     顶宽，横滚留给代码块自己的 pre。多列表格不适用本条，列宽保真逻辑不受影响。 */
+  table-layout: fixed;
+}
+
+/* 带列宽的表格（粘贴换算来的 colgroup，或用户在编辑态拖过列宽）：总宽就是各列之和，
+   可以超出正文宽，超出部分交给 .tableWrapper 横滚。不放开这条的话 max-width: 100%
+   会把总宽钳在正文宽上：末列右边线往右拖时，模型里那一列确实变宽了，但总宽涨不上去，
+   浏览器只能把多出来的宽度从其他列匀出来，右边线因此纹丝不动（用户实测：末列拖不动）。
+   判据看 col 的 inline style：没有列宽是 `min-width: 25px`，有列宽是 `width: Npx`；
+   同一列先没设、后来被拖过列宽时 Chrome 序列化成 `min-width: 25px; width: Npx`——
+   所以行首的 width 与分号后的 width 都要认，只认前者会漏掉首拖之后的表格。
+   单列表格有自己的恒满宽规则（上一条），这里用 :not() 排掉，不让它参与放开。 */
+.wiki-content
+  .tableWrapper
+  > table:has(
+    > colgroup > col[style^="width:"],
+    > colgroup > col[style*="; width:"]
+  ):not(:has(> colgroup > col:only-child)) {
+  max-width: none;
+}
+
+.wiki-content .tableWrapper > table {
+  margin: 0;
+}
+
+.wiki-content th,
+.wiki-content td {
+  min-width: 3.5rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.wiki-content th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+/* 高亮：颜色由 mark 的内联样式给出（Highlight 扩展渲染），这里只管形态。
+   裸 <mark>（粘贴源没带颜色）保留浏览器默认底色，但文字跟随正文色，不再变黑。 */
+.wiki-content mark {
+  padding: 0 0.15em;
+  border-radius: 0.2em;
+  color: inherit;
+}
+
+.wiki-content th > p,
+.wiki-content td > p {
+  margin: 0;
+}
+
+.wiki-content .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background: var(--primary);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.wiki-content .resize-cursor {
+  cursor: col-resize;
+}
+
+.wiki-content .selectedCell::after {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  content: "";
+  pointer-events: none;
+}
+
+.wiki-content .tableWrapper {
+  position: relative;
+}
+
+/* 任务列表：勾选态由 data-checked 渲染，编辑态可点 */
+.wiki-content ul[data-type="taskList"] {
+  padding-left: 0.25rem;
+  list-style: none;
+}
+
+.wiki-content ul[data-type="taskList"] li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.wiki-content ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-top: 0.3rem;
+}
+
+.wiki-content ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wiki-content ul[data-type="taskList"] input[type="checkbox"] {
+  width: 0.9rem;
+  height: 0.9rem;
+  accent-color: var(--primary);
+}
+
+.wiki-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}
+
+/* ------------------------------------------------------------------ *
+ * 图片缩放（编辑态）：ResizableNodeView 生成的容器/手柄是裸 DOM，样式全在这里。
+ * 手柄只在选中图片（ProseMirror 给节点视图 dom 加的 .ProseMirror-selectednode）
+ * 时出现；阅读态永远不选中，所以读态一个手柄都看不到。
+ * ------------------------------------------------------------------ */
+/* React 节点视图的壳默认撑满正文列：图片态收窄到图片宽度，选中框与手柄才能贴住
+   图片；未转存的占位卡片仍要整列，所以只匹配含 figure 的那个壳。 */
+.wiki-content .react-renderer.node-image:has(figure[data-image-block]),
+.wiki-content figure[data-image-block],
+.wiki-content [data-resize-wrapper] {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.wiki-content [data-resize-handle] {
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--background);
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 120ms ease;
+}
+
+.wiki-content .ProseMirror-selectednode [data-resize-handle] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.wiki-content [data-resize-handle="bottom-right"] {
+  cursor: nwse-resize;
+  /* 手柄内缩半个身位：贴边会被正文容器的 overflow 裁掉 */
+  transform: translate(-4px, -4px);
+}
+
+/* 触屏上 12px 的圆点抓不住，放大到 20px */
+@media (pointer: coarse) {
+  .wiki-content [data-resize-handle] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+.wiki-content .is-empty::before {
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.wiki-content .ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.wiki-content .tableWrapper table .selectedCell {
+  position: relative;
+}
+
+/* 移动端触控目标：顶栏与工具条的小图标按钮在 390px 上要够得着。 */
+@media (max-width: 767px) {
+  header [data-slot="button"] {
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+  }
+  [role="toolbar"] [data-slot="button"],
+  [role="toolbar"] [data-slot="toggle"] {
+    height: 2.25rem;
+    min-width: 2.25rem;
+  }
+  .wiki-content ul[data-type="taskList"] input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+  /* 代码块角标的复制按钮在触屏上放大一点 */
+  .wiki-content [data-code-header] [data-slot="button"] {
+    min-width: 2rem;
+    min-height: 2rem;
+  }
+}

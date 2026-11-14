@@ -1,0 +1,10 @@
+packages:
+  - web
+  - worker
+allowBuilds:
+  "@biomejs/biome": true
+  esbuild: true
+  workerd: true
+# 安装端的最小发布年龄（分钟）。1440 = 1 天，与 pnpm 12 的默认值一致。
+# 必须小于等于 renovate.json 的 minimumReleaseAge（3 天），否则 Renovate 开的 PR 会被这里拒绝。
+minimumReleaseAge: 1440

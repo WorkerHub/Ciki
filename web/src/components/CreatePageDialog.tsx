@@ -1,0 +1,112 @@
+import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { describeApiError, type PageDetail } from "@/lib/api"
+import { usePagesStore } from "@/stores/pages"
+
+/** 新建页面：只问标题（父页在打开时已确定），建完直接进编辑页。 */
+export function CreatePageDialog({
+  open,
+  onOpenChange,
+  parentId,
+  parentTitle,
+  onCreated
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  parentId: number | null
+  parentTitle?: string
+  onCreated: (page: PageDetail) => void
+}) {
+  const createPage = usePagesStore((state) => state.createPage)
+  const { t } = useTranslation()
+  const [title, setTitle] = useState("")
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setTitle("")
+      setError("")
+    }
+  }, [open])
+
+  const submit = async () => {
+    const value = title.trim()
+    if (!value) {
+      setError(t("page.create.titleRequired"))
+      return
+    }
+    setBusy(true)
+    setError("")
+    try {
+      const page = await createPage(value, parentId)
+      onOpenChange(false)
+      onCreated(page)
+    } catch (submitError) {
+      setError(describeApiError(submitError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("page.create.title")}</DialogTitle>
+          <DialogDescription>
+            {parentTitle
+              ? t("page.create.targetUnder", { title: parentTitle })
+              : t("page.create.targetTop")}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void submit()
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="new-page-title">
+              {t("page.create.titleLabel")}
+            </Label>
+            <Input
+              id="new-page-title"
+              name="page-title"
+              autoFocus
+              value={title}
+              maxLength={255}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder={t("page.create.titlePlaceholder")}
+            />
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={busy}>
+              {busy ? t("page.create.creating") : t("page.create.submit")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

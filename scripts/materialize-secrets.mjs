@@ -1,0 +1,185 @@
+// 部署前置：把仓库/组织级配置翻成两样东西——
+//   1. $RUNNER_TEMP/secrets.json（0600），交给 `wrangler deploy --secrets-file`
+//   2. 已解析的 worker/wrangler.toml（占位符替换 + 注入 [vars] TABLE_PREFIX）
+//
+// 规则（规格 §7）：真实值只来自 GitHub Actions 的 secrets / vars，绝不进仓库、
+// 绝不打印；任何一键缺失或仍是占位值，立即中止并点名是哪一把——绝不用空值或
+// 占位值顶替。CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID / D1_DATABASE_ID 走
+// secrets（GitHub 自动掩码，无需 add-mask），D1_DATABASE_NAME 保持 Variable 明文。
+//
+// 这三把同时也是 **Worker 运行时**要用的：`GET /api/admin/storage` 走 Cloudflare
+// D1 REST API 取库体积（D1 拒绝 PRAGMA page_count），需要令牌与账号/库 ID；
+// 所以它们除了解析 wrangler.toml，也会写进 secrets.json 由 `wrangler deploy
+// --secrets-file` 上传为 Worker secret。不新增 secret 名、不新增必填项。
+//
+// 写入顺序：先把两样东西在内存里算好并校验完（含 wrangler.toml 的占位符残留
+// 检查），再落盘——任何一处不合格都不留半成品。
+import { readFileSync, rmSync, writeFileSync } from "node:fs"
+import { fileURLToPath } from "node:url"
+import { isUsablePrefix, resolveForCi } from "./resolve-table-prefix.mjs"
+
+if (!process.env.RUNNER_TEMP) {
+  console.error("RUNNER_TEMP is not set")
+  process.exit(1)
+}
+
+/**
+ * 占位值判定：`*_PLACEHOLDER` 后缀，以及仓库模板里出现过的 `replace-with-…`
+ * 写法。模板值一旦被原样粘进 Secrets，必须和"没填"同等对待——否则会用公开
+ * 已知的密钥上线。
+ */
+const isPlaceholder = (value) => {
+  const v = value.trim()
+  return /_PLACEHOLDER$/.test(v) || /^replace-with/i.test(v)
+}
+
+/**
+ * ENCRYPTION_KEY 必须是 32 字节：hex（64 字符）或 base64（44 字符）。
+ * 长度不对就在上传前中止——运行时会 fail closed，但那时已经部署出去了。
+ */
+const isUsableEncryptionKey = (value) => {
+  if (/^[0-9a-fA-F]{64}$/.test(value)) return true
+  if (!/^[A-Za-z0-9+/=_-]+$/.test(value)) return false
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/")
+  return Buffer.from(normalized, "base64").length === 32
+}
+
+/** 必填项：键名 → 缺失时的提示位置。 */
+const REQUIRED = [
+  ["ENCRYPTION_KEY", "repository secret"],
+  ["SETUP_SECRET", "repository secret"],
+  ["CLOUDFLARE_API_TOKEN", "organization secret"],
+  ["CLOUDFLARE_ACCOUNT_ID", "organization secret"],
+  ["D1_DATABASE_ID", "organization secret"],
+  ["D1_DATABASE_NAME", "organization variable"]
+]
+
+/**
+ * 上传给 Worker 运行时的项：加密钥与 setup 令牌，外加 D1 REST API 取体积所需的
+ * 令牌与账号/库 ID（值仍只来自 GitHub Secrets，绝不进仓库与日志）。
+ */
+const SECRET_KEYS = [
+  "ENCRYPTION_KEY",
+  "SETUP_SECRET",
+  "CLOUDFLARE_API_TOKEN",
+  "CLOUDFLARE_ACCOUNT_ID",
+  "D1_DATABASE_ID"
+]
+
+/**
+ * 可选项 `WAKER_SIGNING_KEY`：它是月度 R2 孤儿清理的触发开关（规格 §3），
+ * 不是部署必需项——**绝不能放进 REQUIRED**，否则“删 key 重部署回 Cron”
+ * 这条回退路径会直接部署失败。空缺/占位值 = 未配置，就不往 secrets.json 里写。
+ * 保留值 `false` 是合法配置值（= 显式关闭自动清理），照常写进 secrets.json：
+ * 运行时要看到这个字面值才知道该停，不写等于回到未配置、Cron 照跑。
+ */
+const OPTIONAL_SECRET_KEYS = ["WAKER_SIGNING_KEY"]
+
+/** 与 worker/src/core/waker-gate.ts 的保留值同口径（大小写敏感，只认小写）。 */
+const WAKER_SIGNING_KEY_DISABLED = "false"
+
+const config = {}
+const problems = []
+for (const [name, where] of REQUIRED) {
+  const raw = process.env[name]
+  const value = typeof raw === "string" ? raw.trim() : ""
+  if (value === "") {
+    problems.push(`${name} 未配置（应放在 ${where}）`)
+    continue
+  }
+  if (isPlaceholder(value)) {
+    problems.push(`${name} 仍是占位值（应放在 ${where}）`)
+    continue
+  }
+  if (name === "ENCRYPTION_KEY" && !isUsableEncryptionKey(value)) {
+    problems.push(
+      "ENCRYPTION_KEY 不是 32 字节（应是 `openssl rand -base64 32` 的 base64 或 64 位 hex）"
+    )
+    continue
+  }
+  config[name] = value
+}
+if (problems.length > 0) {
+  for (const line of problems) console.error(line)
+  console.error(
+    "配置不全，已中止：不会生成 secrets.json，也不会改动 wrangler.toml。"
+  )
+  process.exit(1)
+}
+
+// ─── 1. TABLE_PREFIX 三态 ───────────────────────────────────────────────────
+const tablePrefix = resolveForCi(process.env.TABLE_PREFIX)
+if (!isUsablePrefix(tablePrefix)) {
+  console.error(
+    `TABLE_PREFIX 非法（空值表示无前缀；非空时须以字母或下划线开头，其后只允许字母、数字、下划线）：${JSON.stringify(tablePrefix)}。请修正 GitHub Variables 中的 TABLE_PREFIX。`
+  )
+  console.error("已中止：不会生成 secrets.json，也不会改动 wrangler.toml。")
+  process.exit(1)
+}
+
+// ─── 2. wrangler.toml 占位符替换（仍在内存里，先不落盘）────────────────────
+const wranglerPath = fileURLToPath(
+  new URL("../worker/wrangler.toml", import.meta.url)
+)
+let toml = readFileSync(wranglerPath, "utf8")
+
+const replacements = {
+  CLOUDFLARE_ACCOUNT_ID_PLACEHOLDER: config.CLOUDFLARE_ACCOUNT_ID,
+  D1_DATABASE_NAME_PLACEHOLDER: config.D1_DATABASE_NAME,
+  D1_DATABASE_ID_PLACEHOLDER: config.D1_DATABASE_ID
+}
+for (const [placeholder, value] of Object.entries(replacements)) {
+  toml = toml.replaceAll(placeholder, value)
+}
+
+// 本地重复跑本脚本时去掉上一次追加的 [vars]，避免叠加。
+toml = toml.replace(/\n\[vars\]\nTABLE_PREFIX = .*\n?$/, "")
+if (!toml.endsWith("\n")) toml += "\n"
+toml += `\n[vars]\nTABLE_PREFIX = ${JSON.stringify(tablePrefix)}\n`
+
+if (toml.includes("_PLACEHOLDER")) {
+  console.error(
+    "wrangler.toml 仍残留未替换的占位符，已中止：不会生成 secrets.json，也不会部署。"
+  )
+  process.exit(1)
+}
+
+// ─── 3. 落盘：secrets.json（0600）+ wrangler.toml ───────────────────────────
+const secrets = {}
+for (const key of SECRET_KEYS) secrets[key] = config[key]
+
+// 可选项单独判定三态：只认“非空且不是占位值”，否则当作未配置（与运行时的
+// wakerSigningKey() 同口径）；trim 后全等保留值 `false` 则是「显式关闭」，
+// 该值必须原样上传给运行时才能生效。日志只说配没配/关没关，绝不打印值。
+const optional = []
+for (const name of OPTIONAL_SECRET_KEYS) {
+  const raw = process.env[name]
+  const value = typeof raw === "string" ? raw.trim() : ""
+  if (value === "" || isPlaceholder(value)) {
+    console.log(`${name}: 未配置（月度 R2 清理走 Worker 内置 Cron Trigger）`)
+    continue
+  }
+  secrets[name] = value
+  optional.push(name)
+  if (value === WAKER_SIGNING_KEY_DISABLED) {
+    console.log(
+      `${name}: 已关闭（月度 R2 清理不再自动触发，管理员手动清理仍可用）`
+    )
+    continue
+  }
+  console.log(`${name}: 已配置（月度 R2 清理由 waker 回调驱动，Cron 入口让路）`)
+}
+
+const secretsPath = `${process.env.RUNNER_TEMP}/secrets.json`
+// mode 只在创建时生效，先删掉可能残留的旧文件，保证 0600 真正落实。
+rmSync(secretsPath, { force: true })
+writeFileSync(secretsPath, JSON.stringify(secrets), { mode: 0o600 })
+writeFileSync(wranglerPath, toml)
+
+// 日志只暴露键名与非机密的表前缀，绝不打印任何密钥/资源 ID 的值。
+console.log(
+  `secrets.json 已写入（${SECRET_KEYS.length + optional.length} 把：${[...SECRET_KEYS, ...optional].join(", ")}，权限 0600）`
+)
+console.log(
+  `wrangler.toml 已解析（已注入 account_id / D1 名称与 ID；TABLE_PREFIX=${JSON.stringify(tablePrefix)}）`
+)
