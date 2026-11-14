@@ -95,7 +95,7 @@
       "emptyNamed": "No pages in “{{spaceName}}” yet",
       "empty": "No pages yet",
       "emptyReadOnly": "You are a viewer in this space. Ask a space admin to add pages.",
-      "emptyHint": "Start by creating a page, or paste Confluence content straight into the editor.",
+      "emptyHint": "Start by creating a page, or paste content from other documents straight into the editor.",
       "movedTo": "Moved to “{{name}}”.",
       "targetSpace": "Target space",
       "renameTitle": "Rename page",
@@ -285,7 +285,7 @@
       "history": "History",
       "delete": "Delete",
       "empty": {
-        "body": "This page is still empty. Click “Edit” and paste your Confluence content straight in.",
+        "body": "This page is still empty. Click “Edit” and paste content from other documents straight in.",
         "start": "Start editing"
       },
       "deleteDialog": {
@@ -1027,7 +1027,7 @@
   },
   "help": {
     "title": "Pasting and editing",
-    "description": "Select what you want in Confluence, copy it and paste it into the editor. Structure is kept as faithfully as possible; a few source-side limits cannot be undone.",
+    "description": "Select the content you want in other documents, copy it and paste it into the editor. Structure is kept as faithfully as possible; a few source-side limits cannot be undone.",
     "supported": {
       "title": "What is supported",
       "rows": {
@@ -1045,7 +1045,7 @@
         },
         "list": {
           "item": "Lists",
-          "detail": "Nesting is kept; Confluence task lists keep their checked state"
+          "detail": "Nesting is kept; task lists from other documents keep their checked state"
         },
         "inline": {
           "item": "Links, inline code, bold / italic / underline / strikethrough",
@@ -1056,14 +1056,14 @@
           "detail": "Uploaded to image storage and inserted automatically"
         },
         "attachment": {
-          "item": "Confluence attachment images (link only)",
+          "item": "Attachment images from other documents (link only)",
           "detail": "The original link is kept and marked in yellow as “not transferred”; upload a replacement by hand on the edit page"
         }
       }
     },
     "limits": {
       "title": "Known limits",
-      "tableHeader": "The header row of some tables built by Confluence plugins cannot be selected on the page and never reaches the clipboard, so the pasted table has an empty header — a source-side limit that this wiki cannot undo; fill it in by hand.",
+      "tableHeader": "The header row of some tables built by plugins in other documents cannot be selected on the page and never reaches the clipboard, so the pasted table has an empty header — a source-side limit that this wiki cannot undo; fill it in by hand.",
       "colors": "Text colors and table background colors are not kept (column widths are).",
       "panels": "Info / Note / Warning / Success panels are downgraded to a quote block with a label."
     },
@@ -1073,7 +1073,8 @@
     }
   },
   "about": {
-    "title": "About ciki",
+    "title": "About Ciki",
+    "version": "Version {{version}}",
     "intro": {
       "title": "What this is",
       "body": "ciki is an internal team wiki. Pages are organized in a tree, and the editor supports headings, code blocks, tables, task lists and images; every save leaves a version you can roll back to, and page bodies are full-text searchable. Members collaborate per space, sign-in supports Passkeys and two-factor verification, and a browser extension can clip external pages into it."
@@ -1113,7 +1114,7 @@
   "home": {
     "empty": {
       "title": "No pages yet",
-      "write": "Create a page, or paste Confluence content straight into the editor.",
+      "write": "Create a page, or paste content from other documents straight into the editor.",
       "readOnly": "You are a read-only member of this space; ask a space admin to add pages."
     }
   },

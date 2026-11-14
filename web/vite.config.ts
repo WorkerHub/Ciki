@@ -46,7 +46,8 @@ function readBuildNumber(): string | null {
 }
 
 const buildNumber = readBuildNumber()
-const baseVersion = readGitDescribe() ?? `v${readPackageVersion()}`
+const packageVersion = readPackageVersion()
+const baseVersion = readGitDescribe() ?? `v${packageVersion}`
 const appVersion = buildNumber
   ? `${baseVersion}+build.${buildNumber}`
   : baseVersion
@@ -55,6 +56,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   define: {
     __APP_VERSION__: JSON.stringify(appVersion),
+    __APP_PACKAGE_VERSION__: JSON.stringify(packageVersion),
     __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString())
   },
   resolve: {

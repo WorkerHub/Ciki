@@ -26,10 +26,13 @@ export function AboutPage() {
   return (
     <div className="max-w-3xl space-y-4">
       <header className="space-y-1">
-        <h1 className="flex items-center gap-2 font-heading text-xl font-semibold tracking-tight">
+        <h1 className="flex items-center gap-2 font-heading text-3xl font-semibold tracking-tight">
           <Info className="size-4 text-muted-foreground" aria-hidden="true" />
           {t("about.title")}
         </h1>
+        <p className="text-sm text-muted-foreground">
+          {t("about.version", { version: __APP_PACKAGE_VERSION__ })}
+        </p>
       </header>
 
       <Card>
