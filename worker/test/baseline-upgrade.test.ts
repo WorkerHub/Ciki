@@ -438,6 +438,92 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
     ).toContain("base_currency")
   })
 
+  it("令牌表多出一列 → 拒绝，账本与数据不动", async () => {
+    const context = await v3Context()
+    await context.db.exec(
+      "ALTER TABLE ciki_api_tokens ADD COLUMN hacked TEXT NOT NULL DEFAULT ''"
+    )
+    const beforeData = businessSnapshot(context)
+    const beforeLedger = ledgerNames(context)
+
+    const result = await runSetup(context.env)
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error("expected rejection")
+    expect(result.code).toBe("MIGRATION_REJECTED")
+    expect(result.error).toContain("unexpected column hacked")
+
+    expect(ledgerNames(context)).toEqual(beforeLedger)
+    expect(businessSnapshot(context)).toEqual(beforeData)
+    expect(
+      (
+        context.db.db
+          .prepare("PRAGMA table_info(ciki_api_tokens)")
+          .all() as Array<{
+          name: string
+        }>
+      ).map((column) => column.name)
+    ).toContain("hacked")
+  })
+
+  it("令牌表少一列（缺 kind）→ 拒绝，账本与数据不动", async () => {
+    const context = await v3Context()
+    // 重建一份缺 `kind` 的 api_tokens：DROP TABLE 会连带丢掉它的唯一索引，重建表后补回。
+    await context.db.exec(`DROP TABLE ciki_api_tokens`)
+    await context.db.exec(`CREATE TABLE ciki_api_tokens (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL,
+  name         TEXT NOT NULL,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+)`)
+    await context.db.exec(
+      "CREATE UNIQUE INDEX ciki_api_tokens_token_hash ON ciki_api_tokens(token_hash)"
+    )
+    const beforeData = businessSnapshot(context)
+    const beforeLedger = ledgerNames(context)
+
+    const result = await runSetup(context.env)
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error("expected rejection")
+    expect(result.code).toBe("MIGRATION_REJECTED")
+    expect(result.error).toContain("missing column kind")
+
+    expect(ledgerNames(context)).toEqual(beforeLedger)
+    expect(businessSnapshot(context)).toEqual(beforeData)
+    expect(
+      (
+        context.db.db
+          .prepare("PRAGMA table_info(ciki_api_tokens)")
+          .all() as Array<{
+          name: string
+        }>
+      ).map((column) => column.name)
+    ).not.toContain("kind")
+  })
+
+  it("token_space_scopes 主键被篡改 → 拒绝，账本与数据不动", async () => {
+    const context = await v3Context()
+    await context.db.exec(`DROP TABLE ciki_token_space_scopes`)
+    await context.db.exec(`CREATE TABLE ciki_token_space_scopes (
+  token_id INTEGER NOT NULL,
+  space_id INTEGER NOT NULL,
+  PRIMARY KEY (token_id)
+)`)
+    const beforeData = businessSnapshot(context)
+    const beforeLedger = ledgerNames(context)
+
+    const result = await runSetup(context.env)
+    expect(result.success).toBe(false)
+    if (result.success) throw new Error("expected rejection")
+    expect(result.code).toBe("MIGRATION_REJECTED")
+    expect(result.error).toContain("not keyed on (token_id, space_id)")
+
+    expect(ledgerNames(context)).toEqual(beforeLedger)
+    expect(businessSnapshot(context)).toEqual(beforeData)
+  })
+
   it("管理端点把指路信息带回页面（409 + MIGRATION_REJECTED）", async () => {
     const context = await v2FormContext()
 
