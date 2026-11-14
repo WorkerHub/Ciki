@@ -243,7 +243,7 @@ describe("系统管理 · 数据库升级", () => {
     await user.click(screen.getByRole("button", { name: "检查并升级数据库" }))
 
     expect(
-      await screen.findByText(/请先用上一版（支持升到 schema_v8 的发布）/)
+      await screen.findByText(/请先用上一版（支持升到 schema_v3 的发布）/)
     ).toBeInTheDocument()
     expect(screen.queryByText("当前表前缀")).toBeNull()
   })

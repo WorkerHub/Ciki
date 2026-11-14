@@ -1,18 +1,17 @@
 /**
  * 基线形态校验：迁移 `schema_v1` 的升级闸，只读、不动任何数据与账本。
  *
- * 只接受一种存量来源——当前生产形态（`schema_v8`）：整数主键、正文在 R2、`users`
- * 的 base_currency/timezone/theme 已删、`users.username` 的唯一部分索引在位、
- * `email_codes` 的 CHECK 已含 `register_verify`。不符就抛
+ * 只接受一种存量来源——当前生产形态（最终令牌形态，即坍缩前的 `schema_v3`）：
+ * 整数主键、正文在 R2、`users` 的 base_currency/timezone/theme 已删、
+ * `users.username` 的唯一部分索引在位、`email_codes` 的 CHECK 已含
+ * `register_verify`、令牌三表（`api_tokens` / 按 `token_id` 的
+ * `token_space_scopes` / 多行 `import_tokens`）在位。不符就抛
  * {@link MigrationRejectedError}，由 setup 转成 409 原样回显给管理员——错误信息
- * 自带下一步（先用上一版升到 schema_v8），不猜测式修复、不部分执行。
+ * 自带下一步（先用上一版升到 schema_v3），不猜测式修复、不部分执行。
  *
  * 判据一律读系统表（`sqlite_master` / `PRAGMA table_info` / `PRAGMA index_list`），
  * **不比 DDL 文本**：存量库是旧版用「临时表 + 改名」建出来的，`sqlite_master.sql`
  * 与今天的 DDL 文本不保证逐字一致，比文本会误伤真实生产库。
- *
- * `schema_v3` 合表后会按设计删掉基线里的 `read_tokens`：`api_tokens` 已在位时，
- * 校验豁免这张表与它的唯一索引，否则升级完成后每次 setup 都会把 v1 判成未应用。
  */
 import {
   SCHEMA_INDEXES,
@@ -20,7 +19,7 @@ import {
   USERS_USERNAME_UNIQUE_INDEX,
   tableDdl
 } from "./schema"
-import { apiTokensTable, tableName, usersTable } from "./tables"
+import { tableName, usersTable } from "./tables"
 
 /** 迁移名（本模块只认识基线这一条）。 */
 const BASELINE_NAME = "schema_v1"
@@ -97,14 +96,6 @@ function indexIdentifier(ddl: string): string {
   return match[1]
 }
 
-/**
- * `schema_v3` 之后基线里不再存在的表 / 索引（逻辑名，索引名带 `{prefix}` 占位）。
- * 只在 `api_tokens` 已存在时豁免：那说明 v3 已完成，`schema_v1` 的形态校验不能
- * 因为 v3 按设计删掉了 `read_tokens` 就判基线「结构不符」。
- */
-const RETIRED_AFTER_V3_TABLES = new Set(["read_tokens"])
-const RETIRED_AFTER_V3_INDEXES = new Set(["{prefix}read_tokens_token_hash"])
-
 /** 定版结构里三列已删的旧形态特征（v6 及以前）。 */
 const RETIRED_USER_COLUMNS = ["base_currency", "timezone", "theme"]
 
@@ -130,8 +121,6 @@ export async function findBaselineMismatches(
 ): Promise<BaselineMismatch[]> {
   const problems: BaselineMismatch[] = []
   const tables = await listTables(db)
-  // v3 已完成：`read_tokens` 与它的索引是被迁移有意删掉的，不再是基线缺口。
-  const tokensMerged = tables.has(apiTokensTable(prefix))
 
   const columnsIfPresent = async (
     logical: string
@@ -142,7 +131,6 @@ export async function findBaselineMismatches(
   }
 
   for (const table of SCHEMA_TABLES) {
-    if (tokensMerged && RETIRED_AFTER_V3_TABLES.has(table.name)) continue
     const name = tableName(prefix, table.name)
     if (!tables.has(name)) {
       problems.push({ kind: "missing", message: `table ${name} is missing` })
@@ -252,7 +240,6 @@ export async function findBaselineMismatches(
   )
   for (const ddl of SCHEMA_INDEXES) {
     const identifier = indexIdentifier(ddl)
-    if (tokensMerged && RETIRED_AFTER_V3_INDEXES.has(identifier)) continue
     const name = identifier.replaceAll("{prefix}", prefix)
     if (!present.has(name)) {
       problems.push({ kind: "missing", message: `index ${name} is missing` })
@@ -283,10 +270,10 @@ export function rejection(details: string[]): MigrationRejectedError {
     details.length > 3 ? ` (and ${details.length - 3} more problem(s))` : ""
   return new MigrationRejectedError(
     `Unsupported database shape for ${BASELINE_NAME}: ${shown}${rest}. ` +
-      `This version only upgrades a database that is already at schema_v8. ` +
-      `If the ledger does not record schema_v8 yet, upgrade this database to schema_v8 with the previous release ` +
-      `(the one that supports the v7 → v8 step) and then run this upgrade again. ` +
-      `If the ledger already records schema_v8, the structure was altered after the fact: ` +
+      `This version only upgrades a database that is already at schema_v3. ` +
+      `If the ledger does not record schema_v3 yet, upgrade this database to schema_v3 with the previous release ` +
+      `(the one that supports the v2 → v3 step) and then run this upgrade again. ` +
+      `If the ledger already records schema_v3, the structure was altered after the fact: ` +
       `restore this database from the Time Travel bookmark taken before the upgrade ` +
       `(wrangler d1 time-travel restore <db> --bookmark=<bookmark>), or repair the items above first. ` +
       `Nothing was changed.`

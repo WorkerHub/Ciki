@@ -1,8 +1,10 @@
 /**
- * 基线表结构的唯一真源（ID 整数化 + 正文上 R2 之后的定版结构）。
+ * 基线表结构的唯一真源（ID 整数化 + 正文上 R2 + 令牌最终形态的定版结构）。
  *
  * 这份 DDL 只属于唯一迁移 `schema_v1`：全新库按它一次建出全部表/索引（表名带生效
- * 前缀，见 `migrations.ts` 的 `baselineStatements` 用法）。
+ * 前缀，见 `migrations.ts` 的 `baselineStatements` 用法），令牌三表
+ * （`api_tokens` / 按 `token_id` 的 `token_space_scopes` / 多行 `import_tokens`）
+ * 直接就是最终形态，不再有 `read_tokens` / `write_tokens`。
  *
  * 约定：
  * - 每个 DDL 是一条完整语句，内部不得出现 `;`（迁移执行器按 `;` 切分）。
@@ -182,7 +184,9 @@ export const SCHEMA_TABLES: SchemaTable[] = [
   {
     name: "import_tokens",
     ddl: `CREATE TABLE IF NOT EXISTS {table} (
-  user_id      INTEGER PRIMARY KEY,
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL,
+  name         TEXT NOT NULL,
   token_hash   TEXT NOT NULL,
   created_at   TEXT NOT NULL,
   last_used_at TEXT,
@@ -190,13 +194,24 @@ export const SCHEMA_TABLES: SchemaTable[] = [
 )`
   },
   {
-    name: "read_tokens",
+    name: "api_tokens",
     ddl: `CREATE TABLE IF NOT EXISTS {table} (
-  user_id      INTEGER PRIMARY KEY,
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL,
+  kind         TEXT NOT NULL CHECK (kind IN ('read', 'write')),
+  name         TEXT NOT NULL,
   token_hash   TEXT NOT NULL,
   created_at   TEXT NOT NULL,
   last_used_at TEXT,
   revoked_at   TEXT
+)`
+  },
+  {
+    name: "token_space_scopes",
+    ddl: `CREATE TABLE IF NOT EXISTS {table} (
+  token_id INTEGER NOT NULL,
+  space_id INTEGER NOT NULL,
+  PRIMARY KEY (token_id, space_id)
 )`
   },
   {
@@ -312,8 +327,8 @@ export const SCHEMA_INDEXES: string[] = [
     ON {prefix}comments(author_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}import_tokens_token_hash
     ON {prefix}import_tokens(token_hash)`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}read_tokens_token_hash
-    ON {prefix}read_tokens(token_hash)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS {prefix}api_tokens_token_hash
+    ON {prefix}api_tokens(token_hash)`,
   `CREATE INDEX IF NOT EXISTS {prefix}email_codes_expires_at
     ON {prefix}email_codes(expires_at)`,
   `CREATE INDEX IF NOT EXISTS {prefix}r2_cleanup_runs_kind_started
