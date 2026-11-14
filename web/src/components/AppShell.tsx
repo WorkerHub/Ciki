@@ -121,7 +121,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <PageTree onNavigate={onNavigate} />
       </div>
       <p className="truncate border-t border-sidebar-border px-3 py-2 text-[11px] text-muted-foreground">
-        {siteName} · {__APP_VERSION__}
+        {siteName} · {__APP_PACKAGE_VERSION__} · {__APP_VERSION__}
       </p>
 
       <CreatePageDialog

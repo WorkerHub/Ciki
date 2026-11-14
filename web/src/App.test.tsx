@@ -123,7 +123,7 @@ describe("路由守卫与初始化门", () => {
     expect(
       await screen.findByRole("heading", { name: "登录 Ciki" })
     ).toBeInTheDocument()
-    expect(screen.getByText(/test-build/)).toBeInTheDocument()
+    expect(screen.getByText(/1\.0\.0 · test-build/)).toBeInTheDocument()
   })
 
   it("未登录可以从路由进忘记密码页", async () => {
