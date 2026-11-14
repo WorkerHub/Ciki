@@ -46,16 +46,16 @@ export const revisionsTable = (prefix: string) =>
  */
 export const commentsTable = (prefix: string) => tableName(prefix, "comments")
 /**
- * 个人导入令牌（`schema_v3` 起为多行）：每个浏览器插件凭证一行，只存 SHA-256。
+ * 个人导入令牌（多行）：每个浏览器插件凭证一行，只存 SHA-256。
  * 与接口令牌分表，两个入口互不通用（表隔离）。
  */
 export const importTokensTable = (prefix: string) =>
   tableName(prefix, "import_tokens")
-/** `import_tokens.token_hash` 的唯一索引名（沿用基线里的名字，不带 `idx_` 前缀）。 */
+/** `import_tokens.token_hash` 的唯一索引名（不带 `idx_` 前缀）。 */
 export const importTokensTokenHashIndex = (prefix: string) =>
   tableName(prefix, "import_tokens_token_hash")
 /**
- * 接口令牌（`schema_v3` 起读写合表）：`kind` 区分只读 / 读写，一个令牌一行。
+ * 接口令牌（读写合表）：`kind` 区分只读 / 读写，一个令牌一行。
  * 读接口接受两种 kind，写接口只接受 `write`；与导入令牌仍是两张表、互不通用。
  */
 export const apiTokensTable = (prefix: string) =>
@@ -64,22 +64,7 @@ export const apiTokensTable = (prefix: string) =>
 export const apiTokensTokenHashIndex = (prefix: string) =>
   tableName(prefix, "api_tokens_token_hash")
 /**
- * 只读接口令牌表（一期形态）：**仅** `schema_v1` 基线建表、`schema_v2` 旧定义与
- * `schema_v3` 迁移搬运使用；运行期不再读写它（`schema_v3` 会删掉这张表）。
- */
-export const readTokensTable = (prefix: string) =>
-  tableName(prefix, "read_tokens")
-/**
- * 读写接口令牌表（二期 `schema_v2` 形态）：同样只供迁移与旧定义使用，
- * 运行期已并入 `api_tokens`（见 core/api-token.ts）。
- */
-export const writeTokensTable = (prefix: string) =>
-  tableName(prefix, "write_tokens")
-/** `write_tokens.token_hash` 的唯一索引名（`schema_v2` 建表用，不带 `idx_` 前缀）。 */
-export const writeTokensTokenHashIndex = (prefix: string) =>
-  tableName(prefix, "write_tokens_token_hash")
-/**
- * 令牌空间范围（`schema_v3` 起按令牌 id）：一行 = 「该令牌可见该空间」。
+ * 令牌空间范围（按令牌 id）：一行 = 「该令牌可见该空间」。
  * `(token_id, space_id)` 复合主键；无行 = 不限制。范围只收窄不放大：生效范围是
  * 「主人可见空间 ∩ 范围」，在每次令牌校验时回表计算（见 core/token-scope.ts）。
  */

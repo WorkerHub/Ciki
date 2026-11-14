@@ -1,15 +1,17 @@
 /**
- * 版本号重置（账本手术）+ 追加迁移 `schema_v2` / `schema_v3` 的演练测试：`schema_v8`
- * 形态的存量库升级到基线 `schema_v1`，补建 v2 的令牌表，再由 v3 合并成最终形态。
+ * 坍缩为单条 `schema_v1` 的演练测试：最终令牌形态的存量库升级到单条基线 `schema_v1`，
+ * 全新库一条基线建全结构。
  *
  * 逐项对应验收：
- * - 升级只改账本与追加结构：账本收敛为 `schema_v1` + `schema_v2` + `schema_v3` 三条，基线表逐行逐值
- *   不变、正文对象不重传、每个 `content_hash` 都能从内容桶回读并通过哈希复核；
- * - 升级后全链路可用：既有会话仍有效、登录、读页、搜索、评论、注册→批准→验证邮箱→登录；
- * - `v7` 账本（有 v7 无 v8）、删掉唯一索引的篡改库、更早形态（`users` 还带三列）
- *   一律拒绝且指路，数据与账本一字未动；
- * - 幂等与可重入：`schema_v1` 库重复升级为空操作；把账本改回 v7/v8 后重跑收敛；
- *   上次安装中断的半成品库由建表语句补齐。
+ * - 存量升级只改账本：账本收敛为单条 `schema_v1`，全部表/索引/数据逐行逐值不变、
+ *   正文对象不重传、每个 `content_hash` 都能从内容桶回读并通过哈希复核、
+ *   存量明文令牌升级后仍可鉴权且范围隔离不变；
+ * - 全新库一条基线建全最终结构（`api_tokens` / 按 `token_id` 的
+ *   `token_space_scopes` / 多行 `import_tokens`，无 `read_tokens`/`write_tokens`）；
+ * - 幂等与可重入：`schema_v1` 库重复升级为空操作；把账本改回 v1+v2+v3 后重跑收敛；
+ *   上次安装中断的半成品库由建表语句补齐；
+ * - 不被接受的升级源（v2 形态、删唯一索引、更早形态）一律拒绝且指路，
+ *   数据与账本一字未动。
  */
 import { describe, expect, it } from "vitest"
 import { hashContent, readContent } from "../src/core/content-store"
@@ -27,13 +29,16 @@ import {
 } from "./support/app"
 import type { TestContext } from "./support/app"
 import {
-  V7_LEDGER_ROWS,
-  V8_LEDGER_ROWS,
-  V8_PASSWORD,
-  createV8Database,
+  V2_LEDGER_ROWS,
+  V3_IMPORT_TOKEN,
+  V3_LEDGER_ROWS,
+  V3_PASSWORD,
+  V3_READ_TOKEN,
+  V3_WRITE_TOKEN,
+  createV3Database,
   rowsOf,
-  seedV8Database
-} from "./support/v8-schema"
+  seedV3Database
+} from "./support/v3-schema"
 
 const PREFIX = "ciki_"
 
@@ -44,28 +49,63 @@ function migrationList(status: "applied" | "skipped") {
   return MIGRATION_NAMES.map((name) => ({ name, status }))
 }
 
-/** v3 之后才存在的最终令牌表与索引（不在基线清单里）。 */
-const FINAL_TOKEN_TABLES = [
-  "api_tokens",
-  "import_tokens",
-  "token_space_scopes"
-].map((name) => tableName(PREFIX, name))
-const FINAL_TOKEN_INDEXES = [
-  tableName(PREFIX, "api_tokens_token_hash"),
-  tableName(PREFIX, "import_tokens_token_hash")
-]
-/** 被 v3 有意删除 / 改形的基线令牌表：不能再按「基线原样」比对。 */
-const V3_RETIRED_TABLES = new Set([tableName(PREFIX, "read_tokens")])
-const V3_RETIRED_INDEXES = new Set([
-  tableName(PREFIX, "read_tokens_token_hash")
-])
-
-/** 生产同形态的库：v8 结构 + 增量链时代账本 + 存量数据。 */
-async function v8Context(ledger: readonly string[] = V8_LEDGER_ROWS) {
+/** 生产同形态的库：最终令牌结构 + 坍缩前账本（v1+v2+v3）+ 存量数据。 */
+async function v3Context(ledger: readonly string[] = V3_LEDGER_ROWS) {
   const context = makeContext()
-  await createV8Database(context, ledger)
-  const seed = await seedV8Database(context)
+  await createV3Database(context, ledger)
+  const seed = await seedV3Database(context)
   return { ...context, seed }
+}
+
+/** v2 形态的库（账本 v1+v2、令牌还是旧四表）：升级源不被接受。 */
+async function v2FormContext(): Promise<TestContext> {
+  const ctx = makeContext()
+  await createV3Database(ctx, V2_LEDGER_ROWS)
+  const read = tableName(PREFIX, "read_tokens")
+  const write = tableName(PREFIX, "write_tokens")
+  const scopes = tableName(PREFIX, "token_space_scopes")
+  const imports = tableName(PREFIX, "import_tokens")
+  // 把最终令牌三表换回 v2 形态（删表时 SQLite 会连带删掉它们的索引）。
+  await ctx.db.exec(`DROP TABLE ${scopes}`)
+  await ctx.db.exec(`DROP TABLE ${tableName(PREFIX, "api_tokens")}`)
+  await ctx.db.exec(`DROP TABLE ${imports}`)
+  await ctx.db.exec(`CREATE TABLE ${read} (
+  user_id      INTEGER PRIMARY KEY,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+)`)
+  await ctx.db.exec(
+    `CREATE UNIQUE INDEX ${tableName(PREFIX, "read_tokens_token_hash")} ON ${read}(token_hash)`
+  )
+  await ctx.db.exec(`CREATE TABLE ${write} (
+  user_id      INTEGER PRIMARY KEY,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+)`)
+  await ctx.db.exec(
+    `CREATE UNIQUE INDEX ${tableName(PREFIX, "write_tokens_token_hash")} ON ${write}(token_hash)`
+  )
+  await ctx.db.exec(`CREATE TABLE ${scopes} (
+  token_kind TEXT NOT NULL CHECK (token_kind IN ('read', 'write')),
+  user_id    INTEGER NOT NULL,
+  space_id   INTEGER NOT NULL,
+  PRIMARY KEY (token_kind, user_id, space_id)
+)`)
+  await ctx.db.exec(`CREATE TABLE ${imports} (
+  user_id      INTEGER PRIMARY KEY,
+  token_hash   TEXT NOT NULL,
+  created_at   TEXT NOT NULL,
+  last_used_at TEXT,
+  revoked_at   TEXT
+)`)
+  await ctx.db.exec(
+    `CREATE UNIQUE INDEX ${tableName(PREFIX, "import_tokens_token_hash")} ON ${imports}(token_hash)`
+  )
+  return ctx
 }
 
 function ledgerNames(ctx: TestContext): string[] {
@@ -80,9 +120,6 @@ function ledgerNames(ctx: TestContext): string[] {
 function businessSnapshot(ctx: TestContext): Record<string, unknown[]> {
   const snapshot: Record<string, unknown[]> = {}
   for (const table of SCHEMA_TABLES) {
-    // 令牌表被 v3 有意改形 / 删除，单独断言（见上方 FINAL_TOKEN_*）。
-    if (V3_RETIRED_TABLES.has(tableName(PREFIX, table.name))) continue
-    if (table.name === "import_tokens") continue
     snapshot[table.name] = rowsOf(ctx.db, tableName(PREFIX, table.name))
   }
   return snapshot
@@ -121,6 +158,12 @@ async function expectContentIntact(ctx: TestContext): Promise<void> {
   }
 }
 
+function bearer(env: TestContext["env"], token: string, path: string) {
+  return request(env, path, {
+    headers: { authorization: `Bearer ${token}` }
+  })
+}
+
 function setupRequest(env: TestContext["env"]) {
   return request(env, "/api/setup", {
     method: "POST",
@@ -128,85 +171,26 @@ function setupRequest(env: TestContext["env"]) {
   })
 }
 
-describe("v8 形态存量库 → schema_v1：只动账本", () => {
-  it("账本收敛为 schema_v1 + schema_v2 + schema_v3，基线表/索引/数据逐行不变", async () => {
-    const context = await v8Context()
+describe("最终形态存量库 → 单条 schema_v1：只动账本", () => {
+  it("账本收敛为单条 schema_v1，表/索引/数据逐行不变，正文可回读", async () => {
+    const context = await v3Context()
     const { env, db } = context
     const beforeData = businessSnapshot(context)
-    const beforeTables = tableNames(context)
+    const beforeTables = tableNames(context).sort()
     const beforeIndexes = indexNames(context).sort()
     const beforeObjects = context.content.store.size
-    const beforeUserColumns = (
-      db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
-        name: string
-      }>
-    ).map((column) => column.name)
 
     const result = await runSetup(env)
     if (!result.success) throw new Error(result.error)
 
     expect(result.migrations).toEqual(migrationList("applied"))
-    // 增量链时代留下的 v1–v8 八行一并清掉，账本只剩当前三条（v1、v2、v3）。
     expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
 
-    // 基线结构零变化：除 v3 有意删除的 read_tokens 外，原有表/索引逐项一致。
-    const survivingTables = beforeTables.filter(
-      (name) => !V3_RETIRED_TABLES.has(name)
-    )
-    expect(
-      tableNames(context)
-        .filter((name) => beforeTables.includes(name))
-        .sort()
-    ).toEqual([...survivingTables].sort())
-    const survivingIndexes = beforeIndexes.filter(
-      (name) => !V3_RETIRED_INDEXES.has(name)
-    )
-    expect(
-      indexNames(context)
-        .filter((name) => beforeIndexes.includes(name))
-        .sort()
-    ).toEqual(survivingIndexes)
-
-    // v3 之后：旧 token 表不在，最终令牌表与唯一索引在位。
-    const tables = tableNames(context)
-    for (const name of V3_RETIRED_TABLES) expect(tables).not.toContain(name)
-    expect(tables).not.toContain(tableName(PREFIX, "write_tokens"))
-    for (const name of FINAL_TOKEN_TABLES) expect(tables).toContain(name)
-    for (const name of FINAL_TOKEN_INDEXES) {
-      expect(indexNames(context)).toContain(name)
-    }
-
-    // 存量令牌被搬到最终形态：只读令牌 + 导入令牌各一行，名称按迁移口径。
-    expect(rowsOf(context.db, tableName(PREFIX, "api_tokens"))).toEqual([
-      {
-        id: 1,
-        user_id: 2,
-        kind: "read",
-        name: "只读 Token",
-        token_hash: "read-hash",
-        created_at: "2026-03-01T00:00:00.000Z",
-        last_used_at: null,
-        revoked_at: null
-      }
-    ])
-    expect(rowsOf(context.db, tableName(PREFIX, "import_tokens"))).toEqual([
-      {
-        id: 1,
-        user_id: 1,
-        name: "浏览器插件",
-        token_hash: "import-hash",
-        created_at: "2026-03-01T00:00:00.000Z",
-        last_used_at: null,
-        revoked_at: null
-      }
-    ])
-    expect(
-      (
-        db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
-          name: string
-        }>
-      ).map((column) => column.name)
-    ).toEqual(beforeUserColumns)
+    // 坍缩不改任何结构：表/索引集合与升级前完全一致。
+    expect(tableNames(context).sort()).toEqual(beforeTables)
+    expect(indexNames(context).sort()).toEqual(beforeIndexes)
+    expect(tableNames(context)).not.toContain(tableName(PREFIX, "read_tokens"))
+    expect(tableNames(context)).not.toContain(tableName(PREFIX, "write_tokens"))
 
     // 数据零变化：逐表全量行（对象、时间戳、计数）一字不差。
     expect(businessSnapshot(context)).toEqual(beforeData)
@@ -214,49 +198,48 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     // 正文对象一个不重传、不丢失，指针全量可回读。
     expect(context.content.store.size).toBe(beforeObjects)
     await expectContentIntact(context)
-  })
 
-  it("空 spaces 的 v8 库升级：不补默认空间，升级零写入", async () => {
-    const context = await v8Context()
-    // 极端数据形态：空间已被删空（连默认空间也不在），升级也不许“顺手补一行”。
-    await context.db.exec("DELETE FROM ciki_space_members")
-    await context.db.exec("DELETE FROM ciki_spaces")
-    const beforeData = businessSnapshot(context)
-
-    const result = await runSetup(context.env)
-    if (!result.success) throw new Error(result.error)
-
-    expect(result.migrations).toEqual(migrationList("applied"))
-    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
+    // 用户行也一字未动（证明没有借坍缩顺手改列）。
     expect(
-      context.db.db.prepare("SELECT COUNT(*) AS count FROM ciki_spaces").get()
-    ).toEqual({ count: 0 })
-    expect(businessSnapshot(context)).toEqual(beforeData)
+      (
+        db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
+          name: string
+        }>
+      ).map((column) => column.name)
+    ).toContain("username")
   })
 
-  it("带 language=en 升级：存量默认空间名一字不改", async () => {
-    const context = await v8Context()
-    const beforeData = businessSnapshot(context)
-
-    const result = await runSetup(context.env, { language: "en" })
+  it("存量明文令牌升级后仍可鉴权，范围隔离不变", async () => {
+    const ctx = await v3Context()
+    const result = await runSetup(ctx.env)
     if (!result.success) throw new Error(result.error)
-    expect(result.migrations).toEqual(migrationList("applied"))
 
-    // 播种只在全新库生效：升级路径即使带了英文也不会被改名。
-    const row = context.db.db
-      .prepare("SELECT id, slug, name FROM ciki_spaces ORDER BY id")
-      .all() as Array<{ id: number; slug: string; name: string }>
-    expect(row[0]).toEqual({ id: 1, slug: "space-1", name: "默认空间" })
-    expect(businessSnapshot(context)).toEqual(beforeData)
+    const read = await bearer(ctx.env, V3_READ_TOKEN, "/api/read/spaces")
+    expect(read.status).toBe(200)
+    expect(
+      ((await read.json()) as { spaces: Array<{ id: number }> }).spaces.map(
+        (space) => space.id
+      )
+    ).toEqual([1])
+
+    const write = await bearer(ctx.env, V3_WRITE_TOKEN, "/api/read/spaces")
+    expect(write.status).toBe(200)
+    expect(
+      ((await write.json()) as { spaces: Array<{ id: number }> }).spaces.map(
+        (space) => space.id
+      )
+    ).toEqual([2])
+
+    const imp = await bearer(ctx.env, V3_IMPORT_TOKEN, "/api/import/spaces")
+    expect(imp.status).toBe(200)
   })
 
   it("升级后全链路可用：既有会话、登录、读页、搜索、评论、注册验证", async () => {
-    const context = await v8Context()
+    const context = await v3Context()
     const { env } = context
     const seeded = await runSetup(env)
     if (!seeded.success) throw new Error(seeded.error)
 
-    // 升级前就存在的会话仍然有效（会话与用户行没被动过）。
     const me = await jsonRequest(
       env,
       "GET",
@@ -267,8 +250,7 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     expect(me.status).toBe(200)
     expect(await me.json()).toMatchObject({ email: "admin@example.com" })
 
-    // 存量密码的哈希照旧可用。
-    const admin = await loginAs(env, "admin@example.com", V8_PASSWORD)
+    const admin = await loginAs(env, "admin@example.com", V3_PASSWORD)
 
     const page = await jsonRequest(env, "GET", "/api/pages/1", undefined, admin)
     expect(page.status).toBe(200)
@@ -291,36 +273,36 @@ describe("v8 形态存量库 → schema_v1：只动账本", () => {
     )
     expect(comment.status).toBe(201)
 
-    // 注册 → 管理员批准 → 验证邮箱 → 登录（自助注册链路在新核算下照常）。
     await userSession(env, admin, "fresh@example.com")
   })
 })
 
 describe("全新库与幂等", () => {
-  it("全新安装：账本三条，基线 18 表减去 v3 删掉的表 + 最终令牌表与全部索引", async () => {
+  it("全新安装：账本单条，全部基线表/索引在位，无 read/write 令牌表", async () => {
     const context = makeContext()
     const result = await runSetup(context.env)
     if (!result.success) throw new Error(result.error)
 
     expect(result.migrations).toEqual(migrationList("applied"))
     expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
+    expect(MIGRATION_NAMES).toEqual(["schema_v1"])
+
     const tables = tableNames(context)
     for (const table of SCHEMA_TABLES) {
-      if (V3_RETIRED_TABLES.has(tableName(PREFIX, table.name))) continue
       expect(tables).toContain(tableName(PREFIX, table.name))
     }
-    for (const name of FINAL_TOKEN_TABLES) expect(tables).toContain(name)
+    expect(tables).not.toContain(tableName(PREFIX, "read_tokens"))
     expect(tables).not.toContain(tableName(PREFIX, "write_tokens"))
 
     const indexes = indexNames(context)
     for (const ddl of SCHEMA_INDEXES) {
       const match = /INDEX IF NOT EXISTS (\S+)/.exec(ddl)
       if (!match) throw new Error(`index DDL has no name: ${ddl}`)
-      const name = match[1].replaceAll("{prefix}", PREFIX)
-      if (V3_RETIRED_INDEXES.has(name)) continue
-      expect(indexes).toContain(name)
+      expect(indexes).toContain(match[1].replaceAll("{prefix}", PREFIX))
     }
-    for (const name of FINAL_TOKEN_INDEXES) expect(indexes).toContain(name)
+    expect(indexes).not.toContain(tableName(PREFIX, "read_tokens_token_hash"))
+    expect(indexes).toContain(tableName(PREFIX, "api_tokens_token_hash"))
+
     const usernameIndex = (
       context.db.db.prepare("PRAGMA index_list(ciki_users)").all() as Array<{
         name: string
@@ -330,6 +312,15 @@ describe("全新库与幂等", () => {
     ).find((entry) => entry.name === "ciki_users_username")
     expect(usernameIndex).toMatchObject({ unique: 1, partial: 1 })
 
+    const scopes = context.db.db
+      .prepare("PRAGMA table_info(ciki_token_space_scopes)")
+      .all() as Array<{ name: string; pk: number }>
+    expect(scopes.map((column) => column.name)).toEqual([
+      "token_id",
+      "space_id"
+    ])
+    expect(scopes.map((column) => column.pk)).toEqual([1, 2])
+
     expect(
       context.db.db
         .prepare("SELECT id, slug, is_default FROM ciki_spaces")
@@ -338,7 +329,7 @@ describe("全新库与幂等", () => {
   })
 
   it("已是 schema_v1 再点一次：全部 skipped、账本不变、数据不动", async () => {
-    const context = await v8Context()
+    const context = await v3Context()
     const first = await runSetup(context.env)
     if (!first.success) throw new Error(first.error)
     const afterUpgrade = businessSnapshot(context)
@@ -350,15 +341,14 @@ describe("全新库与幂等", () => {
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
-  it("账本被改回 v7/v8 再点：仍收敛为当前三条（可重入，结果一致）", async () => {
-    const context = await v8Context()
+  it("账本被改回 v1+v2+v3 再点：仍收敛为单条（可重入，结果一致）", async () => {
+    const context = await v3Context()
     const first = await runSetup(context.env)
     if (!first.success) throw new Error(first.error)
     const afterUpgrade = businessSnapshot(context)
 
-    // 模拟「上次升级中断在记账之前」：结构与数据都在，账本还是旧样子。
     await context.db.db.prepare(`DELETE FROM ${migrationsTable(PREFIX)}`).run()
-    for (const name of V8_LEDGER_ROWS) {
+    for (const name of V3_LEDGER_ROWS) {
       await context.db.db
         .prepare(`INSERT INTO ${migrationsTable(PREFIX)} (name) VALUES (?)`)
         .run(name)
@@ -371,21 +361,8 @@ describe("全新库与幂等", () => {
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
-  it("账本只有 v7/v8 两行（没带更早的历史行）→ 同样收敛为当前三条", async () => {
-    const context = await v8Context(["schema_v7", "schema_v8"])
-    const beforeData = businessSnapshot(context)
-
-    const result = await runSetup(context.env)
-    if (!result.success) throw new Error(result.error)
-
-    expect(result.migrations).toEqual(migrationList("applied"))
-    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
-    expect(businessSnapshot(context)).toEqual(beforeData)
-  })
-
   it("上次安装中断的半成品库（账本空、只建了几张表）：一次补齐", async () => {
     const context = makeContext()
-    // 只跑到一半：users / user_2fa 已建，其余表都还没有。
     for (const statement of SCHEMA_TABLES.slice(0, 2)) {
       await context.db.exec(
         statement.ddl.replaceAll("{table}", tableName(PREFIX, statement.name))
@@ -402,25 +379,25 @@ describe("全新库与幂等", () => {
 })
 
 describe("不被接受的升级源：拒绝、指路、一字不动", () => {
-  it("账本有 v7 没有 v8 → 拒绝（即使结构已经完整），数据与账本不动", async () => {
-    const context = await v8Context(V7_LEDGER_ROWS)
-    const beforeData = businessSnapshot(context)
+  it("账本有 v2 没有 v3 → 拒绝（v2 形态库），数据与账本不动", async () => {
+    const context = await v2FormContext()
     const beforeLedger = ledgerNames(context)
+    const beforeTables = tableNames(context).sort()
 
     const result = await runSetup(context.env)
     expect(result.success).toBe(false)
     if (result.success) throw new Error("expected rejection")
     expect(result.code).toBe("MIGRATION_REJECTED")
-    expect(result.error).toContain("schema_v7")
-    expect(result.error).toContain("schema_v8")
+    expect(result.error).toContain("schema_v2")
+    expect(result.error).toContain("schema_v3")
     expect(result.error).toContain("Nothing was changed")
 
     expect(ledgerNames(context)).toEqual(beforeLedger)
-    expect(businessSnapshot(context)).toEqual(beforeData)
+    expect(tableNames(context).sort()).toEqual(beforeTables)
   })
 
-  it("删掉 username 唯一索引冒充 v8 → 形态校验拦截", async () => {
-    const context = await v8Context()
+  it("删掉 username 唯一索引冒充最终形态 → 形态校验拦截", async () => {
+    const context = await v3Context()
     await context.db.exec("DROP INDEX ciki_users_username")
     const beforeData = businessSnapshot(context)
     const beforeLedger = ledgerNames(context)
@@ -430,7 +407,6 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
     if (result.success) throw new Error("expected rejection")
     expect(result.code).toBe("MIGRATION_REJECTED")
     expect(result.error).toContain("ciki_users_username")
-    // 账本已记着 schema_v8 的这类库，“用上一版升一次”已无意义：指路必须是“按回退点还原”。
     expect(result.error).toContain("Time Travel bookmark")
 
     expect(ledgerNames(context)).toEqual(beforeLedger)
@@ -439,7 +415,7 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
   })
 
   it("更早形态（users 还带 base_currency）→ 拒绝，不改结构", async () => {
-    const context = await v8Context()
+    const context = await v3Context()
     await context.db.exec(
       "ALTER TABLE ciki_users ADD COLUMN base_currency TEXT NOT NULL DEFAULT 'CNY'"
     )
@@ -451,7 +427,7 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
     expect(result.code).toBe("MIGRATION_REJECTED")
     expect(result.error).toContain("base_currency")
 
-    expect(ledgerNames(context)).toEqual([...V8_LEDGER_ROWS])
+    expect(ledgerNames(context)).toEqual([...V3_LEDGER_ROWS])
     expect(businessSnapshot(context)).toEqual(beforeData)
     expect(
       (
@@ -462,28 +438,13 @@ describe("不被接受的升级源：拒绝、指路、一字不动", () => {
     ).toContain("base_currency")
   })
 
-  it("账本写着 schema_v1 但结构还是更早形态 → 不静默跳过，按形态不符拒绝", async () => {
-    const context = await v8Context(["schema_v1"])
-    await context.db.exec(
-      "ALTER TABLE ciki_users ADD COLUMN base_currency TEXT NOT NULL DEFAULT 'CNY'"
-    )
-
-    const result = await runSetup(context.env)
-    expect(result.success).toBe(false)
-    if (result.success) throw new Error("expected rejection")
-    expect(result.code).toBe("MIGRATION_REJECTED")
-    expect(result.error).toContain("base_currency")
-    // 账本一字未动（仍是那条历史同名行）。
-    expect(ledgerNames(context)).toEqual(["schema_v1"])
-  })
-
   it("管理端点把指路信息带回页面（409 + MIGRATION_REJECTED）", async () => {
-    const context = await v8Context(V7_LEDGER_ROWS)
+    const context = await v2FormContext()
 
     const res = await setupRequest(context.env)
     expect(res.status).toBe(409)
     const body = (await res.json()) as { code: string; error: string }
     expect(body.code).toBe("MIGRATION_REJECTED")
-    expect(body.error).toContain("schema_v8")
+    expect(body.error).toContain("schema_v3")
   })
 })

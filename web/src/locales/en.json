@@ -1146,7 +1146,7 @@
     "2FA_METHOD_UNAVAILABLE": "None of the two-factor methods enabled for this account are available right now. Contact an admin.",
     "PREFIX_CONFLICT": "This project already has data under another table prefix. Setup stopped so as not to end up with two sets of tables.",
     "LEDGER_CONFLICT": "Two migration ledgers exist at once (or the old ledger looks malformed). The upgrade stopped so as not to lose records; keep only one ledger first.",
-    "MIGRATION_REJECTED": "This database is not something this release can upgrade directly: run the previous release (the one that upgrades to schema_v8) and click “Check and upgrade database” under Admin → Database once, then switch back to this release and retry. No data was changed. If the ledger already says schema_v8, the schema was modified after the upgrade — restore the Time Travel bookmark you noted before upgrading first.",
+    "MIGRATION_REJECTED": "This database is not something this release can upgrade directly: run the previous release (the one that upgrades to schema_v3) and click “Check and upgrade database” under Admin → Database once, then switch back to this release and retry. No data was changed. If the ledger already says schema_v3, the schema was modified after the upgrade — restore the Time Travel bookmark you noted before upgrading first.",
     "REVISION_IS_LATEST": "The latest version of a page cannot be deleted.",
     "RETENTION_UNLIMITED": "The current setting is unlimited, so there are no versions to prune.",
     "CLEANUP_IN_PROGRESS": "A cleanup is already running. Try again later.",
