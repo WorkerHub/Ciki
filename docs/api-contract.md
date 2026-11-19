@@ -41,7 +41,7 @@
 ## 一、通用约定
 
 - **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）；`/api/read/*` 是外部连接器入口，只认 `Authorization: Bearer <接口令牌>`（`api_tokens.kind` 为 `read` 或 `write` 都行），同样不接受会话 Cookie，且与导入令牌互不通用（见「只读接口（只读令牌）」）；`/api/write/*` 只认 `Authorization: Bearer <kind = write 的接口令牌>`，会话 Cookie、`kind = read` 的令牌与导入令牌在这里一律 401（见「读写接口（读写令牌）」）。
-  - 公开：`GET /api/health`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/email/verify`、`POST /api/auth/email/resend`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
+  - 公开：`GET /api/health`、`GET /api/public`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/email/verify`、`POST /api/auth/email/resend`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
   - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
 - **空间可见性**：站点管理员可见全部空间；普通用户仅可见自己是成员的空间（`admin` / `editor` / `viewer`）。可见性过滤覆盖空间列表、页面树、页面直链、回收站与搜索；非成员访问空间/页面一律 404，不泄露存在性。页面写权限以空间角色为准：`editor` 及以上可写，`viewer` 只读。
@@ -389,6 +389,22 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ## 三、API
 
+### public
+
+#### GET /api/public（公开，可缓存 60 秒）
+
+公开版本自证与公开事实端点，免鉴权，无敏感信息泄露：
+
+```json
+{
+  "name": "Ciki",
+  "repositoryUrl": "https://github.com/WorkerHub/Ciki",
+  "version": "v1.0.0-4-8227065"
+}
+```
+
+响应头含 `Cache-Control: public, max-age=60`（不含私有字段，允许短期缓存；部署流水线自证时通过 `?t=<timestamp>` 穿透缓存）。防泄露铁律：严禁返回 `tablePrefix`、`setup_page_enabled`、数据库连接等任何内部配置。
+
 ### setup
 
 #### GET /api/setup/state（公开，no-store）
@@ -444,10 +460,6 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 429：每 IP 每 10 分钟 3 次。
 - 初始化完成时显式写 `setup_page_enabled=0`（只门控页面，不门控密钥接口）。
-
-#### POST /api/admin/setup（管理员会话，免密钥）
-
-与 `POST /api/setup` 同形状；非管理员 403。
 
 #### POST /api/admin/r2-cleanup（管理员会话）
 
@@ -969,6 +981,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```json
 {
   "siteName": "Ciki",
+  "tablePrefix": "ciki_",
   "setupPageEnabled": false,
   "registrationEnabled": true,
   "registrationApprovalRequired": true,
@@ -1816,7 +1829,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 
 ## 四、前端对接要点
 
-- **升级顺序**：代码部署后、管理员在「系统管理 → 数据库维护」点一次「检查并升级数据库」（`POST /api/admin/setup`）之前，全新库还没有任何表——注册、登录、页面等业务接口都会失败。点完之后一次建全（含默认空间，名字按 setup 请求语言播种；`POST /api/admin/setup` 不带语言即 `zh`），即可正常使用；已初始化的库再点一次只显示 `skipped`，不重复建表、不重复播种默认空间，也不改名。从旧版升级时，这一次 setup 会把旧账本 `{prefix}schema_migrations` 改名承接为 `_{prefix}schema_migrations`，已应用记录保留；本版迁移为单条 `schema_v1`（基线，含令牌最终形态）：最终形态的存量库在同一次 setup 里做账本手术（账本收敛为单条 `schema_v1`），结构与数据不动——形态不被接受时以 409 `MIGRATION_REJECTED` 中止并提示先用上一版升到最终形态（见「数据模型」）。
+- **升级顺序**：每次部署时，由部署流水线在 Worker 部署完成后自动调用 `POST /api/setup` 执行增量迁移并严格校验账本；全新库在此步骤完成建表与默认空间播种。已初始化的库在自动升级时幂等跳过（全 `skipped`），不重复建表、不重复播种空间。旧版升级时账本改名承接与账本收敛在流水线单次 setup 内原子完成。系统管理页面及 setup 页不再提供手动升级入口；`setup_page_enabled` 开关与当前生效的 `tablePrefix` 在「系统管理 → 应用设置」中只读展示。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。

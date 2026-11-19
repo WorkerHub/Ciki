@@ -83,6 +83,28 @@ describe("系统管理 · 站点名称", () => {
     expect(screen.queryByText(/不提供 SMTP 配置/)).toBeNull()
   })
 
+  it("展示当前生效的表前缀（只读）", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue({
+      ...settings,
+      tablePrefix: "ciki_"
+    })
+    render(<SettingsTab />)
+
+    expect(await screen.findByText("当前生效表前缀")).toBeInTheDocument()
+    expect(screen.getByText("ciki_")).toBeInTheDocument()
+  })
+
+  it("无表前缀时回显（无前缀）", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue({
+      ...settings,
+      tablePrefix: ""
+    })
+    render(<SettingsTab />)
+
+    expect(await screen.findByText("当前生效表前缀")).toBeInTheDocument()
+    expect(screen.getByText("（无前缀）")).toBeInTheDocument()
+  })
+
   it("保存失败时回滚输入并显示错误", async () => {
     const user = userEvent.setup()
     vi.mocked(adminApi.saveSettings).mockRejectedValue(

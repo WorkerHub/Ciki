@@ -139,6 +139,19 @@ export function SettingsTab() {
           disabled={saving}
           onChange={(checked) => void update({ setupPageEnabled: checked })}
         />
+        <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0">
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium">
+              {t("admin.settings.tablePrefix.label")}
+            </p>
+            <p className="max-w-prose text-xs text-muted-foreground">
+              {t("admin.settings.tablePrefix.description")}
+            </p>
+          </div>
+          <span className="font-mono text-xs text-muted-foreground">
+            {settings.tablePrefix || t("admin.database.noPrefix")}
+          </span>
+        </div>
       </div>
       <RevisionRetentionCard
         limit={settings.revisionRetentionLimit ?? null}

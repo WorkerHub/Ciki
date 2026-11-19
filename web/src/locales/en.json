@@ -258,6 +258,7 @@
       "migrationApplied": "Applied",
       "migrationCurrent": "Up to date",
       "registerAdmin": "Register the first admin",
+      "alreadyInitialized": "Database is already initialized. Database upgrades are automated in deployment workflows.",
       "disabled": "The setup page is disabled in the admin settings, which means the database is ready."
     }
   },
@@ -763,6 +764,10 @@
         "label": "Show setup page",
         "description": "Usually turn this off once setup is complete, so the setup entry is not exposed on the sign-in page."
       },
+      "tablePrefix": {
+        "label": "Effective table prefix",
+        "description": "Prefix used for table names of this instance in shared D1 (read-only)."
+      },
       "mailConfigured": "Email delivery is configured: email-code two-factor and password recovery are available; edit it under Email delivery.",
       "mailMissing": "Email delivery is not configured: email-code two-factor and password recovery are unavailable; fill in SMTP under Email delivery."
     },
@@ -847,13 +852,9 @@
       }
     },
     "database": {
-      "title": "Database upgrade",
-      "checking": "Checking…",
-      "check": "Check and upgrade database",
+      "title": "Database maintenance",
       "prefix": "Effective table prefix",
       "noPrefix": "(no prefix)",
-      "applied": "Applied",
-      "current": "Up to date",
       "storage": {
         "database": "Database size {{size}}",
         "databaseUnavailable": "Database size unavailable",

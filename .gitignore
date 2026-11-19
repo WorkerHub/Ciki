@@ -17,6 +17,7 @@ dist
 !.env.example
 
 # Build
+build-info.json
 web/dist
 worker/dist
 *.tsbuildinfo

@@ -86,6 +86,7 @@ export function SetupPage() {
     )
   }
 
+  const isInitialized = state.initialized
   const disabled = state.initialized && !state.enabled
 
   return (
@@ -100,7 +101,7 @@ export function SetupPage() {
         </span>
       }
       subtitle={
-        disabled ? t("auth.setup.doneSubtitle") : t("auth.setup.subtitle")
+        isInitialized ? t("auth.setup.doneSubtitle") : t("auth.setup.subtitle")
       }
     >
       <div className="space-y-4">
@@ -133,9 +134,13 @@ export function SetupPage() {
               <Link to="/login">{t("auth.common.goLogin")}</Link>
             </Button>
           </div>
-        ) : disabled ? (
+        ) : isInitialized ? (
           <div className="space-y-3 text-sm">
-            <p>{t("auth.setup.disabled")}</p>
+            <p>
+              {disabled
+                ? t("auth.setup.disabled")
+                : t("auth.setup.alreadyInitialized")}
+            </p>
             <Button asChild size="sm" variant="outline" className="w-full">
               <Link to="/login">{t("auth.common.goLogin")}</Link>
             </Button>

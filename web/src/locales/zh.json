@@ -258,6 +258,7 @@
       "migrationApplied": "已应用",
       "migrationCurrent": "已是最新",
       "registerAdmin": "注册首个管理员账号",
+      "alreadyInitialized": "数据库已初始化完成。数据库升级由部署流水线自动执行。",
       "disabled": "初始化页已经在系统设置里关闭，说明数据库已就绪。"
     }
   },
@@ -757,6 +758,10 @@
         "label": "显示初始化页面",
         "description": "初始化完成后通常应关闭，避免把 setup 入口暴露在登录页。"
       },
+      "tablePrefix": {
+        "label": "当前生效表前缀",
+        "description": "共享 D1 数据库中当前实例表名所使用的前缀（只读展示）。"
+      },
       "mailConfigured": "邮件服务已配置：邮箱验证码两步验证与找回密码可用，修改在「邮件配置」。",
       "mailMissing": "邮件服务未配置：邮箱验证码两步验证与找回密码不可用，请到「邮件配置」填写 SMTP。"
     },
@@ -841,13 +846,9 @@
       }
     },
     "database": {
-      "title": "数据库升级",
-      "checking": "检查中…",
-      "check": "检查并升级数据库",
+      "title": "数据库维护",
       "prefix": "当前表前缀",
       "noPrefix": "（无前缀）",
-      "applied": "已应用",
-      "current": "已是最新",
       "storage": {
         "database": "数据库体积 {{size}}",
         "databaseUnavailable": "数据库体积 不可得",

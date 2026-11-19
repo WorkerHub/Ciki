@@ -596,6 +596,8 @@ export interface AdminUser extends User {
 
 export interface SiteSettings {
   siteName: string
+  /** 当前生效的表前缀（只读展示，空串代表无前缀）。 */
+  tablePrefix?: string
   setupPageEnabled: boolean
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
@@ -737,8 +739,7 @@ export const setupApi = {
     api.post<SetupResult>("/setup", language ? { language } : undefined, {
       headers: { "X-Setup-Secret": secret },
       skipRefresh: true
-    }),
-  runAsAdmin: () => api.post<SetupResult>("/admin/setup")
+    })
 }
 
 export const authApi = {
@@ -1058,7 +1059,6 @@ export const adminApi = {
     api.post<{ success: true }>(`/admin/users/${id}/approve`),
   reject: (id: number) =>
     api.post<{ success: true }>(`/admin/users/${id}/reject`),
-  runAsAdmin: () => api.post<SetupResult>("/admin/setup"),
   /** 最近一轮真实清理（排除 dry-run 与被防双跑守卫跳过的运行）。 */
   r2Cleanup: () => api.get<R2CleanupStatus>("/admin/r2-cleanup"),
   /** 手动触发清理：dryRun=true 只算不删，false 走真实删除。 */

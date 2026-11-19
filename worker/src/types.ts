@@ -55,6 +55,11 @@ export interface Env {
   CLOUDFLARE_ACCOUNT_ID?: string
   /** 本实例所用的 D1 库 ID（运行时拼 D1 REST API 地址用）。 */
   D1_DATABASE_ID?: string
+  /**
+   * 应用版本号（规格 §6.3）：由 CI 在部署时经 `--var APP_VERSION:...` 注入，
+   * 缺省时由 UNKNOWN_VERSION 兜底。
+   */
+  APP_VERSION?: string
 }
 
 export type HonoEnv = {

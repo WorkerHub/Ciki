@@ -45,7 +45,6 @@ import {
   normalizeSiteName
 } from "../core/identity"
 import { insertWithUniqueUsername } from "../core/username"
-import { runSetup } from "../lib/setup"
 import {
   cleanupLockRemainingSeconds,
   cleanupRunDto,
@@ -334,6 +333,7 @@ adminRoutes.get("/settings", async (c) => {
   return c.json({
     siteName:
       (await getSetting(c.env.DB, prefix, "site_name")) ?? DEFAULT_SITE_NAME,
+    tablePrefix: prefix,
     setupPageEnabled:
       (await getAllSettings(c.env.DB, prefix)).setup_page_enabled !== "0",
     registrationEnabled: await getBooleanSetting(
@@ -529,20 +529,6 @@ adminRoutes.post("/revisions/prune", async (c) => {
   }
   const deleted = await pruneAllPages(c.env, limit)
   return c.json({ limit, deleted })
-})
-
-adminRoutes.post("/setup", async (c) => {
-  try {
-    const result = await runSetup(c.env)
-    if (!result.success) return c.json(result, 409)
-    return c.json(result)
-  } catch (err) {
-    console.error(
-      "Admin setup failed:",
-      err instanceof Error ? err.message : err
-    )
-    return c.json({ error: "Setup failed" }, 500)
-  }
 })
 
 /** `kind` 入参：只认 `images` / `content`，缺省 `images`（图片清理的老调用不改）。 */
