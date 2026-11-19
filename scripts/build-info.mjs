@@ -13,6 +13,11 @@
  * 何时跑：根与 web/worker 的 predev/prebuild/pretypecheck/pretest 钩子；
  * 部署时 deploy.yml 用 `node scripts/build-info.mjs --print` 取同一个版本号，
  * 经 `wrangler deploy --var APP_VERSION=…` 交给 Worker 的 /api/public（§6.3）。
+ *
+ * 注：web 端历史实现中 `web/vite.config.ts` 使用 `git describe --tags --always --dirty`
+ * 并在 CI 环境注入 `+build.N` 生成 `__APP_VERSION__`；而此处与 `/api/public`
+ * 严格遵循舰队标准（tech-scheme §5A.2 / §6.3）的 `v<semver>-<commitCount>-<shortHash>` 格式。
+ * 部署版本自证仅依赖 `/api/public` 与本脚本输出，二者互不干扰。
  */
 import { execFileSync } from "node:child_process"
 import { writeFileSync } from "node:fs"

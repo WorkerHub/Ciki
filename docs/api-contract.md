@@ -391,19 +391,19 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ### public
 
-#### GET /api/public（公开，no-store）
+#### GET /api/public（公开，可缓存 60 秒）
 
 公开版本自证与公开事实端点，免鉴权，无敏感信息泄露：
 
 ```json
 {
   "name": "Ciki",
-  "repository": "https://github.com/WorkerHub/Ciki",
-  "version": "1.0.0-abc1234"
+  "repositoryUrl": "https://github.com/WorkerHub/Ciki",
+  "version": "v1.0.0-4-8227065"
 }
 ```
 
-响应头含 `Cache-Control: no-store`。防泄露铁律：严禁返回 `tablePrefix`、`setup_page_enabled`、数据库连接等任何内部配置。
+响应头含 `Cache-Control: public, max-age=60`（不含私有字段，允许短期缓存；部署流水线自证时通过 `?t=<timestamp>` 穿透缓存）。防泄露铁律：严禁返回 `tablePrefix`、`setup_page_enabled`、数据库连接等任何内部配置。
 
 ### setup
 
