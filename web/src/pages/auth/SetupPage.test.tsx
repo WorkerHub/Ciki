@@ -102,6 +102,23 @@ describe("初始化页", () => {
       screen.queryByRole("button", { name: "初始化数据库" })
     ).not.toBeInTheDocument()
   })
+
+  it("已初始化且页面开启时展示就绪提示，不再提供任何表单", async () => {
+    useSetupGateStore.setState({
+      state: { initialized: true, enabled: true },
+      loading: false
+    })
+    renderSetup()
+    expect(
+      await screen.findByText(
+        /数据库已初始化完成。数据库升级由部署流水线自动执行。/
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "初始化数据库" })
+    ).not.toBeInTheDocument()
+    expect(document.getElementById("setup-secret")).toBeNull()
+  })
 })
 
 /** 英文界面：初始化页全英文，前缀冲突那段在英文下也要完整。 */

@@ -8,6 +8,7 @@ import { authRoutes } from "./routes/auth"
 import { auth2faRoutes } from "./routes/auth-2fa"
 import { meRoutes } from "./routes/me"
 import { adminRoutes } from "./routes/admin"
+import { publicRoutes } from "./routes/public"
 import { setupRoutes } from "./routes/setup"
 import { pageRoutes } from "./routes/pages"
 import { commentRoutes } from "./routes/comments"
@@ -56,6 +57,7 @@ app.use("/api/*", async (c, next) => {
 // 公开路径之外，全部要会话。
 const PUBLIC_ROUTES: Array<[string, string]> = [
   ["GET", "/api/health"],
+  ["GET", "/api/public"],
   ["GET", "/api/auth/config"],
   ["POST", "/api/auth/register"],
   ["POST", "/api/auth/login"],
@@ -102,6 +104,7 @@ app.route("/api/auth/2fa", auth2faRoutes)
 app.route("/api/auth", authRoutes)
 app.route("/api/me", meRoutes)
 app.route("/api/admin", adminRoutes)
+app.route("/api/public", publicRoutes)
 app.route("/api/setup", setupRoutes)
 app.route("/api/pages", pageRoutes)
 // 评论挂在页面维度下（`/api/pages/:id/comments…`），与页面共用同一条会话中间件，

@@ -326,8 +326,9 @@ describe("站点名称", () => {
 
     const initial = (await (
       await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
-    ).json()) as { siteName: string }
+    ).json()) as { siteName: string; tablePrefix?: string }
     expect(initial.siteName).toBe("Ciki")
+    expect(initial.tablePrefix).toBe("ciki_")
     const publicInitial = (await (
       await request(env, "/api/auth/config")
     ).json()) as {

@@ -14,8 +14,7 @@ import {
   initializedContext,
   jsonRequest,
   makeContext,
-  request,
-  userSession
+  request
 } from "./support/app"
 
 /** 当前账本里的迁移名（顺序即执行顺序）：断言按它生成，不写死字面量。 */
@@ -262,38 +261,6 @@ describe("setup：初始化、幂等与密钥卫生", () => {
     const blocked = await setupRequest(env, TEST_SETUP_SECRET)
     expect(blocked.status).toBe(429)
     expect(await blocked.json()).toMatchObject({ code: "RATE_LIMITED" })
-  })
-
-  it("管理面 setup：管理员免密钥可用，普通用户 403", async () => {
-    const { env } = await initializedContext()
-    const admin = await adminSession(env)
-    const user = await userSession(env, admin)
-
-    const userRes = await jsonRequest(
-      env,
-      "POST",
-      "/api/admin/setup",
-      undefined,
-      user
-    )
-    expect(userRes.status).toBe(403)
-
-    const adminRes = await jsonRequest(
-      env,
-      "POST",
-      "/api/admin/setup",
-      undefined,
-      admin
-    )
-    expect(adminRes.status).toBe(200)
-    const body = (await adminRes.json()) as {
-      success: boolean
-      tablePrefix: string
-      migrations: Array<{ status: string }>
-    }
-    expect(body.success).toBe(true)
-    expect(body.tablePrefix).toBe("ciki_")
-    expect(body.migrations).toEqual(migrationList("skipped"))
   })
 })
 

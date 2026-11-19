@@ -156,7 +156,7 @@ unset SETUP_SECRET
 
 The optional `language` tells the new database which language to name the seeded default space in: `en` → "Default Space", `zh` → 「默认空间」. Omit it and the server falls back to `Accept-Language` (English only when the first tag starts with `en`), then to `zh`. The browser setup page sends the current interface language for you. It only applies to a brand-new database: existing spaces are never renamed.
 
-After each upgrade deployment, an admin clicks "Check and upgrade database" under Admin → Database Maintenance (系统管理 → 数据库维护) to apply pending migrations (`POST /api/admin/setup` with an admin session; no `SETUP_SECRET` needed). Already-applied migrations show as `skipped`, and the UI offers no drop-table or wipe-database action.
+The deployment pipeline automatically runs database upgrades and self-verifies versions after deploying the Worker (by calling `POST /api/setup` to apply pending migrations and validate the ledger). Already-applied migrations are idempotently skipped (reported as `skipped`); the admin console and setup page do not provide manual upgrade triggers, and the UI offers no drop-table or wipe-database action.
 
 ### 6. Register the admin
 
