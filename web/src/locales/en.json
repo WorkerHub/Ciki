@@ -830,8 +830,7 @@
       "testTo": "Recipient",
       "testSend": "Send",
       "testSent": "Test email sent",
-      "testError": "Send failed",
-      "smtpHint": "Port 465 uses implicit TLS; other ports use STARTTLS."
+      "testError": "Send failed"
     },
     "smtp": {
       "title": "SMTP server",

@@ -73,38 +73,8 @@ export function SmtpTab(props?: {
     let alive = true
     adminApi
       .settings()
-      .then(async (data) => {
-        if (!alive) return
-        if (data?.email) {
-          setInternalSettings(data)
-        } else {
-          try {
-            const smtpRes = await adminApi.smtp()
-            if (!alive) return
-            setInternalSettings({
-              ...data,
-              email: {
-                provider: smtpRes.config ? "smtp" : "none",
-                configured: smtpRes.emailConfigured ?? false,
-                smtp: smtpRes.config ?? {
-                  host: "",
-                  port: 587,
-                  username: "",
-                  from: "",
-                  fromName: "",
-                  passwordSet: false
-                },
-                resend: {
-                  from: "",
-                  fromName: "",
-                  apiKeySet: false
-                }
-              }
-            })
-          } catch {
-            setInternalSettings(data)
-          }
-        }
+      .then((data) => {
+        if (alive) setInternalSettings(data)
       })
       .catch((loadError: unknown) => {
         if (alive) setError(describeApiError(loadError))
@@ -138,7 +108,7 @@ export function SmtpTab(props?: {
       await adminApi.updateSettings({
         email: {
           provider,
-          smtp: { ...smtp, password: smtpPassword },
+          smtp: { ...smtp, port: Number(smtp.port), password: smtpPassword },
           resend: { ...resend, apiKey: resendKey }
         }
       })
@@ -236,9 +206,6 @@ export function SmtpTab(props?: {
 
         {provider === "smtp" ? (
           <div className="space-y-3 border-t pt-4">
-            <p className="text-xs text-muted-foreground">
-              {t("admin.email.smtpHint")}
-            </p>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="smtp-host">{t("admin.email.host")}</Label>

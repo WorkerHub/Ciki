@@ -824,8 +824,7 @@
       "testTo": "收件人",
       "testSend": "发送",
       "testSent": "测试邮件已发送",
-      "testError": "发送失败",
-      "smtpHint": "465 端口使用隐式 TLS，其余端口使用 STARTTLS。"
+      "testError": "发送失败"
     },
     "smtp": {
       "title": "SMTP 服务器",

@@ -173,7 +173,7 @@ describe("系统管理 · 邮件配置 (SmtpTab / EmailSection)", () => {
         provider: "smtp",
         smtp: {
           host: "smtp.example.com",
-          port: "587",
+          port: 587,
           username: "mailer",
           from: "noreply@example.com",
           fromName: "Ciki",
@@ -203,7 +203,7 @@ describe("系统管理 · 邮件配置 (SmtpTab / EmailSection)", () => {
         provider: "smtp",
         smtp: {
           host: "smtp.example.com",
-          port: "587",
+          port: 587,
           username: "mailer",
           from: "noreply@example.com",
           fromName: "Ciki",
