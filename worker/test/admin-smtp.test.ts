@@ -317,7 +317,7 @@ describe("SMTP 测试邮件", () => {
     ]
     expect(message.to).toBe("admin@example.com")
     expect(message.to).not.toBe("attacker@example.com")
-    expect(message.subject).toBe("Ciki SMTP 测试邮件")
+    expect(message.subject).toBe("Ciki 测试邮件")
     expect(config.host).toBe("smtp.example.com")
     expect(config.port).toBe(587)
     expect(config.encryption).toBe("starttls")
