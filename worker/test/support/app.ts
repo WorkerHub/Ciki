@@ -1,4 +1,5 @@
 import { app } from "../../src/index"
+import { encryptSecret } from "../../src/core/secret-box"
 import { getTablePrefix } from "../../src/lib/table-prefix"
 import {
   emailCodesTable,
@@ -6,7 +7,12 @@ import {
   usersTable
 } from "../../src/lib/tables"
 import { runSetup } from "../../src/lib/setup"
-import { SMTP_CONFIG_KEY } from "../../src/services/email"
+import {
+  EMAIL_PROVIDER_KEY,
+  RESEND_API_KEY_AAD,
+  RESEND_CONFIG_KEY,
+  SMTP_CONFIG_KEY
+} from "../../src/services/email"
 import type { Env } from "../../src/types"
 import { MemoryR2 } from "./memory-r2"
 import { SqliteD1 } from "./sqlite-d1"
@@ -222,6 +228,13 @@ export async function enableSmtpConfig(env: Env): Promise<void> {
   )
     .bind(SMTP_CONFIG_KEY, JSON.stringify(config), new Date().toISOString())
     .run()
+  // 三态收敛：配了 SMTP 就激活 smtp 通道（与 PUT /system/smtp 的过渡桥同义）。
+  await env.DB.prepare(
+    `INSERT INTO ${settingsTable(prefix)} (key, value, updated_at) VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+  )
+    .bind(EMAIL_PROVIDER_KEY, "smtp", new Date().toISOString())
+    .run()
 }
 
 /**
@@ -322,4 +335,117 @@ export async function userSession(
   )
   await markEmailVerified(env, email)
   return loginAs(env, email)
+}
+
+/** 直接写一条站点设置（测试用来翻开关）。 */
+export async function writeSetting(
+  db: D1Database,
+  prefix: string,
+  key: string,
+  value: string
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO ${settingsTable(prefix)} (key, value, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
+    )
+    .bind(key, value, new Date().toISOString())
+    .run()
+}
+
+export interface SentEmail {
+  to: string
+  subject: string
+  html: string
+  text: string
+  from: string
+}
+
+export interface FetchStub {
+  sent: SentEmail[]
+  /** fetch 是否被调用过（断言「provider=smtp 时绝不走 Resend HTTPS」用）。 */
+  called: boolean
+  restore: () => void
+}
+
+/**
+ * 把 Resend 的 HTTPS 调用换成内存 stub。`fail` 用来验证「错误原文回显」；
+ * 非 resend 目标 URL 透传给原 fetch（测试里其它调用不受影响）。
+ */
+export function stubResend(
+  options: { fail?: { status: number; body: string } } = {}
+): FetchStub {
+  const sent: SentEmail[] = []
+  const original = globalThis.fetch
+  let called = false
+  const stub = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url
+    if (!url.startsWith("https://api.resend.com/emails")) {
+      return original(input as never, init)
+    }
+    called = true
+    const body = JSON.parse(String(init?.body ?? "{}")) as {
+      to?: string[]
+      subject?: string
+      html?: string
+      text?: string
+      from?: string
+    }
+    if (options.fail) {
+      return new Response(options.fail.body, { status: options.fail.status })
+    }
+    sent.push({
+      to: body.to?.[0] ?? "",
+      subject: body.subject ?? "",
+      html: body.html ?? "",
+      text: body.text ?? "",
+      from: body.from ?? ""
+    })
+    return new Response(JSON.stringify({ id: "stub" }), {
+      status: 200,
+      headers: { "content-type": "application/json" }
+    })
+  }) as typeof fetch
+  globalThis.fetch = stub
+  return {
+    sent,
+    called,
+    restore: () => {
+      globalThis.fetch = original
+    }
+  }
+}
+
+/** 配好 Resend 通道（配合 stubResend 使用；api_key 按真实现加密落库）。 */
+export async function configureResend(env: Env): Promise<void> {
+  const prefix = getTablePrefix(env)
+  const apiKey = await encryptSecret(
+    env.ENCRYPTION_KEY,
+    "re_test_key",
+    RESEND_API_KEY_AAD
+  )
+  await writeSetting(
+    env.DB,
+    prefix,
+    RESEND_CONFIG_KEY,
+    JSON.stringify({
+      api_key: apiKey,
+      from: "noreply@example.com",
+      fromName: "Ciki"
+    })
+  )
+  await writeSetting(env.DB, prefix, EMAIL_PROVIDER_KEY, "resend")
+}
+
+/** 从 stub 收到的邮件里取 6 位验证码。 */
+export function codeFromEmail(email: SentEmail | undefined): string {
+  const match = `${email?.text ?? ""}${email?.html ?? ""}`.match(/\d{6}/)
+  if (!match) throw new Error("no 6-digit code in email")
+  return match[0]
 }

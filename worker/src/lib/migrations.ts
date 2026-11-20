@@ -36,7 +36,7 @@ import {
   rejection,
   tableExists
 } from "./schema-shape"
-import { migrationsTable, tableName, usersTable } from "./tables"
+import { migrationsTable, settingsTable, tableName, usersTable } from "./tables"
 
 /** 迁移执行时能拿到的东西：库、生效前缀、迁移可用的绑定、以及账本快照。 */
 export interface MigrationContext {
@@ -70,6 +70,12 @@ export interface Migration {
 }
 
 export const BASELINE_MIGRATION_NAME = "schema_v1"
+
+/**
+ * 邮件子系统三态收敛（backend 标准 §5.5A）之后追加的第一条迁移名。
+ * `schema_v2`–`schema_v8` 已在基线坍缩中退役，所以下一个可用名字严格是 `schema_v9`。
+ */
+export const EMAIL_PROVIDER_MIGRATION_NAME = "schema_v9"
 
 /**
  * 坍缩前留在账本里的旧记录（`schema_v2`–`schema_v8`）：应用 `schema_v1` 时一并清除。
@@ -232,6 +238,33 @@ const SCHEMA_V1: Migration = {
   isApplied: baselineApplied
 }
 
+/**
+ * `schema_v9` —— 邮件子系统三态收敛（backend 标准 §5.5A）：为存量库原地
+ * 补写 `email_provider`，不改 SMTP 密文、不清空任何已有配置。
+ *
+ * 条件只在「已存过 `smtp_config` 且 host 非空」时成立——说明站点此前已经在用
+ * SMTP，于是把新键初始化为 `smtp`（存量语义等价，不发信行为不变）。没有 SMTP
+ * 配置的新库不写这行，`email_provider` 缺键即 `none`。语句可重复执行
+ * （幂等）；`updated_at` 用 SQLite 的 UTC 时间戳，满足该列 `NOT NULL`。
+ */
+function schemaV9(prefix: string): string {
+  const settings = settingsTable(prefix)
+  return `INSERT INTO ${settings} (key, value, updated_at)
+SELECT 'email_provider', 'smtp', strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+WHERE EXISTS (
+  SELECT 1 FROM ${settings}
+  WHERE key = 'smtp_config'
+    AND json_extract(value, '$.host') IS NOT NULL
+    AND trim(json_extract(value, '$.host')) != ''
+)
+ON CONFLICT (key) DO NOTHING`
+}
+
+const SCHEMA_V9: Migration = {
+  name: EMAIL_PROVIDER_MIGRATION_NAME,
+  sql: ""
+}
+
 export function getMigrations(
   prefix: string,
   language: Language = DEFAULT_LANGUAGE
@@ -254,5 +287,8 @@ export function getMigrations(
     }
   }
 
-  return [{ ...SCHEMA_V1, sql }]
+  return [
+    { ...SCHEMA_V1, sql },
+    { ...SCHEMA_V9, sql: schemaV9(prefix) }
+  ]
 }
