@@ -149,7 +149,7 @@ export function SettingsTab() {
             </p>
           </div>
           <span className="font-mono text-xs text-muted-foreground">
-            {settings.tablePrefix || t("admin.database.noPrefix")}
+            {settings.tablePrefix || t("admin.others.noPrefix")}
           </span>
         </div>
       </div>

@@ -233,6 +233,7 @@ describe("路由守卫与初始化门", () => {
     ).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "用户管理" })).toBeInTheDocument()
     expect(screen.getByRole("tab", { name: "空间总览" })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "其他" })).toBeInTheDocument()
     // 定版 §4：页面级「登录与注册」说明卡、页头副标题与回收站链接都不再出现
     expect(screen.queryByText("登录与注册")).toBeNull()
     expect(screen.queryByText(/站点级设置仅管理员可见/)).toBeNull()

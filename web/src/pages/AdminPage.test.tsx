@@ -113,9 +113,7 @@ describe("系统管理 · 英文界面", () => {
     expect(
       screen.getByRole("tab", { name: "Space overview" })
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole("tab", { name: "Database maintenance" })
-    ).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Others" })).toBeInTheDocument()
     // 默认落在「用户管理」页签：兼作 UsersTab 的英文覆盖
     expect(
       await screen.findByRole("button", { name: "New user" })

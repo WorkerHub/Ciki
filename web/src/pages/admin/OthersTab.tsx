@@ -16,37 +16,37 @@ const RUNNING_POLL_MS = 10_000
 function storageLine(storage: AdminStorage, t: TFunction): string {
   const parts = [
     storage.databaseSizeBytes === null
-      ? t("admin.database.storage.databaseUnavailable")
-      : t("admin.database.storage.database", {
+      ? t("admin.others.storage.databaseUnavailable")
+      : t("admin.others.storage.database", {
           size: formatBytes(storage.databaseSizeBytes)
         })
   ]
   if (typeof storage.assetsSizeBytes === "number") {
     parts.push(
-      t("admin.database.storage.assets", {
+      t("admin.others.storage.assets", {
         size: formatBytes(storage.assetsSizeBytes)
       })
     )
   }
   if (typeof storage.contentSizeBytes === "number") {
     parts.push(
-      t("admin.database.storage.content", {
+      t("admin.others.storage.content", {
         size: formatBytes(storage.contentSizeBytes)
       })
     )
   }
-  parts.push(t("admin.database.storage.pages", { pages: storage.pageCount }))
+  parts.push(t("admin.others.storage.pages", { pages: storage.pageCount }))
   return parts.join(" · ")
 }
 
 /**
- * 数据库维护：孤儿图片两步清理；有数据时附两行状态——
+ * 其他：孤儿图片两步清理；有数据时附两行状态——
  * 一行库体积（D1 + 两个 R2 桶）与页数（服务端按 Cloudflare D1 REST API 与
  * R2 `list()` 口径给，D1 是 Ciki 独占库，不写 scope 字样），
  * 一行最近一轮清理摘要。清理入口只调既有手动触发接口，可清理数与删除量全部由服务端给。
  * 数据库迁移已移至部署流水线自动执行，此处不再提供手动升级入口。
  */
-export function DatabaseTab() {
+export function OthersTab() {
   const [storage, setStorage] = useState<AdminStorage | null>(null)
   const [lastRun, setLastRun] = useState<R2CleanupSummary | null>(null)
   const [runningSeconds, setRunningSeconds] = useState<number | null>(null)
@@ -109,7 +109,7 @@ export function DatabaseTab() {
 
       {lastRun ? (
         <p className="text-xs text-muted-foreground">
-          {t("admin.database.lastRun", {
+          {t("admin.others.lastRun", {
             time: formatDateTime(lastRun.startedAt),
             scanned: lastRun.scanned,
             referenced: lastRun.referenced,
