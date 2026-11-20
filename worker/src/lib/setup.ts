@@ -60,6 +60,7 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   setup_page_enabled: "0",
   registration_enabled: "true",
   registration_approval_required: "true",
+  registration_email_verification_enabled: "true",
   require_2fa: "false"
 }
 

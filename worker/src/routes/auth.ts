@@ -9,6 +9,7 @@ import { Hono } from "hono"
 import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { getBooleanSetting, getSetting } from "../db/queries/settings"
+import { emailVerificationEnforced } from "../lib/settings"
 import {
   createUserFirstIsAdmin,
   findUserByEmail,
@@ -228,14 +229,10 @@ authRoutes.post("/register", async (c) => {
     )
   }
 
-  // 注册必须走邮箱验证：站点发不出信时不让任何人落一个「永远验证不了」的账号。
-  // 首个用户（站点管理员）免验证，所以这一条只拦非首个用户。
-  //
-  // 判断必须和建号在同一条语句里：插入前先 COUNT 再决定，两个并发请求会都以为
-  // 自己是第一个（一个成了管理员，另一个带着未验证账号落库、却再也发不出信）。
-  // 所以「没配发信」时把 `requireEmptyTable` 传给建号语句，写库那一刻表已非空就
-  // 一行不写、这里回 503——与冻结契约「不建号」严格一致。
-  const emailConfigured = await isEmailConfigured(c.env)
+  // 注册邮箱验证是否真的执行：开关开 + 邮件已配置（规格 §5.6 第 4 条）。
+  // 不强制验证时（开关关，或邮件未配/事后撤走）新注册账号直接视为已验证，
+  // 不锁死任何人；首个用户（站点管理员）永远免验证。
+  const requiresVerification = await emailVerificationEnforced(c.env)
 
   const approvalRequired = await getBooleanSetting(
     c.env.DB,
@@ -244,7 +241,7 @@ authRoutes.post("/register", async (c) => {
     true
   )
   const passwordHash = await hashPassword(password)
-  let id: number | null
+  let id: number
   try {
     // 显示名取邮箱前缀；重名自动加 -2、-3（大小写不敏感）。查重与写入之间的
     // 竞态由唯一索引兜底，insertWithUniqueUsername 会换下一个后缀重试。
@@ -261,9 +258,9 @@ authRoutes.post("/register", async (c) => {
             username,
             password_hash: passwordHash,
             approvalStatus: approvalRequired ? "pending" : "approved",
-            language
-          },
-          { requireEmptyTable: !emailConfigured }
+            language,
+            emailVerificationRequired: requiresVerification
+          }
         )
     )
   } catch (err) {
@@ -275,22 +272,12 @@ authRoutes.post("/register", async (c) => {
     }
     throw err
   }
-  // 没配发信、且这条 INSERT 被「只接受首个用户」的守卫拦下：一个字节都没写。
-  if (id === null) {
-    return c.json(
-      {
-        error: "Email delivery is not configured",
-        code: "EMAIL_NOT_CONFIGURED"
-      },
-      503
-    )
-  }
 
   const user = await findUserById(c.env.DB, prefix, id)
   await joinDefaultSpace(c.env.DB, prefix, id, user?.role ?? "user")
 
   // 未验证的发信放在 `waitUntil` 里：注册响应不等 SMTP。发不发以回读到的真实
-  // `email_verified` 为准（首个管理员是 1），不靠上面那次 COUNT 的结论。
+  // `email_verified` 为准（首个管理员是 1），不靠上面那次判定。
   if (user && user.email_verified === 0) {
     await runInBackground(c, async () => {
       // 与找回密码同口径：注册这一封也算「刚发过码」，arm 60 秒冷却，免得用户
@@ -415,11 +402,18 @@ authRoutes.post("/login", async (c) => {
       403
     )
   }
-  if (user.email_verified === 0) {
+  // 验证强制时未验证账号不让登录；未强制（开关关/邮件未配）则自愈置位，
+  // 不把已注册未验证的老用户锁死（规格 §5.6 第 4 条）。
+  const verificationEnforced = await emailVerificationEnforced(c.env)
+  if (verificationEnforced && user.email_verified === 0) {
     return c.json(
       { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
       403
     )
+  }
+  if (!verificationEnforced && user.email_verified === 0) {
+    await markEmailVerified(db, prefix, user.id)
+    user.email_verified = 1
   }
   if (user.approval_status === "pending") {
     return c.json(
@@ -727,11 +721,16 @@ authRoutes.post("/passkey/login/verify", async (c) => {
       403
     )
   }
-  if (user.email_verified === 0) {
+  const verificationEnforced = await emailVerificationEnforced(c.env)
+  if (verificationEnforced && user.email_verified === 0) {
     return c.json(
       { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
       403
     )
+  }
+  if (!verificationEnforced && user.email_verified === 0) {
+    await markEmailVerified(db, prefix, user.id)
+    user.email_verified = 1
   }
   if (user.approval_status === "pending") {
     return c.json(
