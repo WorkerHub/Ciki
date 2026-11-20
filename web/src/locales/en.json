@@ -2,6 +2,12 @@
   "app": {
     "title": "{{siteName}}"
   },
+  "pageTitle": {
+    "home": "Home",
+    "login": "Sign in",
+    "register": "Register",
+    "setup": "Setup"
+  },
   "common": {
     "languages": {
       "zh": "中文",
