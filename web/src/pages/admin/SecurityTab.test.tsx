@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "@/i18n"
-import type { SiteSettings } from "@/lib/api"
+import { ApiError, type SiteSettings } from "@/lib/api"
 import { SecurityTab } from "@/pages/admin/SecurityTab"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -24,6 +24,7 @@ const settings: SiteSettings = {
   setupPageEnabled: false,
   registrationEnabled: true,
   registrationApprovalRequired: true,
+  registrationEmailVerificationRequired: true,
   require2fa: false,
   emailConfigured: true,
   revisionRetentionLimit: null
@@ -35,7 +36,7 @@ describe("系统管理 · 访问与安全", () => {
     vi.mocked(adminApi.saveSettings).mockReset()
   })
 
-  it("强制两步验证与两个注册开关都是可操作的开关", async () => {
+  it("强制两步验证与三个注册开关都是可操作的开关", async () => {
     render(<SecurityTab />)
 
     expect(
@@ -45,6 +46,9 @@ describe("系统管理 · 访问与安全", () => {
     expect(
       screen.getByRole("switch", { name: "注册需要管理员批准" })
     ).toBeEnabled()
+    const emailVerify = screen.getByRole("switch", { name: "注册需邮箱验证" })
+    expect(emailVerify).toBeEnabled()
+    expect(emailVerify).toHaveAttribute("aria-checked", "true")
     // 权限模型里指向「用户管理」的那条已改为准确表述
     expect(screen.getByText(/待批准用户的处理/)).toBeInTheDocument()
     expect(screen.queryByText(/注册审批、账号停用/)).toBeNull()
@@ -64,6 +68,91 @@ describe("系统管理 · 访问与安全", () => {
       registrationEnabled: false
     })
     expect(registration).toHaveAttribute("aria-checked", "false")
+  })
+
+  it("切换「注册需邮箱验证」把 registrationEmailVerificationRequired 写回后端", async () => {
+    const user = userEvent.setup()
+    vi.mocked(adminApi.saveSettings).mockResolvedValue({ success: true })
+    render(<SecurityTab />)
+
+    const emailVerify = await screen.findByRole("switch", {
+      name: "注册需邮箱验证"
+    })
+    expect(emailVerify).toHaveAttribute("aria-checked", "true")
+    await user.click(emailVerify)
+
+    expect(adminApi.saveSettings).toHaveBeenCalledWith({
+      registrationEmailVerificationRequired: false
+    })
+    expect(emailVerify).toHaveAttribute("aria-checked", "false")
+  })
+
+  it("邮件未配置且开关开启时，「注册需邮箱验证」置灰并提示暂不生效", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue({
+      ...settings,
+      emailConfigured: false,
+      registrationEmailVerificationRequired: true
+    })
+    render(<SecurityTab />)
+
+    const emailVerify = await screen.findByRole("switch", {
+      name: "注册需邮箱验证"
+    })
+    expect(emailVerify).toBeDisabled()
+    expect(emailVerify).toHaveAttribute("aria-checked", "true")
+    expect(
+      screen.getByText(
+        "邮件未配置，该开关暂不生效，新注册用户不会被要求验证邮箱。"
+      )
+    ).toBeInTheDocument()
+  })
+
+  it("邮件未配置且开关关闭时，「注册需邮箱验证」置灰并提示无法开启", async () => {
+    vi.mocked(adminApi.settings).mockResolvedValue({
+      ...settings,
+      emailConfigured: false,
+      registrationEmailVerificationRequired: false
+    })
+    render(<SecurityTab />)
+
+    const emailVerify = await screen.findByRole("switch", {
+      name: "注册需邮箱验证"
+    })
+    expect(emailVerify).toBeDisabled()
+    expect(emailVerify).toHaveAttribute("aria-checked", "false")
+    expect(
+      screen.getByText(
+        "邮件未配置，无法开启该开关；请先在邮件配置中设置发送通道。"
+      )
+    ).toBeInTheDocument()
+  })
+
+  it("切换「注册需邮箱验证」保存失败（409 EMAIL_NOT_CONFIGURED）时回滚并显示错误", async () => {
+    const user = userEvent.setup()
+    vi.mocked(adminApi.settings).mockResolvedValue({
+      ...settings,
+      registrationEmailVerificationRequired: false
+    })
+    vi.mocked(adminApi.saveSettings).mockRejectedValue(
+      new ApiError(
+        409,
+        "Email delivery is not configured",
+        "EMAIL_NOT_CONFIGURED"
+      )
+    )
+    render(<SecurityTab />)
+
+    const emailVerify = await screen.findByRole("switch", {
+      name: "注册需邮箱验证"
+    })
+    expect(emailVerify).toHaveAttribute("aria-checked", "false")
+    await user.click(emailVerify)
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "还没有配置可用的 SMTP，请先在系统管理 → 邮件配置里填写。"
+    )
+    expect(emailVerify).toHaveAttribute("aria-checked", "false")
   })
 
   it("开放注册关闭时「注册需要管理员批准」不可操作", async () => {
@@ -100,7 +189,7 @@ describe("系统管理 · 访问与安全 · 英文界面", () => {
     vi.mocked(adminApi.settings).mockResolvedValue(settings)
   })
 
-  it("三个开关与权限模型说明都是英文", async () => {
+  it("四个开关与权限模型说明都是英文", async () => {
     await i18n.changeLanguage("en")
     render(<SecurityTab />)
 
@@ -110,6 +199,9 @@ describe("系统管理 · 访问与安全 · 英文界面", () => {
     expect(screen.getByLabelText("Open registration")).toBeInTheDocument()
     expect(
       screen.getByLabelText("Registration requires admin approval")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByLabelText("Registration requires email verification")
     ).toBeInTheDocument()
     expect(screen.getByText("Permission model")).toBeInTheDocument()
   })

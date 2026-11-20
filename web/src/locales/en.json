@@ -800,6 +800,12 @@
         "label": "Registration requires admin approval",
         "description": "When on, self-registered accounts stay pending until an admin approves them."
       },
+      "emailVerification": {
+        "label": "Registration requires email verification",
+        "description": "When enabled, newly registered users must verify their email before logging in; when disabled, new accounts are verified immediately.",
+        "blocked": "Email is not configured, so this switch cannot be enabled. Configure a provider first under Email.",
+        "inactive": "Email is not configured, so this switch has no effect and new users are not asked to verify."
+      },
       "model": {
         "title": "Permission model",
         "roles": "Two roles: admin and regular user; the admin panel is only visible to and callable by admins.",

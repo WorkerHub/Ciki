@@ -81,6 +81,24 @@ export function SecurityTab() {
                 void update({ registrationApprovalRequired: checked })
               }
             />
+            <SettingRow
+              label={t("admin.security.emailVerification.label")}
+              description={t("admin.security.emailVerification.description")}
+              checked={settings.registrationEmailVerificationRequired ?? true}
+              disabled={saving || !settings.emailConfigured}
+              hint={
+                !settings.emailConfigured
+                  ? (settings.registrationEmailVerificationRequired ?? true)
+                    ? t("admin.security.emailVerification.inactive")
+                    : t("admin.security.emailVerification.blocked")
+                  : undefined
+              }
+              onChange={(checked) =>
+                void update({
+                  registrationEmailVerificationRequired: checked
+                })
+              }
+            />
           </>
         ) : (
           <div className="h-16 animate-pulse bg-muted/60" />
