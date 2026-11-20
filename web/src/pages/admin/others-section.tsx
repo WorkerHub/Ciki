@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Switch } from "@/components/ui/switch"
-import {
-  adminApi,
-  describeApiError,
-  type SiteSettings
-} from "@/lib/api"
+import { adminApi, describeApiError, type SiteSettings } from "@/lib/api"
 
 /**
  * 系统管理 · 其他（规格 §5.3.5、§6.1）。
@@ -20,6 +16,7 @@ export function OthersSection(props?: {
   const [internalSettings, setInternalSettings] = useState<SiteSettings | null>(
     props?.settings ?? null
   )
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
@@ -44,7 +41,8 @@ export function OthersSection(props?: {
   const settings = internalSettings
 
   const toggleSetupPage = async (enabled: boolean) => {
-    if (!settings) return
+    if (!settings || saving) return
+    setSaving(true)
     setError("")
     const previous = settings
     const optimistic: SiteSettings = { ...settings, setupPageEnabled: enabled }
@@ -57,10 +55,26 @@ export function OthersSection(props?: {
     } catch (saveError: unknown) {
       setInternalSettings(previous)
       setError(describeApiError(saveError))
+    } finally {
+      setSaving(false)
     }
   }
 
-  if (!settings) return null
+  if (!settings) {
+    if (error) {
+      return (
+        <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <h3 className="font-heading text-sm font-semibold">
+            {t("admin.others.title")}
+          </h3>
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        </section>
+      )
+    }
+    return null
+  }
 
   return (
     <section className="space-y-4 rounded-xl border border-border bg-card p-4">
@@ -77,6 +91,7 @@ export function OthersSection(props?: {
         </span>
         <Switch
           checked={settings.setupPageEnabled}
+          disabled={saving}
           onCheckedChange={(checked) => void toggleSetupPage(checked)}
           aria-label={t("admin.others.setupPage")}
         />

@@ -310,8 +310,12 @@ describe("系统管理 · 其他 · 英文界面", () => {
       running: null
     })
     vi.mocked(adminApi.storage).mockReset().mockResolvedValue(storage)
-    vi.mocked(adminApi.settings).mockReset().mockResolvedValue(defaultSiteSettings)
-    vi.mocked(adminApi.saveSettings).mockReset().mockResolvedValue({ success: true })
+    vi.mocked(adminApi.settings)
+      .mockReset()
+      .mockResolvedValue(defaultSiteSettings)
+    vi.mocked(adminApi.saveSettings)
+      .mockReset()
+      .mockResolvedValue({ success: true })
   })
 
   it("清理区与体积行都是英文，无手动升级按钮", async () => {

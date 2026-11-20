@@ -107,6 +107,37 @@ describe("系统管理 · 其他设置区块 (OthersSection)", () => {
     expect(setupSwitch).toHaveAttribute("aria-checked", "false")
   })
 
+  it("保存请求在途中时 switch 处于 disabled 状态", async () => {
+    const user = userEvent.setup()
+    let resolveSave: (val: { success: true }) => void = () => {}
+    vi.mocked(adminApi.saveSettings).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSave = resolve
+        })
+    )
+
+    render(<OthersSection />)
+    const setupSwitch = await screen.findByRole("switch", {
+      name: "开放初始化页面"
+    })
+    expect(setupSwitch).not.toBeDisabled()
+
+    await user.click(setupSwitch)
+    expect(setupSwitch).toBeDisabled()
+
+    resolveSave({ success: true })
+    await vi.waitFor(() => {
+      expect(setupSwitch).not.toBeDisabled()
+    })
+  })
+
+  it("加载设置失败时渲染错误提示", async () => {
+    vi.mocked(adminApi.settings).mockRejectedValue(new Error("fetch failed"))
+    render(<OthersSection />)
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+  })
+
   it("支持直接接收 settings props", async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn()
@@ -116,9 +147,7 @@ describe("系统管理 · 其他设置区块 (OthersSection)", () => {
       tablePrefix: "prop_prefix_"
     }
 
-    render(
-      <OthersSection settings={initialPropsSettings} onSaved={onSaved} />
-    )
+    render(<OthersSection settings={initialPropsSettings} onSaved={onSaved} />)
 
     expect(screen.getByText("prop_prefix_")).toBeInTheDocument()
     const setupSwitch = screen.getByRole("switch", { name: "开放初始化页面" })
