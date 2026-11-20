@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            // body 会被 GitHub 前置到自动生成的 notes 之前，故首行固定为
+            // 模板版本 + 所对应的方案版本（方案版本号以 README 版本标注为准）。
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: tag,
+              body: `模板版本 ${tag} ｜ 对应《WorkerHub 通用技术方案》main 现行版（版本标注见 README）\n\n`,
+              generate_release_notes: true,
+            });
