@@ -74,7 +74,10 @@ const PUBLIC_ROUTES: Array<[string, string]> = [
   ["POST", "/api/auth/2fa/passkey/authenticate/options"],
   ["POST", "/api/auth/2fa/passkey/authenticate/verify"],
   // 登录第二步选了邮箱验证码时发码：只认有效的 2fa_login 挑战（tempToken）。
-  ["POST", "/api/auth/2fa/email-otp/send-login"]
+  ["POST", "/api/auth/2fa/email-otp/send-login"],
+  // 无密码 passkey 登录两个端点：未登录拉起凭证选择与校验。
+  ["POST", "/api/auth/passkey/login/options"],
+  ["POST", "/api/auth/passkey/login/verify"]
 ]
 
 function isPublicRoute(method: string, path: string): boolean {

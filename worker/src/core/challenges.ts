@@ -14,6 +14,7 @@ export type ChallengePurpose =
   | "passkey_auth"
   | "totp_used"
   | "password_reset"
+  | "passkey_login"
 
 export const CHALLENGE_TTL_SECONDS = 300
 export const TOTP_REPLAY_TTL_SECONDS = 90
