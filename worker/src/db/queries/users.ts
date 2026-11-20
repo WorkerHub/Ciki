@@ -20,18 +20,13 @@ export interface UserRow {
 /**
  * 注册：用户表为空时首个用户是 admin、直接批准并激活，并且直接视为已验证邮箱
  * （首个管理员是站点的主人，不能因为没有 SMTP 就把自己锁在门外）；其余用户一律
- * `email_verified=0`，由注册邮箱验证流程置位。单条语句判定“是否首个用户”，避免
+ * 按 `emailVerificationRequired` 决定是否待验证。单条语句判定“是否首个用户”，避免
  * 并发下出现两个管理员。
- *
- * `requireEmptyTable` 把「只接受首个用户」也压进同一条语句（`WHERE` 里的 COUNT）：
- * 站点没配发信时调用方传 true，并发注册的第二个请求在写入那一刻就会发现表已非空、
- * 一行都不写（返回 null），由调用方回 503——不能靠插入前的 COUNT 预检，那个窗口里
- * 两个请求会都以为自己是第一个。
  *
  * `language` 是界面语言（自助注册按注册页当前语言传入，缺省 `zh`）；管理员建号走
  * `createApprovedUser`，那里固定 `zh`（i18n 规格 §2.6），本单不给建号表单加语言项。
  *
- * 返回新用户的整数 id（`meta.last_row_id`）；被 `requireEmptyTable` 拦下时返回 null。
+ * 返回新用户的整数 id（`meta.last_row_id`）。
  */
 export async function createUserFirstIsAdmin(
   db: D1Database,
@@ -42,9 +37,9 @@ export async function createUserFirstIsAdmin(
     password_hash: string
     approvalStatus: "pending" | "approved"
     language?: Language
-  },
-  options: { requireEmptyTable?: boolean } = {}
-): Promise<number | null> {
+    emailVerificationRequired: boolean
+  }
+): Promise<number> {
   const table = usersTable(prefix)
   const now = new Date().toISOString()
   const active = data.approvalStatus === "approved" ? 1 : 0
@@ -56,9 +51,9 @@ export async function createUserFirstIsAdmin(
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'admin' ELSE 'user' END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE ? END,
          CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 'approved' ELSE ? END,
-         CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1 ELSE 0 END,
-         ?, ?, ?
-       WHERE ? = 0 OR (SELECT COUNT(*) FROM ${table}) = 0`
+         CASE WHEN (SELECT COUNT(*) FROM ${table}) = 0 THEN 1
+              WHEN ? = 1 THEN 0 ELSE 1 END,
+         ?, ?, ?`
     )
     .bind(
       data.email,
@@ -66,13 +61,12 @@ export async function createUserFirstIsAdmin(
       data.password_hash,
       active,
       data.approvalStatus,
+      data.emailVerificationRequired ? 1 : 0,
       data.language ?? DEFAULT_LANGUAGE,
       now,
-      now,
-      options.requireEmptyTable ? 1 : 0
+      now
     )
     .run()
-  if (result.meta.changes === 0) return null
   return result.meta.last_row_id
 }
 

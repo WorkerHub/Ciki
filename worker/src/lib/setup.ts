@@ -60,7 +60,13 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   setup_page_enabled: "0",
   registration_enabled: "true",
   registration_approval_required: "true",
-  require_2fa: "false"
+  registration_email_verification_enabled: "true",
+  require_2fa: "false",
+  // 邮件子系统三态收敛（backend 标准 §5.5A）：新库默认无 provider，
+  // 两份配置以空对象播种，`email_provider` 缺键同义于 `none`。
+  email_provider: "none",
+  smtp_config: "{}",
+  resend_config: "{}"
 }
 
 /**
