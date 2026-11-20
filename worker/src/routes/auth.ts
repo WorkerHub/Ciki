@@ -42,7 +42,6 @@ import {
   consumeCounter,
   lockedUntil,
   readCounterWindow,
-  resetCounter,
   setLock
 } from "../core/counters"
 import {
@@ -637,7 +636,7 @@ authRoutes.post("/passkey/login/verify", async (c) => {
   // 3. 消费挑战（一次性、5 分钟过期、防重放，消费即删）
   const challengeKey = await challengeKeyForToken(rawChallenge)
   const challenge = await consumeChallenge(db, prefix, challengeKey)
-  if (!challenge || challenge.purpose !== "passkey_login") {
+  if (challenge?.purpose !== "passkey_login") {
     return c.json({ error: "Invalid credentials" }, 401)
   }
 

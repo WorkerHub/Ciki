@@ -3,9 +3,7 @@ import {
   adminSession,
   cookieOf,
   initializedContext,
-  jsonRequest,
-  markEmailVerified,
-  register
+  jsonRequest
 } from "./support/app"
 import {
   assertPasskey,
@@ -16,7 +14,6 @@ import { isoBase64URL } from "@simplewebauthn/server/helpers"
 
 const RP_ID = "localhost"
 const ORIGIN = "http://localhost"
-const PASSWORD = "Test" + "-Password" + "-123"
 
 async function registerPasskeyForUser(
   env: Parameters<typeof adminSession>[0],
@@ -612,7 +609,10 @@ describe("无密码 Passkey 登录：限流与锁定", () => {
       validAssertion as Record<string, unknown>
     )
     expect(lockedRes.status).toBe(429)
-    const body = (await lockedRes.json()) as { code: string; retryAfter: number }
+    const body = (await lockedRes.json()) as {
+      code: string
+      retryAfter: number
+    }
     expect(body.code).toBe("ACCOUNT_LOCKED")
     expect(body.retryAfter).toBeGreaterThan(0)
   })
@@ -621,9 +621,14 @@ describe("无密码 Passkey 登录：限流与锁定", () => {
     const { env } = await initializedContext()
 
     for (let i = 0; i < 10; i += 1) {
-      const res = await jsonRequest(env, "POST", "/api/auth/passkey/login/verify", {
-        id: `fake-id-${i}`
-      })
+      const res = await jsonRequest(
+        env,
+        "POST",
+        "/api/auth/passkey/login/verify",
+        {
+          id: `fake-id-${i}`
+        }
+      )
       expect(res.status).toBe(401)
     }
 

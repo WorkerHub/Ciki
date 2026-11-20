@@ -160,4 +160,3 @@ export function extractChallengeFromClientData(
     return null
   }
 }
-
