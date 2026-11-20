@@ -698,7 +698,7 @@ export interface AdminSpace {
 }
 
 /**
- * 系统管理 → 数据库维护的体积口径（GET /api/admin/storage）。
+ * 系统管理 → 其他的体积口径（GET /api/admin/storage）。
  * D1 是 Ciki 独占库，`sizeScope` 即本库；前端只展示 `pageCount` 与体积，
  * 不渲染 scope 文案（不出现「共享库」字样）。
  * D1 体积由 Cloudflare D1 REST API 的 `file_size` 取得（服务端约 5 分钟缓存）；
@@ -1065,7 +1065,7 @@ export const adminApi = {
   runR2Cleanup: (dryRun: boolean) =>
     api.post<R2CleanupRunResult>("/admin/r2-cleanup", { dryRun }),
   spaces: () => api.get<AdminSpace[]>("/admin/spaces"),
-  /** 数据库体积与页数（数据库维护页那一行）。 */
+  /** 数据库体积与页数（「其他」页那一行）。 */
   storage: () => api.get<AdminStorage>("/admin/storage"),
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
@@ -1161,14 +1161,14 @@ export const ERROR_TEXT_CODES = new Set<string>([
   "EMAIL_TAKEN",
   "METHOD_NOT_ENABLED",
   "2FA_METHOD_UNAVAILABLE",
-  // 初始化与升级：两种冲突都讲清「已中止、数据未动」，措辞对齐数据库维护页
+  // 初始化与升级：两种冲突都讲清「已中止、数据未动」，措辞对齐「其他」页
   "PREFIX_CONFLICT",
   "LEDGER_CONFLICT",
   "MIGRATION_REJECTED",
   // 版本
   "REVISION_IS_LATEST",
   "RETENTION_UNLIMITED",
-  // 倒计时由数据库维护页的「进行中」提示行按 retryAfter 给出，这里只说状态
+  // 倒计时由「其他」页的「进行中」提示行按 retryAfter 给出，这里只说状态
   "CLEANUP_IN_PROGRESS",
   "REVISION_UNRENDERABLE",
   // 正文存储（内容桶）取不到对象：是运维问题，别把用户往「内容坏了」上引

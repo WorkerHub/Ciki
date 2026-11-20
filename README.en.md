@@ -43,7 +43,7 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 - **Login and two-factor auth** — Password plus TOTP / Passkey. The first registered user becomes an admin automatically; later registrations need admin approval by default and must verify their email first (a 6-digit code is sent on sign-up, and unverified accounts cannot log in). Adding a second factor requires re-entering the password once.
 - **Browser extension** — Create a credential in the Settings "Browser extension" card (keep several, revoke them one by one, plaintext shown only once) and use the companion Ciki Helper browser extension to clip source pages into Ciki (title, body, code blocks, tables and images).
 - **Settings** — Appearance (light / dark / system, no first-paint flash), password change, two-factor auth, API Tokens, browser extension credentials, signed-in devices.
-- **Admin panel** — Users and registration approval, space overview, site settings (site name, open registration, registration approval, setup page toggle), access and security (enforce two-factor), email delivery (SMTP server settings and a test message), database maintenance.
+- **Admin panel** — Users and registration approval, space overview, site settings (site name, open registration, registration approval, setup page toggle), access and security (enforce two-factor), email delivery (SMTP server settings and a test message), others.
 - **About** — Version and build time, injected by CI at build time.
 - **Mobile-friendly** — Responsive layout; reading, page tree and space switching work on phones.
 
@@ -250,7 +250,7 @@ Orphaned R2 objects are swept once a month, **once per bucket and logged per buc
 
 Each bucket is listed and pruned only by its own cleanup kind, and the lock plus the 20-day rerun guard are kept per kind.
 
-Before enabling content GC for the first time, run a dry run from Admin → Database Maintenance (`POST /api/admin/r2-cleanup` with `{"kind":"content","dryRun":true}`): `prunable` / `prunableBytes` in the response are the number and size of objects that would be deleted (not capped by the per-run limit); check them against expectations (for example orphans left by a failed migration) before running for real.
+Before enabling content GC for the first time, run a dry run from Admin → Others (`POST /api/admin/r2-cleanup` with `{"kind":"content","dryRun":true}`): `prunable` / `prunableBytes` in the response are the number and size of objects that would be deleted (not capped by the per-run limit); check them against expectations (for example orphans left by a failed migration) before running for real.
 
 There is exactly one switch — the value of the GitHub Secret `WAKER_SIGNING_KEY` (three states):
 
@@ -264,7 +264,7 @@ There is exactly one switch — the value of the GitHub Secret `WAKER_SIGNING_KE
 | cron         | `0 1 1 * *`                                       |
 | Timezone     | `Asia/Shanghai` (= 01:00 on the 1st, low traffic) |
 
-- **Set to `false` (explicitly off)**: change the GitHub Secret `WAKER_SIGNING_KEY` to `false` and redeploy and all automatic cleanup stops — neither the built-in Cron nor the waker callback runs (`scheduled()` logs a single "explicitly off" line and skips, the callback endpoint returns `500 signing_key_missing`). It is a reserved value and case-sensitive: only lowercase `false` counts. Only the automatic trigger is switched off; manual cleanup from Admin → Database Maintenance and `POST /api/admin/r2-cleanup` keeps working. **Remember to also disable the `monthly-r2-orphan-cleanup` job in the waker console**, otherwise it keeps calling back once a month and is bound to fail.
+- **Set to `false` (explicitly off)**: change the GitHub Secret `WAKER_SIGNING_KEY` to `false` and redeploy and all automatic cleanup stops — neither the built-in Cron nor the waker callback runs (`scheduled()` logs a single "explicitly off" line and skips, the callback endpoint returns `500 signing_key_missing`). It is a reserved value and case-sensitive: only lowercase `false` counts. Only the automatic trigger is switched off; manual cleanup from Admin → Others and `POST /api/admin/r2-cleanup` keeps working. **Remember to also disable the `monthly-r2-orphan-cleanup` job in the waker console**, otherwise it keeps calling back once a month and is bound to fail.
 
 Delete `WAKER_SIGNING_KEY` and redeploy to fall back to the built-in Cron; set it to `false` to turn automatic cleanup off. Every run appends one row to `{prefix}r2_cleanup_runs` in D1, and a real run that comes less than 20 days after the last successful one is skipped (with a skip row logged) so the two entries can never double-run.
 
@@ -277,4 +277,4 @@ curl -X POST https://<your-site-domain>/api/admin/r2-cleanup \
   -d '{"dryRun": true}'
 ```
 
-Admin → Database Maintenance shows one line summarising the latest real run (run time, scanned, referenced, deleted, skipped for being under 30 days, failed).
+Admin → Others shows one line summarising the latest real run (run time, scanned, referenced, deleted, skipped for being under 30 days, failed).

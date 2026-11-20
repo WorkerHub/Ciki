@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "@/i18n"
 import type { AdminStorage, R2CleanupSummary } from "@/lib/api"
-import { DatabaseTab } from "@/pages/admin/DatabaseTab"
+import { OthersTab } from "@/pages/admin/OthersTab"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -47,7 +47,7 @@ const lastRun: R2CleanupSummary = {
   truncated: false
 }
 
-describe("系统管理 · 数据库维护", () => {
+describe("系统管理 · 其他", () => {
   beforeEach(() => {
     vi.mocked(adminApi.r2Cleanup).mockReset()
     vi.mocked(adminApi.runR2Cleanup).mockReset()
@@ -60,7 +60,7 @@ describe("系统管理 · 数据库维护", () => {
   })
 
   it("无手动升级入口且旧说明文字不再渲染", () => {
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     expect(screen.getByText("孤儿图片清理")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: /升级/ })).toBeNull()
@@ -76,7 +76,7 @@ describe("系统管理 · 数据库维护", () => {
       lastRun,
       running: null
     })
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     expect(
       await screen.findByText(
@@ -89,7 +89,7 @@ describe("系统管理 · 数据库维护", () => {
   })
 
   it("库体积、两个桶体积与页数并成一行：按桶分开显示，不合并", async () => {
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     expect(
       await screen.findByText(
@@ -108,7 +108,7 @@ describe("系统管理 · 数据库维护", () => {
       ...storage,
       assetsSizeBytes: null
     })
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     expect(
       await screen.findByText("数据库体积 3.4 MB · 正文体积 512.0 KB · 页面 12")
@@ -123,7 +123,7 @@ describe("系统管理 · 数据库维护", () => {
       contentSizeBytes: 0,
       contentObjectCount: 0
     })
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     expect(
       await screen.findByText(
@@ -139,7 +139,7 @@ describe("系统管理 · 数据库维护", () => {
       assetsSizeBytes: null,
       contentSizeBytes: null
     })
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     expect(
       await screen.findByText("数据库体积 不可得 · 页面 12")
@@ -149,7 +149,7 @@ describe("系统管理 · 数据库维护", () => {
 
   it("体积接口失败时整行不渲染，也不占错误位", async () => {
     vi.mocked(adminApi.storage).mockRejectedValue(new Error("boom"))
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     await waitFor(() => expect(adminApi.storage).toHaveBeenCalledTimes(1))
     expect(screen.queryByText(/数据库体积/)).toBeNull()
@@ -157,7 +157,7 @@ describe("系统管理 · 数据库维护", () => {
   })
 
   it("没有清理记录时不渲染摘要，也不留空态文字", async () => {
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     await waitFor(() => expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(1))
     expect(screen.queryByText(/最近清理/)).toBeNull()
@@ -165,7 +165,7 @@ describe("系统管理 · 数据库维护", () => {
 
   it("摘要读取失败不打扰用户，也不显示错误", async () => {
     vi.mocked(adminApi.r2Cleanup).mockRejectedValue(new Error("boom"))
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     await waitFor(() => expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(1))
     expect(screen.queryByRole("alert")).toBeNull()
@@ -186,7 +186,7 @@ describe("系统管理 · 数据库维护", () => {
           }
         })
         .mockResolvedValueOnce({ lastRun: null, running: null })
-      render(<DatabaseTab />)
+      render(<OthersTab />)
 
       // 首轮 GET 落盘后再看渲染结果
       await act(async () => {
@@ -246,7 +246,7 @@ describe("系统管理 · 数据库维护", () => {
         failed: 0,
         truncated: false
       })
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     await user.click(
       await screen.findByRole("button", { name: "扫描孤儿图片" })
@@ -267,7 +267,7 @@ describe("系统管理 · 数据库维护", () => {
   })
 })
 
-describe("系统管理 · 数据库维护 · 英文界面", () => {
+describe("系统管理 · 其他 · 英文界面", () => {
   beforeEach(() => {
     vi.mocked(adminApi.r2Cleanup).mockReset().mockResolvedValue({
       lastRun: null,
@@ -278,7 +278,7 @@ describe("系统管理 · 数据库维护 · 英文界面", () => {
 
   it("清理区与体积行都是英文，无手动升级按钮", async () => {
     await i18n.changeLanguage("en")
-    render(<DatabaseTab />)
+    render(<OthersTab />)
 
     expect(screen.getByText("Orphaned image cleanup")).toBeInTheDocument()
     expect(
