@@ -202,6 +202,14 @@ export async function seedV3Database(ctx: TestContext): Promise<V3Seed> {
     `INSERT INTO ${table("system_settings")} (key, value, updated_at) VALUES (?, ?, ?)`
   )
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
+    // 存量 v3 库没有三态收敛的键；smtp_config 下面专门插带 host 的存量行以演练 schema_v9。
+    if (
+      key === "smtp_config" ||
+      key === "email_provider" ||
+      key === "resend_config"
+    ) {
+      continue
+    }
     insertSetting.run(key, value, now)
   }
   insertSetting.run(

@@ -583,7 +583,7 @@ describe("username 唯一性：自动后缀、改名撞名 409", () => {
     expect(isUsernameConflict(new Error("boom"))).toBe(false)
   })
 
-  it("首个用户守卫：insert 返回 null 原样返回、不重试", async () => {
+  it("insert 返回 null 原样返回、不重试；重名时自动顺延后缀分配", async () => {
     const { env } = await initializedContext()
     await adminSession(env, "dup@example.com")
 

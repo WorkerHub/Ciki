@@ -25,9 +25,8 @@ export const MAX_USERNAME_ATTEMPTS = 50
  * 别人刚好占了这个名字）就换下一个后缀重试，其它错误原样抛给调用方（邮箱冲突仍
  * 由路由层映射成 409）。attempt 1 就是 `base` 本身，之后依次 `-2`、`-3`…。
  *
- * 回调返回 `null`（注册的首个用户守卫在写库那一刻发现表已非空、一个字节都没写）
- * 时**原样返回、不重试**：那是路由层 503 `EMAIL_NOT_CONFIGURED` 的唯一来源，
- * 吞掉它去重试只会把 503 变成重试耗尽后的 500。
+ * 回调返回 `null`（例如调用方主动放弃写入）时**原样返回、不重试**，不把 `null` 误当成
+ * 一次失败的重名重试。
  */
 export async function insertWithUniqueUsername<T>(
   db: D1Database,

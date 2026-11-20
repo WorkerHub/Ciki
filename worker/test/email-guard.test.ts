@@ -5,7 +5,7 @@
  * - 开关开启且邮件已配置时：普通用户注册 emailVerificationRequired: true, email_verified: 0, 发码；
  * - 开关关闭时：普通用户注册 emailVerificationRequired: false, email_verified: 1, 不发信；
  * - 开关已开但邮件被撤走（未配置守卫生效）：新注册按未配置口径直接视为已验证，不发码；已注册未验证的用户登录放行并自愈 email_verified=1；
- * - 首个用户（管理员）恒免验证（email_verified: false, email_verified=1）。
+ * - 首个用户（管理员）恒免验证（emailVerificationRequired: false, email_verified=1）。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getTablePrefix } from "../src/lib/table-prefix"

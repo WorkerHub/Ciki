@@ -76,11 +76,15 @@ import {
   isEmailConfigured,
   isSmtpConfigUsable,
   publicSmtpConfig,
+  readEmailSettings,
   readStoredSmtpConfig,
+  saveEmailSettings,
   saveSmtpConfig,
-  sendTransactionalEmail,
+  sendEmail,
+  type EmailSettingsPatch,
   validateSmtpConfigInput
 } from "../services/email"
+import { parseEmailLanguage, renderTestEmail } from "../locales/email"
 import type { HonoEnv } from "../types"
 
 const EMAIL_RE =
@@ -357,7 +361,8 @@ adminRoutes.get("/settings", async (c) => {
     require2fa: await getBooleanSetting(c.env.DB, prefix, "require_2fa", false),
     // null = 不限（缺行与空串同义，见 core/revision-retention.ts）
     revisionRetentionLimit: await readRetentionLimit(c.env.DB, prefix),
-    emailConfigured: await isEmailConfigured(c.env)
+    emailConfigured: await isEmailConfigured(c.env),
+    email: await readEmailSettings(c.env)
   })
 })
 
@@ -421,6 +426,69 @@ adminRoutes.on(["PUT", "PATCH"], "/settings", async (c) => {
     }
     await writeRetentionLimit(c.env.DB, prefix, parsed.limit)
   }
+  if (body.email !== undefined) {
+    const result = await saveEmailSettings(
+      c.env,
+      body.email as EmailSettingsPatch
+    )
+    if (!result.ok) {
+      return c.json({ error: result.error, code: "EMAIL_CONFIG_INVALID" }, 400)
+    }
+  }
+  return c.json({ success: true })
+})
+
+/**
+ * 标准测试邮件入口（backend 标准 §5.5A）：`POST /api/admin/settings/test-email`。
+ * `to` 必填；语言按请求入参，否则按管理员账号语言，再回退 `zh`。错误码：
+ * `INVALID_EMAIL`（400）、`EMAIL_NOT_CONFIGURED`（409）、`EMAIL_SEND_FAILED`（502，
+ * 带 `detail` 原样回显 provider 报错）。
+ */
+adminRoutes.post("/settings/test-email", async (c) => {
+  const body = await readJsonBody<{ to?: unknown; language?: unknown }>(c)
+  const to = typeof body?.to === "string" ? body.to.trim() : ""
+  if (!to || !EMAIL_RE.test(to)) {
+    return c.json(
+      { error: "Recipient address is required", code: "INVALID_EMAIL" },
+      400
+    )
+  }
+
+  if (!(await isEmailConfigured(c.env))) {
+    return c.json(
+      {
+        error: "Email delivery is not configured",
+        code: "EMAIL_NOT_CONFIGURED"
+      },
+      409
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const admin = await findUserById(c.env.DB, prefix, c.get("userId"))
+  const language =
+    parseEmailLanguage(body?.language) ??
+    parseEmailLanguage(admin?.language) ??
+    "zh"
+  const content = renderTestEmail(language)
+  const sent = await sendEmail(c.env, {
+    to,
+    subject: content.subject,
+    html: content.html,
+    text: content.text
+  })
+
+  if (!sent.success) {
+    // 原文回显：管理员要看到 provider 的真实报错才能修配置。
+    return c.json(
+      {
+        error: "Test email failed",
+        code: "EMAIL_SEND_FAILED",
+        detail: sent.error
+      },
+      502
+    )
+  }
   return c.json({ success: true })
 })
 
@@ -472,6 +540,9 @@ adminRoutes.put("/system/smtp", async (c) => {
   }
 
   await saveSmtpConfig(c.env, validation.value, existing)
+  // 过渡桥（Todo #6 之前）：老 SMTP 页保存即激活 smtp 通道，等价于把 provider
+  // 置为 smtp，让站点级 emailConfigured 与发信立即生效；三态选择器接管后这条桥淡出。
+  await setSetting(c.env.DB, prefix, "email_provider", "smtp")
   return c.json({
     success: true,
     emailConfigured: await isEmailConfigured(c.env)
@@ -508,12 +579,12 @@ adminRoutes.post("/system/smtp/test", async (c) => {
   const admin = await findUserById(c.env.DB, prefix, c.get("userId"))
   if (!admin) return c.json({ error: "User not found" }, 404)
 
-  const sent = await sendTransactionalEmail(c.env, {
+  const content = renderTestEmail(parseEmailLanguage(admin.language) ?? "zh")
+  const sent = await sendEmail(c.env, {
     to: admin.email,
-    subject: "Ciki SMTP 测试邮件",
-    html:
-      "<p>这是一封来自 Ciki 的测试邮件：收到它说明 SMTP 配置可用。</p>" +
-      `<p>发送时间：${new Date().toISOString()}</p>`
+    subject: content.subject,
+    html: content.html,
+    text: content.text
   })
   if (!sent.success) {
     return c.json({ error: sent.error, code: "SMTP_SEND_FAILED" }, 502)
