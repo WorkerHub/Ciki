@@ -250,18 +250,14 @@ authRoutes.post("/register", async (c) => {
       prefix,
       defaultUsernameFromEmail(email),
       (username) =>
-        createUserFirstIsAdmin(
-          c.env.DB,
-          prefix,
-          {
-            email,
-            username,
-            password_hash: passwordHash,
-            approvalStatus: approvalRequired ? "pending" : "approved",
-            language,
-            emailVerificationRequired: requiresVerification
-          }
-        )
+        createUserFirstIsAdmin(c.env.DB, prefix, {
+          email,
+          username,
+          password_hash: passwordHash,
+          approvalStatus: approvalRequired ? "pending" : "approved",
+          language,
+          emailVerificationRequired: requiresVerification
+        })
     )
   } catch (err) {
     if (isEmailConflict(err)) {

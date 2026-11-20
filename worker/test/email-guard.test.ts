@@ -38,9 +38,7 @@ const USER2 = "user2@example.com"
 
 async function disableSmtpConfig(env: Env): Promise<void> {
   const prefix = getTablePrefix(env)
-  await env.DB.prepare(
-    `DELETE FROM ${settingsTable(prefix)} WHERE key = ?`
-  )
+  await env.DB.prepare(`DELETE FROM ${settingsTable(prefix)} WHERE key = ?`)
     .bind(SMTP_CONFIG_KEY)
     .run()
 }
@@ -84,12 +82,14 @@ function userRow(ctx: TestContext, email: string) {
     .prepare(
       `SELECT email, role, email_verified, approval_status FROM ${usersTable(prefix)} WHERE email = ?`
     )
-    .get(email) as {
-    email: string
-    role: string
-    email_verified: number
-    approval_status: string
-  } | undefined
+    .get(email) as
+    | {
+        email: string
+        role: string
+        email_verified: number
+        approval_status: string
+      }
+    | undefined
 }
 
 beforeEach(() => {
