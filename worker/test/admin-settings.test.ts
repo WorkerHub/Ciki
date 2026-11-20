@@ -210,9 +210,10 @@ describe("系统管理 · 初始化页面开关（setupPageEnabled 契约往返�
     )
     expect(patch.status).toBe(200)
 
-    const settings1 = (await (
-      await getSettings(env, admin)
-    ).json()) as { siteName: string; setupPageEnabled: boolean }
+    const settings1 = (await (await getSettings(env, admin)).json()) as {
+      siteName: string
+      setupPageEnabled: boolean
+    }
     expect(settings1.siteName).toBe("Custom Site")
     expect(settings1.setupPageEnabled).toBe(true)
 
@@ -226,9 +227,10 @@ describe("系统管理 · 初始化页面开关（setupPageEnabled 契约往返�
     )
     expect(patch2.status).toBe(200)
 
-    const settings2 = (await (
-      await getSettings(env, admin)
-    ).json()) as { siteName: string; setupPageEnabled: boolean }
+    const settings2 = (await (await getSettings(env, admin)).json()) as {
+      siteName: string
+      setupPageEnabled: boolean
+    }
     expect(settings2.siteName).toBe("Updated Name")
     expect(settings2.setupPageEnabled).toBe(true)
   })
@@ -239,12 +241,9 @@ describe("系统管理 · 初始化页面开关（setupPageEnabled 契约往返�
     const user = await userSession(env, admin)
 
     // 1. 未认证 401
-    const unauth = await jsonRequest(
-      env,
-      "PATCH",
-      "/api/admin/settings",
-      { setupPageEnabled: true }
-    )
+    const unauth = await jsonRequest(env, "PATCH", "/api/admin/settings", {
+      setupPageEnabled: true
+    })
     expect(unauth.status).toBe(401)
 
     // 2. 普通用户 403
