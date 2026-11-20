@@ -202,7 +202,7 @@ describe("路由守卫与初始化门", () => {
     expect(
       await screen.findByRole("heading", { name: "登录 团队知识库" })
     ).toBeInTheDocument()
-    await waitFor(() => expect(document.title).toBe("团队知识库"))
+    await waitFor(() => expect(document.title).toBe("登录 · 团队知识库"))
   })
 
   it("已登录且没有页面时，首页给新建入口", async () => {

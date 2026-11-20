@@ -1,6 +1,7 @@
 import { type ReactNode, Suspense, useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { Navigate, Outlet, useLocation } from "react-router"
+import { usePageTitle } from "@/hooks/use-page-title"
 import { applyAccountLanguage } from "@/i18n"
 import { setUnauthorizedHandler } from "@/lib/api"
 import { watchSystemTheme } from "@/lib/theme"
@@ -32,13 +33,15 @@ export function FullPageLoader({ label }: { label?: string }) {
  */
 export function RootGate() {
   const location = useLocation()
-  const { t } = useTranslation()
   const load = useAuthStore((state) => state.load)
   const accountLanguage = useAuthStore((state) => state.user?.language)
   const setup = useSetupGateStore((state) => state.state)
   const loadSetup = useSetupGateStore((state) => state.load)
   const loadSite = useSiteStore((state) => state.load)
-  const siteName = useSiteStore((state) => state.name)
+
+  // 全局页签标题：随路由与内容走（页面标题 / 空间名 / 系统页名），
+  // 站名未加载时只显标题，加载后拼成「标题 · 站名」。
+  usePageTitle()
 
   useEffect(() => {
     setUnauthorizedHandler(() => useAuthStore.getState().setUser(null))
@@ -60,11 +63,6 @@ export function RootGate() {
   useEffect(() => {
     void applyAccountLanguage(accountLanguage)
   }, [accountLanguage])
-
-  // 站点改名后页签标题立即跟着变；标题文案走 locale，语言变化时一并重放。
-  useEffect(() => {
-    document.title = t("app.title", { siteName })
-  }, [siteName, t])
 
   if (setup === null) return <FullPageLoader />
 
