@@ -56,7 +56,9 @@
   "shell": {
     "sidebar": {
       "pages": "Pages",
-      "resize": "Resize sidebar"
+      "resize": "Resize sidebar",
+      "collapse": "Collapse sidebar",
+      "expand": "Expand sidebar"
     },
     "newPage": "New page",
     "loadingPage": "Loading page",
