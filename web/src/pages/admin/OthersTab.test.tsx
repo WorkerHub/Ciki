@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "@/i18n"
-import type { AdminStorage, R2CleanupSummary } from "@/lib/api"
+import type { AdminStorage, R2CleanupSummary, SiteSettings } from "@/lib/api"
 import { OthersTab } from "@/pages/admin/OthersTab"
 
 vi.mock("@/lib/api", async (importOriginal) => {
@@ -13,7 +13,9 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...actual.adminApi,
       r2Cleanup: vi.fn(),
       runR2Cleanup: vi.fn(),
-      storage: vi.fn()
+      storage: vi.fn(),
+      settings: vi.fn(),
+      saveSettings: vi.fn()
     }
   }
 })
@@ -47,16 +49,31 @@ const lastRun: R2CleanupSummary = {
   truncated: false
 }
 
+const defaultSiteSettings: SiteSettings = {
+  siteName: "Ciki",
+  setupPageEnabled: false,
+  tablePrefix: "ciki_",
+  registrationEnabled: true,
+  registrationApprovalRequired: true,
+  require2fa: false,
+  emailConfigured: true,
+  revisionRetentionLimit: null
+}
+
 describe("系统管理 · 其他", () => {
   beforeEach(() => {
     vi.mocked(adminApi.r2Cleanup).mockReset()
     vi.mocked(adminApi.runR2Cleanup).mockReset()
     vi.mocked(adminApi.storage).mockReset()
+    vi.mocked(adminApi.settings).mockReset()
+    vi.mocked(adminApi.saveSettings).mockReset()
     vi.mocked(adminApi.r2Cleanup).mockResolvedValue({
       lastRun: null,
       running: null
     })
     vi.mocked(adminApi.storage).mockResolvedValue(storage)
+    vi.mocked(adminApi.settings).mockResolvedValue(defaultSiteSettings)
+    vi.mocked(adminApi.saveSettings).mockResolvedValue({ success: true })
   })
 
   it("无手动升级入口且旧说明文字不再渲染", () => {
@@ -265,6 +282,25 @@ describe("系统管理 · 其他", () => {
     ).toBeInTheDocument()
     expect(adminApi.r2Cleanup).toHaveBeenCalledTimes(2)
   })
+
+  it("包含初始化页面开关与生效表前缀展示，并能切换", async () => {
+    const user = userEvent.setup()
+    render(<OthersTab />)
+
+    expect(
+      await screen.findByRole("heading", { name: "其他" })
+    ).toBeInTheDocument()
+    expect(screen.getByText("生效表前缀")).toBeInTheDocument()
+    expect(screen.getByText("ciki_")).toBeInTheDocument()
+
+    const setupSwitch = screen.getByRole("switch", { name: "开放初始化页面" })
+    expect(setupSwitch).toHaveAttribute("aria-checked", "false")
+
+    await user.click(setupSwitch)
+    expect(adminApi.saveSettings).toHaveBeenCalledWith({
+      setupPageEnabled: true
+    })
+  })
 })
 
 describe("系统管理 · 其他 · 英文界面", () => {
@@ -274,6 +310,8 @@ describe("系统管理 · 其他 · 英文界面", () => {
       running: null
     })
     vi.mocked(adminApi.storage).mockReset().mockResolvedValue(storage)
+    vi.mocked(adminApi.settings).mockReset().mockResolvedValue(defaultSiteSettings)
+    vi.mocked(adminApi.saveSettings).mockReset().mockResolvedValue({ success: true })
   })
 
   it("清理区与体积行都是英文，无手动升级按钮", async () => {

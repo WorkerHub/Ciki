@@ -1829,7 +1829,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 
 ## 四、前端对接要点
 
-- **升级顺序**：每次部署时，由部署流水线在 Worker 部署完成后自动调用 `POST /api/setup` 执行增量迁移并严格校验账本；全新库在此步骤完成建表与默认空间播种。已初始化的库在自动升级时幂等跳过（全 `skipped`），不重复建表、不重复播种空间。旧版升级时账本改名承接与账本收敛在流水线单次 setup 内原子完成。系统管理页面及 setup 页不再提供手动升级入口；`setup_page_enabled` 开关与当前生效的 `tablePrefix` 在「系统管理 → 应用设置」中只读展示。
+- **升级顺序**：每次部署时，由部署流水线在 Worker 部署完成后自动调用 `POST /api/setup` 执行增量迁移并严格校验账本；全新库在此步骤完成建表与默认空间播种。已初始化的库在自动升级时幂等跳过（全 `skipped`），不重复建表、不重复播种空间。旧版升级时账本改名承接与账本收敛在流水线单次 setup 内原子完成。系统管理页面及 setup 页不再提供手动升级入口；`setup_page_enabled` 开关与当前生效的 `tablePrefix` 在「系统管理 → 其他」中展示。
 - 所有请求带 `credentials: "include"`；收到 401 时先 `POST /api/auth/refresh` 重试一次，仍 401 再跳登录。
 - 401 有两个含义，客户端必须分开：会话中间件的 `Unauthorized` 才是会话过期（上面的刷新流程）；登录与两步验证端点的 401 表达「这次验证没通过」——`Invalid credentials`（账号密码错）、`Invalid verification code`（TOTP 输错）、`Invalid or expired 2FA session`（挑战过期/作废）、`Verification failed`（Passkey 验证未过）。后者不得提示「登录状态已失效」，否则用户会被引去重走整个登录。
 - 登录两步：`requires2fa` 时用 `tempToken` 调 TOTP 或 passkey 验证端点；两步表单必须换 DOM 节点（前端单要求）。

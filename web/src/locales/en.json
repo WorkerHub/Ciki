@@ -760,14 +760,6 @@
         "notSaved": "The site name was not saved. Refresh and try again.",
         "saved": "Site name saved and applied site-wide."
       },
-      "setupPage": {
-        "label": "Show setup page",
-        "description": "Usually turn this off once setup is complete, so the setup entry is not exposed on the sign-in page."
-      },
-      "tablePrefix": {
-        "label": "Effective table prefix",
-        "description": "Prefix used for table names of this instance in shared D1 (read-only)."
-      },
       "mailConfigured": "Email delivery is configured: email-code two-factor and password recovery are available; edit it under Email delivery.",
       "mailMissing": "Email delivery is not configured: email-code two-factor and password recovery are unavailable; fill in SMTP under Email delivery."
     },
@@ -855,6 +847,9 @@
       "title": "Others",
       "prefix": "Effective table prefix",
       "noPrefix": "(no prefix)",
+      "setupPage": "Open the setup page",
+      "setupPageHint": "This only gates the page; the endpoint still requires the deployment secret.",
+      "tablePrefix": "Effective table prefix",
       "storage": {
         "database": "Database size {{size}}",
         "databaseUnavailable": "Database size unavailable",
