@@ -15,7 +15,7 @@ type JsonRecord = Record<string, unknown>
  * （challenge/allowCredentials 等为 base64url 字符串），正是
  * @simplewebauthn/browser 的 optionsJSON 入参。若后端把对象包在 options 里也兼容。
  */
-function unwrapOptions(raw: JsonRecord): JsonRecord {
+export function unwrapOptions(raw: JsonRecord): JsonRecord {
   const candidate = (raw.options ?? raw.publicKey ?? raw) as
     | JsonRecord
     | undefined
@@ -23,6 +23,17 @@ function unwrapOptions(raw: JsonRecord): JsonRecord {
     throw new Error(i18n.t("errors.webauthn.missingChallenge"))
   }
   return candidate
+}
+
+export function extractChallenge(raw: JsonRecord): string | undefined {
+  try {
+    const candidate = unwrapOptions(raw)
+    return typeof candidate.challenge === "string"
+      ? candidate.challenge
+      : undefined
+  } catch {
+    return undefined
+  }
 }
 
 export function webauthnSupported(): boolean {
