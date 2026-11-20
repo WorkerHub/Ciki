@@ -16,10 +16,7 @@ describe("UnsavedChangesGuard", () => {
     expect(addSpy).toHaveBeenCalledWith("beforeunload", expect.any(Function))
 
     unmount()
-    expect(removeSpy).toHaveBeenCalledWith(
-      "beforeunload",
-      expect.any(Function)
-    )
+    expect(removeSpy).toHaveBeenCalledWith("beforeunload", expect.any(Function))
 
     addSpy.mockRestore()
     removeSpy.mockRestore()
