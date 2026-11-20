@@ -4,6 +4,8 @@ import {
   Info,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Plus,
   Search,
   Settings,
@@ -12,11 +14,12 @@ import {
   UserRound
 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Group,
   Panel,
+  type PanelImperativeHandle,
   Separator,
   useDefaultLayout
 } from "react-resizable-panels"
@@ -48,6 +51,13 @@ import {
 import { useIsMobile } from "@/hooks/useMediaQuery"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { pageEditPath, spaceSearchPath, spaceTrashPath } from "@/lib/routes"
+import {
+  readSidebarOpen,
+  SIDEBAR_DEFAULT_SIZE,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  writeSidebarOpen
+} from "@/lib/sidebar"
 import { canEdit } from "@/lib/space"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
@@ -257,6 +267,32 @@ export function AppShell() {
     id: "ciki-shell",
     panelIds: ["sidebar", "main"]
   })
+  const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
+  const [isCollapsed, setIsCollapsed] = useState(() => !readSidebarOpen())
+
+  useEffect(() => {
+    if (!readSidebarOpen() && !sidebarPanelRef.current?.isCollapsed()) {
+      sidebarPanelRef.current?.collapse()
+    }
+  }, [])
+
+  const handleCollapse = () => {
+    sidebarPanelRef.current?.collapse()
+    setIsCollapsed(true)
+    writeSidebarOpen(false)
+  }
+
+  const handleExpand = () => {
+    sidebarPanelRef.current?.expand()
+    setIsCollapsed(false)
+    writeSidebarOpen(true)
+  }
+
+  const handlePanelResize = (size: { asPercentage: number; inPixels: number }) => {
+    const collapsed = size.asPercentage === 0 || size.inPixels === 0
+    setIsCollapsed(collapsed)
+    writeSidebarOpen(!collapsed)
+  }
 
   useEffect(() => {
     void loadSpaces()
@@ -419,14 +455,36 @@ export function AppShell() {
         >
           <Panel
             id="sidebar"
-            defaultSize="18%"
-            minSize={200}
-            maxSize={420}
+            panelRef={sidebarPanelRef}
+            defaultSize={SIDEBAR_DEFAULT_SIZE}
+            minSize={SIDEBAR_MIN_WIDTH}
+            maxSize={SIDEBAR_MAX_WIDTH}
+            collapsible
+            onResize={handlePanelResize}
             className="h-full"
           >
-            <div className="flex h-full flex-col overflow-hidden border-r border-border">
-              <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+            <div
+              className={cn(
+                "flex h-full flex-col overflow-hidden",
+                isCollapsed && "hidden"
+              )}
+              hidden={isCollapsed}
+            >
+              <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 sm:px-3">
                 {siteLink}
+                {!isCollapsed && (
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    data-sidebar-collapse
+                    aria-label={t("shell.sidebar.collapse")}
+                    title={t("shell.sidebar.collapse")}
+                    onClick={handleCollapse}
+                  >
+                    <PanelLeftClose aria-hidden="true" />
+                  </Button>
+                )}
               </div>
               <div className="min-h-0 flex-1">
                 <SidebarContent />
@@ -434,7 +492,10 @@ export function AppShell() {
             </div>
           </Panel>
           <Separator
-            className="w-px bg-border transition-colors hover:bg-primary/40 data-[separator=active]:bg-primary/60"
+            className={cn(
+              "relative w-px bg-border transition-colors hover:bg-primary/40 data-[separator=active]:bg-primary/60 cursor-col-resize after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2",
+              isCollapsed && "hidden"
+            )}
             aria-label={t("shell.sidebar.resize")}
           />
           <Panel id="main" minSize={360} className="h-full">
@@ -442,6 +503,19 @@ export function AppShell() {
               {/* 左内边距与 PageCanvas 同口径（手机 16px、≥640px 24px）；
                   右侧保持原样 8px/12px，不给账号按钮换位置。 */}
               <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4 sm:pr-3 sm:pl-6">
+                {isCollapsed ? (
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    data-sidebar-expand
+                    aria-label={t("shell.sidebar.expand")}
+                    title={t("shell.sidebar.expand")}
+                    onClick={handleExpand}
+                  >
+                    <PanelLeftOpen aria-hidden="true" />
+                  </Button>
+                ) : null}
                 <SearchBox className="max-w-md flex-1" />
                 {createButton}
                 {accountActions}

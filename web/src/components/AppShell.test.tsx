@@ -275,6 +275,39 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     const settings = renderShell("/settings")
     expect(settings.container.querySelector("[data-page-canvas]")).toBeNull()
   })
+
+  it("桌面普通页侧栏带有收起按钮，点击收起后顶栏显示展开按钮并持久化", async () => {
+    localStorage.clear()
+    const { unmount } = renderShell("/p/a")
+
+    const collapseButton = screen.getByRole("button", { name: "收起侧边栏" })
+    expect(collapseButton).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "展开侧边栏" })).toBeNull()
+
+    // 点击收起
+    fireEvent.click(collapseButton)
+
+    // 收起后：顶栏显示展开按钮，localStorage 写入 "false"
+    const expandButton = await screen.findByRole("button", { name: "展开侧边栏" })
+    expect(expandButton).toBeInTheDocument()
+    expect(localStorage.getItem("app-sidebar-open")).toBe("false")
+
+    // 点击展开
+    fireEvent.click(expandButton)
+    expect(await screen.findByRole("button", { name: "收起侧边栏" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "展开侧边栏" })).toBeNull()
+    expect(localStorage.getItem("app-sidebar-open")).toBe("true")
+    unmount()
+  })
+
+  it("当 localStorage 中 app-sidebar-open 为 false 时，默认初始化为收起态", async () => {
+    localStorage.setItem("app-sidebar-open", "false")
+    const { unmount } = renderShell("/p/a")
+
+    expect(await screen.findByRole("button", { name: "展开侧边栏" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "收起侧边栏" })).toBeNull()
+    unmount()
+  })
 })
 
 /** 英文界面：外壳与导航文案全走 locale，中文一个字都不留。 */
@@ -321,6 +354,22 @@ describe("应用外壳：英文界面", () => {
       "Help",
       "Sign out"
     ])
+  })
+
+  it("侧栏收起与展开按钮使用英文文案", async () => {
+    localStorage.clear()
+    const { unmount } = renderShell("/p/abc")
+
+    const collapseButton = await screen.findByRole("button", {
+      name: "Collapse sidebar"
+    })
+    expect(collapseButton).toBeInTheDocument()
+
+    fireEvent.click(collapseButton)
+    expect(
+      await screen.findByRole("button", { name: "Expand sidebar" })
+    ).toBeInTheDocument()
+    unmount()
   })
 
   it("空间切换器与页面空态也是英文", async () => {

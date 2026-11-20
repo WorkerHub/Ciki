@@ -50,7 +50,9 @@
   "shell": {
     "sidebar": {
       "pages": "页面",
-      "resize": "调整侧边栏宽度"
+      "resize": "调整侧边栏宽度",
+      "collapse": "收起侧边栏",
+      "expand": "展开侧边栏"
     },
     "newPage": "新建页面",
     "loadingPage": "页面加载中",
