@@ -47,7 +47,25 @@ const settings: SiteSettings = {
   registrationApprovalRequired: true,
   require2fa: false,
   emailConfigured: true,
-  revisionRetentionLimit: null
+  revisionRetentionLimit: null,
+  email: {
+    provider: "smtp",
+    smtp: {
+      host: "smtp.example.com",
+      port: 465,
+      encryption: "tls",
+      username: "notify@example.com",
+      from: "no-reply@example.com",
+      fromName: "Ciki",
+      passwordSet: true
+    },
+    resend: {
+      from: "",
+      fromName: "",
+      apiKeySet: false
+    },
+    configured: true
+  }
 }
 
 const smtp: SmtpSettings = {
@@ -75,7 +93,7 @@ describe("系统管理 · 页签", () => {
     })
   })
 
-  it("「邮件配置」页签切出 SMTP 表单", async () => {
+  it("「邮件配置」页签切出邮件配置表单", async () => {
     const user = userEvent.setup()
     render(<AdminPage />)
 
@@ -83,10 +101,10 @@ describe("系统管理 · 页签", () => {
     expect(tab).toBeInTheDocument()
     await user.click(tab)
 
-    expect(await screen.findByLabelText("服务器地址")).toHaveValue(
+    expect(await screen.findByLabelText("服务器")).toHaveValue(
       "smtp.example.com"
     )
-    expect(adminApi.smtp).toHaveBeenCalledTimes(1)
+    expect(screen.getByText("邮件已配置")).toBeInTheDocument()
   })
 })
 

@@ -1,6 +1,7 @@
-import { MailCheck, Send } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,111 +12,69 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { UnsavedChangesGuard } from "@/components/unsaved-changes-guard"
 import {
   adminApi,
+  ApiError,
   describeApiError,
-  type SmtpEncryption,
-  type SmtpSettings
+  type EmailProvider,
+  type SiteSettings
 } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
-import { useSiteStore } from "@/stores/site"
 
-/** 表单里的端口用字符串，方便用户边输边改；提交前才收成数字。 */
-interface SmtpForm {
-  host: string
-  port: string
-  encryption: SmtpEncryption
-  username: string
-  from: string
-  fromName: string
-}
+const PROVIDERS: EmailProvider[] = ["none", "smtp", "resend"]
 
-/** 已存密码时只以掩码示人，绝不回显明文。 */
-const PASSWORD_MASK_HINT_KEY = "admin.smtp.password.maskHint"
-
-const EMPTY_FORM: SmtpForm = {
-  host: "",
-  port: "587",
-  encryption: "starttls",
-  username: "",
-  from: "",
-  fromName: ""
-}
-
-/** 三态的标签把端口习惯一并说清，省得用户去查邮件服务商文档。 */
-const ENCRYPTION_OPTIONS: Array<{ value: SmtpEncryption; labelKey: string }> = [
-  { value: "tls", labelKey: "admin.smtp.encryption.tls" },
-  { value: "starttls", labelKey: "admin.smtp.encryption.starttls" },
-  { value: "none", labelKey: "admin.smtp.encryption.none" }
-]
-
-function formFrom(config: SmtpSettings | null): SmtpForm {
-  if (!config) return { ...EMPTY_FORM }
-  // 库里的 encryption 可能停在旧值（服务端保留原样让管理员修），不合法就回落到默认
-  const encryption = ENCRYPTION_OPTIONS.some(
-    (option) => option.value === config.encryption
-  )
-    ? config.encryption
-    : EMPTY_FORM.encryption
-  return {
-    host: config.host ?? "",
-    port: config.port ? String(config.port) : EMPTY_FORM.port,
-    encryption,
-    username: config.username ?? "",
-    from: config.from ?? "",
-    fromName: config.fromName ?? ""
-  }
-}
-
-function Field({
-  label,
-  hint,
-  htmlFor,
-  children
-}: {
-  label: string
-  hint?: string
-  htmlFor: string
-  children: ReactNode
+export function SmtpTab(props?: {
+  settings?: SiteSettings
+  onSaved?: (settings: SiteSettings) => void
 }) {
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {hint ? (
-        <p className="text-[11px] text-muted-foreground">{hint}</p>
-      ) : null}
-    </div>
-  )
-}
-
-/**
- * 系统管理 → 邮件配置：SMTP 服务器、发件人，以及「发一封测试邮件」。
- * 契约：GET 只回 passwordSet，密码框永远不吃回显，留空即保留原密文。
- */
-export function SmtpTab() {
-  const adminEmail = useAuthStore((state) => state.user?.email ?? "")
   const { t } = useTranslation()
-  const [form, setForm] = useState<SmtpForm | null>(null)
-  const [password, setPassword] = useState("")
-  const [passwordSet, setPasswordSet] = useState(false)
-  const [configured, setConfigured] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState(false)
+  const [internalSettings, setInternalSettings] = useState<SiteSettings | null>(
+    null
+  )
+  const settings = props?.settings ?? internalSettings
+  const onSaved = props?.onSaved ?? (() => {})
+
+  const adminEmail = useAuthStore((state) => state.user?.email ?? "")
+
+  const [provider, setProvider] = useState<EmailProvider>(
+    settings?.email?.provider ?? "none"
+  )
+  const [smtp, setSmtp] = useState({
+    host: settings?.email?.smtp.host ?? "",
+    port: String(settings?.email?.smtp.port ?? ""),
+    username: settings?.email?.smtp.username ?? "",
+    from: settings?.email?.smtp.from ?? "",
+    fromName: settings?.email?.smtp.fromName ?? ""
+  })
+  const [smtpPassword, setSmtpPassword] = useState("")
+  const [resend, setResend] = useState({
+    from: settings?.email?.resend.from ?? "",
+    fromName: settings?.email?.resend.fromName ?? ""
+  })
+  const [resendKey, setResendKey] = useState("")
+
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  const [notice, setNotice] = useState("")
+
+  const [testTo, setTestTo] = useState(adminEmail)
+  const [userEditedTo, setUserEditedTo] = useState(false)
+  const [testBusy, setTestBusy] = useState(false)
   const [testError, setTestError] = useState("")
-  const [testNotice, setTestNotice] = useState("")
 
   useEffect(() => {
+    if (adminEmail && !userEditedTo) {
+      setTestTo(adminEmail)
+    }
+  }, [adminEmail, userEditedTo])
+
+  useEffect(() => {
+    if (props?.settings) return
     let alive = true
     adminApi
-      .smtp()
-      .then((state) => {
-        if (!alive) return
-        setForm(formFrom(state.config))
-        setPasswordSet(state.config?.passwordSet === true)
-        setConfigured(state.emailConfigured === true)
+      .settings()
+      .then((data) => {
+        if (alive) setInternalSettings(data)
       })
       .catch((loadError: unknown) => {
         if (alive) setError(describeApiError(loadError))
@@ -123,348 +82,294 @@ export function SmtpTab() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [props?.settings])
 
-  const update = (field: keyof SmtpForm, value: string) => {
-    setForm((current) => (current ? { ...current, [field]: value } : current))
-  }
+  useEffect(() => {
+    if (!settings?.email) return
+    setProvider(settings.email.provider)
+    setSmtp({
+      host: settings.email.smtp.host,
+      port: String(settings.email.smtp.port ?? ""),
+      username: settings.email.smtp.username,
+      from: settings.email.smtp.from,
+      fromName: settings.email.smtp.fromName
+    })
+    setResend({
+      from: settings.email.resend.from,
+      fromName: settings.email.resend.fromName
+    })
+  }, [settings])
 
-  const save = async () => {
-    if (!form) return
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
     setError("")
-    setNotice("")
-    setTestError("")
-    setTestNotice("")
-
-    const host = form.host.trim()
-    const port = Number(form.port)
-    const from = form.from.trim()
-    const username = form.username.trim()
-    // 服务端规则：用户名与密码必须同时有或同时空（保留原密文也算「有」）
-    const hasPassword = password !== "" || passwordSet
-    if (!host) {
-      setError(t("admin.smtp.errors.host"))
-      return
-    }
-    if (!Number.isInteger(port) || port < 1 || port > 65535) {
-      setError(t("admin.smtp.errors.port"))
-      return
-    }
-    if (!from) {
-      setError(t("admin.smtp.errors.from"))
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(from)) {
-      setError(t("admin.smtp.errors.fromFormat"))
-      return
-    }
-    if (hasPassword && !username) {
-      setError(t("admin.smtp.errors.usernameRequired"))
-      return
-    }
-    if (!hasPassword && username) {
-      setError(t("admin.smtp.errors.passwordRequired"))
-      return
-    }
-
-    setSaving(true)
     try {
-      const result = await adminApi.saveSmtp({
-        host,
-        port,
-        encryption: form.encryption,
-        username,
-        // 留空 = 保留原密文（契约语义），用户重录才提交新值
-        password,
-        from,
-        fromName: form.fromName.trim()
+      await adminApi.updateSettings({
+        email: {
+          provider,
+          smtp: { ...smtp, port: Number(smtp.port), password: smtpPassword },
+          resend: { ...resend, apiKey: resendKey }
+        }
       })
-      // 回读一次：以服务端为准（PUT 不回 passwordSet），顺便确认非密字段真的落了库
-      const state = await adminApi.smtp()
-      setForm(formFrom(state.config))
-      setPasswordSet(state.config?.passwordSet === true)
-      setConfigured(state.emailConfigured === true)
-      setPassword("")
-      // 站点级 emailConfigured（登录页、设置页的邮箱 2FA 入口都读它）跟着重拉，
-      // 保存完就能立刻用，不必等用户刷新
-      void useSiteStore.getState().load()
-      setNotice(
-        result.emailConfigured
-          ? t("admin.smtp.notices.saved")
-          : t("admin.smtp.notices.savedIncomplete")
-      )
+      setSmtpPassword("")
+      setResendKey("")
+      toast.success(t("admin.email.saved"))
+      const fresh = await adminApi.settings()
+      setInternalSettings(fresh)
+      onSaved(fresh)
     } catch (saveError) {
       setError(describeApiError(saveError))
     } finally {
-      setSaving(false)
+      setBusy(false)
     }
   }
 
-  const sendTest = async () => {
-    setTesting(true)
+  const sendTest = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setTestBusy(true)
     setTestError("")
-    setTestNotice("")
     try {
-      await adminApi.testSmtp()
-      setTestNotice(
-        adminEmail
-          ? t("admin.smtp.notices.testSent", { email: adminEmail })
-          : t("admin.smtp.notices.testSentUnknown")
-      )
-    } catch (failure) {
-      setTestError(describeApiError(failure))
+      await adminApi.testEmail(testTo.trim())
+      toast.success(t("admin.email.testSent"))
+    } catch (sendError) {
+      const detail =
+        sendError instanceof ApiError && sendError.detail
+          ? sendError.detail
+          : describeApiError(sendError)
+      setTestError(detail)
     } finally {
-      setTesting(false)
+      setTestBusy(false)
     }
   }
 
-  if (!form) {
-    return (
-      <div className="space-y-2">
-        {error ? (
-          <p
-            role="alert"
-            className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </p>
-        ) : (
-          [0, 1, 2].map((index) => (
-            <div
-              key={index}
-              className="h-16 animate-pulse rounded-lg bg-muted/60"
-            />
-          ))
-        )}
-      </div>
-    )
+  const message = (text: string) =>
+    text ? (
+      <p role="alert" className="text-sm text-destructive">
+        {text}
+      </p>
+    ) : null
+
+  if (!settings) {
+    return error ? (
+      <div className="rounded-xl border bg-card p-4">{message(error)}</div>
+    ) : null
   }
+
+  const isDirty = Boolean(
+    settings.email &&
+      (provider !== settings.email.provider ||
+        smtp.host !== settings.email.smtp.host ||
+        smtp.port !== String(settings.email.smtp.port ?? "") ||
+        smtp.username !== settings.email.smtp.username ||
+        smtp.from !== settings.email.smtp.from ||
+        smtp.fromName !== settings.email.smtp.fromName ||
+        smtpPassword !== "" ||
+        resend.from !== settings.email.resend.from ||
+        resend.fromName !== settings.email.resend.fromName ||
+        resendKey !== "")
+  )
 
   return (
-    <div className="space-y-4">
-      <form
-        className="max-w-3xl rounded-xl border border-border p-4"
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault()
-          void save()
-        }}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-medium">
-            <MailCheck
-              className="size-4 text-muted-foreground"
-              aria-hidden="true"
-            />
-            {t("admin.smtp.title")}
-          </h3>
-          <span
-            className={
-              configured
-                ? "rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] text-emerald-700 dark:text-emerald-300"
-                : "rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-700 dark:text-amber-300"
-            }
+    <section className="space-y-4 rounded-xl border bg-card p-4">
+      <UnsavedChangesGuard isDirty={isDirty} />
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-heading text-sm font-semibold">
+          {t("admin.email.title")}
+        </h3>
+        <Badge variant={settings.email?.configured ? "secondary" : "outline"}>
+          {settings.email?.configured
+            ? t("common.emailConfigured")
+            : t("common.emailNotConfigured")}
+        </Badge>
+      </div>
+
+      <form className="space-y-4" onSubmit={save}>
+        <div className="space-y-1.5">
+          <Label htmlFor="email-provider">{t("admin.email.provider")}</Label>
+          <Select
+            value={provider}
+            onValueChange={(value) => setProvider(value as EmailProvider)}
           >
-            {configured
-              ? t("admin.smtp.configured")
-              : t("admin.smtp.unconfigured")}
-          </span>
-        </div>
-        <p className="mt-1 text-xs text-muted-foreground">
-          {configured
-            ? t("admin.smtp.hintConfigured")
-            : t("admin.smtp.hintUnconfigured")}
-        </p>
-
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Field label={t("admin.smtp.host.label")} htmlFor="smtp-host">
-            <Input
-              id="smtp-host"
-              name="smtp-host"
-              value={form.host}
-              placeholder="smtp.example.com"
-              autoComplete="off"
-              disabled={saving}
-              onChange={(event) => update("host", event.target.value)}
-            />
-          </Field>
-
-          <Field
-            label={t("admin.smtp.port.label")}
-            htmlFor="smtp-port"
-            hint={t("admin.smtp.port.hint")}
-          >
-            <Input
-              id="smtp-port"
-              name="smtp-port"
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={65535}
-              value={form.port}
-              disabled={saving}
-              onChange={(event) => update("port", event.target.value)}
-            />
-          </Field>
-
-          <Field
-            label={t("admin.smtp.encryption.label")}
-            htmlFor="smtp-encryption"
-          >
-            <Select
-              value={form.encryption}
-              disabled={saving}
-              onValueChange={(value) => update("encryption", value)}
-            >
-              <SelectTrigger
-                id="smtp-encryption"
-                aria-label={t("admin.smtp.encryption.label")}
-                className="w-full"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ENCRYPTION_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {t(option.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          <Field
-            label={t("admin.smtp.username.label")}
-            htmlFor="smtp-username"
-            hint={t("admin.smtp.username.hint")}
-          >
-            <Input
-              id="smtp-username"
-              name="smtp-username"
-              value={form.username}
-              autoComplete="off"
-              disabled={saving}
-              onChange={(event) => update("username", event.target.value)}
-            />
-          </Field>
-
-          <Field
-            label={t("admin.smtp.password.label")}
-            htmlFor="smtp-password"
-            hint={
-              passwordSet
-                ? t("admin.smtp.password.hintSaved")
-                : t("admin.smtp.password.hintEmpty")
-            }
-          >
-            <Input
-              id="smtp-password"
-              name="smtp-password"
-              type="password"
-              // 别让浏览器把管理员的登录密码自动填进 SMTP 密码框
-              autoComplete="new-password"
-              value={password}
-              // 掩码用占位符表达：输入框里永远是空值，重录才会覆盖（GET 从不回密码）
-              placeholder={
-                passwordSet
-                  ? t(PASSWORD_MASK_HINT_KEY)
-                  : t("admin.smtp.password.unset")
-              }
-              disabled={saving}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </Field>
-
-          <Field label={t("admin.smtp.from.label")} htmlFor="smtp-from">
-            <Input
-              id="smtp-from"
-              name="smtp-from"
-              type="email"
-              value={form.from}
-              placeholder="no-reply@example.com"
-              autoComplete="off"
-              disabled={saving}
-              onChange={(event) => update("from", event.target.value)}
-            />
-          </Field>
-
-          <Field
-            label={t("admin.smtp.fromName.label")}
-            htmlFor="smtp-from-name"
-            hint={t("admin.smtp.fromName.hint")}
-          >
-            <Input
-              id="smtp-from-name"
-              name="smtp-from-name"
-              value={form.fromName}
-              placeholder="Ciki"
-              autoComplete="off"
-              disabled={saving}
-              onChange={(event) => update("fromName", event.target.value)}
-            />
-          </Field>
+            <SelectTrigger id="email-provider" className="w-full sm:w-60">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROVIDERS.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {t(`admin.email.${value}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Button type="submit" size="sm" disabled={saving}>
-            {saving ? t("admin.common.saving") : t("admin.smtp.save")}
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={testing || !configured}
-            title={configured ? undefined : t("admin.smtp.testDisabled")}
-            onClick={() => void sendTest()}
-          >
-            <Send aria-hidden="true" />
-            {testing ? t("admin.smtp.testing") : t("admin.smtp.test")}
-          </Button>
-        </div>
+        {provider === "smtp" ? (
+          <div className="space-y-3 border-t pt-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="smtp-host">{t("admin.email.host")}</Label>
+                <Input
+                  id="smtp-host"
+                  value={smtp.host}
+                  onChange={(event) =>
+                    setSmtp({ ...smtp, host: event.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="smtp-port">{t("admin.email.port")}</Label>
+                <Input
+                  id="smtp-port"
+                  inputMode="numeric"
+                  value={smtp.port}
+                  onChange={(event) =>
+                    setSmtp({ ...smtp, port: event.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="smtp-username">
+                  {t("admin.email.username")}
+                </Label>
+                <Input
+                  id="smtp-username"
+                  autoComplete="off"
+                  value={smtp.username}
+                  onChange={(event) =>
+                    setSmtp({ ...smtp, username: event.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="smtp-password">
+                  {t("admin.email.password")}
+                </Label>
+                <Input
+                  id="smtp-password"
+                  type="password"
+                  autoComplete="new-password"
+                  value={smtpPassword}
+                  placeholder={
+                    settings.email?.smtp.passwordSet
+                      ? t("admin.email.secretSet")
+                      : t("admin.email.secretEmpty")
+                  }
+                  onChange={(event) => setSmtpPassword(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="smtp-from">{t("admin.email.from")}</Label>
+                <Input
+                  id="smtp-from"
+                  type="email"
+                  value={smtp.from}
+                  onChange={(event) =>
+                    setSmtp({ ...smtp, from: event.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="smtp-from-name">
+                  {t("admin.email.fromName")}
+                </Label>
+                <Input
+                  id="smtp-from-name"
+                  value={smtp.fromName}
+                  onChange={(event) =>
+                    setSmtp({ ...smtp, fromName: event.target.value })
+                  }
+                />
+              </div>
+            </div>
+          </div>
+        ) : null}
 
-        {/* 保存与发测试的反馈就放在按钮下方：手机上不用滚回页顶找结果 */}
-        {error ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {error}
-          </p>
-        ) : null}
-        {notice ? (
-          <p
-            role="status"
-            className="mt-3 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
-          >
-            {notice}
-          </p>
-        ) : null}
-        {testError ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
-          >
-            {testError}
-          </p>
-        ) : null}
-        {testNotice ? (
-          <p
-            role="status"
-            className="mt-3 rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
-          >
-            {testNotice}
-          </p>
+        {provider === "resend" ? (
+          <div className="space-y-3 border-t pt-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="resend-key">{t("admin.email.apiKey")}</Label>
+                <Input
+                  id="resend-key"
+                  type="password"
+                  autoComplete="new-password"
+                  value={resendKey}
+                  placeholder={
+                    settings.email?.resend.apiKeySet
+                      ? t("admin.email.secretSet")
+                      : t("admin.email.secretEmpty")
+                  }
+                  onChange={(event) => setResendKey(event.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="resend-from">{t("admin.email.from")}</Label>
+                <Input
+                  id="resend-from"
+                  type="email"
+                  value={resend.from}
+                  onChange={(event) =>
+                    setResend({ ...resend, from: event.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="resend-from-name">
+                  {t("admin.email.fromName")}
+                </Label>
+                <Input
+                  id="resend-from-name"
+                  value={resend.fromName}
+                  onChange={(event) =>
+                    setResend({ ...resend, fromName: event.target.value })
+                  }
+                />
+              </div>
+            </div>
+          </div>
         ) : null}
 
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          {t("admin.smtp.testNote", {
-            email: adminEmail
-              ? t("admin.smtp.testNoteEmail", { email: adminEmail })
-              : ""
-          })}
-          {configured ? "" : t("admin.smtp.testNoteDisabled")}
-        </p>
+        {message(error)}
+
+        <Button type="submit" disabled={busy}>
+          {busy ? t("common.actions.saving") : t("admin.email.save")}
+        </Button>
       </form>
-    </div>
+
+      <div className="space-y-3 border-t pt-4">
+        <h4 className="text-sm font-medium">{t("admin.email.testTitle")}</h4>
+        <form className="flex flex-wrap items-end gap-2" onSubmit={sendTest}>
+          <div className="min-w-56 flex-1 space-y-1.5">
+            <Label htmlFor="test-email-to">{t("admin.email.testTo")}</Label>
+            <Input
+              id="test-email-to"
+              type="email"
+              value={testTo}
+              onChange={(event) => {
+                setUserEditedTo(true)
+                setTestTo(event.target.value)
+              }}
+            />
+          </div>
+          <Button type="submit" variant="outline" disabled={testBusy}>
+            {testBusy ? t("common.loading") : t("admin.email.testSend")}
+          </Button>
+        </form>
+
+        {testError ? (
+          <div className="space-y-1">
+            <p role="alert" className="text-sm text-destructive">
+              {t("admin.email.testError")}
+            </p>
+            <pre className="max-h-40 overflow-auto rounded-lg bg-muted p-2 font-mono text-xs whitespace-pre-wrap">
+              {testError}
+            </pre>
+          </div>
+        ) : null}
+      </div>
+    </section>
   )
 }
+
+export { SmtpTab as EmailSection }

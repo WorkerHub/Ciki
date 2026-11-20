@@ -51,7 +51,20 @@
     },
     "loading": "Loading…",
     "close": "Close",
-    "userFallback": "User"
+    "userFallback": "User",
+    "emailConfigured": "Email configured",
+    "emailNotConfigured": "Email not configured",
+    "actions": {
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel"
+    },
+    "unsavedChanges": {
+      "title": "Unsaved changes",
+      "description": "Current form has unsaved changes. Leaving will discard them. Do you want to continue?",
+      "stay": "Stay on page",
+      "discard": "Discard changes"
+    }
   },
   "shell": {
     "sidebar": {
@@ -801,6 +814,30 @@
         "admin": "Self-registration and the approval requirement are in the switches above; approving pending users, deactivating accounts and resetting passwords happen under Users."
       }
     },
+    "email": {
+      "title": "Email",
+      "provider": "Provider",
+      "none": "Not configured",
+      "smtp": "SMTP",
+      "resend": "Resend",
+      "host": "Host",
+      "port": "Port",
+      "username": "Username",
+      "password": "Password",
+      "apiKey": "API key",
+      "from": "From address",
+      "fromName": "From name",
+      "secretSet": "Set — leave blank to keep it",
+      "secretEmpty": "Not set",
+      "save": "Save email settings",
+      "saved": "Email settings saved",
+      "status": "Status",
+      "testTitle": "Send a test email",
+      "testTo": "Recipient",
+      "testSend": "Send",
+      "testSent": "Test email sent",
+      "testError": "Send failed"
+    },
     "smtp": {
       "title": "SMTP server",
       "configured": "Configured",
@@ -1149,6 +1186,7 @@
     "waitMinutes_other": "{{count}} minutes"
   },
   "errors": {
+    "EMAIL_SEND_FAILED": "Email send failed",
     "ACCOUNT_PENDING_APPROVAL": "This account is waiting for an admin to approve it; you can sign in once approved.",
     "ACCOUNT_REJECTED": "This account's registration request was rejected. Contact an admin.",
     "RATE_LIMITED": "Too many attempts. Try again later.",

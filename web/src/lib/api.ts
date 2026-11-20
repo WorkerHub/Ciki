@@ -13,6 +13,7 @@ const BASE = "/api"
 export interface ApiErrorBody {
   error?: string
   code?: string
+  detail?: string
   retryAfter?: number
   detectedPrefixes?: string[]
   resolvedPrefix?: string
@@ -21,6 +22,7 @@ export interface ApiErrorBody {
 export class ApiError extends Error {
   readonly status: number
   readonly code?: string
+  readonly detail?: string
   readonly retryAfter?: number
   /** 原始错误体（例如 409 前缀冲突里的 detectedPrefixes）。 */
   readonly details?: ApiErrorBody
@@ -33,12 +35,14 @@ export class ApiError extends Error {
     code?: string,
     retryAfter?: number,
     details?: ApiErrorBody,
-    path?: string
+    path?: string,
+    detail?: string
   ) {
     super(message)
     this.name = "ApiError"
     this.status = status
     this.code = code
+    this.detail = detail ?? details?.detail
     this.retryAfter = retryAfter
     this.details = details
     this.path = path
@@ -150,7 +154,8 @@ function toApiError(res: Response, body: unknown, path: string): ApiError {
     error.code,
     error.retryAfter,
     error,
-    path
+    path,
+    error.detail
   )
 }
 
@@ -595,6 +600,8 @@ export interface AdminUser extends User {
   createdAt: string
 }
 
+export type EmailProvider = "none" | "smtp" | "resend"
+
 export interface SiteSettings {
   siteName: string
   /** 当前生效的表前缀（只读展示，空串代表无前缀）。 */
@@ -612,7 +619,10 @@ export interface SiteSettings {
   emailConfigured: boolean
   /** 每页保留的历史版本数；null = 不限（后端存空串）。 */
   revisionRetentionLimit: number | null
+  email?: EmailSettings
 }
+
+export type AdminSettings = SiteSettings
 
 /** SMTP 传输层三态：TLS（465 隐式加密）/ STARTTLS（升级）/ 不加密。 */
 export type SmtpEncryption = "tls" | "starttls" | "none"
@@ -623,12 +633,55 @@ export type SmtpEncryption = "tls" | "starttls" | "none"
  */
 export interface SmtpSettings {
   host: string
-  port: number
-  encryption: SmtpEncryption
+  port: number | string
+  encryption?: SmtpEncryption
   username: string
   from: string
   fromName: string
   passwordSet: boolean
+}
+
+export interface ResendSettings {
+  from: string
+  fromName: string
+  apiKeySet: boolean
+}
+
+export interface EmailSettings {
+  provider: EmailProvider
+  smtp: SmtpSettings
+  resend: ResendSettings
+  configured: boolean
+}
+
+export interface SmtpUpdateInput {
+  host: string
+  port: string | number
+  encryption?: SmtpEncryption
+  username: string
+  password?: string
+  from: string
+  fromName: string
+}
+
+export interface ResendUpdateInput {
+  from: string
+  fromName: string
+  apiKey?: string
+}
+
+export interface AdminSettingsUpdate {
+  siteName?: string
+  setupPageEnabled?: boolean
+  registrationEnabled?: boolean
+  registrationApprovalRequired?: boolean
+  require2fa?: boolean
+  revisionRetentionLimit?: number | null
+  email?: {
+    provider: EmailProvider
+    smtp: SmtpUpdateInput
+    resend: ResendUpdateInput
+  }
 }
 
 /**
@@ -1092,6 +1145,13 @@ export const adminApi = {
   settings: () => api.get<SiteSettings>("/admin/settings"),
   saveSettings: (patch: Partial<SiteSettings>) =>
     api.put<{ success: true }>("/admin/settings", patch),
+  updateSettings: (update: AdminSettingsUpdate) =>
+    api.put<{ success: true }>("/admin/settings", update),
+  testEmail: (to: string, language?: string) =>
+    api.post<{ success: true }>("/admin/settings/test-email", {
+      to,
+      ...(language ? { language } : {})
+    }),
   smtp: () => api.get<SmtpConfigState>("/admin/system/smtp"),
   saveSmtp: (input: SmtpConfigInput) =>
     api.put<{ success: true; emailConfigured: boolean }>(
@@ -1237,6 +1297,7 @@ export const ERROR_TEXT_CODES = new Set<string>([
   "INVALID_ROLE",
   // 邮件与验证码
   "EMAIL_NOT_CONFIGURED",
+  "EMAIL_SEND_FAILED",
   "INVALID_EMAIL",
   "EMAIL_NOT_VERIFIED",
   "INVALID_RESET_TOKEN",
