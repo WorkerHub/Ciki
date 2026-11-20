@@ -254,9 +254,10 @@ export function LoginPage() {
     } catch (passkeyError) {
       if (
         passkeyError instanceof ApiError &&
-        passkeyError.code === "EMAIL_NOT_VERIFIED"
+        passkeyError.code === "EMAIL_NOT_VERIFIED" &&
+        email.trim()
       ) {
-        setUnverified(email.trim() || t("auth.common.accountEmailFallback"))
+        setUnverified(email.trim())
         setResendCooldown(0)
         return
       }

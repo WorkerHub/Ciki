@@ -8,11 +8,7 @@ import {
   meApi,
   pagesApi
 } from "@/lib/api"
-import {
-  describeWebAuthnError,
-  extractChallenge,
-  unwrapOptions
-} from "@/lib/webauthn"
+import { describeWebAuthnError, extractChallenge } from "@/lib/webauthn"
 
 /**
  * 规格 §8「TOTP 两步登录」的失败提示。
@@ -918,12 +914,12 @@ describe("authApi.passkeyLogin：免密登录端点与 challenge 提取", () => 
 
   it("extractChallenge 能从平铺或嵌套的 options 中提取 challenge", () => {
     expect(extractChallenge({ challenge: "chal-abc" })).toBe("chal-abc")
-    expect(
-      extractChallenge({ options: { challenge: "chal-def" } })
-    ).toBe("chal-def")
-    expect(
-      extractChallenge({ publicKey: { challenge: "chal-ghi" } })
-    ).toBe("chal-ghi")
+    expect(extractChallenge({ options: { challenge: "chal-def" } })).toBe(
+      "chal-def"
+    )
+    expect(extractChallenge({ publicKey: { challenge: "chal-ghi" } })).toBe(
+      "chal-ghi"
+    )
     expect(extractChallenge({})).toBeUndefined()
   })
 })

@@ -683,10 +683,7 @@ describe("无密码 Passkey 免密登录", () => {
       name: "使用 Passkey 登录"
     })
     expect(passkeyBtn).toBeDisabled()
-    expect(passkeyBtn).toHaveAttribute(
-      "title",
-      "当前浏览器不支持 WebAuthn"
-    )
+    expect(passkeyBtn).toHaveAttribute("title", "当前浏览器不支持 WebAuthn")
   })
 
   it("点击 Passkey 登录：不输密码即可发起认证并完成登录", async () => {
@@ -831,9 +828,48 @@ describe("无密码 Passkey 免密登录", () => {
     )
 
     const alert = await screen.findByRole("alert")
-    expect(alert).toHaveTextContent("还没有验证邮箱，验证后才能登录。")
+    expect(alert).toHaveTextContent("邮箱还没有验证，请先完成邮箱验证。")
     expect(
-      screen.getByRole("link", { name: "去验证" })
-    ).toBeInTheDocument()
+      screen.queryByRole("link", { name: "去验证" })
+    ).not.toBeInTheDocument()
+  })
+
+  it("已输入邮箱时免密登录遇到 403 EMAIL_NOT_VERIFIED 则唤起去验证与重新发码入口", async () => {
+    const events = userEvent.setup()
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "server-challenge-xyz"
+    })
+    vi.mocked(authenticationCredential).mockResolvedValue({
+      id: "cred-abc",
+      rawId: "cred-abc",
+      response: {
+        clientDataJSON: "clientDataJSON",
+        authenticatorData: "authenticatorData",
+        signature: "signature",
+        userHandle: "dXNlci0x"
+      },
+      type: "public-key",
+      clientExtensionResults: {}
+    })
+    vi.mocked(authApi.passkeyLoginVerify).mockRejectedValue(
+      new ApiError(
+        403,
+        "Email not verified",
+        "EMAIL_NOT_VERIFIED",
+        undefined,
+        { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
+        "/auth/passkey/login/verify"
+      )
+    )
+
+    renderLogin()
+    await events.type(screen.getByLabelText("邮箱"), "user@example.com")
+    await events.click(
+      screen.getByRole("button", { name: "使用 Passkey 登录" })
+    )
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("user@example.com 还没有验证邮箱")
+    expect(screen.getByRole("link", { name: "去验证" })).toBeInTheDocument()
   })
 })
