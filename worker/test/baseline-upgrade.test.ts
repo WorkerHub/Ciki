@@ -125,6 +125,23 @@ function businessSnapshot(ctx: TestContext): Record<string, unknown[]> {
   return snapshot
 }
 
+/**
+ * 去掉 `system_settings` 里三态邮件新增的行：`schema_v9` 会为存量 SMTP 库
+ * 补写 `email_provider`（值 none→smtp），`seedDefaultSettings` 会播种 `resend_config`（值 {}），
+ * 其余设置/数据仍应一字不变。
+ */
+function withoutEmailSettings(
+  snapshot: Record<string, unknown[]>
+): Record<string, unknown[]> {
+  const next = { ...snapshot }
+  next.system_settings = (next.system_settings ?? []).filter(
+    (row) =>
+      (row as { key?: string }).key !== "email_provider" &&
+      (row as { key?: string }).key !== "resend_config"
+  )
+  return next
+}
+
 function tableNames(ctx: TestContext): string[] {
   return (
     ctx.db.db
@@ -193,7 +210,26 @@ describe("最终形态存量库 → 单条 schema_v1：只动账本", () => {
     expect(tableNames(context)).not.toContain(tableName(PREFIX, "write_tokens"))
 
     // 数据零变化：逐表全量行（对象、时间戳、计数）一字不差。
-    expect(businessSnapshot(context)).toEqual(beforeData)
+    // 邮件三态新增项除外——`schema_v9` 为存量 SMTP 库补写 `email_provider`（值 none→smtp），
+    // `seedDefaultSettings` 补齐 `resend_config`（值 {}）。
+    expect(withoutEmailSettings(businessSnapshot(context))).toEqual(
+      withoutEmailSettings(beforeData)
+    )
+
+    // schema_v9 只为已有 smtp_config 的存量库补写 email_provider，不碰其它数据。
+    const providerRow = db.db
+      .prepare(
+        `SELECT key, value FROM ${tableName(PREFIX, "system_settings")} WHERE key = 'email_provider'`
+      )
+      .get() as { key: string; value: string }
+    expect(providerRow).toEqual({ key: "email_provider", value: "smtp" })
+
+    const resendRow = db.db
+      .prepare(
+        `SELECT key, value FROM ${tableName(PREFIX, "system_settings")} WHERE key = 'resend_config'`
+      )
+      .get() as { key: string; value: string }
+    expect(resendRow).toEqual({ key: "resend_config", value: "{}" })
 
     // 正文对象一个不重传、不丢失，指针全量可回读。
     expect(context.content.store.size).toBe(beforeObjects)
@@ -285,7 +321,7 @@ describe("全新库与幂等", () => {
 
     expect(result.migrations).toEqual(migrationList("applied"))
     expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
-    expect(MIGRATION_NAMES).toEqual(["schema_v1"])
+    expect(MIGRATION_NAMES).toEqual(["schema_v1", "schema_v9"])
 
     const tables = tableNames(context)
     for (const table of SCHEMA_TABLES) {

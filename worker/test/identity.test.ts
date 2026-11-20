@@ -583,7 +583,7 @@ describe("username 唯一性：自动后缀、改名撞名 409", () => {
     expect(isUsernameConflict(new Error("boom"))).toBe(false)
   })
 
-  it("首个用户守卫：insert 返回 null 原样返回、不重试，路由据此回 503", async () => {
+  it("insert 返回 null 原样返回、不重试；重名时自动顺延后缀分配", async () => {
     const { env } = await initializedContext()
     await adminSession(env, "dup@example.com")
 
@@ -601,11 +601,15 @@ describe("username 唯一性：自动后缀、改名撞名 409", () => {
     expect(notCreated).toBeNull()
     expect(attempts).toBe(1)
 
-    // 路由层：表已非空 + 想要的用户名已被占（会先试 dup、dup-2 再写入），
-    // 未配发信时的守卫拦下写入 → 仍是 503，不是重试耗尽后的 500。
+    // 路由层：表已非空 + 想要的用户名已被占（先试 dup、撞名后自动分配 dup-2）
     const res = await register(env, "dup@example.org")
-    expect(res.status).toBe(503)
-    expect(await res.json()).toMatchObject({ code: "EMAIL_NOT_CONFIGURED" })
+    expect(res.status).toBe(201)
+    const user = await env.DB.prepare(
+      "SELECT username FROM ciki_users WHERE email = ?"
+    )
+      .bind("dup@example.org")
+      .first<{ username: string }>()
+    expect(user?.username).toBe("dup-2")
   })
 
   it("评论按 username 展示：重名账号显示 dup-2", async () => {

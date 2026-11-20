@@ -1,16 +1,15 @@
 /**
  * 注册邮箱验证门禁（本单冻结契约的后端部分）。
  *
- * 覆盖：注册后 `email_verified=0` 且立刻发 6 位码（10 分钟）；未配置 SMTP 时普通
- * 自助注册 503 且不建号；未验证不能登录（403 `EMAIL_NOT_VERIFIED`）；验码置位、
- * 码单次消费；错码累计 5 次删码；重发冷却/小时配额/未知邮箱同形；验证后可登录；
- * 首个管理员与管理员后台建号直接已验证且不发注册邮件。
+ * 覆盖：注册后 `email_verified=0` 且立刻发 6 位码（10 分钟）；开关默认开但未配置
+ * 发信时第二个用户按未配置处理（201 + 直接已验证 + 不发码）；未验证不能登录（403
+ * `EMAIL_NOT_VERIFIED`）；验码置位、码单次消费；错码累计 5 次删码；重发冷却/小时配额/
+ * 未知邮箱同形；验证后可登录；首个管理员与管理员后台建号直接已验证且不发注册邮件。
  *
  * 传输层在 Node 里不可用，所以只 mock「把信发出去」这一步；配置读取、发码、哈希、
  * 落库、限频、验码全走真实代码，码从捕获的邮件 HTML 里取。
  */
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { createUserFirstIsAdmin } from "../src/db/queries/users"
 import type { Env } from "../src/types"
 import type { TestContext } from "./support/app"
 import {
@@ -202,18 +201,26 @@ describe("注册：发首封验证码", () => {
     expect(countRows(ctx, "ciki_email_codes")).toBe(0)
   })
 
-  it("站点未配置 SMTP：第二个用户 503 且不建号", async () => {
+  it("站点未配置 SMTP：第二个用户 201 + email_verified=1 + 不发码", async () => {
     const ctx = await initializedContext()
     await adminSession(ctx.env)
     sendSmtpMessageMock.mockClear()
 
     const res = await registerUser(ctx, USER)
-    expect(res.status).toBe(503)
+    expect(res.status).toBe(201)
     expect(await res.json()).toEqual({
-      error: "Email delivery is not configured",
-      code: "EMAIL_NOT_CONFIGURED"
+      success: true,
+      approvalRequired: true,
+      emailVerificationRequired: false
     })
-    expect(countRows(ctx, "ciki_users")).toBe(1)
+    expect(countRows(ctx, "ciki_users")).toBe(2)
+    expect(
+      row<{ email_verified: number }>(
+        ctx,
+        "SELECT email_verified FROM ciki_users WHERE email = ?",
+        USER
+      )
+    ).toEqual({ email_verified: 1 })
     expect(registerMessages()).toEqual([])
   })
 
@@ -514,64 +521,6 @@ describe("重发", () => {
     const body = (await blocked.json()) as { code: string; retryAfter: number }
     expect(body.code).toBe("RATE_LIMITED")
     expect(body.retryAfter).toBeGreaterThan(0)
-  })
-})
-
-describe("注册并发兜底：首封发不出去时一个字节都不写", () => {
-  const account = (email: string, username: string) => ({
-    email,
-    username,
-    password_hash: "hash",
-    approvalStatus: "pending" as const
-  })
-
-  it("站点没配发信：守卫只放行首个用户，第二个请求 0 行写入", async () => {
-    const ctx = await initializedContext()
-    // 两条并发请求都会在插入前看到空表；守卫把判断压进 INSERT 本身。
-    const first = await createUserFirstIsAdmin(
-      ctx.env.DB,
-      "ciki_",
-      account("first@example.com", "first"),
-      { requireEmptyTable: true }
-    )
-    expect(first).toBe(1)
-    const second = await createUserFirstIsAdmin(
-      ctx.env.DB,
-      "ciki_",
-      account("second@example.com", "second"),
-      { requireEmptyTable: true }
-    )
-    expect(second).toBeNull()
-    expect(countRows(ctx, "ciki_users")).toBe(1)
-    expect(
-      row<{ email: string; role: string; email_verified: number }>(
-        ctx,
-        "SELECT email, role, email_verified FROM ciki_users"
-      )
-    ).toEqual({ email: "first@example.com", role: "admin", email_verified: 1 })
-  })
-
-  it("站点已配发信：守卫关闭，第二个用户照常建号且未验证", async () => {
-    const ctx = await initializedContext()
-    await createUserFirstIsAdmin(
-      ctx.env.DB,
-      "ciki_",
-      account("first@example.com", "first"),
-      { requireEmptyTable: false }
-    )
-    const second = await createUserFirstIsAdmin(
-      ctx.env.DB,
-      "ciki_",
-      account("second@example.com", "second"),
-      { requireEmptyTable: false }
-    )
-    expect(second).toBe(2)
-    expect(
-      row<{ role: string; email_verified: number }>(
-        ctx,
-        "SELECT role, email_verified FROM ciki_users WHERE email = 'second@example.com'"
-      )
-    ).toEqual({ role: "user", email_verified: 0 })
   })
 })
 
