@@ -22,6 +22,7 @@ import {
 import {
   authenticationCredential,
   describeWebAuthnError,
+  extractChallenge,
   webauthnSupported
 } from "@/lib/webauthn"
 import { useAuthStore } from "@/stores/auth"
@@ -71,6 +72,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [code, setCode] = useState("")
   const [busy, setBusy] = useState(false)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [error, setError] = useState("")
   /** 密码正确但邮箱未验证（403 EMAIL_NOT_VERIFIED）：给验证页与重发两个入口。 */
   const [unverified, setUnverified] = useState<string | null>(null)
@@ -96,6 +98,7 @@ export function LoginPage() {
 
   const submitPassword = async (event: React.FormEvent) => {
     event.preventDefault()
+    if (passkeyBusy) return
     setBusy(true)
     setError("")
     setUnverified(null)
@@ -230,6 +233,37 @@ export function LoginPage() {
       setError(describeApiError(verifyError))
     } finally {
       setBusy(false)
+    }
+  }
+
+  const loginWithPasswordlessPasskey = async () => {
+    if (busy || passkeyBusy) return
+    setPasskeyBusy(true)
+    setError("")
+    setUnverified(null)
+    setResendNote(null)
+    try {
+      const options = await authApi.passkeyLoginOptions()
+      const challenge = extractChallenge(options)
+      const credential = await authenticationCredential(options)
+      await authApi.passkeyLoginVerify(
+        credential as unknown as Record<string, unknown>,
+        challenge
+      )
+      await finishLogin()
+    } catch (passkeyError) {
+      if (
+        passkeyError instanceof ApiError &&
+        passkeyError.code === "EMAIL_NOT_VERIFIED" &&
+        email.trim()
+      ) {
+        setUnverified(email.trim())
+        setResendCooldown(0)
+        return
+      }
+      setError(describeWebAuthnError(passkeyError))
+    } finally {
+      setPasskeyBusy(false)
     }
   }
 
@@ -373,8 +407,31 @@ export function LoginPage() {
               {error}
             </p>
           ) : null}
-          <Button type="submit" size="sm" className="w-full" disabled={busy}>
+          <Button
+            type="submit"
+            size="sm"
+            className="w-full"
+            disabled={busy || passkeyBusy}
+          >
             {busy ? t("auth.login.submitting") : t("auth.login.submit")}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="w-full"
+            disabled={busy || passkeyBusy || !webauthnSupported()}
+            onClick={() => void loginWithPasswordlessPasskey()}
+            title={
+              webauthnSupported()
+                ? undefined
+                : t("auth.login.passkeyUnsupported")
+            }
+          >
+            <KeyRound aria-hidden="true" />
+            {passkeyBusy
+              ? t("auth.login.passkeyWaiting")
+              : t("auth.login.passkeySubmit")}
           </Button>
           {mailEntryUnavailable ? (
             <p className="text-xs text-muted-foreground">

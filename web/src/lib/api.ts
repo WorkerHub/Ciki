@@ -55,6 +55,7 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
 /** 这些路径本身就是登录流程的一部分，401 不能触发刷新与跳转。 */
 const NO_REFRESH_PATHS = [
   "/auth/login",
+  "/auth/passkey/login",
   "/auth/register",
   "/auth/logout",
   "/auth/refresh",
@@ -805,6 +806,22 @@ export const authApi = {
         ...credential
       }
     ),
+  /** 免密登录（公开，不依赖会话与密码）。 */
+  passkeyLoginOptions: () =>
+    api.post<Record<string, unknown>>(
+      "/auth/passkey/login/options",
+      undefined,
+      { skipRefresh: true }
+    ),
+  passkeyLoginVerify: (
+    credential: Record<string, unknown>,
+    challenge?: string
+  ) =>
+    api.post<{ success: true; user: User }>(
+      "/auth/passkey/login/verify",
+      challenge !== undefined ? { ...credential, challenge } : credential,
+      { skipRefresh: true }
+    ),
   logout: () => api.post<{ success: true }>("/auth/logout"),
   totpSetup: (password?: string) =>
     api.post<TotpSetup>("/auth/2fa/totp/setup", password ? { password } : {}),
@@ -1107,6 +1124,8 @@ const CREDENTIAL_FAILURE_MESSAGE_KEYS: Record<string, string> = {
  */
 const AUTH_FORM_PATHS = [
   "/auth/login",
+  "/auth/passkey/login/options",
+  "/auth/passkey/login/verify",
   "/auth/2fa/verify",
   "/auth/2fa/passkey/authenticate/options",
   "/auth/2fa/passkey/authenticate/verify",
@@ -1252,6 +1271,13 @@ export function describeApiError(error: unknown): string {
       : i18n.t("errors.INVALID_SMTP_CONFIG")
   }
   if (code && ERROR_TEXT_CODES.has(code)) return i18n.t(`errors.${code}`)
+
+  if (
+    error.path?.split("?")[0] === "/auth/passkey/login/verify" &&
+    error.message.trim().toLowerCase() === "invalid credentials"
+  ) {
+    return i18n.t("errors.credentials.passkeyFailed")
+  }
 
   const credentialFailure =
     CREDENTIAL_FAILURE_MESSAGE_KEYS[error.message.trim().toLowerCase()]

@@ -3,11 +3,12 @@ import { i18n } from "@/i18n"
 import {
   ApiError,
   adminApi,
+  authApi,
   describeApiError,
   meApi,
   pagesApi
 } from "@/lib/api"
-import { describeWebAuthnError } from "@/lib/webauthn"
+import { describeWebAuthnError, extractChallenge } from "@/lib/webauthn"
 
 /**
  * 规格 §8「TOTP 两步登录」的失败提示。
@@ -74,6 +75,15 @@ describe("describeApiError：登录 / 两步验证入口", () => {
       401,
       "Verification failed",
       "/auth/2fa/passkey/authenticate/verify"
+    )
+    expect(describeApiError(error)).toBe("Passkey 验证未通过，请重试。")
+  })
+
+  it("免密 Passkey 登录凭证无效（401 Invalid credentials）→ 提示 Passkey 验证未通过，不说密码不正确", () => {
+    const error = apiError(
+      401,
+      "Invalid credentials",
+      "/auth/passkey/login/verify"
     )
     expect(describeApiError(error)).toBe("Passkey 验证未通过，请重试。")
   })
@@ -847,5 +857,69 @@ describe("describeApiError：英文界面与兜底", () => {
       caught = downloadError
     }
     expect(describeApiError(caught)).toBe("Request failed (500)")
+  })
+})
+
+describe("authApi.passkeyLogin：免密登录端点与 challenge 提取", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("passkeyLoginOptions 请求 /api/auth/passkey/login/options", async () => {
+    const fetchMock = stubFetch(
+      new Response(JSON.stringify({ challenge: "test-challenge-123" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    )
+
+    const result = await authApi.passkeyLoginOptions()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/auth/passkey/login/options")
+    expect(init?.method).toBe("POST")
+    expect(result.challenge).toBe("test-challenge-123")
+  })
+
+  it("passkeyLoginVerify 提交凭证与顶层 challenge 到 /api/auth/passkey/login/verify", async () => {
+    const fetchMock = stubFetch(
+      new Response(
+        JSON.stringify({
+          success: true,
+          user: { id: 1, email: "a@b.c", role: "admin" }
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        }
+      )
+    )
+
+    const credential = { id: "cred-1", response: { clientDataJSON: "data" } }
+    const result = await authApi.passkeyLoginVerify(
+      credential,
+      "test-challenge-123"
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe("/api/auth/passkey/login/verify")
+    expect(init?.method).toBe("POST")
+    expect(JSON.parse(init?.body as string)).toEqual({
+      id: "cred-1",
+      response: { clientDataJSON: "data" },
+      challenge: "test-challenge-123"
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it("extractChallenge 能从平铺或嵌套的 options 中提取 challenge", () => {
+    expect(extractChallenge({ challenge: "chal-abc" })).toBe("chal-abc")
+    expect(extractChallenge({ options: { challenge: "chal-def" } })).toBe(
+      "chal-def"
+    )
+    expect(extractChallenge({ publicKey: { challenge: "chal-ghi" } })).toBe(
+      "chal-ghi"
+    )
+    expect(extractChallenge({})).toBeUndefined()
   })
 })

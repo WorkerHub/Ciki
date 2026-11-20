@@ -148,6 +148,9 @@
       "verifyNow": "Verify now",
       "submit": "Sign in",
       "submitting": "Signing in…",
+      "passkeySubmit": "Sign in with a passkey",
+      "passkeyWaiting": "Waiting…",
+      "passkeyUnsupported": "This browser does not support WebAuthn",
       "smtpMissing": "Email delivery is not configured, so password recovery and self-registration are unavailable. Ask an admin to fill in SMTP under Admin → Email delivery.",
       "accountViaAdmin": "Ask an admin to create an account for you.",
       "noAccount": "No account? <signup>Register</signup>"

@@ -18,13 +18,27 @@ vi.mock("@/lib/api", async (importOriginal) => {
       verifySecondFactor: vi.fn(),
       sendLoginEmailCode: vi.fn(),
       resendVerificationEmail: vi.fn(),
+      passkeyLoginOptions: vi.fn(),
+      passkeyLoginVerify: vi.fn(),
       config: vi.fn()
     },
     meApi: { ...actual.meApi, get: vi.fn() }
   }
 })
 
+vi.mock("@/lib/webauthn", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/webauthn")>()
+  return {
+    ...actual,
+    webauthnSupported: vi.fn(() => true),
+    authenticationCredential: vi.fn()
+  }
+})
+
 const { authApi, meApi } = await import("@/lib/api")
+const { authenticationCredential, webauthnSupported } = await import(
+  "@/lib/webauthn"
+)
 
 /** 验证页占位：把 login 带过去的路由状态原样打出来，供断言。 */
 function VerifyProbe() {
@@ -629,5 +643,233 @@ describe("登录页：英文界面", () => {
       await screen.findByLabelText("Authentication code")
     ).toBeInTheDocument()
     expect(container.textContent).not.toMatch(/[\u4e00-\u9fff]/)
+  })
+})
+
+describe("无密码 Passkey 免密登录", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
+    vi.mocked(webauthnSupported).mockReturnValue(true)
+    vi.mocked(meApi.get).mockResolvedValue({
+      id: 1,
+      username: "管理员",
+      avatarUrl: null,
+      email: "a@b.c",
+      role: "admin",
+      approvalStatus: "approved",
+      createdAt: "2026-11-07T00:00:00.000Z",
+      twofa: {
+        totpEnabled: false,
+        passkeyEnabled: true,
+        passkeyCount: 1,
+        emailOtpEnabled: false
+      }
+    })
+  })
+
+  it("第一步渲染「使用 Passkey 登录」按钮，type 为 button", () => {
+    renderLogin()
+    const passkeyBtn = screen.getByRole("button", {
+      name: "使用 Passkey 登录"
+    })
+    expect(passkeyBtn).toBeInTheDocument()
+    expect(passkeyBtn).toHaveAttribute("type", "button")
+  })
+
+  it("浏览器不支持 WebAuthn 时，按钮置灰且带有提示 title", () => {
+    vi.mocked(webauthnSupported).mockReturnValue(false)
+    renderLogin()
+    const passkeyBtn = screen.getByRole("button", {
+      name: "使用 Passkey 登录"
+    })
+    expect(passkeyBtn).toBeDisabled()
+    expect(passkeyBtn).toHaveAttribute("title", "当前浏览器不支持 WebAuthn")
+  })
+
+  it("点击 Passkey 登录：不输密码即可发起认证并完成登录", async () => {
+    const events = userEvent.setup()
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "server-challenge-xyz"
+    })
+    vi.mocked(authenticationCredential).mockResolvedValue({
+      id: "cred-abc",
+      rawId: "cred-abc",
+      response: {
+        clientDataJSON: "clientDataJSON",
+        authenticatorData: "authenticatorData",
+        signature: "signature",
+        userHandle: "dXNlci0x"
+      },
+      type: "public-key",
+      clientExtensionResults: {}
+    })
+    vi.mocked(authApi.passkeyLoginVerify).mockResolvedValue({
+      success: true,
+      user: {
+        id: 1,
+        email: "a@b.c",
+        role: "admin"
+      }
+    })
+
+    renderLogin()
+    const passkeyBtn = screen.getByRole("button", {
+      name: "使用 Passkey 登录"
+    })
+
+    // 输入框保持为空，直接点击 Passkey 登录
+    await events.click(passkeyBtn)
+
+    await waitFor(() => {
+      expect(authApi.passkeyLoginOptions).toHaveBeenCalledTimes(1)
+    })
+    expect(authenticationCredential).toHaveBeenCalledWith({
+      challenge: "server-challenge-xyz"
+    })
+    expect(authApi.passkeyLoginVerify).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "cred-abc" }),
+      "server-challenge-xyz"
+    )
+    await waitFor(() => {
+      expect(meApi.get).toHaveBeenCalled()
+    })
+  })
+
+  it("用户主动取消 Passkey 操作时展示取消提示，不报会话失效", async () => {
+    const events = userEvent.setup()
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "server-challenge-xyz"
+    })
+    const notAllowedError = new DOMException(
+      "The operation either timed out or was not allowed",
+      "NotAllowedError"
+    )
+    vi.mocked(authenticationCredential).mockRejectedValue(notAllowedError)
+
+    renderLogin()
+    await events.click(
+      screen.getByRole("button", { name: "使用 Passkey 登录" })
+    )
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "已取消 Passkey 操作"
+    )
+  })
+
+  it("免密登录凭证无效（401 Invalid credentials）时提示 Passkey 验证未通过", async () => {
+    const events = userEvent.setup()
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "server-challenge-xyz"
+    })
+    vi.mocked(authenticationCredential).mockResolvedValue({
+      id: "cred-abc",
+      rawId: "cred-abc",
+      response: {
+        clientDataJSON: "clientDataJSON",
+        authenticatorData: "authenticatorData",
+        signature: "signature",
+        userHandle: "dXNlci0x"
+      },
+      type: "public-key",
+      clientExtensionResults: {}
+    })
+    vi.mocked(authApi.passkeyLoginVerify).mockRejectedValue(
+      new ApiError(
+        401,
+        "Invalid credentials",
+        undefined,
+        undefined,
+        { error: "Invalid credentials" },
+        "/auth/passkey/login/verify"
+      )
+    )
+
+    renderLogin()
+    await events.click(
+      screen.getByRole("button", { name: "使用 Passkey 登录" })
+    )
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("Passkey 验证未通过，请重试。")
+    expect(alert).not.toHaveTextContent("邮箱或密码不正确。")
+  })
+
+  it("免密登录遇到未验证邮箱门禁（403 EMAIL_NOT_VERIFIED）时提示验证邮箱", async () => {
+    const events = userEvent.setup()
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "server-challenge-xyz"
+    })
+    vi.mocked(authenticationCredential).mockResolvedValue({
+      id: "cred-abc",
+      rawId: "cred-abc",
+      response: {
+        clientDataJSON: "clientDataJSON",
+        authenticatorData: "authenticatorData",
+        signature: "signature",
+        userHandle: "dXNlci0x"
+      },
+      type: "public-key",
+      clientExtensionResults: {}
+    })
+    vi.mocked(authApi.passkeyLoginVerify).mockRejectedValue(
+      new ApiError(
+        403,
+        "Email not verified",
+        "EMAIL_NOT_VERIFIED",
+        undefined,
+        { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
+        "/auth/passkey/login/verify"
+      )
+    )
+
+    renderLogin()
+    await events.click(
+      screen.getByRole("button", { name: "使用 Passkey 登录" })
+    )
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("邮箱还没有验证，请先完成邮箱验证。")
+    expect(
+      screen.queryByRole("link", { name: "去验证" })
+    ).not.toBeInTheDocument()
+  })
+
+  it("已输入邮箱时免密登录遇到 403 EMAIL_NOT_VERIFIED 则唤起去验证与重新发码入口", async () => {
+    const events = userEvent.setup()
+    vi.mocked(authApi.passkeyLoginOptions).mockResolvedValue({
+      challenge: "server-challenge-xyz"
+    })
+    vi.mocked(authenticationCredential).mockResolvedValue({
+      id: "cred-abc",
+      rawId: "cred-abc",
+      response: {
+        clientDataJSON: "clientDataJSON",
+        authenticatorData: "authenticatorData",
+        signature: "signature",
+        userHandle: "dXNlci0x"
+      },
+      type: "public-key",
+      clientExtensionResults: {}
+    })
+    vi.mocked(authApi.passkeyLoginVerify).mockRejectedValue(
+      new ApiError(
+        403,
+        "Email not verified",
+        "EMAIL_NOT_VERIFIED",
+        undefined,
+        { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
+        "/auth/passkey/login/verify"
+      )
+    )
+
+    renderLogin()
+    await events.type(screen.getByLabelText("邮箱"), "user@example.com")
+    await events.click(
+      screen.getByRole("button", { name: "使用 Passkey 登录" })
+    )
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("user@example.com 还没有验证邮箱")
+    expect(screen.getByRole("link", { name: "去验证" })).toBeInTheDocument()
   })
 })
