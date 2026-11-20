@@ -80,7 +80,7 @@ import {
   type EmailSettingsPatch,
   validateSmtpConfigInput
 } from "../services/email"
-import { normalizeLanguage, renderTestEmail } from "../locales/email"
+import { parseEmailLanguage, renderTestEmail } from "../locales/email"
 import type { HonoEnv } from "../types"
 
 const EMAIL_RE =
@@ -446,8 +446,8 @@ adminRoutes.post("/settings/test-email", async (c) => {
   const prefix = getTablePrefix(c.env)
   const admin = await findUserById(c.env.DB, prefix, c.get("userId"))
   const language =
-    normalizeLanguage(body?.language) ??
-    normalizeLanguage(admin?.language) ??
+    parseEmailLanguage(body?.language) ??
+    parseEmailLanguage(admin?.language) ??
     "zh"
   const content = renderTestEmail(language)
   const sent = await sendEmail(c.env, {
@@ -558,7 +558,7 @@ adminRoutes.post("/system/smtp/test", async (c) => {
   const admin = await findUserById(c.env.DB, prefix, c.get("userId"))
   if (!admin) return c.json({ error: "User not found" }, 404)
 
-  const content = renderTestEmail(normalizeLanguage(admin.language) ?? "zh")
+  const content = renderTestEmail(parseEmailLanguage(admin.language) ?? "zh")
   const sent = await sendEmail(c.env, {
     to: admin.email,
     subject: content.subject,

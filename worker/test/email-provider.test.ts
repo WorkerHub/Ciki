@@ -23,6 +23,7 @@ vi.mock("../src/services/smtp-transport", async (importOriginal) => {
 
 import { DEFAULT_SITE_NAME } from "../src/core/identity"
 import { decryptSecret, encryptSecret } from "../src/core/secret-box"
+import { parseEmailLanguage, renderTestEmail } from "../src/locales/email"
 import { getTablePrefix } from "../src/lib/table-prefix"
 import {
   isEmailConfigured,
@@ -103,6 +104,23 @@ describe("email_configured 单一判断", () => {
       prefix,
       "resend_config",
       JSON.stringify({ api_key: "" })
+    )
+    expect(await isEmailConfigured(env)).toBe(false)
+
+    // resend 有 api_key 但 from 为空或非法，依然算未配置
+    await writeSetting(
+      env.DB,
+      prefix,
+      "resend_config",
+      JSON.stringify({ api_key: "re_key_test", from: "" })
+    )
+    expect(await isEmailConfigured(env)).toBe(false)
+
+    await writeSetting(
+      env.DB,
+      prefix,
+      "resend_config",
+      JSON.stringify({ api_key: "re_key_test", from: "not-an-email" })
     )
     expect(await isEmailConfigured(env)).toBe(false)
 
@@ -335,6 +353,92 @@ describe("配置读写与脱敏", () => {
     const badPort = await saveEmailSettings(env, { smtp: { port: 70_000 } })
     expect(badPort.ok).toBe(false)
   })
+
+  it("凭据置空（null）：显式清空密文，不再加密为字面量 null", async () => {
+    const { env } = await initializedContext()
+    await saveEmailSettings(env, {
+      provider: "smtp",
+      smtp: {
+        host: "smtp.example.com",
+        password: "initial-password",
+        from: "noreply@example.com"
+      },
+      resend: {
+        apiKey: "initial-api-key",
+        from: "noreply@example.com"
+      }
+    })
+
+    let view = await readEmailSettings(env)
+    expect(view.smtp.passwordSet).toBe(true)
+    expect(view.resend.apiKeySet).toBe(true)
+
+    // 传入 null 置空
+    const res = await saveEmailSettings(env, {
+      smtp: { password: null },
+      resend: { apiKey: null }
+    })
+    expect(res.ok).toBe(true)
+
+    view = await readEmailSettings(env)
+    expect(view.smtp.passwordSet).toBe(false)
+    expect(view.resend.apiKeySet).toBe(false)
+
+    const storedSmtp = await readStoredSmtpConfig(env)
+    expect(storedSmtp?.password).toBe("")
+
+    const storedResend = await readStoredResendConfig(env)
+    expect(storedResend?.api_key).toBe("")
+  })
+
+  it("字段类型守卫：非字符串/非期望类型打回 400 拒绝，不抛 500", async () => {
+    const { env } = await initializedContext()
+    const badPassword = await saveEmailSettings(env, {
+      smtp: { password: 123 as unknown as string }
+    })
+    expect(badPassword.ok).toBe(false)
+    expect(badPassword.error).toContain(
+      "smtp.password must be a string or null"
+    )
+
+    const badApiKey = await saveEmailSettings(env, {
+      resend: { apiKey: true as unknown as string }
+    })
+    expect(badApiKey.ok).toBe(false)
+    expect(badApiKey.error).toContain("resend.apiKey must be a string or null")
+
+    const badHost = await saveEmailSettings(env, {
+      smtp: { host: 123 as unknown as string }
+    })
+    expect(badHost.ok).toBe(false)
+    expect(badHost.error).toContain("smtp.host must be a string")
+
+    const badUsername = await saveEmailSettings(env, {
+      smtp: { username: {} as unknown as string }
+    })
+    expect(badUsername.ok).toBe(false)
+    expect(badUsername.error).toContain("smtp.username must be a string")
+
+    const badFromName = await saveEmailSettings(env, {
+      smtp: { fromName: 456 as unknown as string }
+    })
+    expect(badFromName.ok).toBe(false)
+    expect(badFromName.error).toContain("smtp.fromName must be a string")
+
+    const badResendFrom = await saveEmailSettings(env, {
+      resend: { from: 789 as unknown as string }
+    })
+    expect(badResendFrom.ok).toBe(false)
+    expect(badResendFrom.error).toContain("resend.from must be a string")
+
+    const badResendFromName = await saveEmailSettings(env, {
+      resend: { fromName: [] as unknown as string }
+    })
+    expect(badResendFromName.ok).toBe(false)
+    expect(badResendFromName.error).toContain(
+      "resend.fromName must be a string"
+    )
+  })
 })
 
 describe("管理面发送测试邮件与设置管理", () => {
@@ -458,5 +562,107 @@ describe("管理面发送测试邮件与设置管理", () => {
     expect(body.email.configured).toBe(true)
     expect(body.email.resend.apiKeySet).toBe(true)
     expect(JSON.stringify(body)).not.toContain("re_live_key")
+  })
+
+  it("HTTP 端点：null 置空凭据与非法类型 400 校验", async () => {
+    const { env } = await initializedContext()
+    const cookie = await adminSession(env)
+
+    // 先存好凭据
+    await jsonRequest(
+      env,
+      "PUT",
+      "/api/admin/settings",
+      {
+        email: {
+          provider: "resend",
+          resend: {
+            apiKey: "re_live_key",
+            from: "noreply@example.com"
+          },
+          smtp: {
+            host: "smtp.example.com",
+            password: "smtp-pass",
+            from: "noreply@example.com"
+          }
+        }
+      },
+      cookie
+    )
+
+    // 非法类型 400
+    const badRes = await jsonRequest(
+      env,
+      "PATCH",
+      "/api/admin/settings",
+      { email: { smtp: { host: 123 } } },
+      cookie
+    )
+    expect(badRes.status).toBe(400)
+    expect(((await badRes.json()) as { code: string }).code).toBe(
+      "EMAIL_CONFIG_INVALID"
+    )
+
+    const badSecretRes = await jsonRequest(
+      env,
+      "PATCH",
+      "/api/admin/settings",
+      { email: { resend: { apiKey: 123 } } },
+      cookie
+    )
+    expect(badSecretRes.status).toBe(400)
+    expect(((await badSecretRes.json()) as { code: string }).code).toBe(
+      "EMAIL_CONFIG_INVALID"
+    )
+
+    // null 成功清空凭据
+    const clearRes = await jsonRequest(
+      env,
+      "PATCH",
+      "/api/admin/settings",
+      {
+        email: {
+          smtp: { password: null },
+          resend: { apiKey: null }
+        }
+      },
+      cookie
+    )
+    expect(clearRes.status).toBe(200)
+
+    const view = await readEmailSettings(env)
+    expect(view.smtp.passwordSet).toBe(false)
+    expect(view.resend.apiKeySet).toBe(false)
+  })
+})
+
+describe("邮件多语言解析 parseEmailLanguage", () => {
+  it("支持集内语言正确解析并支持归一化", () => {
+    expect(parseEmailLanguage("zh")).toBe("zh")
+    expect(parseEmailLanguage("en")).toBe("en")
+    expect(parseEmailLanguage(" ZH ")).toBe("zh")
+    expect(parseEmailLanguage("En")).toBe("en")
+  })
+
+  it("非法或不支持的语言返回 null", () => {
+    expect(parseEmailLanguage("fr")).toBeNull()
+    expect(parseEmailLanguage("")).toBeNull()
+    expect(parseEmailLanguage(null)).toBeNull()
+    expect(parseEmailLanguage(undefined)).toBeNull()
+    expect(parseEmailLanguage(123)).toBeNull()
+  })
+
+  it("renderTestEmail 本地化内容正确生成", () => {
+    const zh = renderTestEmail("zh", "2026-01-01T00:00:00.000Z")
+    expect(zh.subject).toBe("Ciki 测试邮件")
+    expect(zh.html).toContain("这是一封测试邮件。收到它说明邮件配置可用。")
+    expect(zh.html).toContain("2026-01-01T00:00:00.000Z")
+
+    const en = renderTestEmail("en", "2026-01-01T00:00:00.000Z")
+    expect(en.subject).toBe("Ciki test email")
+    expect(en.html).toContain(
+      "This is a test email. Receiving it means the mail configuration works."
+    )
+    expect(en.html).toContain("2026-01-01T00:00:00.000Z")
   })
 })

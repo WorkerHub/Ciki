@@ -14,19 +14,28 @@
 
 import { DEFAULT_SITE_NAME } from "../core/identity"
 import type { EmailCodePurpose } from "../core/email-code"
+import { type Language, SUPPORTED_LANGUAGES } from "../core/language"
 
-export type EmailLanguage = "zh" | "en"
+export type EmailLanguage = Language
 
-export const SUPPORTED_LANGUAGES: EmailLanguage[] = ["zh", "en"]
+export { SUPPORTED_LANGUAGES }
 
-/** 语言代码归一化：只接受支持集，其它一律 null（由调用方决定兜底）。 */
-export function normalizeLanguage(value: unknown): EmailLanguage | null {
+/**
+ * 解析邮件模板语言：只接受支持集（支持大小写归一与空白修剪），非法/缺失一律 null。
+ *
+ * 区别于 `core/language.ts` 的 `normalizeLanguage`（后者静默回退默认语言 `zh`）；
+ * 本函数返回 null 让调用方可依次链式回退（例如：显式入参 ?? 账号语言 ?? DEFAULT_LANGUAGE）。
+ */
+export function parseEmailLanguage(value: unknown): EmailLanguage | null {
   if (typeof value !== "string") return null
   const normalized = value.trim().toLowerCase()
-  return SUPPORTED_LANGUAGES.includes(normalized as EmailLanguage)
+  return (SUPPORTED_LANGUAGES as readonly string[]).includes(normalized)
     ? (normalized as EmailLanguage)
     : null
 }
+
+/** 兼容别名：解析邮件语言，非法返回 null。 */
+export const normalizeLanguage = parseEmailLanguage
 
 export interface EmailContent {
   subject: string

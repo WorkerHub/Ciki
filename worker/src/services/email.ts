@@ -220,6 +220,14 @@ export function publicSmtpConfig(
   }
 }
 
+/** 判定 Resend 是否可用：必须有 api_key 且发件邮箱合法。 */
+export function isResendConfigUsable(
+  config: StoredResendConfig | null
+): config is StoredResendConfig {
+  if (!config) return false
+  return config.api_key !== "" && isValidEmailAddress(config.from)
+}
+
 /** 公开 DTO：永不包含 key，只给 `apiKeySet`。 */
 export function publicResendConfig(
   config: StoredResendConfig | null
@@ -246,7 +254,7 @@ export async function isEmailConfigured(env: Env): Promise<boolean> {
     if (provider === "none") return false
     if (provider === "resend") {
       const config = await readStoredResendConfig(env)
-      return config !== null && config.api_key !== ""
+      return isResendConfigUsable(config)
     }
     const config = await readStoredSmtpConfig(env)
     return isSmtpConfigUsable(config)
@@ -314,6 +322,12 @@ async function sendViaResend(
   if (!config || config.api_key === "") {
     return { success: false, error: "Resend API key not configured" }
   }
+  if (!isValidEmailAddress(config.from)) {
+    return {
+      success: false,
+      error: "Resend from address not configured or invalid"
+    }
+  }
 
   let apiKey = ""
   try {
@@ -330,7 +344,7 @@ async function sendViaResend(
     }
   }
 
-  const from = config.from || "noreply@example.com"
+  const from = config.from
   const fromName = (config.fromName || DEFAULT_SITE_NAME).replace(/[\r\n]/g, "")
 
   const response = await fetch("https://api.resend.com/emails", {
@@ -649,17 +663,17 @@ export interface EmailSettingsPatch {
   provider?: EmailProvider
   smtp?: {
     host?: string
-    port?: number
+    port?: number | string
     encryption?: string
     username?: string
-    /** 空串/缺省 = 不改已存密码。 */
-    password?: string
+    /** 缺省/空串/纯• = 不改已存密码；null = 清空密码。 */
+    password?: string | null
     from?: string
     fromName?: string
   }
   resend?: {
-    /** 空串/缺省 = 不改已存 key。 */
-    apiKey?: string
+    /** 缺省/空串/纯• = 不改已存 key；null = 清空 key。 */
+    apiKey?: string | null
     from?: string
     fromName?: string
   }
@@ -670,6 +684,28 @@ export type SaveEmailSettingsResult =
   | { ok: false; error: string }
 
 const PROVIDERS: EmailProvider[] = ["none", "smtp", "resend"]
+
+type SecretPatchAction =
+  | { kind: "keep" }
+  | { kind: "clear" }
+  | { kind: "set"; value: string }
+  | { kind: "invalid" }
+
+/**
+ * 凭据字段部分更新解析：
+ * - undefined / "" / 纯 `•` 掩码 → "keep"（保留已存密文，不改动）
+ * - null → "clear"（显式清空凭据）
+ * - 非空有效字符串 → "set"（待加密并落库）
+ * - 其它类型（数字、布尔、对象等）→ "invalid"（非法入参，由调用方打回 400）
+ */
+function parseSecretPatch(value: unknown, trim = false): SecretPatchAction {
+  if (value === undefined) return { kind: "keep" }
+  if (value === null) return { kind: "clear" }
+  if (typeof value !== "string") return { kind: "invalid" }
+  const val = trim ? value.trim() : value
+  if (val === "" || /^•+$/.test(val)) return { kind: "keep" }
+  return { kind: "set", value: val }
+}
 
 async function writeJsonSetting(
   env: Env,
@@ -682,19 +718,36 @@ async function writeJsonSetting(
 /**
  * 保存邮件配置（标准 `/settings` 的部分补丁语义）。规则：
  * - provider 必须三态之一；
- * - 只应用给出的字段；凭据字段留空/缺省表示保留原值（接口永远读不回它）；
+ * - 只应用给出的字段；凭据字段缺省/留空/掩码表示保留原值，null 表示显式置空，非字符串/非空类型打回 400；
  * - 地址类字段做 CR/LF 与邮箱格式校验（头部注入拦截）；
+ * - 所有非凭据字段均有严格的运行时 typeof 守卫，避免非法 JSON 导致 500；
  * - 存一个不完整的配置是允许的（`configured` 会如实为假），但字段值本身必须合法。
  */
 export async function saveEmailSettings(
   env: Env,
   patch: EmailSettingsPatch
 ): Promise<SaveEmailSettingsResult> {
-  if (patch.provider !== undefined && !PROVIDERS.includes(patch.provider)) {
-    return { ok: false, error: "Unknown email provider" }
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) {
+    return { ok: false, error: "email settings patch must be an object" }
+  }
+
+  if (patch.provider !== undefined) {
+    if (
+      typeof patch.provider !== "string" ||
+      !PROVIDERS.includes(patch.provider)
+    ) {
+      return { ok: false, error: "Unknown email provider" }
+    }
   }
 
   if (patch.smtp !== undefined) {
+    if (
+      !patch.smtp ||
+      typeof patch.smtp !== "object" ||
+      Array.isArray(patch.smtp)
+    ) {
+      return { ok: false, error: "smtp config must be an object" }
+    }
     const existing = (await readStoredSmtpConfig(env)) ?? {
       host: "",
       port: 587,
@@ -707,6 +760,9 @@ export async function saveEmailSettings(
     const next: StoredSmtpConfig = { ...existing }
 
     if (patch.smtp.host !== undefined) {
+      if (typeof patch.smtp.host !== "string") {
+        return { ok: false, error: "smtp.host must be a string" }
+      }
       const host = patch.smtp.host.trim()
       if (hasHeaderInjection(host)) {
         return { ok: false, error: "smtp.host must not contain CR/LF" }
@@ -721,8 +777,8 @@ export async function saveEmailSettings(
       next.host = host
     }
     if (patch.smtp.port !== undefined) {
-      const port = Number(patch.smtp.port)
-      if (!isValidPort(port)) {
+      const port = readPort(patch.smtp.port)
+      if (port === null || !isValidPort(port)) {
         return {
           ok: false,
           error: "smtp.port must be an integer between 1 and 65535"
@@ -731,7 +787,10 @@ export async function saveEmailSettings(
       next.port = port
     }
     if (patch.smtp.encryption !== undefined) {
-      if (!isValidEncryption(patch.smtp.encryption)) {
+      if (
+        typeof patch.smtp.encryption !== "string" ||
+        !isValidEncryption(patch.smtp.encryption)
+      ) {
         return {
           ok: false,
           error: "smtp.encryption must be one of tls, starttls, none"
@@ -740,6 +799,9 @@ export async function saveEmailSettings(
       next.encryption = patch.smtp.encryption
     }
     if (patch.smtp.username !== undefined) {
+      if (typeof patch.smtp.username !== "string") {
+        return { ok: false, error: "smtp.username must be a string" }
+      }
       const username = patch.smtp.username.trim()
       if (hasHeaderInjection(username)) {
         return { ok: false, error: "smtp.username must not contain CR/LF" }
@@ -753,6 +815,9 @@ export async function saveEmailSettings(
       next.username = username
     }
     if (patch.smtp.from !== undefined) {
+      if (typeof patch.smtp.from !== "string") {
+        return { ok: false, error: "smtp.from must be a string" }
+      }
       const from = patch.smtp.from.trim()
       if (hasHeaderInjection(from)) {
         return { ok: false, error: "smtp.from must not contain CR/LF" }
@@ -763,6 +828,9 @@ export async function saveEmailSettings(
       next.from = from
     }
     if (patch.smtp.fromName !== undefined) {
+      if (typeof patch.smtp.fromName !== "string") {
+        return { ok: false, error: "smtp.fromName must be a string" }
+      }
       const fromName = patch.smtp.fromName.trim()
       if (hasHeaderInjection(fromName)) {
         return { ok: false, error: "smtp.fromName must not contain CR/LF" }
@@ -775,15 +843,23 @@ export async function saveEmailSettings(
       }
       next.fromName = fromName
     }
-    if (patch.smtp.password !== undefined && patch.smtp.password !== "") {
-      if (hasHeaderInjection(patch.smtp.password)) {
-        return { ok: false, error: "smtp.password must not contain CR/LF" }
+    if (patch.smtp.password !== undefined) {
+      const secret = parseSecretPatch(patch.smtp.password)
+      if (secret.kind === "invalid") {
+        return { ok: false, error: "smtp.password must be a string or null" }
       }
-      next.password = await encryptSecret(
-        env.ENCRYPTION_KEY,
-        patch.smtp.password,
-        SMTP_PASSWORD_AAD
-      )
+      if (secret.kind === "clear") {
+        next.password = ""
+      } else if (secret.kind === "set") {
+        if (hasHeaderInjection(secret.value)) {
+          return { ok: false, error: "smtp.password must not contain CR/LF" }
+        }
+        next.password = await encryptSecret(
+          env.ENCRYPTION_KEY,
+          secret.value,
+          SMTP_PASSWORD_AAD
+        )
+      }
     }
 
     await writeJsonSetting(
@@ -794,6 +870,13 @@ export async function saveEmailSettings(
   }
 
   if (patch.resend !== undefined) {
+    if (
+      !patch.resend ||
+      typeof patch.resend !== "object" ||
+      Array.isArray(patch.resend)
+    ) {
+      return { ok: false, error: "resend config must be an object" }
+    }
     const existing = (await readStoredResendConfig(env)) ?? {
       api_key: "",
       from: "",
@@ -802,6 +885,9 @@ export async function saveEmailSettings(
     const next: StoredResendConfig = { ...existing }
 
     if (patch.resend.from !== undefined) {
+      if (typeof patch.resend.from !== "string") {
+        return { ok: false, error: "resend.from must be a string" }
+      }
       const from = patch.resend.from.trim()
       if (hasHeaderInjection(from)) {
         return { ok: false, error: "resend.from must not contain CR/LF" }
@@ -812,6 +898,9 @@ export async function saveEmailSettings(
       next.from = from
     }
     if (patch.resend.fromName !== undefined) {
+      if (typeof patch.resend.fromName !== "string") {
+        return { ok: false, error: "resend.fromName must be a string" }
+      }
       const fromName = patch.resend.fromName.trim()
       if (hasHeaderInjection(fromName)) {
         return { ok: false, error: "resend.fromName must not contain CR/LF" }
@@ -824,16 +913,23 @@ export async function saveEmailSettings(
       }
       next.fromName = fromName
     }
-    if (patch.resend.apiKey !== undefined && patch.resend.apiKey !== "") {
-      const apiKey = patch.resend.apiKey.trim()
-      if (hasHeaderInjection(apiKey)) {
-        return { ok: false, error: "resend.apiKey must not contain CR/LF" }
+    if (patch.resend.apiKey !== undefined) {
+      const secret = parseSecretPatch(patch.resend.apiKey, true)
+      if (secret.kind === "invalid") {
+        return { ok: false, error: "resend.apiKey must be a string or null" }
       }
-      next.api_key = await encryptSecret(
-        env.ENCRYPTION_KEY,
-        apiKey,
-        RESEND_API_KEY_AAD
-      )
+      if (secret.kind === "clear") {
+        next.api_key = ""
+      } else if (secret.kind === "set") {
+        if (hasHeaderInjection(secret.value)) {
+          return { ok: false, error: "resend.apiKey must not contain CR/LF" }
+        }
+        next.api_key = await encryptSecret(
+          env.ENCRYPTION_KEY,
+          secret.value,
+          RESEND_API_KEY_AAD
+        )
+      }
     }
 
     await writeJsonSetting(
