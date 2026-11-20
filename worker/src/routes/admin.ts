@@ -65,6 +65,10 @@ import {
   revisionRetentionPreview,
   writeRetentionLimit
 } from "../core/revision-retention"
+import {
+  registrationEmailVerificationRequired,
+  writeRegistrationEmailVerification
+} from "../lib/settings"
 import { adminMiddleware } from "../middleware/admin"
 import { clientIp, parseId, readJsonBody } from "../lib/http"
 import { consumeCounter } from "../core/counters"
@@ -352,6 +356,8 @@ adminRoutes.get("/settings", async (c) => {
       "registration_approval_required",
       true
     ),
+    registrationEmailVerificationRequired:
+      await registrationEmailVerificationRequired(c.env),
     require2fa: await getBooleanSetting(c.env.DB, prefix, "require_2fa", false),
     // null = 不限（缺行与空串同义，见 core/revision-retention.ts）
     revisionRetentionLimit: await readRetentionLimit(c.env.DB, prefix),
@@ -371,6 +377,21 @@ adminRoutes.on(["PUT", "PATCH"], "/settings", async (c) => {
       return c.json({ error: "siteName must be 1-32 characters" }, 400)
     }
     await setSetting(c.env.DB, prefix, "site_name", siteName)
+  }
+  if (body.registrationEmailVerificationRequired !== undefined) {
+    if (typeof body.registrationEmailVerificationRequired !== "boolean") {
+      return c.json(
+        { error: "registrationEmailVerificationRequired must be a boolean" },
+        400
+      )
+    }
+    const result = await writeRegistrationEmailVerification(
+      c.env,
+      body.registrationEmailVerificationRequired
+    )
+    if (!result.ok) {
+      return c.json({ error: result.error, code: result.code }, 409)
+    }
   }
   const mapping: Array<[string, string]> = [
     ["setupPageEnabled", "setup_page_enabled"],

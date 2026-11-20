@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   adminSession,
   cookieOf,
+  enableSmtpConfig,
   initializedContext,
   jsonRequest
 } from "./support/app"
@@ -401,6 +402,7 @@ describe("无密码 Passkey 登录端点：options 与 verify", () => {
 describe("无密码 Passkey 登录：账号状态门禁一致性", () => {
   it("未验证邮箱拦截为 403 EMAIL_NOT_VERIFIED", async () => {
     const { env, db } = await initializedContext()
+    await enableSmtpConfig(env)
     const admin = await adminSession(env)
     const { passkey } = await registerPasskeyForUser(env, admin)
 
@@ -437,6 +439,49 @@ describe("无密码 Passkey 登录：账号状态门禁一致性", () => {
       code: "EMAIL_NOT_VERIFIED",
       error: "Email not verified"
     })
+  })
+
+  it("邮件未配置时 passkey 登录自愈已验证状态（放行并置位 email_verified=1）", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const { passkey } = await registerPasskeyForUser(env, admin)
+
+    // 将用户改为未验证邮箱（但站点未配置发信）
+    db.db
+      .prepare(
+        "UPDATE ciki_users SET email_verified = 0 WHERE email = 'admin@example.com'"
+      )
+      .run()
+
+    const optRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/passkey/login/options"
+    )
+    const optBody = (await optRes.json()) as { challenge: string }
+
+    const assertion = await assertPasskey({
+      rpID: RP_ID,
+      origin: ORIGIN,
+      challenge: optBody.challenge,
+      passkey,
+      counter: 1
+    })
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/auth/passkey/login/verify",
+      assertion as Record<string, unknown>
+    )
+    expect(res.status).toBe(200)
+
+    const row = db.db
+      .prepare(
+        "SELECT email_verified FROM ciki_users WHERE email = 'admin@example.com'"
+      )
+      .get() as { email_verified: number }
+    expect(row.email_verified).toBe(1)
   })
 
   it("待审批拦截为 403 ACCOUNT_PENDING_APPROVAL", async () => {
