@@ -265,7 +265,8 @@ export function AppShell() {
   const isArticleRoute = isArticlePath(location.pathname)
   const layout = useDefaultLayout({
     id: "ciki-shell",
-    panelIds: ["sidebar", "main"]
+    panelIds: ["sidebar", "main"],
+    onlySaveAfterUserInteractions: true
   })
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
   const [isCollapsed, setIsCollapsed] = useState(() => !readSidebarOpen())
@@ -288,10 +289,14 @@ export function AppShell() {
     writeSidebarOpen(true)
   }
 
-  const handlePanelResize = (size: { asPercentage: number; inPixels: number }) => {
-    const collapsed = size.asPercentage === 0 || size.inPixels === 0
-    setIsCollapsed(collapsed)
-    writeSidebarOpen(!collapsed)
+  const handlePanelResize = (size: {
+    asPercentage: number
+    inPixels: number
+  }) => {
+    if (size.asPercentage === 0 || size.inPixels === 0) {
+      setIsCollapsed(true)
+      writeSidebarOpen(false)
+    }
   }
 
   useEffect(() => {

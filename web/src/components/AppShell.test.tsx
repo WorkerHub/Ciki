@@ -288,13 +288,17 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     fireEvent.click(collapseButton)
 
     // 收起后：顶栏显示展开按钮，localStorage 写入 "false"
-    const expandButton = await screen.findByRole("button", { name: "展开侧边栏" })
+    const expandButton = await screen.findByRole("button", {
+      name: "展开侧边栏"
+    })
     expect(expandButton).toBeInTheDocument()
     expect(localStorage.getItem("app-sidebar-open")).toBe("false")
 
     // 点击展开
     fireEvent.click(expandButton)
-    expect(await screen.findByRole("button", { name: "收起侧边栏" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("button", { name: "收起侧边栏" })
+    ).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "展开侧边栏" })).toBeNull()
     expect(localStorage.getItem("app-sidebar-open")).toBe("true")
     unmount()
@@ -304,7 +308,9 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     localStorage.setItem("app-sidebar-open", "false")
     const { unmount } = renderShell("/p/a")
 
-    expect(await screen.findByRole("button", { name: "展开侧边栏" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("button", { name: "展开侧边栏" })
+    ).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "收起侧边栏" })).toBeNull()
     unmount()
   })
