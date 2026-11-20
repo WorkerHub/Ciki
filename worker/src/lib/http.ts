@@ -122,3 +122,11 @@ export function readSpaceId(value: unknown): SpaceIdInput {
   if (parsed === undefined) return { ok: false }
   return { ok: true, value: parsed }
 }
+
+export function hostOf(c: Context<HonoEnv>): string {
+  return new URL(c.req.url).hostname
+}
+
+export function originOf(c: Context<HonoEnv>): string {
+  return new URL(c.req.url).origin
+}

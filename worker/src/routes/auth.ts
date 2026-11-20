@@ -17,7 +17,11 @@ import {
   type UserRow
 } from "../db/queries/users"
 import { joinDefaultSpace } from "../db/queries/spaces"
-import { countPasskeys } from "../db/queries/passkeys"
+import {
+  countPasskeys,
+  findPasskeyByCredentialId,
+  updatePasskeyCounter
+} from "../db/queries/passkeys"
 import { getTotp } from "../db/queries/totp"
 import { hashPassword, randomToken, verifyPassword } from "../core/auth"
 import {
@@ -28,19 +32,34 @@ import {
   rotateSession,
   setSessionCookie
 } from "../core/session"
-import { challengeKeyForToken, putChallenge } from "../core/challenges"
+import {
+  challengeKeyForToken,
+  consumeChallenge,
+  putChallenge
+} from "../core/challenges"
 import {
   clearAccountCounters,
   consumeCounter,
   lockedUntil,
+  readCounterWindow,
+  resetCounter,
   setLock
 } from "../core/counters"
 import {
   clientIp,
+  hostOf,
   issueSession,
+  originOf,
   readJsonBody,
   runInBackground
 } from "../lib/http"
+import {
+  buildPasswordlessAuthenticationOptions,
+  checkAuthentication,
+  extractChallengeFromClientData,
+  parseUserHandle
+} from "../core/webauthn"
+import type { AuthenticationResponseJSON } from "@simplewebauthn/server"
 import {
   DEFAULT_SITE_NAME,
   defaultUsernameFromEmail,
@@ -91,6 +110,28 @@ const FAIL_LIMIT = 5
 
 export function publicUser(user: UserRow) {
   return { id: user.id, email: user.email, role: user.role }
+}
+
+async function recordLoginFailure(
+  db: D1Database,
+  prefix: string,
+  account: string,
+  ip: string
+): Promise<void> {
+  const failures = await consumeCounter(db, prefix, {
+    action: "login_fail",
+    account,
+    ip,
+    windowSeconds: FAIL_WINDOW
+  })
+  if (failures.count >= FAIL_LIMIT) {
+    await setLock(
+      db,
+      prefix,
+      { action: "login_fail", account, ip },
+      Math.floor(Date.now() / 1000) + FAIL_WINDOW
+    )
+  }
 }
 
 /**
@@ -481,6 +522,239 @@ authRoutes.post("/refresh", async (c) => {
   }
   setSessionCookie(c, next)
   return c.json({ success: true })
+})
+
+// ── 无密码 Passkey 登录（可发现凭证 + 免账号登录） ─────────────────────────
+//
+// 两步：options（生成不带 allowCredentials 的认证挑战）→ verify（凭证反查账号、UV 必需、直接发会话）。
+// 门禁与密码登录完全一致（已拒绝 → 未验证 → 待审批 → 停用），失败不泄露账号存在性，
+// 挑战单次有效（5 分钟 TTL、消费即删），限流复用现行 D1 计数层。
+
+authRoutes.post("/passkey/login/options", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const ip = clientIp(c)
+
+  // 1. IP 登录限流检查：若当前 IP 登录桶已满，直接返回 429
+  const loginState = await readCounterWindow(
+    db,
+    prefix,
+    { action: "login", ip },
+    LOGIN_WINDOW
+  )
+  if (loginState.count > LOGIN_LIMIT) {
+    return c.json(
+      {
+        error: "Too many requests",
+        code: "RATE_LIMITED",
+        retryAfter: loginState.retryAfter
+      },
+      429
+    )
+  }
+
+  // 2. IP options 防刷限流（独立桶，不扣减登录额度）
+  const optLimit = await consumeCounter(db, prefix, {
+    action: "passkey_login_options",
+    ip,
+    windowSeconds: LOGIN_WINDOW
+  })
+  if (optLimit.count > LOGIN_LIMIT * 3) {
+    const retryAfter = Math.max(
+      1,
+      optLimit.windowStart + LOGIN_WINDOW - Math.floor(Date.now() / 1000)
+    )
+    return c.json(
+      { error: "Too many requests", code: "RATE_LIMITED", retryAfter },
+      429
+    )
+  }
+
+  const options = await buildPasswordlessAuthenticationOptions({
+    rpID: hostOf(c)
+  })
+
+  // 挑战单次有效（5 分钟 TTL），存入 auth_challenges，消费即删
+  await putChallenge(db, prefix, {
+    key: await challengeKeyForToken(options.challenge),
+    userId: 0,
+    purpose: "passkey_login",
+    payload: options.challenge,
+    ttlSeconds: 300
+  })
+
+  return c.json(options)
+})
+
+authRoutes.post("/passkey/login/verify", async (c) => {
+  const body = await readJsonBody<
+    Record<string, unknown> & {
+      id?: unknown
+      challenge?: unknown
+      response?: { clientDataJSON?: unknown; userHandle?: unknown }
+      userHandle?: unknown
+    }
+  >(c)
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const ip = clientIp(c)
+
+  // 1. IP 登录限流：沿用现行 D1 计数层 action: "login"
+  const limit = await consumeCounter(db, prefix, {
+    action: "login",
+    ip,
+    windowSeconds: LOGIN_WINDOW
+  })
+  if (limit.count > LOGIN_LIMIT) {
+    const retryAfter = Math.max(
+      1,
+      limit.windowStart + LOGIN_WINDOW - Math.floor(Date.now() / 1000)
+    )
+    return c.json(
+      { error: "Too many requests", code: "RATE_LIMITED", retryAfter },
+      429
+    )
+  }
+
+  // 2. 提取挑战字符串（优先取顶层 challenge，缺省从 clientDataJSON 解码）
+  const clientDataJSON =
+    typeof body.response?.clientDataJSON === "string"
+      ? body.response.clientDataJSON
+      : ""
+  const rawChallenge =
+    (typeof body.challenge === "string" && body.challenge.trim()
+      ? body.challenge.trim()
+      : null) ?? extractChallengeFromClientData(clientDataJSON)
+
+  if (!rawChallenge) {
+    return c.json({ error: "Invalid credentials" }, 401)
+  }
+
+  // 3. 消费挑战（一次性、5 分钟过期、防重放，消费即删）
+  const challengeKey = await challengeKeyForToken(rawChallenge)
+  const challenge = await consumeChallenge(db, prefix, challengeKey)
+  if (!challenge || challenge.purpose !== "passkey_login") {
+    return c.json({ error: "Invalid credentials" }, 401)
+  }
+
+  // 4. 凭证反查账号（不暴露凭证是否存在）
+  const credentialId = typeof body.id === "string" ? body.id.trim() : ""
+  if (!credentialId) {
+    return c.json({ error: "Invalid credentials" }, 401)
+  }
+
+  const credential = await findPasskeyByCredentialId(db, prefix, credentialId)
+  if (!credential) {
+    return c.json({ error: "Invalid credentials" }, 401)
+  }
+
+  const user = await findUserById(db, prefix, credential.user_id)
+  if (!user) {
+    return c.json({ error: "Invalid credentials" }, 401)
+  }
+
+  // 5. 账号级锁定检查
+  const userLocked = await lockedUntil(db, prefix, {
+    action: "login_fail",
+    account: user.email,
+    ip
+  })
+  if (userLocked) {
+    return c.json(
+      {
+        error: "Account locked",
+        code: "ACCOUNT_LOCKED",
+        retryAfter: Math.max(1, userLocked - Math.floor(Date.now() / 1000))
+      },
+      429
+    )
+  }
+
+  // 6. 若客户端上报了 userHandle，必须与凭证绑定的 user.id 严格匹配
+  const rawUserHandle = body.response?.userHandle ?? body.userHandle
+  if (
+    rawUserHandle !== undefined &&
+    rawUserHandle !== null &&
+    rawUserHandle !== ""
+  ) {
+    const parsedHandleId = parseUserHandle(rawUserHandle)
+    if (parsedHandleId === null || parsedHandleId !== user.id) {
+      await recordLoginFailure(db, prefix, user.email, ip)
+      return c.json({ error: "Invalid credentials" }, 401)
+    }
+  }
+
+  // 7. WebAuthn 校验：要求 UV 必需（requireUserVerification: true）
+  try {
+    const verification = await checkAuthentication({
+      response: body as unknown as AuthenticationResponseJSON,
+      expectedChallenge: challenge.payload,
+      expectedOrigin: originOf(c),
+      expectedRPID: hostOf(c),
+      credential: {
+        credentialId: credential.credential_id,
+        publicKey: credential.public_key,
+        counter: credential.counter
+      },
+      requireUserVerification: true
+    })
+    if (!verification.verified) {
+      await recordLoginFailure(db, prefix, user.email, ip)
+      return c.json({ error: "Invalid credentials" }, 401)
+    }
+    await updatePasskeyCounter(
+      db,
+      prefix,
+      credential.id,
+      verification.authenticationInfo.newCounter
+    )
+  } catch (err) {
+    console.error(
+      "Passwordless passkey authentication failed:",
+      err instanceof Error ? err.message : err
+    )
+    await recordLoginFailure(db, prefix, user.email, ip)
+    return c.json({ error: "Invalid credentials" }, 401)
+  }
+
+  // 8. 门禁一致性（顺序与密码登录完全相同：已拒绝 → 未验证 → 待审批 → 停用）
+  if (user.approval_status === "rejected") {
+    return c.json(
+      { error: "Account was rejected", code: "ACCOUNT_REJECTED" },
+      403
+    )
+  }
+  if (user.email_verified === 0) {
+    return c.json(
+      { error: "Email not verified", code: "EMAIL_NOT_VERIFIED" },
+      403
+    )
+  }
+  if (user.approval_status === "pending") {
+    return c.json(
+      {
+        error: "Account pending approval",
+        code: "ACCOUNT_PENDING_APPROVAL"
+      },
+      403
+    )
+  }
+  if (!user.is_active) {
+    return c.json({ error: "Invalid credentials" }, 401)
+  }
+
+  // 9. 登录成功：清空失败计数，直发会话，跳过 2FA 第二步
+  await clearAccountCounters(db, prefix, "login_fail", user.email)
+  await issueSession(c, user.id, false)
+
+  return c.json({
+    success: true,
+    user: publicUser(user)
+  })
 })
 
 // ── 邮箱找回密码（#48 冻结契约的 #51 落地部分） ────────────────────────────────

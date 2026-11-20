@@ -177,16 +177,23 @@ export async function createPasskey(input: {
   }
 }
 
+export function encodeUserHandle(userId: number | string): string {
+  return b64url(encoder.encode(String(userId)))
+}
+
 export async function assertPasskey(input: {
   rpID: string
   origin: string
   challenge: string
   passkey: TestPasskey
   counter: number
+  userHandle?: string | null
+  uv?: boolean
 }): Promise<unknown> {
+  const flags = input.uv === false ? 0x01 : 0x05 // UP (0x01) or UP|UV (0x05)
   const authData = concat([
     await sha256(encoder.encode(input.rpID)),
-    new Uint8Array([0x05]), // UP | UV
+    new Uint8Array([flags]),
     u32(input.counter)
   ])
   const clientDataJSON = encoder.encode(
@@ -214,7 +221,7 @@ export async function assertPasskey(input: {
       clientDataJSON: b64url(clientDataJSON),
       authenticatorData: b64url(authData),
       signature: b64url(toDer(signature)),
-      userHandle: null
+      userHandle: input.userHandle !== undefined ? input.userHandle : null
     }
   }
 }
