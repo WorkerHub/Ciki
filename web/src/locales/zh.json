@@ -51,7 +51,20 @@
     },
     "loading": "加载中…",
     "close": "关闭",
-    "userFallback": "用户"
+    "userFallback": "用户",
+    "emailConfigured": "邮件已配置",
+    "emailNotConfigured": "邮件未配置",
+    "actions": {
+      "save": "保存",
+      "saving": "保存中…",
+      "cancel": "取消"
+    },
+    "unsavedChanges": {
+      "title": "未保存的修改",
+      "description": "当前有未保存的修改，离开将丢失内容，是否继续？",
+      "stay": "留在本页",
+      "discard": "放弃修改"
+    }
   },
   "shell": {
     "sidebar": {
@@ -789,6 +802,31 @@
         "admin": "自助注册与「注册需要管理员批准」在上面的开关里；待批准用户的处理、账号停用与密码重置都在「用户管理」里操作。"
       }
     },
+    "email": {
+      "title": "邮件配置",
+      "provider": "发送通道",
+      "none": "未配置",
+      "smtp": "SMTP",
+      "resend": "Resend",
+      "host": "服务器",
+      "port": "端口",
+      "username": "用户名",
+      "password": "密码",
+      "apiKey": "API Key",
+      "from": "发件地址",
+      "fromName": "发件人名称",
+      "secretSet": "已设置，留空表示不修改",
+      "secretEmpty": "尚未设置",
+      "save": "保存邮件配置",
+      "saved": "邮件配置已保存",
+      "status": "当前状态",
+      "testTitle": "发送测试邮件",
+      "testTo": "收件人",
+      "testSend": "发送",
+      "testSent": "测试邮件已发送",
+      "testError": "发送失败",
+      "smtpHint": "465 端口使用隐式 TLS，其余端口使用 STARTTLS。"
+    },
     "smtp": {
       "title": "SMTP 服务器",
       "configured": "已配置",
@@ -1122,6 +1160,7 @@
     "waitMinutes_other": "{{count}} 分钟"
   },
   "errors": {
+    "EMAIL_SEND_FAILED": "邮件发送失败",
     "ACCOUNT_PENDING_APPROVAL": "账号正在等待管理员批准，批准后即可登录。",
     "ACCOUNT_REJECTED": "该账号的注册申请已被拒绝，请联系管理员。",
     "RATE_LIMITED": "尝试次数过多，请稍后再试。",
