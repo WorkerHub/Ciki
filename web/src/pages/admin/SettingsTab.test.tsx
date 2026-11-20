@@ -58,17 +58,17 @@ describe("系统管理 · 站点名称", () => {
     expect(screen.getByRole("status")).toHaveTextContent("全站即时生效")
   })
 
-  it("应用设置里不再有注册开关（已归位到「访问与安全」）", async () => {
+  it("应用设置里不再有注册开关与初始化页开关（已分别归位）", async () => {
     render(<SettingsTab />)
 
     expect(await screen.findByLabelText("站点名称")).toBeInTheDocument()
-    expect(
-      screen.getByRole("switch", { name: "显示初始化页面" })
-    ).toBeInTheDocument()
+    expect(screen.queryByRole("switch", { name: "显示初始化页面" })).toBeNull()
+    expect(screen.queryByRole("switch", { name: "开放初始化页面" })).toBeNull()
     expect(screen.queryByRole("switch", { name: "开放注册" })).toBeNull()
     expect(
       screen.queryByRole("switch", { name: "注册需要管理员批准" })
     ).toBeNull()
+    expect(screen.queryByText(/表前缀/)).toBeNull()
   })
 
   it("未配置 SMTP 时在设置处指出「邮件配置」的去向", async () => {
@@ -81,28 +81,6 @@ describe("系统管理 · 站点名称", () => {
     expect(await screen.findByLabelText("站点名称")).toBeInTheDocument()
     expect(screen.getByText(/请到「邮件配置」填写 SMTP/)).toBeInTheDocument()
     expect(screen.queryByText(/不提供 SMTP 配置/)).toBeNull()
-  })
-
-  it("展示当前生效的表前缀（只读）", async () => {
-    vi.mocked(adminApi.settings).mockResolvedValue({
-      ...settings,
-      tablePrefix: "ciki_"
-    })
-    render(<SettingsTab />)
-
-    expect(await screen.findByText("当前生效表前缀")).toBeInTheDocument()
-    expect(screen.getByText("ciki_")).toBeInTheDocument()
-  })
-
-  it("无表前缀时回显（无前缀）", async () => {
-    vi.mocked(adminApi.settings).mockResolvedValue({
-      ...settings,
-      tablePrefix: ""
-    })
-    render(<SettingsTab />)
-
-    expect(await screen.findByText("当前生效表前缀")).toBeInTheDocument()
-    expect(screen.getByText("（无前缀）")).toBeInTheDocument()
   })
 
   it("保存失败时回滚输入并显示错误", async () => {
@@ -140,12 +118,12 @@ describe("系统管理 · 应用设置 · 英文界面", () => {
     vi.mocked(adminApi.settings).mockResolvedValue(settings)
   })
 
-  it("站点名与初始化页开关用英文渲染", async () => {
+  it("站点名用英文渲染，不再渲染初始化页开关", async () => {
     await i18n.changeLanguage("en")
     render(<SettingsTab />)
 
     expect(await screen.findByLabelText("Site name")).toHaveValue("Ciki")
-    expect(screen.getByLabelText("Show setup page")).toBeInTheDocument()
+    expect(screen.queryByLabelText(/setup page/i)).toBeNull()
     expect(screen.getByText(/Email delivery is configured/)).toBeInTheDocument()
   })
 })

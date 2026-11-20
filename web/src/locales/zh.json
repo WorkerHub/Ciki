@@ -754,14 +754,6 @@
         "notSaved": "站点名称没有保存成功，请刷新后重试。",
         "saved": "站点名称已保存，全站即时生效。"
       },
-      "setupPage": {
-        "label": "显示初始化页面",
-        "description": "初始化完成后通常应关闭，避免把 setup 入口暴露在登录页。"
-      },
-      "tablePrefix": {
-        "label": "当前生效表前缀",
-        "description": "共享 D1 数据库中当前实例表名所使用的前缀（只读展示）。"
-      },
       "mailConfigured": "邮件服务已配置：邮箱验证码两步验证与找回密码可用，修改在「邮件配置」。",
       "mailMissing": "邮件服务未配置：邮箱验证码两步验证与找回密码不可用，请到「邮件配置」填写 SMTP。"
     },
@@ -849,6 +841,9 @@
       "title": "其他",
       "prefix": "当前表前缀",
       "noPrefix": "（无前缀）",
+      "setupPage": "开放初始化页面",
+      "setupPageHint": "只控制页面入口，接口仍需部署密钥。",
+      "tablePrefix": "生效表前缀",
       "storage": {
         "database": "数据库体积 {{size}}",
         "databaseUnavailable": "数据库体积 不可得",

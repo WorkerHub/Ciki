@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 import { type AdminStorage, adminApi, type R2CleanupSummary } from "@/lib/api"
 import { formatBytes, formatDateTime } from "@/lib/format"
 import { OrphanCleanupCard } from "@/pages/admin/OrphanCleanupCard"
+import { OthersSection } from "@/pages/admin/others-section"
 
 /** 清理锁是分钟级的，运行态用短轮询跟着走：锁一释放按钮就能用。 */
 const RUNNING_POLL_MS = 10_000
@@ -95,6 +96,7 @@ export function OthersTab() {
 
   return (
     <div className="space-y-4">
+      <OthersSection />
       <OrphanCleanupCard
         runningSeconds={runningSeconds}
         onBlocked={(seconds) => setRunningSeconds(Math.max(1, seconds))}

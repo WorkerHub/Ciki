@@ -6,12 +6,13 @@ import {
   describeApiError,
   type SiteSettings
 } from "@/lib/api"
-import { SettingRow, SettingTextRow } from "@/pages/admin/SettingRow"
+import { SettingTextRow } from "@/pages/admin/SettingRow"
 import { RevisionRetentionCard } from "@/pages/admin/RevisionRetentionCard"
 import { useSiteStore } from "@/stores/site"
 
 /**
- * 应用设置：站点名、初始化页开关。
+ * 应用设置：站点名。
+ * 开放初始化页面开关与生效表前缀展示已移至「其他」，
  * 注册与审批开关在「访问与安全」里，SMTP 与测试发信在「邮件配置」里。
  */
 export function SettingsTab() {
@@ -37,23 +38,6 @@ export function SettingsTab() {
       alive = false
     }
   }, [])
-
-  const update = async (patch: Partial<SiteSettings>) => {
-    if (!settings) return
-    setSaving(true)
-    setError("")
-    setNotice("")
-    const previous = settings
-    setSettings({ ...settings, ...patch })
-    try {
-      await adminApi.saveSettings(patch)
-    } catch (saveError) {
-      setSettings(previous)
-      setError(describeApiError(saveError))
-    } finally {
-      setSaving(false)
-    }
-  }
 
   const saveSiteName = async (next: string) => {
     if (!settings) return
@@ -132,26 +116,6 @@ export function SettingsTab() {
           disabled={saving}
           onSave={(next) => void saveSiteName(next)}
         />
-        <SettingRow
-          label={t("admin.settings.setupPage.label")}
-          description={t("admin.settings.setupPage.description")}
-          checked={settings.setupPageEnabled}
-          disabled={saving}
-          onChange={(checked) => void update({ setupPageEnabled: checked })}
-        />
-        <div className="flex items-center justify-between gap-4 border-b border-border py-3 last:border-b-0">
-          <div className="space-y-0.5">
-            <p className="text-sm font-medium">
-              {t("admin.settings.tablePrefix.label")}
-            </p>
-            <p className="max-w-prose text-xs text-muted-foreground">
-              {t("admin.settings.tablePrefix.description")}
-            </p>
-          </div>
-          <span className="font-mono text-xs text-muted-foreground">
-            {settings.tablePrefix || t("admin.others.noPrefix")}
-          </span>
-        </div>
       </div>
       <RevisionRetentionCard
         limit={settings.revisionRetentionLimit ?? null}
