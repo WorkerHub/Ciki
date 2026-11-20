@@ -355,7 +355,7 @@ adminRoutes.get("/settings", async (c) => {
   })
 })
 
-adminRoutes.put("/settings", async (c) => {
+adminRoutes.on(["PUT", "PATCH"], "/settings", async (c) => {
   const body = await readJsonBody<Record<string, unknown>>(c)
   if (!body) return c.json({ error: "Invalid request body" }, 400)
 
