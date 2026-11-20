@@ -8,13 +8,15 @@ export function SettingRow({
   description,
   checked,
   disabled,
-  onChange
+  onChange,
+  hint
 }: {
   label: string
   description: string
   checked: boolean
   disabled?: boolean
   onChange: (checked: boolean) => void
+  hint?: React.ReactNode
 }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border py-3 last:border-b-0">
@@ -23,6 +25,9 @@ export function SettingRow({
         <p className="max-w-prose text-xs text-muted-foreground">
           {description}
         </p>
+        {hint ? (
+          <p className="max-w-prose text-xs text-muted-foreground">{hint}</p>
+        ) : null}
       </div>
       <Switch
         checked={checked}

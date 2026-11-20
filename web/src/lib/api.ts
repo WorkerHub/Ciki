@@ -603,6 +603,11 @@ export interface SiteSettings {
   registrationEnabled: boolean
   registrationApprovalRequired: boolean
   require2fa: boolean
+  /**
+   * 注册需邮箱验证（默认开，后端存 registration_email_verification_enabled）。
+   * 未配邮件（emailConfigured=false）时不可开启。
+   */
+  registrationEmailVerificationRequired?: boolean
   /** 与 GET /api/auth/config 同口径：SMTP 非密字段齐全即为 true。 */
   emailConfigured: boolean
   /** 每页保留的历史版本数；null = 不限（后端存空串）。 */
