@@ -11,6 +11,12 @@ export const SIDEBAR_MIN_WIDTH = 200
 export const SIDEBAR_MAX_WIDTH = 420
 export const SIDEBAR_DEFAULT_SIZE = "18%"
 
+/**
+ * 收起态图标列宽度：对齐模板/Cbox 的 `SIDEBAR_WIDTH_ICON = "3rem"`，即 48px。
+ * 收起后侧栏不完全消失，保留这条只显图标的细列（logo 列首、导航图标 + tooltip、页脚展开按钮）。
+ */
+export const SIDEBAR_WIDTH_ICON = 48
+
 /** 读开合状态：只有明确写过 `"false"` 才收起，其余按展开。 */
 export function readSidebarOpen(): boolean {
   try {
