@@ -18,11 +18,24 @@ import {
   ApiError,
   describeApiError,
   type EmailProvider,
-  type SiteSettings
+  type SiteSettings,
+  type SmtpEncryption
 } from "@/lib/api"
 import { useAuthStore } from "@/stores/auth"
 
 const PROVIDERS: EmailProvider[] = ["none", "smtp", "resend"]
+
+/** SMTP 传输层三态（与后端 SMTP_ENCRYPTIONS 一致）。 */
+const SMTP_ENCRYPTIONS: readonly SmtpEncryption[] = ["tls", "starttls", "none"]
+/** 库里缺省或存了非法值时的回落值（与后端 readEmailSettings 默认一致）。 */
+const DEFAULT_ENCRYPTION: SmtpEncryption = "starttls"
+
+/** 后端保留非法值让管理员修，前端渲染时回落到默认，避免下拉框出现空态。 */
+function normalizeEncryption(value: unknown): SmtpEncryption {
+  return (SMTP_ENCRYPTIONS as readonly string[]).includes(value as string)
+    ? (value as SmtpEncryption)
+    : DEFAULT_ENCRYPTION
+}
 
 export function SmtpTab(props?: {
   settings?: SiteSettings
@@ -43,6 +56,7 @@ export function SmtpTab(props?: {
   const [smtp, setSmtp] = useState({
     host: settings?.email?.smtp.host ?? "",
     port: String(settings?.email?.smtp.port ?? ""),
+    encryption: normalizeEncryption(settings?.email?.smtp.encryption),
     username: settings?.email?.smtp.username ?? "",
     from: settings?.email?.smtp.from ?? "",
     fromName: settings?.email?.smtp.fromName ?? ""
@@ -90,6 +104,7 @@ export function SmtpTab(props?: {
     setSmtp({
       host: settings.email.smtp.host,
       port: String(settings.email.smtp.port ?? ""),
+      encryption: normalizeEncryption(settings.email.smtp.encryption),
       username: settings.email.smtp.username,
       from: settings.email.smtp.from,
       fromName: settings.email.smtp.fromName
@@ -161,6 +176,8 @@ export function SmtpTab(props?: {
       (provider !== settings.email.provider ||
         smtp.host !== settings.email.smtp.host ||
         smtp.port !== String(settings.email.smtp.port ?? "") ||
+        smtp.encryption !==
+          normalizeEncryption(settings.email.smtp.encryption) ||
         smtp.username !== settings.email.smtp.username ||
         smtp.from !== settings.email.smtp.from ||
         smtp.fromName !== settings.email.smtp.fromName ||
@@ -227,6 +244,28 @@ export function SmtpTab(props?: {
                     setSmtp({ ...smtp, port: event.target.value })
                   }
                 />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="smtp-encryption">
+                  {t("admin.smtp.encryption.label")}
+                </Label>
+                <Select
+                  value={smtp.encryption}
+                  onValueChange={(value) =>
+                    setSmtp({ ...smtp, encryption: value as SmtpEncryption })
+                  }
+                >
+                  <SelectTrigger id="smtp-encryption" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SMTP_ENCRYPTIONS.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {t(`admin.smtp.encryption.${value}`)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="smtp-username">

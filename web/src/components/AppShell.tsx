@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/sheet"
 import { useIsMobile } from "@/hooks/useMediaQuery"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
+import { buildVersionLabel } from "@/lib/build-info"
 import { pageEditPath, spaceSearchPath, spaceTrashPath } from "@/lib/routes"
 import {
   readSidebarOpen,
@@ -139,9 +140,7 @@ function SidebarContent({
         <PageTree onNavigate={onNavigate} />
       </div>
       <div className="flex items-center justify-between gap-2 border-t border-sidebar-border px-3 py-1.5 text-[11px] text-muted-foreground">
-        <p className="truncate">
-          {siteName} · {__APP_PACKAGE_VERSION__} · {__APP_VERSION__}
-        </p>
+        <p className="truncate">{buildVersionLabel(siteName)}</p>
         {onCollapse ? (
           <Button
             type="button"
