@@ -245,9 +245,7 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       // 打开抽屉
       fireEvent.click(openDrawerBtn)
       // 抽屉内不应该有收起侧边栏按钮
-      expect(
-        screen.queryByRole("button", { name: "收起侧边栏" })
-      ).toBeNull()
+      expect(screen.queryByRole("button", { name: "收起侧边栏" })).toBeNull()
     } finally {
       window.matchMedia = original
     }
@@ -402,9 +400,10 @@ describe("应用外壳：英文界面", () => {
   it("系统页面显示 Back to home 按钮而不显示搜索框与新建页面", async () => {
     const { container } = renderShell("/settings")
     expect(container.querySelector("form")).toBeNull()
-    expect(
-      screen.getByRole("link", { name: "Back to home" })
-    ).toHaveAttribute("href", "/")
+    expect(screen.getByRole("link", { name: "Back to home" })).toHaveAttribute(
+      "href",
+      "/"
+    )
     expect(screen.queryByRole("button", { name: "New page" })).toBeNull()
   })
 
