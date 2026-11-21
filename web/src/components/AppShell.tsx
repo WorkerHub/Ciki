@@ -616,10 +616,17 @@ export function AppShell() {
           />
           <Panel id="main" minSize={360} className="h-full">
             <div className="relative flex h-full flex-col">
-              {/* 对齐正文内容列实际渲染左边缘（与 PageCanvas 同口径：px-4 sm:px-6 + max-w-[1600px] 居中容器）；
+              {/* 对齐正文内容列实际渲染左边缘：
+                  文章页与 PageCanvas 同口径（px-4 sm:px-6 + max-w-[1600px] 居中容器）；
+                  分类/搜索页与分类容器同口径（px-4 sm:px-6 左对齐，不居中）；
                   收起与展开两态下，搜索框左边缘与正文（面包屑/标题列）左边缘在像素级完全一致。 */}
               <header className="flex h-12 shrink-0 items-center border-b border-border px-4 sm:px-6">
-                <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2">
+                <div
+                  className={cn(
+                    "flex w-full items-center gap-2",
+                    isArticleRoute && "mx-auto max-w-[1600px]"
+                  )}
+                >
                   <SearchBox className="max-w-md flex-1" />
                   {createButton}
                   {accountActions}

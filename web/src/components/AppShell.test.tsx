@@ -273,6 +273,13 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     const searchWrapper = screen.getByText("页面内容").parentElement
     expect(searchWrapper).toHaveClass("px-4", "sm:px-6", "max-w-[1140px]")
     expect(searchWrapper).not.toHaveClass("mx-auto")
+
+    // 分类页顶栏内层不居中，保持 px-4 sm:px-6 左对齐，与正文内容列左缘一致
+    const searchHeader = search.container.querySelector("header")
+    const searchHeaderInner = searchHeader?.firstElementChild as HTMLElement
+    expect(searchHeaderInner).not.toHaveClass("mx-auto")
+    expect(searchHeaderInner).not.toHaveClass("max-w-[1600px]")
+    expect(searchHeader).toHaveClass("px-4", "sm:px-6")
     search.unmount()
 
     renderShell("/settings")
