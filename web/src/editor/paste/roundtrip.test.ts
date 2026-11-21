@@ -187,8 +187,19 @@ describe("颜色载具的 TipTap 回读（编辑态扩展集）", () => {
   it("文字颜色读回 textStyle.color（hex）", () => {
     load('<p><span data-text-color="#de350b">红</span></p>')
     const marks = docJson(editor).content?.[0]?.content?.[0]?.marks ?? []
-    expect(marks).toEqual([{ type: "textStyle", attrs: { color: "#de350b" } }])
+    expect(marks).toEqual([
+      { type: "textStyle", attrs: { color: "#de350b", fontSize: null } }
+    ])
     expect(editor.getHTML()).toContain('data-text-color="#de350b"')
+  })
+
+  it("行内字号读回 textStyle.fontSize（px）", () => {
+    load('<p><span data-font-size="20px">大字</span></p>')
+    const marks = docJson(editor).content?.[0]?.content?.[0]?.marks ?? []
+    expect(marks).toEqual([
+      { type: "textStyle", attrs: { color: null, fontSize: "20px" } }
+    ])
+    expect(editor.getHTML()).toContain('data-font-size="20px"')
   })
 
   it("高亮读回 highlight.color（hex）", () => {
