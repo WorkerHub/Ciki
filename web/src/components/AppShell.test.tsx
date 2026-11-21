@@ -217,23 +217,29 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     unmount()
 
     // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮，而是显示「返回文档」按钮；
-    // 顶栏内容包在与正文容器同口径的居中容器里，按钮左缘对齐正文标题列左缘
+    // 顶栏为 logo+标题 预留 260px 固定左侧区（顶头左上角），正文内容列（含「返回文档」）
+    // 位于该区右侧，且与正文标题列左边缘对齐（宽屏居中、窄屏让位）
     const system = renderShell("/settings")
     const systemHeader = system.container.querySelector("header")
     expect(system.container.querySelectorAll("header")).toHaveLength(1)
     expect(systemHeader?.querySelector("form")).toBeNull()
-    expect(
-      within(systemHeader!).getByRole("link", { name: "返回文档" })
-    ).toHaveAttribute("href", "/")
+    const backButton = within(systemHeader!).getByRole("link", {
+      name: "返回文档"
+    })
+    expect(backButton).toHaveAttribute("href", "/")
     expect(
       within(systemHeader!).queryByRole("button", { name: "新建页面" })
     ).toBeNull()
-    const headerInner = systemHeader!.firstElementChild as HTMLElement
-    expect(headerInner).toHaveClass(
-      "mx-auto",
-      "max-w-[1400px]",
-      "px-4",
-      "sm:px-6"
+
+    // logo+标题置于左上角固定 260px 左侧区，不再排在「返回文档」旁
+    const systemBrand = systemHeader?.querySelector('a[href="/"]')
+    expect(systemBrand).not.toBeNull()
+    expect(systemBrand?.parentElement).toHaveClass("w-[260px]")
+    const headerContent = backButton.parentElement as HTMLElement
+    expect(headerContent).toHaveClass("max-w-[1400px]", "px-4", "sm:px-6")
+    expect(headerContent.contains(systemBrand ?? null)).toBe(false)
+    expect(headerContent.style.marginLeft).toMatch(
+      /max\(260px,\s*(calc\()?50% - 700px/
     )
   })
 
@@ -267,7 +273,7 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     }
   })
 
-  it("分类页容器不居中：左缘与文章页正文对齐，系统页仍居中", () => {
+  it("分类页容器不居中：左缘与文章页正文对齐，系统页正文列宽屏居中/窄屏让位", () => {
     const search = renderShell("/s/default/search")
     // 壳层容器是 Suspense 之外的第一个 div（Suspense 不产 DOM）
     const searchWrapper = screen.getByText("页面内容").parentElement
@@ -284,7 +290,10 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
 
     renderShell("/settings")
     const systemWrapper = screen.getByText("页面内容").parentElement
-    expect(systemWrapper).toHaveClass("mx-auto", "max-w-[1400px]")
+    expect(systemWrapper).toHaveClass("max-w-[1400px]")
+    expect(systemWrapper?.style.marginLeft).toMatch(
+      /max\(260px,\s*(calc\()?50% - 700px/
+    )
   })
 
   it("文章页读、写两态共用同一流式正文画布，系统页不套用", () => {
@@ -470,6 +479,50 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       "/"
     )
     unmount()
+  })
+
+  it("桌面系统页顶栏 logo 位于 260px 左侧区且与「返回文档」同一基线对齐正文列，移动端不加 260px 区", () => {
+    // 桌面态
+    const desktop = renderShell("/settings")
+    const desktopHeader = desktop.container.querySelector("header")
+    const brand = desktopHeader?.querySelector('a[href="/"]')
+    expect(brand).not.toBeNull()
+    expect(brand?.parentElement).toHaveClass("w-[260px]", "absolute", "left-0")
+
+    const backButton = within(desktopHeader!).getByRole("link", {
+      name: "返回文档"
+    })
+    const desktopContentCol = backButton.parentElement as HTMLElement
+    expect(desktopContentCol.contains(brand ?? null)).toBe(false)
+
+    const desktopSystemWrapper = screen.getByText("页面内容").parentElement
+    expect(desktopContentCol.style.marginLeft).toBe(
+      desktopSystemWrapper?.style.marginLeft
+    )
+    desktop.unmount()
+
+    // 移动端态
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false
+    })) as unknown as typeof window.matchMedia
+    try {
+      const mobile = renderShell("/settings")
+      const mobileHeader = mobile.container.querySelector("header")
+      const mobileBrand = mobileHeader?.querySelector('a[href="/"]')
+      expect(mobileBrand?.parentElement).not.toHaveClass("w-[260px]")
+      expect(mobileBrand?.parentElement).toHaveClass("px-2", "sm:px-3")
+      mobile.unmount()
+    } finally {
+      window.matchMedia = original
+    }
   })
 })
 

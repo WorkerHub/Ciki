@@ -4,6 +4,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_OPEN_STORAGE_KEY,
+  SYSTEM_SIDEBAR_HEADER_WIDTH,
   writeSidebarOpen
 } from "@/lib/sidebar"
 
@@ -38,5 +39,9 @@ describe("sidebar lib: 侧栏状态与配置", () => {
   it("宽度限制范围为 200–420px", () => {
     expect(SIDEBAR_MIN_WIDTH).toBe(200)
     expect(SIDEBAR_MAX_WIDTH).toBe(420)
+  })
+
+  it("系统页顶栏 logo 预留宽度为 260px", () => {
+    expect(SYSTEM_SIDEBAR_HEADER_WIDTH).toBe(260)
   })
 })
