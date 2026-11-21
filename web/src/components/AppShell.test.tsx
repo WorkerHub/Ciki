@@ -201,11 +201,13 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     // 顶栏按两栏拆开：站点名在侧栏栏顶部，搜索框行只在正文栏
     const searchHeader = container.querySelector("header")
     expect(searchHeader).not.toBeNull()
-    // 搜索框前面不再有站点名/品牌块：左缘就是这一栏的左内边距
-    expect(searchHeader?.firstElementChild?.tagName).toBe("FORM")
+    // 搜索框前面不再有站点名/品牌块：包裹在与正文 PageCanvas 同口径的 max-w-[1600px] 居中容器内
+    const searchHeaderInner = searchHeader?.firstElementChild as HTMLElement
+    expect(searchHeaderInner).toHaveClass("mx-auto", "max-w-[1600px]")
+    expect(searchHeaderInner?.firstElementChild?.tagName).toBe("FORM")
     expect(searchHeader?.querySelector('a[href="/"]')).toBeNull()
-    // 左内边距与 PageCanvas 同口径（手机 16px、≥640px 24px）——正文左缘的那条线
-    expect(searchHeader).toHaveClass("pl-4", "sm:pl-6")
+    // 外层边距与 PageCanvas 同口径（手机 16px、≥640px 24px）
+    expect(searchHeader).toHaveClass("px-4", "sm:px-6")
 
     const brand = container.querySelector('a[href="/"]')
     expect(brand).not.toBeNull()
@@ -271,6 +273,13 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     const searchWrapper = screen.getByText("页面内容").parentElement
     expect(searchWrapper).toHaveClass("px-4", "sm:px-6", "max-w-[1140px]")
     expect(searchWrapper).not.toHaveClass("mx-auto")
+
+    // 分类页顶栏内层不居中，保持 px-4 sm:px-6 左对齐，与正文内容列左缘一致
+    const searchHeader = search.container.querySelector("header")
+    const searchHeaderInner = searchHeader?.firstElementChild as HTMLElement
+    expect(searchHeaderInner).not.toHaveClass("mx-auto")
+    expect(searchHeaderInner).not.toHaveClass("max-w-[1600px]")
+    expect(searchHeader).toHaveClass("px-4", "sm:px-6")
     search.unmount()
 
     renderShell("/settings")
@@ -362,20 +371,21 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     unmount()
   })
 
-  it("顶栏左内边距与正文同口径统一对齐（pl-4 sm:pl-6），展开与收起态均对齐", async () => {
+  it("顶栏与正文列同口径统一对齐（px-4 sm:px-6 + max-w-[1600px]），展开与收起态均对齐", async () => {
     localStorage.clear()
     const { container, unmount } = renderShell("/p/a")
     const header = container.querySelector("header")
-    expect(header).toHaveClass("pl-4", "sm:pl-6")
-    expect(header).toHaveClass("pr-2", "sm:pr-3")
+    expect(header).toHaveClass("px-4", "sm:px-6")
+    const headerInner = header?.firstElementChild as HTMLElement
+    expect(headerInner).toHaveClass("mx-auto", "max-w-[1600px]")
 
     const collapseButton = screen.getByRole("button", { name: "收起侧边栏" })
     fireEvent.click(collapseButton)
     await screen.findByRole("button", { name: "展开侧边栏" })
 
-    // 收起态下顶栏左内边距依旧保持 pl-4 sm:pl-6
-    expect(header).toHaveClass("pl-4", "sm:pl-6")
-    expect(header).toHaveClass("pr-2", "sm:pr-3")
+    // 收起态下顶栏布局与内边距依旧保持与正文完全一致
+    expect(header).toHaveClass("px-4", "sm:px-6")
+    expect(headerInner).toHaveClass("mx-auto", "max-w-[1600px]")
     unmount()
   })
 
