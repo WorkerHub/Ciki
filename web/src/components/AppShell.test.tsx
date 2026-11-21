@@ -217,24 +217,33 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     unmount()
 
     // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮，而是显示「返回文档」按钮；
-    // 顶栏内容包在与正文容器同口径的居中容器里，按钮左缘对齐正文标题列左缘
+    // 品牌（Logo + 站点名）贴视口左上角（与普通页侧栏顶栏 px-2 sm:px-3 同口径），
+    // 「返回文档」按钮与账号区包在与正文容器同口径的居中容器里，按钮左缘对齐正文标题列左缘
     const system = renderShell("/settings")
     const systemHeader = system.container.querySelector("header")
     expect(system.container.querySelectorAll("header")).toHaveLength(1)
     expect(systemHeader?.querySelector("form")).toBeNull()
+    const systemBrand = systemHeader?.querySelector('a[href="/"]')
+    expect(systemBrand).not.toBeNull()
+    expect(systemBrand?.parentElement).toHaveClass("h-12", "px-2", "sm:px-3")
     expect(
       within(systemHeader!).getByRole("link", { name: "返回文档" })
     ).toHaveAttribute("href", "/")
     expect(
       within(systemHeader!).queryByRole("button", { name: "新建页面" })
     ).toBeNull()
-    const headerInner = systemHeader!.firstElementChild as HTMLElement
+    const headerInner = systemHeader!.querySelector(
+      ".max-w-\\[1400px\\]"
+    ) as HTMLElement
     expect(headerInner).toHaveClass(
       "mx-auto",
       "max-w-[1400px]",
       "px-4",
       "sm:px-6"
     )
+    expect(
+      within(headerInner).getByRole("link", { name: "返回文档" })
+    ).toBeInTheDocument()
   })
 
   it("移动端保持整条顶栏：没有搜索框，页面树走抽屉，抽屉内不包含收起侧栏按钮", () => {

@@ -473,7 +473,9 @@ export function AppShell() {
       className="flex min-w-0 items-center gap-1.5 font-heading text-sm font-semibold tracking-tight"
     >
       <CikiLogo />
-      <span className="max-w-[8rem] truncate sm:max-w-[14rem]">{siteName}</span>
+      <span className="hidden max-w-[8rem] truncate sm:inline sm:max-w-[14rem]">
+        {siteName}
+      </span>
     </Link>
   )
 
@@ -481,7 +483,8 @@ export function AppShell() {
     <Button asChild variant="ghost" size="sm" className="gap-1.5">
       <Link to={lastDocRouteRef.current ?? "/"}>
         <ArrowLeft aria-hidden="true" />
-        {t("shell.backToDocument")}
+        <span className="hidden md:inline">{t("shell.backToDocument")}</span>
+        <span className="sr-only md:hidden">{t("shell.backToDocument")}</span>
       </Link>
     </Button>
   )
@@ -554,13 +557,19 @@ export function AppShell() {
       {isMobile || isSystemRoute ? (
         <>
           <header className="flex h-12 shrink-0 items-center border-b border-border">
-            {/* 系统页：内容包在与正文容器同口径的居中容器里；
-              「返回文档」按钮放在首位，左缘与正文标题列左缘同一条线。 */}
+            {/* 系统页：品牌贴视口左上角（与普通页侧栏顶栏 px-2 sm:px-3 同口径），
+              「返回文档」与账号区包在与正文容器同口径的居中容器里，按钮左缘对齐
+              正文标题列左缘；中窄视口两者会贴到一起，< sm 隐藏品牌站名、< md
+              隐藏按钮文字，避免「返回文档」叠上 logo/站名。 */}
             {isSystemRoute ? (
-              <div className="mx-auto flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6">
-                {backToDocButton}
-                {siteLink}
-                {accountActions}
+              <div className="relative flex h-12 w-full items-center">
+                <div className="absolute left-0 top-0 flex h-12 items-center px-2 sm:px-3">
+                  {siteLink}
+                </div>
+                <div className="mx-auto flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6">
+                  {backToDocButton}
+                  {accountActions}
+                </div>
               </div>
             ) : (
               <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
