@@ -807,6 +807,7 @@ describe("写接口：改页", () => {
     expect(row.content_html).toContain(`src="/api/files/${previewKey}"`)
     expect(row.content_html).toContain('alt="架构设计图"')
     expect(row.content_html).toContain('width="720"')
+    expect(row.content_text).toContain("架构设计图")
     expect(row.content_md).toContain(
       `![架构设计图](https://ciki.oneboy.app/api/files/${previewKey})`
     )
@@ -838,6 +839,7 @@ describe("写接口：改页", () => {
     const rowUpdated = pageRow(context, page.id)
     expect(rowUpdated.content_html).toContain('alt="更新后架构设计图"')
     expect(rowUpdated.content_html).toContain('width="600"')
+    expect(rowUpdated.content_text).toContain("更新后架构设计图")
   })
 
   it("至少给一个字段；页面不存在/已删/坏 id 一律 404；正文错误码", async () => {

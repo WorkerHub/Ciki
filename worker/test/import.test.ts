@@ -312,9 +312,22 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     expect(page.contentHtml).toContain(`src="/api/files/${previewKey}"`)
     expect(page.contentHtml).toContain('alt="架构设计图"')
     expect(page.contentHtml).toContain('width="720"')
+    expect(page.contentText).toContain("架构设计图")
     expect(page.contentMd).toContain(
       `![架构设计图](https://ciki.oneboy.app/api/files/${previewKey})`
     )
+
+    // 画布中的文字能通过全文搜索命中
+    const search = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        "/api/search?q=架构设计图",
+        undefined,
+        admin
+      )
+    ).json()) as { results: Array<{ pageId: number }> }
+    expect(search.results.map((row) => row.pageId)).toContain(body.pageId)
   })
 
   it("颜色：文字颜色/高亮/单元格底色落成 data 载具，非法色值被丢弃", async () => {

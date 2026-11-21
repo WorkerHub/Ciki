@@ -11,7 +11,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { contentObjectKey } from "../src/core/content-store"
 import { gzipText } from "../src/lib/gzip"
-import { initializedContext } from "./support/app"
+import { initializedContext, jsonRequest } from "./support/app"
 import {
   adminWithPage,
   getRevision,
@@ -177,6 +177,7 @@ describe("含画布块（excalidraw）的版本渲染", () => {
     expect(viewBody.contentHtml).toContain(`src="/api/files/${previewKey}"`)
     expect(viewBody.contentHtml).toContain('alt="架构设计图"')
     expect(viewBody.contentHtml).toContain('width="720"')
+    expect(viewBody.contentText).toContain("架构设计图")
 
     const restore = await restoreRevision(
       env,
@@ -188,10 +189,24 @@ describe("含画布块（excalidraw）的版本渲染", () => {
     const restoreBody = (await restore.json()) as {
       contentHtml: string
       contentMd: string
+      contentText: string
     }
     expect(restoreBody.contentHtml).toContain('data-type="excalidraw"')
     expect(restoreBody.contentMd).toContain(
       `![架构设计图](https://ciki.oneboy.app/api/files/${previewKey})`
     )
+    expect(restoreBody.contentText).toContain("架构设计图")
+
+    // 回滚后画布中的文字能通过全文搜索命中
+    const search = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        "/api/search?q=架构设计图",
+        undefined,
+        admin
+      )
+    ).json()) as { results: Array<{ pageId: number }> }
+    expect(search.results.map((row) => row.pageId)).toContain(page.id)
   })
 })

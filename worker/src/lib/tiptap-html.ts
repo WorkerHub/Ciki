@@ -35,6 +35,8 @@ import {
   type Extensions,
   Node,
   getSchema,
+  getText,
+  getTextSerializersFromSchema,
   type JSONContent,
   mergeAttributes
 } from "@tiptap/core"
@@ -184,6 +186,10 @@ const ImportExcalidraw = Node.create({
       "img",
       mergeAttributes({ "data-type": "excalidraw" }, HTMLAttributes)
     ]
+  },
+
+  renderText({ node }) {
+    return node.attrs.extractedText ? `${node.attrs.extractedText}\n` : ""
   }
 })
 
@@ -569,6 +575,39 @@ export function parseTiptapDoc(json: unknown): ProseMirrorNode {
       err instanceof Error ? err.message : "contentJson cannot be rendered"
     )
   }
+}
+
+let cachedTextSerializers: Record<string, (props: any) => string> | null = null
+
+function textSerializers(): Record<string, (props: any) => string> {
+  if (!cachedTextSerializers) {
+    cachedTextSerializers = getTextSerializersFromSchema(schema())
+  }
+  return cachedTextSerializers
+}
+
+/**
+ * 将已校验的 ProseMirror 节点树渲染为 HTML 字符串。
+ */
+export function renderTiptapDoc(doc: ProseMirrorNode): string {
+  return serialize(doc)
+}
+
+/**
+ * ProseMirror 节点树 → 纯文本（与前端 editor.getText({ blockSeparator: "\n" }) 同一口径）。
+ */
+export function docToPlainText(doc: ProseMirrorNode): string {
+  return getText(doc, {
+    blockSeparator: "\n",
+    textSerializers: textSerializers()
+  })
+}
+
+/**
+ * TipTap JSON → 纯文本（与前端 editor.getText({ blockSeparator: "\n" }) 同一口径）。
+ */
+export function renderTiptapText(json: unknown): string {
+  return docToPlainText(parseTiptapDoc(json))
 }
 
 /**

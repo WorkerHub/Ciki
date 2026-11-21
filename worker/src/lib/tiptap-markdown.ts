@@ -104,7 +104,8 @@ function imageSrc(node: ProseMirrorNode): string {
 
 function renderImage(node: ProseMirrorNode): string {
   const alt = typeof node.attrs.alt === "string" ? node.attrs.alt : ""
-  const label = alt.replace(/[[\]]/g, (char) => `\\${char}`)
+  const normalizedAlt = alt.replace(/[\r\n]+/g, " ")
+  const label = normalizedAlt.replace(/[[\]]/g, (char) => `\\${char}`)
   return `![${label}](${imageSrc(node)})`
 }
 
@@ -126,7 +127,9 @@ function excalidrawSrc(node: ProseMirrorNode): string {
 function renderExcalidraw(node: ProseMirrorNode): string {
   const alt =
     typeof node.attrs.extractedText === "string" ? node.attrs.extractedText : ""
-  const label = alt.replace(/[[\]]/g, (char) => `\\${char}`)
+  // alt 里的换行归一（替换为空格），避免如 \n\n 导致 Markdown 链接断裂
+  const normalizedAlt = alt.replace(/[\r\n]+/g, " ")
+  const label = normalizedAlt.replace(/[[\]]/g, (char) => `\\${char}`)
   return `![${label}](${excalidrawSrc(node)})`
 }
 
