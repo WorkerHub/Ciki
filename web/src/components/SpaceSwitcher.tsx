@@ -24,6 +24,11 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { describeApiError, type Space } from "@/lib/api"
 import { spaceSettingsPath } from "@/lib/routes"
 import { canManage, effectiveRole } from "@/lib/space"
@@ -37,7 +42,8 @@ import { useSpacesStore } from "@/stores/spaces"
  */
 export function SpaceSwitcher({
   onNavigate,
-  switchPath = () => "/"
+  switchPath = () => "/",
+  compact = false
 }: {
   onNavigate?: () => void
   /**
@@ -45,6 +51,10 @@ export function SpaceSwitcher({
    * 回收站这类系统页传自己的 slug 路径，切完留在同一页、由页面按新空间重拉列表。
    */
   switchPath?: (space: Space) => string
+  /**
+   * 收起态图标列只渲染图标 + tooltip（展开侧栏时由 IconColumn 提供 TooltipProvider）。
+   */
+  compact?: boolean
 }) {
   const navigate = useNavigate()
   const { t } = useTranslation()
@@ -101,6 +111,29 @@ export function SpaceSwitcher({
   }
 
   if (status === "error" && spaces.length === 0) {
+    if (compact) {
+      return (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={t("shell.spaces.switch")}
+              onClick={() => void load()}
+            >
+              <Boxes
+                className="size-4 text-muted-foreground"
+                aria-hidden="true"
+              />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right" align="center">
+            {t("shell.spaces.loadFailed")}
+          </TooltipContent>
+        </Tooltip>
+      )
+    }
     return (
       <div className="mx-2 space-y-1 rounded-md border border-border px-2 py-2">
         <p className="text-[11px] text-muted-foreground">
@@ -120,37 +153,60 @@ export function SpaceSwitcher({
   }
 
   return (
-    <div className="px-2 pb-2">
+    <div data-space-switcher className={compact ? "px-1 py-1" : "px-2 pb-2"}>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            aria-label={t("shell.spaces.switch")}
-            title={error ?? undefined}
-            className="h-auto w-full justify-between gap-1.5 px-2 py-1.5"
-          >
-            <Boxes
-              className="size-4 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <span className="min-w-0 flex-1 truncate text-left text-[13px] font-medium">
-              {current?.name ??
-                (status === "loading"
-                  ? t("shell.spaces.loading")
-                  : t("shell.spaces.none"))}
-            </span>
-            {current ? (
-              <Badge variant="secondary" className="shrink-0 text-[10px]">
-                {t(`common.roles.${currentRole ?? "viewer"}`)}
-              </Badge>
-            ) : null}
-            <ChevronsUpDown
-              className="size-3.5 shrink-0 text-muted-foreground"
-              aria-hidden="true"
-            />
-          </Button>
-        </DropdownMenuTrigger>
+        {compact ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  aria-label={t("shell.spaces.switch")}
+                >
+                  <Boxes
+                    className="size-4 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right" align="center">
+              {t("shell.spaces.switch")}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              aria-label={t("shell.spaces.switch")}
+              title={error ?? undefined}
+              className="h-auto w-full justify-between gap-1.5 px-2 py-1.5"
+            >
+              <Boxes
+                className="size-4 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <span className="min-w-0 flex-1 truncate text-left text-[13px] font-medium">
+                {current?.name ??
+                  (status === "loading"
+                    ? t("shell.spaces.loading")
+                    : t("shell.spaces.none"))}
+              </span>
+              {current ? (
+                <Badge variant="secondary" className="shrink-0 text-[10px]">
+                  {t(`common.roles.${currentRole ?? "viewer"}`)}
+                </Badge>
+              ) : null}
+              <ChevronsUpDown
+                className="size-3.5 shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+            </Button>
+          </DropdownMenuTrigger>
+        )}
         <DropdownMenuContent align="start" className="w-64">
           <DropdownMenuLabel className="text-[11px] text-muted-foreground">
             {t("shell.spaces.switch")}

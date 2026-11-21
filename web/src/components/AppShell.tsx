@@ -50,6 +50,12 @@ import {
   SheetTitle,
   SheetTrigger
 } from "@/components/ui/sheet"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import { useIsMobile } from "@/hooks/useMediaQuery"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
 import { buildVersionLabel } from "@/lib/build-info"
@@ -59,6 +65,7 @@ import {
   SIDEBAR_DEFAULT_SIZE,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
+  SIDEBAR_WIDTH_ICON,
   writeSidebarOpen
 } from "@/lib/sidebar"
 import { canEdit } from "@/lib/space"
@@ -167,6 +174,68 @@ function SidebarContent({
         }}
       />
     </div>
+  )
+}
+
+function IconColumn({
+  siteName,
+  onExpand
+}: {
+  siteName: string
+  onExpand: () => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <TooltipProvider delayDuration={0}>
+      <div
+        data-sidebar-collapsed
+        className="flex h-full w-12 flex-col bg-sidebar text-sidebar-foreground"
+      >
+        <div className="flex h-12 shrink-0 items-center justify-center border-b border-border">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/"
+                className="flex size-8 items-center justify-center rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                aria-label={siteName}
+              >
+                <CikiLogo />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right" align="center">
+              {siteName}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+        <div className="border-b border-sidebar-border py-2 flex justify-center">
+          <SpaceSwitcher compact />
+        </div>
+        <div className="min-h-0 flex-1" />
+        <div className="flex h-10 shrink-0 items-center justify-center border-t border-sidebar-border px-1.5 py-1">
+          <span className="sr-only">{buildVersionLabel(siteName)}</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                data-sidebar-expand
+                aria-label={t("shell.sidebar.expand")}
+                title={t("shell.sidebar.expand")}
+                onClick={onExpand}
+                className="size-8 text-muted-foreground hover:text-sidebar-foreground"
+              >
+                <PanelLeftOpen aria-hidden="true" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right" align="center">
+              {t("shell.sidebar.expand")}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </div>
+    </TooltipProvider>
   )
 }
 
@@ -315,16 +384,6 @@ export function AppShell() {
     setIsCollapsed(false)
     writeSidebarOpen(true)
     setCollapsible(false)
-  }
-
-  const handlePanelResize = (size: {
-    asPercentage: number
-    inPixels: number
-  }) => {
-    if (size.asPercentage === 0 || size.inPixels === 0) {
-      setIsCollapsed(true)
-      writeSidebarOpen(false)
-    }
   }
 
   useEffect(() => {
@@ -507,28 +566,28 @@ export function AppShell() {
             minSize={SIDEBAR_MIN_WIDTH}
             maxSize={SIDEBAR_MAX_WIDTH}
             collapsible={collapsible}
-            onResize={handlePanelResize}
+            collapsedSize={SIDEBAR_WIDTH_ICON}
             className="h-full"
           >
-            <div
-              className={cn(
-                "flex h-full flex-col overflow-hidden",
-                isCollapsed && "hidden"
-              )}
-              hidden={isCollapsed}
-            >
-              <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
-                {siteLink}
+            {isCollapsed ? (
+              <IconColumn siteName={siteName} onExpand={handleExpand} />
+            ) : (
+              <div className="flex h-full flex-col overflow-hidden">
+                <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
+                  {siteLink}
+                </div>
+                <div className="min-h-0 flex-1">
+                  <SidebarContent onCollapse={handleCollapse} />
+                </div>
               </div>
-              <div className="min-h-0 flex-1">
-                <SidebarContent onCollapse={handleCollapse} />
-              </div>
-            </div>
+            )}
           </Panel>
           <Separator
+            disabled={isCollapsed}
             className={cn(
-              "relative w-px bg-border transition-colors hover:bg-primary/40 data-[separator=active]:bg-primary/60 cursor-col-resize after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2",
-              isCollapsed && "hidden"
+              "relative w-px bg-border transition-colors",
+              !isCollapsed &&
+                "hover:bg-primary/40 data-[separator=active]:bg-primary/60 cursor-col-resize after:absolute after:inset-y-0 after:left-1/2 after:w-3 after:-translate-x-1/2"
             )}
             aria-label={t("shell.sidebar.resize")}
           />
@@ -544,22 +603,6 @@ export function AppShell() {
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {animatedMain}
               </div>
-              {isCollapsed ? (
-                <div className="absolute bottom-3 left-3 z-20">
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="outline"
-                    className="bg-background/80 shadow-xs backdrop-blur-xs hover:bg-accent"
-                    data-sidebar-expand
-                    aria-label={t("shell.sidebar.expand")}
-                    title={t("shell.sidebar.expand")}
-                    onClick={handleExpand}
-                  >
-                    <PanelLeftOpen aria-hidden="true" />
-                  </Button>
-                </div>
-              ) : null}
             </div>
           </Panel>
         </Group>

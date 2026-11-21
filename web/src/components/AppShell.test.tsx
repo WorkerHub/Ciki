@@ -303,14 +303,23 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     // 点击收起
     fireEvent.click(collapseButton)
 
-    // 收起后：左下角显示展开按钮，正文顶栏不显示展开按钮，localStorage 写入 "false"
+    // 收起后：展示 48px 图标列，左下角页脚与版本号同行显示展开按钮，正文顶栏不显示展开按钮，localStorage 写入 "false"
     const expandButton = await screen.findByRole("button", {
       name: "展开侧边栏"
     })
     expect(expandButton).toBeInTheDocument()
+    const iconColumn = container.querySelector("[data-sidebar-collapsed]")
+    expect(iconColumn).not.toBeNull()
+    expect(iconColumn).toHaveClass("w-12")
+    expect(iconColumn?.querySelector('a[href="/"]')).not.toBeNull()
+    expect(iconColumn?.querySelector("[data-space-switcher]")).not.toBeNull()
+    expect(screen.queryByText("页面")).toBeNull()
+
     const mainHeader = container.querySelector("header")
     expect(mainHeader?.contains(expandButton)).toBe(false)
-    expect(expandButton.closest("div")).toHaveClass("bottom-3", "left-3")
+    const collapsedFooter = expandButton.closest("div")
+    expect(collapsedFooter).toHaveClass("border-t")
+    expect(collapsedFooter).toHaveTextContent(/Ciki/)
     expect(localStorage.getItem("app-sidebar-open")).toBe("false")
 
     // 点击展开
@@ -325,12 +334,32 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
 
   it("当 localStorage 中 app-sidebar-open 为 false 时，默认初始化为收起态", async () => {
     localStorage.setItem("app-sidebar-open", "false")
-    const { unmount } = renderShell("/p/a")
+    const { container, unmount } = renderShell("/p/a")
 
     expect(
       await screen.findByRole("button", { name: "展开侧边栏" })
     ).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "收起侧边栏" })).toBeNull()
+    const iconColumn = container.querySelector("[data-sidebar-collapsed]")
+    expect(iconColumn).not.toBeNull()
+    expect(iconColumn).toHaveClass("w-12")
+    unmount()
+  })
+
+  it("顶栏左内边距与正文同口径统一对齐（pl-4 sm:pl-6），展开与收起态均对齐", async () => {
+    localStorage.clear()
+    const { container, unmount } = renderShell("/p/a")
+    const header = container.querySelector("header")
+    expect(header).toHaveClass("pl-4", "sm:pl-6")
+    expect(header).toHaveClass("pr-2", "sm:pr-3")
+
+    const collapseButton = screen.getByRole("button", { name: "收起侧边栏" })
+    fireEvent.click(collapseButton)
+    await screen.findByRole("button", { name: "展开侧边栏" })
+
+    // 收起态下顶栏左内边距依旧保持 pl-4 sm:pl-6
+    expect(header).toHaveClass("pl-4", "sm:pl-6")
+    expect(header).toHaveClass("pr-2", "sm:pr-3")
     unmount()
   })
 })
