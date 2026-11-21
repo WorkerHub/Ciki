@@ -1,4 +1,5 @@
 import {
+  DefaultSidebar,
   Excalidraw,
   exportToBlob,
   getTextFromElements,
@@ -171,7 +172,7 @@ export function ExcalidrawModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background select-none">
+    <div className="wiki-excalidraw-modal fixed inset-0 z-50 flex flex-col bg-background select-none">
       {/* 顶部工具栏 */}
       <div className="flex h-12 items-center justify-between border-b px-4 bg-background">
         <div className="flex items-center gap-2">
@@ -223,6 +224,7 @@ export function ExcalidrawModal({
             theme={resolvedTheme}
             langCode={langCode}
             initialData={initialData}
+            validateEmbeddable={false}
             UIOptions={{
               canvasActions: {
                 loadScene: false,
@@ -230,18 +232,24 @@ export function ExcalidrawModal({
                 export: false,
                 saveAsImage: false,
                 toggleTheme: false
+              },
+              tools: {
+                image: false
               }
             }}
           >
+            <DefaultSidebar.Trigger
+              title=""
+              style={{ display: "none" }}
+              className="hidden pointer-events-none"
+            />
             <MainMenu>
               <MainMenu.DefaultItems.ClearCanvas />
               <MainMenu.DefaultItems.ChangeCanvasBackground />
-              <MainMenu.DefaultItems.Help />
             </MainMenu>
             <WelcomeScreen>
               <WelcomeScreen.Hints.ToolbarHint />
               <WelcomeScreen.Hints.MenuHint />
-              <WelcomeScreen.Hints.HelpHint />
             </WelcomeScreen>
           </Excalidraw>
         ) : null}

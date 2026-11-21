@@ -6,12 +6,15 @@ import { api } from "@/lib/api"
 
 // Mock @excalidraw/excalidraw components and utilities
 let mockExcalidrawAPI: any = null
+let lastExcalidrawProps: any = null
 
 vi.mock("@excalidraw/excalidraw", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@excalidraw/excalidraw")>()
   return {
     ...actual,
-    Excalidraw: ({ excalidrawAPI, initialData }: any) => {
+    Excalidraw: (props: any) => {
+      lastExcalidrawProps = props
+      const { excalidrawAPI, initialData, children } = props
       mockExcalidrawAPI = {
         getSceneElements: vi.fn(() => [
           { id: "1", type: "rectangle", text: "Box" },
@@ -30,9 +33,20 @@ vi.mock("@excalidraw/excalidraw", async (importOriginal) => {
           <span data-testid="initial-elements-count">
             {initialData?.elements?.length ?? 0}
           </span>
+          {children}
         </div>
       )
     },
+    DefaultSidebar: Object.assign(() => null, {
+      Trigger: ({ style, className }: any) => (
+        <div
+          data-testid="mock-default-sidebar-trigger"
+          style={style}
+          className={className}
+        />
+      ),
+      TabTriggers: () => null
+    }),
     getTextFromElements: vi.fn(() => "Hello Canvas\nBox"),
     serializeAsJSON: vi.fn(() => JSON.stringify({ elements: [] })),
     exportToBlob: vi.fn(
@@ -172,5 +186,21 @@ describe("ExcalidrawModal 全屏画布编辑器", () => {
     })
 
     expect(api.upload).toHaveBeenCalledTimes(2)
+  })
+
+  it("6. 满足红线与安全约束：validateEmbeddable 关闭、禁用图片工具、覆盖隐藏图库侧栏触发器", async () => {
+    render(<ExcalidrawModal onClose={vi.fn()} onSave={vi.fn()} />)
+    await screen.findByTestId("mock-excalidraw")
+
+    // B2: 禁用 embeddable iframe，防止产生外部请求与数据丢失
+    expect(lastExcalidrawProps.validateEmbeddable).toBe(false)
+
+    // S1: 禁用图片工具，防止用户插入非白名单图片导致保存静默丢失
+    expect(lastExcalidrawProps.UIOptions?.tools?.image).toBe(false)
+
+    // B1: 覆盖图库触发器，确保不暴露外部图库浏览与发布入口
+    const trigger = screen.getByTestId("mock-default-sidebar-trigger")
+    expect(trigger).toBeInTheDocument()
+    expect(trigger).toHaveStyle({ display: "none" })
   })
 })

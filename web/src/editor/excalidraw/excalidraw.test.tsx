@@ -1,6 +1,7 @@
 import { Editor } from "@tiptap/core"
 import { EditorContent, useEditor } from "@tiptap/react"
-import { act, render, screen } from "@testing-library/react"
+import { DefaultSidebar, Excalidraw } from "@excalidraw/excalidraw"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
@@ -218,5 +219,43 @@ describe("工具栏「插入画布」动作", () => {
     expect(excalidrawNode).toBeDefined()
     expect(excalidrawNode?.attrs?.sceneKey).toBe("")
     expect(excalidrawNode?.attrs?.previewKey).toBe("")
+  })
+})
+
+describe("Excalidraw 画布挂载沙箱约束", () => {
+  it("通过 DefaultSidebar.Trigger 覆盖默认图库触发按钮，不暴露外部图库入口", async () => {
+    const { container } = render(
+      <div
+        className="wiki-excalidraw-modal"
+        style={{ width: 800, height: 600 }}
+      >
+        <Excalidraw
+          validateEmbeddable={false}
+          UIOptions={{
+            tools: { image: false }
+          }}
+        >
+          <DefaultSidebar.Trigger
+            title=""
+            style={{ display: "none" }}
+            className="hidden pointer-events-none"
+          />
+        </Excalidraw>
+      </div>
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector(".LoadingMessage")).toBeNull()
+    })
+
+    // 校验不暴露任何图库触发文案与按钮
+    const libraryTriggers = container.querySelectorAll(
+      "[aria-label*='library' i], [title*='library' i], [title*='图库'], .sidebar-trigger__label"
+    )
+    expect(libraryTriggers.length).toBe(0)
+
+    // 默认侧栏触发器具有 display: none 样式
+    const trigger = container.querySelector(".default-sidebar-trigger")
+    expect(trigger).toHaveStyle({ display: "none" })
   })
 })

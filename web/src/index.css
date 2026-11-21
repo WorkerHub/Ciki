@@ -661,6 +661,15 @@
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Excalidraw 画布沙箱：彻底隐藏图库侧栏触发器与侧栏内容，遵循自托管与零外部链接红线
+ * ------------------------------------------------------------------ */
+.wiki-excalidraw-modal .sidebar-trigger__label-element,
+.wiki-excalidraw-modal .default-sidebar-trigger,
+.wiki-excalidraw-modal .default-sidebar {
+  display: none;
+}
+
 .wiki-content .is-empty::before {
   float: left;
   height: 0;
