@@ -1,3 +1,5 @@
+import fs from "node:fs"
+import path from "node:path"
 import { Editor } from "@tiptap/core"
 import { EditorContent, useEditor } from "@tiptap/react"
 import { DefaultSidebar, Excalidraw } from "@excalidraw/excalidraw"
@@ -223,6 +225,25 @@ describe("工具栏「插入画布」动作", () => {
 })
 
 describe("Excalidraw 画布挂载沙箱约束", () => {
+  let modalRule: string | undefined
+
+  beforeAll(() => {
+    // 从 web/src/index.css 读取沙箱 CSS 规则并注入 JSDOM
+    // 确保真实检验 index.css 中的 .wiki-excalidraw-modal 沙箱规则对 Excalidraw DOM 的样式约束
+    const cssContent = fs.readFileSync(
+      path.resolve(import.meta.dirname, "../../index.css"),
+      "utf-8"
+    )
+    modalRule = cssContent.match(
+      /\.wiki-excalidraw-modal[\s\S]*?\{[\s\S]*?\}/
+    )?.[0]
+    if (modalRule) {
+      const styleEl = document.createElement("style")
+      styleEl.innerHTML = modalRule
+      document.head.appendChild(styleEl)
+    }
+  })
+
   it("通过 DefaultSidebar.Trigger 覆盖默认图库触发按钮，不暴露外部图库入口", async () => {
     const { container } = render(
       <div
@@ -257,5 +278,43 @@ describe("Excalidraw 画布挂载沙箱约束", () => {
     // 默认侧栏触发器具有 display: none 样式
     const trigger = container.querySelector(".default-sidebar-trigger")
     expect(trigger).toHaveStyle({ display: "none" })
+  })
+
+  it("当侧栏被 openSidebar 激活时，验证 .default-sidebar 侧栏在沙箱 CSS 下保持 display: none 隐藏", async () => {
+    const { container } = render(
+      <div
+        className="wiki-excalidraw-modal"
+        style={{ width: 800, height: 600 }}
+      >
+        <Excalidraw
+          initialData={{
+            appState: {
+              openSidebar: { name: "default", tab: "library" }
+            } as any
+          }}
+          validateEmbeddable={false}
+          UIOptions={{
+            tools: { image: false }
+          }}
+        >
+          <DefaultSidebar.Trigger
+            title=""
+            style={{ display: "none" }}
+            className="hidden pointer-events-none"
+          />
+        </Excalidraw>
+      </div>
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector(".LoadingMessage")).toBeNull()
+    })
+
+    const sidebar = container.querySelector(".default-sidebar")
+    expect(sidebar).toBeInTheDocument()
+    // 验证承重 CSS: .wiki-excalidraw-modal .default-sidebar { display: none }
+    // 确保即便侧栏被意外打开（如快捷键触发），其根容器在沙箱 CSS 下也为 display: none，彻底隔绝外部图库入口呈现
+    expect(window.getComputedStyle(sidebar!).display).toBe("none")
+    expect(sidebar).toHaveStyle({ display: "none" })
   })
 })
