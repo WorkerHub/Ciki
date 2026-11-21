@@ -554,22 +554,22 @@ export function AppShell() {
       {isMobile || isSystemRoute ? (
         <>
           <header className="flex h-12 shrink-0 items-center border-b border-border">
-          {/* 系统页：内容包在与正文容器同口径的居中容器里；
+            {/* 系统页：内容包在与正文容器同口径的居中容器里；
               「返回文档」按钮放在首位，左缘与正文标题列左缘同一条线。 */}
-          {isSystemRoute ? (
-            <div className="mx-auto flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6">
-              {backToDocButton}
-              {siteLink}
-              {accountActions}
-            </div>
-          ) : (
-            <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
-              {mobileMenu}
-              {siteLink}
-              {mobileActions}
-            </div>
-          )}
-        </header>
+            {isSystemRoute ? (
+              <div className="mx-auto flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6">
+                {backToDocButton}
+                {siteLink}
+                {accountActions}
+              </div>
+            ) : (
+              <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
+                {mobileMenu}
+                {siteLink}
+                {mobileActions}
+              </div>
+            )}
+          </header>
           <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
         </>
       ) : (
