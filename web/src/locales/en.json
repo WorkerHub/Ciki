@@ -460,6 +460,10 @@
       "body": "Body",
       "heading": "Heading {{level}}"
     },
+    "fontSize": {
+      "label": "Font size",
+      "default": "Default"
+    },
     "codeBlock": {
       "show": "Show code",
       "hide": "Hide code",

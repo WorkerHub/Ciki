@@ -54,6 +54,8 @@ import {
   TEXT_COLORS
 } from "@/editor/colors/palette"
 import { ParagraphStyleMenu } from "@/editor/ParagraphStyleMenu"
+import { FontSizeMenu } from "@/editor/font-size/FontSizeMenu"
+import { currentFontSize } from "@/editor/font-size/commands"
 import { TableMenu } from "@/editor/table/TableMenu"
 import { describeApiError, type SearchResult, searchApi } from "@/lib/api"
 import { pagePath } from "@/lib/routes"
@@ -112,6 +114,7 @@ export function EditorToolbar({
       textColor: currentTextColor(editor),
       highlight: currentHighlight(editor),
       cellBackground: currentCellBackground(editor),
+      fontSize: currentFontSize(editor),
       inTable: editor.isActive("table")
     })
   })
@@ -246,6 +249,7 @@ export function EditorToolbar({
       className="flex flex-wrap items-center gap-0.5 rounded-lg border border-border bg-card p-1"
     >
       <ParagraphStyleMenu editor={editor} />
+      <FontSizeMenu editor={editor} />
 
       <Separator orientation="vertical" className="mx-1 !h-5" />
 

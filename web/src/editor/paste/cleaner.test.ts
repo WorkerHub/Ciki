@@ -320,3 +320,42 @@ describe("颜色：危险与非法值一律丢弃", () => {
     )
   })
 })
+
+describe("字号：span[data-font-size] 载具保留与清洗", () => {
+  it("7 档合法刻度保留载具，内联 style 剥除", () => {
+    const html =
+      '<p><span data-font-size="18px" style="font-size: 18px;">大字</span></p>'
+    expect(cleanConfluenceHtml(html)).toBe(
+      '<p><span data-font-size="18px">大字</span></p>'
+    )
+  })
+
+  it("大写或带空格的合规字号归一为小写标准形式", () => {
+    const html = '<p><span data-font-size=" 24PX ">大字</span></p>'
+    expect(cleanConfluenceHtml(html)).toBe(
+      '<p><span data-font-size="24px">大字</span></p>'
+    )
+  })
+
+  it("非法字号载具剥除属性，span 无其他属性时解包并保留文字", () => {
+    const html =
+      '<p><span data-font-size="15px" style="font-size: 15px;">非常规字号</span></p>'
+    expect(cleanConfluenceHtml(html)).toBe("<p>非常规字号</p>")
+  })
+
+  it("同时具有文字颜色与字号时两者都保留", () => {
+    const html =
+      '<p><span data-text-color="#de350b" data-font-size="20px" style="color: red; font-size: 20px;">红且大</span></p>'
+    expect(cleanConfluenceHtml(html)).toBe(
+      '<p><span data-text-color="#de350b" data-font-size="20px">红且大</span></p>'
+    )
+  })
+
+  it("非法字号但有合法文字颜色时：仅剥除字号属性，颜色载具保留", () => {
+    const html =
+      '<p><span data-text-color="#0052cc" data-font-size="99px">蓝字</span></p>'
+    expect(cleanConfluenceHtml(html)).toBe(
+      '<p><span data-text-color="#0052cc">蓝字</span></p>'
+    )
+  })
+})
