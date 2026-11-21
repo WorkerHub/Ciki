@@ -149,4 +149,18 @@ describe("浏览器插件凭证卡", () => {
     await user.click(screen.getByRole("button", { name: "重试" }))
     expect(await screen.findByText("浏览器插件")).toBeInTheDocument()
   })
+
+  it("标题旁显示帮助提示图标，悬停或聚焦显示说明气泡", async () => {
+    const user = userEvent.setup()
+    render(<ImportTokensCard />)
+
+    expect(await screen.findByText("浏览器插件")).toBeInTheDocument()
+    const helpBtn = screen.getByRole("button", { name: "帮助" })
+    expect(helpBtn).toBeInTheDocument()
+
+    await user.hover(helpBtn)
+    expect(
+      await screen.findByText("配合浏览器插件使用，把网页剪藏到 Ciki")
+    ).toBeInTheDocument()
+  })
 })

@@ -635,10 +635,14 @@
         "revokeConfirm": "Revoke Token",
         "revoked": "Token revoked. Apps using it stop working immediately.",
         "missing": "The Token no longer exists; the list has been refreshed.",
-        "issuedHint": "This Token is shown only once and cannot be viewed again after you leave Settings. Copy it now."
+        "issuedHint": "This Token is shown only once and cannot be viewed again after you leave Settings. Copy it now.",
+        "copyPrompt": "Copy integration prompt",
+        "copyPromptLabel": "Copy integration prompt"
       },
       "plugin": {
         "title": "Browser extension",
+        "helpLabel": "Help",
+        "helpTooltip": "Use with the browser extension to clip web pages into Ciki.",
         "new": "New credential",
         "empty": "No extension credentials yet",
         "nameLabel": "Name",

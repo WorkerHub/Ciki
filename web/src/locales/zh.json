@@ -630,10 +630,14 @@
         "revokeConfirm": "吊销 Token",
         "revoked": "Token 已吊销，使用它的应用立即失效。",
         "missing": "Token 已不存在，列表已刷新。",
-        "issuedHint": "这串 Token 只显示这一次，离开设置页后无法再查看。请现在复制。"
+        "issuedHint": "这串 Token 只显示这一次，离开设置页后无法再查看。请现在复制。",
+        "copyPrompt": "复制接入提示词",
+        "copyPromptLabel": "复制接入提示词"
       },
       "plugin": {
         "title": "浏览器插件",
+        "helpLabel": "帮助",
+        "helpTooltip": "配合浏览器插件使用，把网页剪藏到 Ciki",
         "new": "新建凭证",
         "empty": "还没有插件凭证",
         "nameLabel": "名称",
