@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  ALLOWED_FONT_SIZES,
   isAllowedImageSrc,
   sanitizePageHtml,
   toPlainText
@@ -161,6 +162,59 @@ describe("颜色载具（文字颜色 / 高亮 / 单元格底色）", () => {
   })
 })
 
+describe("行内字号载具（span[data-font-size]）", () => {
+  it("7 档预设字号原样保留，内联样式一律剥除", () => {
+    for (const size of ALLOWED_FONT_SIZES) {
+      const html = sanitizePageHtml(
+        `<p><span data-font-size="${size}" style="font-size: ${size};">字号</span></p>`
+      )
+      expect(html).toContain(`data-font-size="${size}"`)
+      expect(html).not.toContain("style=")
+    }
+  })
+
+  it("非法字号（超出档位 / 缺少单位 / 非法单位 / 任意 CSS / 带引号注入）不产出属性，文字不丢", () => {
+    const html = sanitizePageHtml(
+      '<p><span data-font-size="15px">一</span>' +
+        '<span data-font-size="16">二</span>' +
+        '<span data-font-size="1.2em">三</span>' +
+        '<span data-font-size="24pt">四</span>' +
+        '<span data-font-size="calc(10px + 2px)">五</span>' +
+        "<span data-font-size='16px\" onmouseover=\"alert(1)'>六</span></p>"
+    )
+    expect(html).not.toContain("data-font-size=")
+    expect(html).not.toContain("onmouseover")
+    for (const text of ["一", "二", "三", "四", "五", "六"]) {
+      expect(html).toContain(text)
+    }
+  })
+
+  it("大写字号统一转为小写（如 16PX -> 16px）", () => {
+    const html = sanitizePageHtml(
+      '<p><span data-font-size="16PX">字号</span></p>'
+    )
+    expect(html).toContain('data-font-size="16px"')
+    expect(html).not.toContain("16PX")
+    expect(html).not.toContain("style=")
+  })
+
+  it("去除首尾空白（如 ' 18px ' -> '18px'）", () => {
+    const html = sanitizePageHtml(
+      '<p><span data-font-size=" 18px ">字号</span></p>'
+    )
+    expect(html).toContain('data-font-size="18px"')
+  })
+
+  it("字号与文字颜色可共存于同一个 span 载具上", () => {
+    const html = sanitizePageHtml(
+      '<p><span data-font-size="20px" data-text-color="#de350b" style="color: red; font-size: 20px;">大红字</span></p>'
+    )
+    expect(html).toContain('data-font-size="20px"')
+    expect(html).toContain('data-text-color="#de350b"')
+    expect(html).not.toContain("style=")
+  })
+})
+
 describe("纯文本规范化的输入健壮性", () => {
   it("未闭合标签的病态输入线性返回（无 O(n²) 回溯）", () => {
     const input = "<a".repeat(300_000)
@@ -187,7 +241,7 @@ describe("归一化的幂等性（无改动保存去重的前提）", () => {
         '<pre><code class="language-sql">select 1</code></pre>' +
         '<ul data-type="taskList"><li data-type="taskItem" data-checked="true">' +
         '<label><input type="checkbox" checked="checked"></label><div><p>完成</p></div></li></ul>' +
-        '<p><span data-text-color="#FF0000">红</span><mark data-color="#00FF00">亮</mark></p>'
+        '<p><span data-text-color="#FF0000">红</span><mark data-color="#00FF00">亮</mark><span data-font-size="24PX">大</span></p>'
     )
     expect(sanitizePageHtml(storedHtml)).toBe(storedHtml)
 

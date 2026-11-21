@@ -99,7 +99,7 @@ describe("颜色命令（编辑器模型）", () => {
     editor.commands.selectAll()
     setTextColor(editor, "#0052cc")
     expect(jsonText(editor)?.marks).toEqual([
-      { type: "textStyle", attrs: { color: "#0052cc" } }
+      { type: "textStyle", attrs: { color: "#0052cc", fontSize: null } }
     ])
     expect(currentTextColor(editor)).toBe("#0052cc")
     expect(editor.getHTML()).toContain('data-text-color="#0052cc"')
@@ -130,7 +130,7 @@ describe("颜色命令（编辑器模型）", () => {
     setTextColor(editor, "#de350b")
     setHighlight(editor, "#fffae6")
     expect(jsonText(editor)?.marks).toEqual([
-      { type: "textStyle", attrs: { color: "#de350b" } },
+      { type: "textStyle", attrs: { color: "#de350b", fontSize: null } },
       { type: "highlight", attrs: { color: "#fffae6" } }
     ])
   })
@@ -184,7 +184,7 @@ describe("颜色命令（编辑器模型）", () => {
     editor.commands.redo()
     editor.commands.redo()
     expect(jsonText(editor)?.marks).toEqual([
-      { type: "textStyle", attrs: { color: "#de350b" } },
+      { type: "textStyle", attrs: { color: "#de350b", fontSize: null } },
       { type: "highlight", attrs: { color: "#ffe58f" } }
     ])
   })
@@ -263,7 +263,7 @@ describe("工具条取色入口", () => {
     await user.click(swatch)
 
     expect(jsonText(editor)?.marks).toEqual([
-      { type: "textStyle", attrs: { color: "#0052cc" } }
+      { type: "textStyle", attrs: { color: "#0052cc", fontSize: null } }
     ])
   })
 

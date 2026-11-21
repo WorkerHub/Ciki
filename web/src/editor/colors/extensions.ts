@@ -14,15 +14,36 @@ import TableCell from "@tiptap/extension-table-cell"
 import TableHeader from "@tiptap/extension-table-header"
 import { TextStyle } from "@tiptap/extension-text-style"
 import { normalizeColor } from "@/lib/color"
+import { normalizeFontSize } from "@/lib/font-size"
 
 /**
- * 文字颜色：TextStyle 的原生规则只认「带 style 的 span」，所以额外加一条
- * `span[data-text-color]`——入库 HTML 里颜色只存在 data 属性上。
+ * 文字样式：TextStyle 的原生规则只认「带 style 的 span」，所以额外加两条
+ * `span[data-text-color]` 与 `span[data-font-size]`——入库 HTML 里颜色与字号只存在 data 属性上。
+ * 仅当属性值合法时才匹配为 textStyle，避免无合规属性的 span 制造空 mark。
  */
 export const WikiTextStyle = TextStyle.extend({
   parseHTML() {
     return [
-      { tag: "span[data-text-color]", getAttrs: () => ({}) },
+      {
+        tag: "span[data-text-color]",
+        consuming: false,
+        getAttrs: (element) =>
+          normalizeColor(
+            (element as HTMLElement).getAttribute("data-text-color")
+          )
+            ? {}
+            : false
+      },
+      {
+        tag: "span[data-font-size]",
+        consuming: false,
+        getAttrs: (element) =>
+          normalizeFontSize(
+            (element as HTMLElement).getAttribute("data-font-size")
+          )
+            ? {}
+            : false
+      },
       ...(this.parent?.() ?? [])
     ]
   }

@@ -2,9 +2,9 @@ import { cn } from "cn"
 import { type KeyboardEvent, useCallback, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 
-/** 网格选择器的上限：15 列 × 20 行（定版）。 */
+/** 网格选择器的上限：15 列 × 15 行（定版）。 */
 export const MAX_TABLE_COLS = 15
-export const MAX_TABLE_ROWS = 20
+export const MAX_TABLE_ROWS = 15
 
 interface TableSize {
   rows: number

@@ -216,31 +216,32 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(brand?.parentElement).toHaveClass("h-12", "px-2", "sm:px-3")
     unmount()
 
-    // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮，而是显示「返回文档」按钮；
-    // 顶栏为 logo+标题 预留 260px 固定左侧区（顶头左上角），正文内容列（含「返回文档」）
-    // 位于该区右侧，且与正文标题列左边缘对齐（宽屏居中、窄屏让位）
+    // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮；
+    // 顶栏全宽、logo 左上角顶头（不设 260px 预留区），「返回文档」移入正文列顶部第一行
     const system = renderShell("/settings")
     const systemHeader = system.container.querySelector("header")
     expect(system.container.querySelectorAll("header")).toHaveLength(1)
     expect(systemHeader?.querySelector("form")).toBeNull()
-    const backButton = within(systemHeader!).getByRole("link", {
-      name: "返回文档"
-    })
-    expect(backButton).toHaveAttribute("href", "/")
     expect(
       within(systemHeader!).queryByRole("button", { name: "新建页面" })
     ).toBeNull()
 
-    // logo+标题置于左上角固定 260px 左侧区，不再排在「返回文档」旁
+    // 顶栏中不包含「返回文档」（已移入正文列），包含左上角顶头品牌
+    expect(
+      within(systemHeader!).queryByRole("link", { name: "返回文档" })
+    ).toBeNull()
     const systemBrand = systemHeader?.querySelector('a[href="/"]')
     expect(systemBrand).not.toBeNull()
-    expect(systemBrand?.parentElement).toHaveClass("w-[260px]")
-    const headerContent = backButton.parentElement as HTMLElement
-    expect(headerContent).toHaveClass("max-w-[1400px]", "px-4", "sm:px-6")
-    expect(headerContent.contains(systemBrand ?? null)).toBe(false)
-    expect(headerContent.style.marginLeft).toMatch(
-      /max\(260px,\s*(calc\()?50% - 700px/
-    )
+    expect(systemBrand?.parentElement).not.toHaveClass("w-[260px]")
+    expect(systemBrand?.parentElement).toHaveClass("px-2", "sm:px-3")
+
+    // 「返回文档」移入正文列，作为正文列顶部第一行
+    const backButton = screen.getByRole("link", { name: "返回文档" })
+    expect(backButton).toHaveAttribute("href", "/")
+    const systemWrapper = screen.getByText("页面内容").parentElement
+    expect(systemWrapper).toHaveClass("max-w-[1400px]", "mx-auto")
+    expect(systemWrapper).not.toHaveClass("ml-[260px]")
+    expect(systemWrapper?.contains(backButton)).toBe(true)
   })
 
   it("移动端保持整条顶栏：没有搜索框，页面树走抽屉，抽屉内不包含收起侧栏按钮", () => {
@@ -273,7 +274,7 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     }
   })
 
-  it("分类页容器不居中：左缘与文章页正文对齐，系统页正文列宽屏居中/窄屏让位", () => {
+  it("分类页容器不居中：左缘与文章页正文对齐，系统页正文列流式居中", () => {
     const search = renderShell("/s/default/search")
     // 壳层容器是 Suspense 之外的第一个 div（Suspense 不产 DOM）
     const searchWrapper = screen.getByText("页面内容").parentElement
@@ -290,9 +291,10 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
 
     renderShell("/settings")
     const systemWrapper = screen.getByText("页面内容").parentElement
-    expect(systemWrapper).toHaveClass("max-w-[1400px]")
-    expect(systemWrapper?.style.marginLeft).toMatch(
-      /max\(260px,\s*(calc\()?50% - 700px/
+    expect(systemWrapper).toHaveClass("max-w-[1400px]", "mx-auto")
+    expect(systemWrapper).not.toHaveClass("ml-[260px]")
+    expect(systemWrapper?.style.width).toMatch(
+      /min\(1400px,\s*(calc\()?100%\s*-\s*\(?2\s*\*\s*max\(16px,\s*3\.7vw\)\)?\)/
     )
   })
 
@@ -481,23 +483,29 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     unmount()
   })
 
-  it("桌面系统页顶栏 logo 位于 260px 左侧区且与「返回文档」同一基线对齐正文列，移动端不加 260px 区", () => {
+  it("系统页顶栏全宽、logo 顶头，「返回文档」移入正文列顶部第一行，正文列流式居中", () => {
     // 桌面态
     const desktop = renderShell("/settings")
     const desktopHeader = desktop.container.querySelector("header")
     const brand = desktopHeader?.querySelector('a[href="/"]')
     expect(brand).not.toBeNull()
-    expect(brand?.parentElement).toHaveClass("w-[260px]", "absolute", "left-0")
+    expect(brand?.parentElement).not.toHaveClass("w-[260px]")
+    expect(brand?.parentElement).not.toHaveClass("absolute")
+    expect(brand?.parentElement).toHaveClass("px-2", "sm:px-3")
 
-    const backButton = within(desktopHeader!).getByRole("link", {
-      name: "返回文档"
-    })
-    const desktopContentCol = backButton.parentElement as HTMLElement
-    expect(desktopContentCol.contains(brand ?? null)).toBe(false)
+    // 顶栏不再包含「返回文档」
+    expect(
+      within(desktopHeader!).queryByRole("link", { name: "返回文档" })
+    ).toBeNull()
 
+    // 「返回文档」移入正文列顶部
+    const backButton = screen.getByRole("link", { name: "返回文档" })
     const desktopSystemWrapper = screen.getByText("页面内容").parentElement
-    expect(desktopContentCol.style.marginLeft).toBe(
-      desktopSystemWrapper?.style.marginLeft
+    expect(desktopSystemWrapper?.contains(backButton)).toBe(true)
+    expect(desktopSystemWrapper).toHaveClass("max-w-[1400px]", "mx-auto")
+    expect(desktopSystemWrapper).not.toHaveClass("ml-[260px]")
+    expect(desktopSystemWrapper?.style.width).toMatch(
+      /min\(1400px,\s*(calc\()?100%\s*-\s*\(?2\s*\*\s*max\(16px,\s*3\.7vw\)\)?\)/
     )
     desktop.unmount()
 
@@ -519,6 +527,12 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       const mobileBrand = mobileHeader?.querySelector('a[href="/"]')
       expect(mobileBrand?.parentElement).not.toHaveClass("w-[260px]")
       expect(mobileBrand?.parentElement).toHaveClass("px-2", "sm:px-3")
+      const mobileSystemWrapper = screen.getByText("页面内容").parentElement
+      expect(mobileSystemWrapper).toHaveClass("mx-auto", "max-w-[1400px]")
+      expect(mobileSystemWrapper).not.toHaveClass("ml-[260px]")
+      expect(mobileSystemWrapper?.style.width).toMatch(
+        /min\(1400px,\s*(calc\()?100%\s*-\s*\(?2\s*\*\s*max\(16px,\s*3\.7vw\)\)?\)/
+      )
       mobile.unmount()
     } finally {
       window.matchMedia = original

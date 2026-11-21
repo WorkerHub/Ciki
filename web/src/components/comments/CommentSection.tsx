@@ -32,6 +32,8 @@ export function CommentSection({ pageId }: { pageId: number }) {
   const { data, status, error, pending, reload, create, update, remove } =
     useComments(pageId)
   const [topDraft, setTopDraft] = useState("")
+  // 顶层输入框复位序号：发表成功后递增，触发 composer 完整重置（回到文本域与初始状态）
+  const [topComposerKey, setTopComposerKey] = useState(0)
   const [replyDraft, setReplyDraft] = useState("")
   const [editDraft, setEditDraft] = useState("")
   // 正在回复的顶层评论 id；同一时刻只开一个回复框
@@ -68,7 +70,10 @@ export function CommentSection({ pageId }: { pageId: number }) {
   }
 
   async function submitTop() {
-    if (await create(topDraft, null)) setTopDraft("")
+    if (await create(topDraft, null)) {
+      setTopDraft("")
+      setTopComposerKey((prev) => prev + 1)
+    }
   }
 
   async function submitReply(threadId: number) {
@@ -190,6 +195,7 @@ export function CommentSection({ pageId }: { pageId: number }) {
 
       {hasData ? (
         <CommentComposer
+          key={topComposerKey}
           value={topDraft}
           onChange={setTopDraft}
           onPreview={preview}

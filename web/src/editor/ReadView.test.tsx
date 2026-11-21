@@ -312,4 +312,14 @@ describe("标题锚点（索引轨用）", () => {
     expect(await screen.findByText("新正文")).toBeInTheDocument()
     expect(document.querySelector(".wiki-content")).not.toBe(root)
   })
+
+  it("行内字号载具在阅读态还原为带内联 style 的 span", async () => {
+    const { container } = render(
+      <ReadView html={'<p><span data-font-size="24px">大号文字</span></p>'} />
+    )
+    await screen.findByText("大号文字")
+    const span = container.querySelector('span[data-font-size="24px"]')
+    expect(span).not.toBeNull()
+    expect(span).toHaveStyle({ fontSize: "24px" })
+  })
 })

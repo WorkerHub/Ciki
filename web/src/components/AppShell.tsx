@@ -66,7 +66,6 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_WIDTH_ICON,
-  SYSTEM_SIDEBAR_HEADER_WIDTH,
   writeSidebarOpen
 } from "@/lib/sidebar"
 import { canEdit } from "@/lib/space"
@@ -441,44 +440,6 @@ export function AppShell() {
     </Suspense>
   )
 
-  // 文章页读、写两态走同一条分支：宽度只由 PageCanvas 决定，两处不会各写一份。
-  const main = isArticleRoute ? (
-    <PageCanvas>{content}</PageCanvas>
-  ) : (
-    // 分类页（搜索等）与文章页共用同一条左缘：贴着分割线 16px/24px 起排，
-    // 不再用 1140px 居中容器把内容推得比正文更靠右；宽度上限保留，只去掉居中。
-    // 系统页正文列：为顶栏左上角 logo 预留 260px 左侧区。宽屏（≥1920px）正文列居中、
-    // 左缘越过 260px 区，视觉不变；窄屏（如 1440/1728px）不再居中，左缘让给 logo 区。
-    <div
-      className={cn(
-        "px-4 py-5 sm:px-6 sm:py-6",
-        isSystemRoute ? "max-w-[1400px]" : "w-full max-w-[1140px]"
-      )}
-      style={
-        isSystemRoute && !isMobile
-          ? {
-              marginLeft: `max(${SYSTEM_SIDEBAR_HEADER_WIDTH}px, calc((100% - 1400px) / 2))`
-            }
-          : isSystemRoute
-            ? { marginLeft: "auto", marginRight: "auto" }
-            : undefined
-      }
-    >
-      {content}
-    </div>
-  )
-
-  const animatedMain = (
-    <motion.div
-      key={location.pathname}
-      initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
-    >
-      {main}
-    </motion.div>
-  )
-
   const siteLink = (
     <Link
       to="/"
@@ -496,6 +457,41 @@ export function AppShell() {
         {t("shell.backToDocument")}
       </Link>
     </Button>
+  )
+
+  // 文章页读、写两态走同一条分支：宽度只由 PageCanvas 决定，两处不会各写一份。
+  const main = isArticleRoute ? (
+    <PageCanvas>{content}</PageCanvas>
+  ) : isSystemRoute ? (
+    // 系统页正文列：流式居中、自动收缩（丙方案定版）。
+    // 列宽上限 1400px，每侧边距下限 = max(16px, 视口宽的 3.7%)，居中后两侧边距恒等。
+    // 「返回文档」移入正文列，作为正文列顶部第一行（面包屑位置）、与正文左缘对齐。
+    <div
+      className="mx-auto max-w-[1400px] py-5 sm:py-6"
+      style={{
+        width: "min(1400px, calc(100% - 2 * max(16px, 3.7vw)))"
+      }}
+    >
+      <div className="mb-4">{backToDocButton}</div>
+      {content}
+    </div>
+  ) : (
+    // 分类页（搜索等）与文章页共用同一条左缘：贴着分割线 16px/24px 起排，
+    // 不再用 1140px 居中容器把内容推得比正文更靠右；宽度上限保留，只去掉居中。
+    <div className="w-full max-w-[1140px] px-4 py-5 sm:px-6 sm:py-6">
+      {content}
+    </div>
+  )
+
+  const animatedMain = (
+    <motion.div
+      key={location.pathname}
+      initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
+      {main}
+    </motion.div>
   )
 
   const createButton = canWrite ? (
@@ -566,33 +562,12 @@ export function AppShell() {
       {isMobile || isSystemRoute ? (
         <>
           <header className="relative flex h-12 shrink-0 items-center border-b border-border">
-            {/* 系统页：顶栏为 logo 预留固定宽度左侧区（260px，对应 wiki 侧栏头部展开宽度），
-                logo+标题置于其内左上角；正文内容列（含「返回文档」）位于该区右侧，
-                与正文标题列左边缘对齐。宽屏正文列居中、左缘越过 logo 区，视觉不变；
-                窄屏正文列不再居中、左缘让给 logo 区（= wiki 侧栏头部占位行为）。 */}
+            {/* 系统页：顶栏全宽、logo 左上角顶头，右侧主题/头像不变（丙方案定版） */}
             {isSystemRoute ? (
-              isMobile ? (
-                <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
-                  {backToDocButton}
-                  {siteLink}
-                  {accountActions}
-                </div>
-              ) : (
-                <div className="flex h-12 w-full items-center">
-                  <div className="absolute inset-y-0 left-0 flex h-12 w-[260px] items-center gap-2 px-2 sm:px-3">
-                    {siteLink}
-                  </div>
-                  <div
-                    className="flex h-12 flex-1 max-w-[1400px] items-center gap-2 px-4 sm:px-6"
-                    style={{
-                      marginLeft: `max(${SYSTEM_SIDEBAR_HEADER_WIDTH}px, calc((100% - 1400px) / 2))`
-                    }}
-                  >
-                    {backToDocButton}
-                    {accountActions}
-                  </div>
-                </div>
-              )
+              <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
+                {siteLink}
+                {accountActions}
+              </div>
             ) : (
               <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
                 {mobileMenu}

@@ -17,12 +17,6 @@ export const SIDEBAR_DEFAULT_SIZE = "18%"
  */
 export const SIDEBAR_WIDTH_ICON = 48
 
-/**
- * 系统页顶栏为 logo 预留的固定宽度左侧区（对应 wiki 侧栏头部展开宽度 260px）。
- * 宽屏正文列居中、左缘越过 logo 区；窄屏正文列让给 logo 区。
- */
-export const SYSTEM_SIDEBAR_HEADER_WIDTH = 260
-
 /** 读开合状态：只有明确写过 `"false"` 才收起，其余按展开。 */
 export function readSidebarOpen(): boolean {
   try {

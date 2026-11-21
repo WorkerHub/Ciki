@@ -13,6 +13,7 @@
  */
 import { isHostedImageSrc, safeExternalUrl } from "@/lib/media"
 import { normalizeColor } from "@/lib/color"
+import { normalizeFontSize } from "@/lib/font-size"
 
 function parseFragment(html: string): HTMLElement {
   const doc = new DOMParser().parseFromString(
@@ -319,7 +320,7 @@ export function cleanConfluenceHtml(html: string): string {
     ],
     TD: ["colspan", "rowspan", "data-cell-bg"],
     TH: ["colspan", "rowspan", "data-cell-bg"],
-    SPAN: ["data-text-color"],
+    SPAN: ["data-text-color", "data-font-size"],
     MARK: ["data-color"],
     COL: ["width"],
     CODE: ["class"],
@@ -336,6 +337,14 @@ export function cleanConfluenceHtml(html: string): string {
         !/^language-[\w+#-]+$/.test(attr.value)
       ) {
         el.removeAttribute("class")
+      }
+      if (el.tagName === "SPAN" && attr.name === "data-font-size") {
+        const normalized = normalizeFontSize(attr.value)
+        if (normalized) {
+          el.setAttribute("data-font-size", normalized)
+        } else {
+          el.removeAttribute("data-font-size")
+        }
       }
     })
   })
@@ -356,7 +365,12 @@ export function cleanConfluenceHtml(html: string): string {
       })
     root.querySelectorAll("span").forEach((el) => {
       if (!el.parentNode) return
-      if (el.hasAttribute("data-text-color")) return
+      if (
+        el.hasAttribute("data-text-color") ||
+        el.hasAttribute("data-font-size")
+      ) {
+        return
+      }
       Array.from(el.childNodes).forEach((node) => {
         el.parentNode?.insertBefore(node, el)
       })

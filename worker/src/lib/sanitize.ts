@@ -54,6 +54,31 @@ function colorAttr(name: string, value: string): string {
   return COLOR_ATTR.test(value) ? `${name}="${value.toLowerCase()}"` : ""
 }
 
+/**
+ * 行内字号载具：`span[data-font-size]`。
+ * 严格限定 7 档固定刻度（小写，单位固定 px），不收任意 CSS 值或相对单位。
+ * 契约见 docs/api-contract.md「服务端消毒规则」。
+ */
+export const ALLOWED_FONT_SIZES = [
+  "12px",
+  "14px",
+  "16px",
+  "18px",
+  "20px",
+  "24px",
+  "32px"
+] as const
+
+export type AllowedFontSize = (typeof ALLOWED_FONT_SIZES)[number]
+
+const FONT_SIZE_SET = new Set<string>(ALLOWED_FONT_SIZES)
+
+/** 合法字号载具重新序列化（值统一小写，与库里的形态一致）；非法返回空串即删除。 */
+function fontSizeAttr(name: string, value: string): string {
+  const normalized = value.trim().toLowerCase()
+  return FONT_SIZE_SET.has(normalized) ? `${name}="${normalized}"` : ""
+}
+
 const whitelist = {
   p: [],
   h1: [],
@@ -77,7 +102,7 @@ const whitelist = {
   sup: [],
   blockquote: [],
   code: ["class"],
-  span: ["data-text-color"],
+  span: ["data-text-color", "data-font-size"],
   mark: ["data-color"],
   a: ["title", "href"],
   img: [
@@ -199,6 +224,10 @@ function createFilter(policy: ImageSrcPolicy): FilterXSS {
       // 颜色载具：合法就重新吐一遍（顺手统一成小写），非法直接删。
       if (tag === "span" && name === "data-text-color") {
         return colorAttr(name, value)
+      }
+      // 行内字号载具：仅放行固定刻度（统一成小写），非法直接删属性。
+      if (tag === "span" && name === "data-font-size") {
+        return fontSizeAttr(name, value)
       }
       if (tag === "mark" && name === "data-color") {
         return colorAttr(name, value)
