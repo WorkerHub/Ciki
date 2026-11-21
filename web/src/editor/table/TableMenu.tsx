@@ -34,7 +34,7 @@ function TableAction({
       disabled={disabled}
       onClick={onSelect}
       className={cn(
-        "w-full justify-start gap-1.5 px-1.5 font-normal",
+        "flex w-full justify-start gap-1.5 px-1.5 font-normal",
         destructive &&
           "text-destructive hover:bg-destructive/10 hover:text-destructive"
       )}
@@ -47,8 +47,8 @@ function TableAction({
 
 /**
  * 表格面板：上半是行列网格选择器；光标在表格内时下半是「当前表格」一组操作。
- * 面板用 Popover（非模态、Tab 不被困住）而不是 DropdownMenu——菜单里塞 15×20 个格子
- * 只能变成 300 个菜单项、方向键线性游走，键盘路径就不成立了。
+ * 面板用 Popover（非模态、Tab 不被困住）而不是 DropdownMenu——菜单里塞 15×15 个格子
+ * 只能变成 225 个菜单项、方向键线性游走，键盘路径就不成立了。
  */
 export function TableMenu({ editor }: { editor: Editor }) {
   const [open, setOpen] = useState(false)
@@ -89,7 +89,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
       <PopoverContent
         align="start"
         aria-label={t("editor.table.label")}
-        className="w-max p-1"
+        className="flex flex-col w-max p-1"
         onCloseAutoFocus={(event) => {
           if (!keepFocusInEditor.current) return
           keepFocusInEditor.current = false

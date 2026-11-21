@@ -60,7 +60,7 @@ function highlighted() {
 }
 
 describe("网格选择器", () => {
-  it("上限 15 列 × 20 行，默认预选 3 × 3", () => {
+  it("上限 15 列 × 15 行，默认预选 3 × 3", () => {
     render(<TableSizePicker onPick={() => {}} />)
     expect(screen.getAllByRole("button")).toHaveLength(
       MAX_TABLE_COLS * MAX_TABLE_ROWS
@@ -111,6 +111,11 @@ describe("网格选择器", () => {
     await user.keyboard("{ArrowUp}{ArrowLeft}")
     expect(screen.getByText("1 × 1")).toBeInTheDocument()
     expect(document.activeElement).toBe(cell(1, 1))
+
+    cell(15, 15).focus()
+    await user.keyboard("{ArrowDown}{ArrowRight}")
+    expect(screen.getByText("15 × 15")).toBeInTheDocument()
+    expect(document.activeElement).toBe(cell(15, 15))
   })
 })
 
