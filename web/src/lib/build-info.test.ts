@@ -1,7 +1,14 @@
 import { execFileSync } from "node:child_process"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
-import { buildInfo, buildVersionLabel, versionSegments } from "@/lib/build-info"
+import {
+  buildInfo,
+  buildTimeZoneLabel,
+  buildVersionLabel,
+  formatBuildDate,
+  formatBuildTime,
+  versionSegments
+} from "@/lib/build-info"
 
 const repoRoot = path.resolve(process.cwd(), "..")
 
@@ -40,6 +47,12 @@ describe("构建信息", () => {
       /^v\d+\.\d+\.\d+-\d+-([0-9a-f]{7,}|unknown)$/
     )
     expect(buildInfo.commitCount).toBeGreaterThanOrEqual(0)
+  })
+
+  it("构建日期/时间固定格式，并带时区标签", () => {
+    expect(formatBuildDate()).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(formatBuildTime()).toMatch(/^\d{2}:\d{2}:\d{2}$/)
+    expect(buildTimeZoneLabel()).toMatch(/^.+ \(UTC[+-]\d{2}:\d{2}\)$/)
   })
 
   it("版本号拆成三段式 semver/commitCount/commit", () => {

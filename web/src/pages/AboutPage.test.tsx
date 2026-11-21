@@ -1,36 +1,28 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
+import { buildInfo } from "@/lib/build-info"
 import { AboutPage } from "@/pages/AboutPage"
 
 /** 用户定版介绍段：逐字比对，不引用源码常量（避免自证）。 */
 const INTRO =
   "ciki 是团队内部使用的 wiki。页面按树组织，编辑器支持标题、代码块、表格、任务列表与图片；每次保存都会留下版本记录，可随时回滚，正文支持全文检索。成员按空间协作，登录支持 Passkey 与两步验证，也可用浏览器插件把外部页面剪藏进来。"
 
-/**
- * 关于页「构建时间」按 ISO 8601 UTC 直出（秒级、`Z` 后缀），值内不含汉字与括号。
- * 用例里的注入值来自 web/vitest.config.ts：2026-01-01T00:00:00.000Z。
- */
-describe("关于页构建时间", () => {
-  const buildTimeValue = () => {
+describe("关于页构建信息", () => {
+  it("版本号显示 buildInfo.version 全串（无 g 前缀、无 +build）", () => {
     render(<AboutPage />)
-    const label = screen.getByText("构建时间")
-    return label.nextElementSibling?.textContent ?? ""
-  }
-
-  it("值形如 YYYY-MM-DDTHH:mm:ssZ，且与注入时刻是同一瞬间", () => {
-    const value = buildTimeValue()
-    expect(value).toBe("2026-01-01T00:00:00Z")
-    expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+    expect(screen.getByText(buildInfo.version)).toBeInTheDocument()
   })
 
-  it("值内没有汉字与括号（不再附带时区文字）", () => {
-    const value = buildTimeValue()
-    expect(value).not.toMatch(/[\u4e00-\u9fff（）()]/)
-  })
-
-  it("字段标签保持「构建时间」不变", () => {
+  it("构建日期、构建时间分两行，时间带时区标注", () => {
     render(<AboutPage />)
+    expect(screen.getByText("构建日期")).toBeInTheDocument()
     expect(screen.getByText("构建时间")).toBeInTheDocument()
+    expect(screen.getByText(/\(UTC[+-]\d{2}:\d{2}\)$/)).toBeInTheDocument()
+  })
+
+  it("页眉不再有单独的「版本 1.0.0」行", () => {
+    render(<AboutPage />)
+    expect(screen.queryByText(/^版本 \d/)).toBeNull()
   })
 })
 
@@ -72,13 +64,12 @@ describe("关于页文案：删三处 + 换介绍段 + TipTap 3", () => {
   })
 })
 
-describe("关于页标题与版本行", () => {
-  it("标题是「关于Ciki」，版本行渲染「版本 1.0.0」", () => {
+describe("关于页标题", () => {
+  it("标题是「关于Ciki」", () => {
     render(<AboutPage />)
 
     expect(
       screen.getByRole("heading", { level: 1, name: "关于Ciki" })
     ).toBeInTheDocument()
-    expect(screen.getByText("版本 1.0.0")).toBeInTheDocument()
   })
 })

@@ -4,6 +4,7 @@ import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { routes } from "@/App"
 import { ApiError, type Me } from "@/lib/api"
+import { buildInfo } from "@/lib/build-info"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSetupGateStore } from "@/stores/setup"
@@ -123,7 +124,7 @@ describe("路由守卫与初始化门", () => {
     expect(
       await screen.findByRole("heading", { name: "登录 Ciki" })
     ).toBeInTheDocument()
-    expect(screen.getByText(/1\.0\.0 · test-build/)).toBeInTheDocument()
+    expect(screen.getByText(`Ciki · ${buildInfo.version}`)).toBeInTheDocument()
   })
 
   it("未登录可以从路由进忘记密码页", async () => {

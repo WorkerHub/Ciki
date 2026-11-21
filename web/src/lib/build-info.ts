@@ -47,3 +47,36 @@ export function buildVersionLabel(name?: string): string {
     : buildInfo.version
   return name ? `${name} · ${version}` : version
 }
+
+function format(date: Date, options: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: buildInfo.timeZone,
+    ...options
+  }).format(date)
+}
+
+/** YYYY-MM-DD（构建时区）。 */
+export function formatBuildDate(): string {
+  const date = new Date(buildInfo.builtAt)
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: buildInfo.timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(date)
+}
+
+/** HH:mm:ss（24 小时制，构建时区）。 */
+export function formatBuildTime(): string {
+  return format(new Date(buildInfo.builtAt), {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23"
+  })
+}
+
+/** 构建时区标签：Asia/Shanghai (UTC+08:00)。 */
+export function buildTimeZoneLabel(): string {
+  return `${buildInfo.timeZone} (UTC${buildInfo.offset})`
+}

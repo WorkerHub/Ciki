@@ -8,7 +8,12 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { formatIsoUtc } from "@/lib/format"
+import {
+  buildInfo,
+  buildTimeZoneLabel,
+  formatBuildDate,
+  formatBuildTime
+} from "@/lib/build-info"
 
 const REPO_URL = "https://github.com/WorkerHub/Ciki"
 
@@ -30,9 +35,6 @@ export function AboutPage() {
           <Info className="size-4 text-muted-foreground" aria-hidden="true" />
           {t("about.title")}
         </h1>
-        <p className="text-sm text-muted-foreground">
-          {t("about.version", { version: __APP_PACKAGE_VERSION__ })}
-        </p>
       </header>
 
       <Card>
@@ -80,11 +82,20 @@ export function AboutPage() {
             <dt className="text-xs font-medium text-muted-foreground">
               {t("about.build.version")}
             </dt>
-            <dd className="font-mono text-sm break-all">{__APP_VERSION__}</dd>
+            <dd className="font-mono text-sm break-all">{buildInfo.version}</dd>
+            <dt className="text-xs font-medium text-muted-foreground">
+              {t("about.build.date")}
+            </dt>
+            <dd>{formatBuildDate()}</dd>
             <dt className="text-xs font-medium text-muted-foreground">
               {t("about.build.time")}
             </dt>
-            <dd>{formatIsoUtc(__APP_BUILD_TIME__)}</dd>
+            <dd>
+              {formatBuildTime()}{" "}
+              <span className="text-xs text-muted-foreground">
+                {buildTimeZoneLabel()}
+              </span>
+            </dd>
           </dl>
           <Separator />
           <a
