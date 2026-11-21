@@ -73,6 +73,7 @@
       "collapse": "收起侧边栏",
       "expand": "展开侧边栏"
     },
+    "backToDocument": "返回文档",
     "newPage": "新建页面",
     "loadingPage": "页面加载中",
     "pageTree": "页面树",

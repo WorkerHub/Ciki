@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -208,17 +214,20 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(brand?.parentElement).toHaveClass("h-12", "px-2", "sm:px-3")
     unmount()
 
-    // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮，而是显示「回到首页」按钮
+    // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮，而是显示「返回文档」按钮；
+    // 顶栏内容包在与正文容器同口径的居中容器里，按钮左缘对齐正文标题列左缘
     const system = renderShell("/settings")
     const systemHeader = system.container.querySelector("header")
     expect(system.container.querySelectorAll("header")).toHaveLength(1)
     expect(systemHeader?.querySelector("form")).toBeNull()
     expect(
-      within(systemHeader!).getByRole("link", { name: "回到首页" })
+      within(systemHeader!).getByRole("link", { name: "返回文档" })
     ).toHaveAttribute("href", "/")
     expect(
       within(systemHeader!).queryByRole("button", { name: "新建页面" })
     ).toBeNull()
+    const headerInner = systemHeader!.firstElementChild as HTMLElement
+    expect(headerInner).toHaveClass("mx-auto", "max-w-[1400px]", "px-4", "sm:px-6")
   })
 
   it("移动端保持整条顶栏：没有搜索框，页面树走抽屉，抽屉内不包含收起侧栏按钮", () => {
@@ -364,6 +373,88 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(header).toHaveClass("pr-2", "sm:pr-3")
     unmount()
   })
+
+  it("收起态进入系统页再点返回，侧栏回到 48px 图标列而不是被撑成展开宽度", async () => {
+    localStorage.clear()
+    const router = createMemoryRouter(
+      [
+        {
+          element: <AppShell />,
+          children: [
+            { path: "p/:id", element: <div>页面内容</div> },
+            { path: "settings", element: <div>设置内容</div> },
+            { path: "*", element: <div>页面内容</div> }
+          ]
+        }
+      ],
+      { initialEntries: ["/p/a"] }
+    )
+    const { container, unmount } = render(<RouterProvider router={router} />)
+
+    // 收起侧栏
+    fireEvent.click(screen.getByRole("button", { name: "收起侧边栏" }))
+    await screen.findByRole("button", { name: "展开侧边栏" })
+    expect(container.querySelector("[data-sidebar-collapsed]")).not.toBeNull()
+
+    // 进入系统页：Group/Panel 整树卸载
+    router.navigate("/settings")
+    await screen.findByText("设置内容")
+    expect(container.querySelector("[data-sidebar-collapsed]")).toBeNull()
+
+    // 点「返回文档」回到文档页：Panel 重挂载，同步 effect 应立即把它收回去
+    fireEvent.click(screen.getByRole("link", { name: "返回文档" }))
+    await waitFor(() =>
+      expect(container.querySelector("[data-sidebar-collapsed]")).not.toBeNull()
+    )
+    // 收起态图标列仍在，且没有被重新展开出页面树
+    expect(screen.queryByText("页面树")).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "展开侧边栏" })
+    ).toBeInTheDocument()
+    expect(localStorage.getItem("app-sidebar-open")).toBe("false")
+    unmount()
+  })
+
+  it("返回文档：回到进入系统页前最近访问的文档路由，系统页互跳不覆盖来源", async () => {
+    localStorage.clear()
+    const router = createMemoryRouter(
+      [
+        {
+          element: <AppShell />,
+          children: [
+            { path: "p/:id", element: <div>页面内容</div> },
+            { path: "s/:slug", element: <div>页面内容</div> },
+            { path: "settings", element: <div>设置内容</div> },
+            { path: "admin", element: <div>管理内容</div> }
+          ]
+        }
+      ],
+      { initialEntries: ["/p/7"] }
+    )
+    const { container, unmount } = render(<RouterProvider router={router} />)
+
+    // 进入系统页前在 /p/7；设置 → 系统管理 → 设置 来回切不覆盖来源
+    router.navigate("/settings")
+    await screen.findByText("设置内容")
+    router.navigate("/admin")
+    await screen.findByText("管理内容")
+    expect(
+      screen.getByRole("link", { name: "返回文档" })
+    ).toHaveAttribute("href", "/p/7")
+
+    fireEvent.click(screen.getByRole("link", { name: "返回文档" }))
+    expect(router.state.location.pathname).toBe("/p/7")
+    unmount()
+  })
+
+  it("直接打开系统页（刷新场景）时，返回文档回退首页「/」", () => {
+    const { unmount } = renderShell("/settings")
+    expect(screen.getByRole("link", { name: "返回文档" })).toHaveAttribute(
+      "href",
+      "/"
+    )
+    unmount()
+  })
 })
 
 /** 英文界面：外壳与导航文案全走 locale，中文一个字都不留。 */
@@ -428,13 +519,12 @@ describe("应用外壳：英文界面", () => {
     unmount()
   })
 
-  it("系统页面显示 Back to home 按钮而不显示搜索框与新建页面", async () => {
+  it("系统页面显示 Back to documents 按钮而不显示搜索框与新建页面", async () => {
     const { container } = renderShell("/settings")
     expect(container.querySelector("form")).toBeNull()
-    expect(screen.getByRole("link", { name: "Back to home" })).toHaveAttribute(
-      "href",
-      "/"
-    )
+    expect(
+      screen.getByRole("link", { name: "Back to documents" })
+    ).toHaveAttribute("href", "/")
     expect(screen.queryByRole("button", { name: "New page" })).toBeNull()
   })
 
