@@ -260,6 +260,63 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     expect(search.results.map((row) => row.pageId)).toContain(body.pageId)
   })
 
+  it("画布块：excalidraw 节点保真渲染为带指定属性的 img 载具，alt/previewKey/sceneKey 均保留", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const token = await issueToken(env, admin)
+
+    const sceneKey = "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json"
+    const previewKey = "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+    const excalidrawDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "画布前正文" }]
+        },
+        {
+          type: "excalidraw",
+          attrs: {
+            sceneKey,
+            previewKey,
+            extractedText: "架构设计图",
+            width: 720
+          }
+        }
+      ]
+    }
+
+    const res = await importRequest(env, token, "POST", "/api/import/pages", {
+      title: "画布导入页",
+      parentId: null,
+      contentJson: JSON.stringify(excalidrawDoc),
+      conflict: "create_copy"
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { pageId: number; url: string }
+
+    const page = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${body.pageId}?format=json`,
+        undefined,
+        admin
+      )
+    ).json()) as PageDetail
+
+    expect(page.contentJson).toBe(JSON.stringify(excalidrawDoc))
+    expect(page.contentHtml).toContain('data-type="excalidraw"')
+    expect(page.contentHtml).toContain(`data-scene-key="${sceneKey}"`)
+    expect(page.contentHtml).toContain(`data-preview-key="${previewKey}"`)
+    expect(page.contentHtml).toContain(`src="/api/files/${previewKey}"`)
+    expect(page.contentHtml).toContain('alt="架构设计图"')
+    expect(page.contentHtml).toContain('width="720"')
+    expect(page.contentMd).toContain(
+      `![架构设计图](https://ciki.oneboy.app/api/files/${previewKey})`
+    )
+  })
+
   it("颜色：文字颜色/高亮/单元格底色落成 data 载具，非法色值被丢弃", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)

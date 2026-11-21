@@ -1,0 +1,32 @@
+{
+  "type": "doc",
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "下面是画布架构图："
+        }
+      ]
+    },
+    {
+      "type": "excalidraw",
+      "attrs": {
+        "sceneKey": "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json",
+        "previewKey": "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png",
+        "extractedText": "系统架构图",
+        "width": 720
+      }
+    },
+    {
+      "type": "excalidraw",
+      "attrs": {
+        "sceneKey": "pages/2b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json",
+        "previewKey": "pages/8fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png",
+        "extractedText": "包含[中括号]文字",
+        "width": null
+      }
+    }
+  ]
+}

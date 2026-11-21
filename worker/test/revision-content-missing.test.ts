@@ -131,3 +131,67 @@ describe("版本 JSON 取到了但渲染不了", () => {
     expect(pageSnapshot(context.db, page.id)).toEqual(snapshot)
   })
 })
+
+describe("含画布块（excalidraw）的版本渲染", () => {
+  it("查看与回滚含 excalidraw 节点的版本均成功渲染（不报 422 REVISION_UNRENDERABLE）", async () => {
+    const context = await initializedContext()
+    const { env, admin, page } = await adminWithPage(context, "画布版本页")
+    const [revision] = revisionRows(context.db, page.id)
+
+    const sceneKey = "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json"
+    const previewKey = "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+    const excalidrawDoc = JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "画布正文" }]
+        },
+        {
+          type: "excalidraw",
+          attrs: {
+            sceneKey,
+            previewKey,
+            extractedText: "架构设计图",
+            width: 720
+          }
+        }
+      ]
+    })
+
+    await env.CONTENT.put(
+      contentObjectKey(revision.content_hash),
+      await gzipText(excalidrawDoc)
+    )
+
+    const view = await getRevision(env, admin, page.id, revision.version_no)
+    expect(view.status).toBe(200)
+    const viewBody = (await view.json()) as {
+      contentHtml: string
+      contentJson: string
+      contentText: string
+    }
+    expect(viewBody.contentHtml).toContain('data-type="excalidraw"')
+    expect(viewBody.contentHtml).toContain(`data-scene-key="${sceneKey}"`)
+    expect(viewBody.contentHtml).toContain(`data-preview-key="${previewKey}"`)
+    expect(viewBody.contentHtml).toContain(`src="/api/files/${previewKey}"`)
+    expect(viewBody.contentHtml).toContain('alt="架构设计图"')
+    expect(viewBody.contentHtml).toContain('width="720"')
+
+    const restore = await restoreRevision(
+      env,
+      admin,
+      page.id,
+      revision.version_no
+    )
+    expect(restore.status).toBe(200)
+    const restoreBody = (await restore.json()) as {
+      contentHtml: string
+      contentMd: string
+    }
+    expect(restoreBody.contentHtml).toContain('data-type="excalidraw"')
+    expect(restoreBody.contentMd).toContain(
+      `![架构设计图](https://ciki.oneboy.app/api/files/${previewKey})`
+    )
+  })
+})

@@ -41,6 +41,7 @@ describe("TipTap JSON → Markdown 夹具", () => {
       "code-block-language",
       "table-merged-cells",
       "image",
+      "excalidraw",
       "panel-blockquote",
       "marks-dropped"
     ]) {
