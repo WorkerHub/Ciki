@@ -16,6 +16,7 @@ import {
   WikiTableHeader,
   WikiTextStyle
 } from "@/editor/colors/extensions"
+import { WikiFontSize } from "@/editor/font-size/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
 import { imageWidth } from "@/editor/image-attributes"
 
@@ -143,10 +144,11 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
       languageClassPrefix: "language-"
     }),
     WikiImage.configure({ allowBase64: true, inline: false }),
-    // 颜色三件套：文字颜色（TextStyle+Color）、高亮、单元格底色。
-    // HTML 载具一律是 data 属性，详见 colors/extensions.ts 的说明。
+    // 颜色与行内字号：文字样式（TextStyle + Color + FontSize）、高亮、单元格底色。
+    // HTML 载具一律是 data 属性，详见 colors 与 font-size 扩展说明。
     WikiTextStyle,
     WikiColor,
+    WikiFontSize,
     WikiHighlight.configure({ multicolor: true }),
     Table.configure({
       resizable: isEdit,

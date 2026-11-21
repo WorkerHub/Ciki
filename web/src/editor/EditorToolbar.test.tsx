@@ -99,4 +99,20 @@ describe("工具条随选区实时更新", () => {
     // 进入带色文字后色条反映当前颜色（不再是透明）
     expect(swatch?.style.backgroundColor).not.toBe("transparent")
   })
+
+  it("字号下拉菜单当前值随光标进入/离开不同字号文字刷新", () => {
+    const editor = makeEditor(
+      '<p>默认字号</p><p><span data-font-size="20px">大字号</span></p>'
+    )
+    render(<EditorToolbar editor={editor} />)
+
+    const trigger = screen.getByRole("combobox", { name: "字号" })
+    expect(trigger).toHaveTextContent(/^默认$/)
+
+    act(() => putCursorAt(editor, "大字号"))
+    expect(trigger).toHaveTextContent(/^20px$/)
+
+    act(() => putCursorAt(editor, "默认字号"))
+    expect(trigger).toHaveTextContent(/^默认$/)
+  })
 })
