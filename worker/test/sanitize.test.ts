@@ -235,6 +235,7 @@ describe("归一化的幂等性（无改动保存去重的前提）", () => {
     const storedHtml = sanitizePageHtml(
       '<p onclick="x()">正文</p>' +
         '<img src="https://confluence.example/download/a.png" alt="附件" width="200">' +
+        '<img src="/api/files/pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png" alt="画布" width="720" data-type="excalidraw" data-scene-key="pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json" data-preview-key="pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png">' +
         '<table style="min-width: 200px"><colgroup><col width="30%"><col style="width: 120px"></colgroup>' +
         '<tbody><tr><td colspan="2" data-cell-bg="#AABBCC">合并</td></tr></tbody></table>' +
         '<pre><code class="language-sql">select 1</code></pre>' +
@@ -247,5 +248,69 @@ describe("归一化的幂等性（无改动保存去重的前提）", () => {
     const storedText = toPlainText(storedHtml)
     expect(storedText.length).toBeGreaterThan(0)
     expect(toPlainText(storedText)).toBe(storedText)
+  })
+})
+
+describe("Excalidraw 画布块 HTML 载具属性消毒", () => {
+  const sceneKey = "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json"
+  const previewKey = "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+  const previewUrl = `/api/files/${previewKey}`
+
+  it("合法画布块属性原样放行", () => {
+    const html = sanitizePageHtml(
+      `<img src="${previewUrl}" alt="提取的画布文字" width="720" ` +
+        `data-type="excalidraw" data-scene-key="${sceneKey}" data-preview-key="${previewKey}">`
+    )
+    expect(html).toContain(`src="${previewUrl}"`)
+    expect(html).toContain('alt="提取的画布文字"')
+    expect(html).toContain('width="720"')
+    expect(html).toContain('data-type="excalidraw"')
+    expect(html).toContain(`data-scene-key="${sceneKey}"`)
+    expect(html).toContain(`data-preview-key="${previewKey}"`)
+  })
+
+  it("data-type 仅放行 excalidraw，其余取值被剥除", () => {
+    for (const invalid of ["image", "custom", "javascript:alert(1)", ""]) {
+      const html = sanitizePageHtml(
+        `<img src="${previewUrl}" data-type="${invalid}" data-scene-key="${sceneKey}" data-preview-key="${previewKey}">`
+      )
+      expect(html).not.toContain("data-type=")
+      expect(html).toContain(`data-scene-key="${sceneKey}"`)
+    }
+  })
+
+  it("data-scene-key 必须匹配 pages/<uuid>.json，非法值被剥除", () => {
+    const invalidKeys = [
+      "misc/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json",
+      "pages/../etc/passwd",
+      "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.png",
+      "pages/not-a-uuid.json",
+      "1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json",
+      "javascript:alert(1)"
+    ]
+    for (const key of invalidKeys) {
+      const html = sanitizePageHtml(
+        `<img src="${previewUrl}" data-type="excalidraw" data-scene-key="${key}" data-preview-key="${previewKey}">`
+      )
+      expect(html).not.toContain("data-scene-key=")
+      expect(html).toContain('data-type="excalidraw"')
+    }
+  })
+
+  it("data-preview-key 必须匹配 pages/<uuid>.png，非法值被剥除", () => {
+    const invalidKeys = [
+      "misc/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png",
+      "pages/../etc/passwd",
+      "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.json",
+      "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.jpg",
+      "7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+    ]
+    for (const key of invalidKeys) {
+      const html = sanitizePageHtml(
+        `<img src="${previewUrl}" data-type="excalidraw" data-scene-key="${sceneKey}" data-preview-key="${key}">`
+      )
+      expect(html).not.toContain("data-preview-key=")
+      expect(html).toContain('data-type="excalidraw"')
+    }
   })
 })

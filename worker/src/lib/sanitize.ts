@@ -34,6 +34,10 @@ const SAFE_ORIGINAL_SRC =
  * 不再写「未转存」占位属性——http/data 地址并不代表可补传，留着属性只是噪音。
  */
 const HTTPS_SRC = /^https:\/\//i
+const SCENE_KEY_RE =
+  /^pages\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$/
+const PREVIEW_KEY_RE =
+  /^pages\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$/
 const COL_STYLE = /^(width|min-width):\s*\d+(\.\d+)?(px|%)\s*;?$/i
 const TABLE_STYLE = /^min-width:\s*\d+(\.\d+)?px\s*;?$/i
 const LENGTH_ATTR = /^\d+(\.\d+)?(px|%)?$/i
@@ -108,7 +112,10 @@ const whitelist = {
     "width",
     "height",
     "data-original-src",
-    "data-confluence-img"
+    "data-confluence-img",
+    "data-type",
+    "data-scene-key",
+    "data-preview-key"
   ],
   table: ["style"],
   thead: [],
@@ -166,6 +173,15 @@ function createFilter(policy: ImageSrcPolicy): FilterXSS {
       if (tag === "img" && name === "data-confluence-img") {
         if (policy === "comment") return ""
         return value === "true" ? undefined : ""
+      }
+      if (tag === "img" && name === "data-type") {
+        return value === "excalidraw" ? undefined : ""
+      }
+      if (tag === "img" && name === "data-scene-key") {
+        return SCENE_KEY_RE.test(value) ? undefined : ""
+      }
+      if (tag === "img" && name === "data-preview-key") {
+        return PREVIEW_KEY_RE.test(value) ? undefined : ""
       }
       if (tag === "img" && (name === "width" || name === "height")) {
         return LENGTH_ATTR.test(value) ? undefined : ""

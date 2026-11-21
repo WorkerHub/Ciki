@@ -149,4 +149,174 @@ describe("图片：类型校验、大小上限、会话读取", () => {
     const res = await upload(env, "", formWith(PNG, "image/png"))
     expect(res.status).toBe(401)
   })
+
+  it("上传 Excalidraw 场景 JSON：消毒落盘、元数据匹配、带会话可读", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawScene = {
+      type: "excalidraw",
+      version: 2,
+      source: "https://excalidraw.com",
+      elements: [
+        {
+          id: "r1",
+          type: "rectangle",
+          x: 10,
+          y: 20,
+          link: "javascript:alert(1)",
+          customData: { leaked: "yes" }
+        },
+        {
+          id: "e1",
+          type: "embeddable",
+          link: "https://evil.com"
+        }
+      ],
+      appState: {
+        viewBackgroundColor: "#FFFFFF",
+        gridSize: 10,
+        zoom: { value: 2 }
+      },
+      files: {
+        ignored: "data"
+      }
+    }
+
+    const sceneBytes = new TextEncoder().encode(JSON.stringify(rawScene))
+    const form = new FormData()
+    form.append(
+      "file",
+      new File([sceneBytes], "scene.json", { type: "application/json" })
+    )
+
+    const res = await upload(env, admin, form)
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as {
+      key: string
+      url: string
+      contentType: string
+      size: number
+    }
+    expect(body.url).toBe(`/api/files/${body.key}`)
+    expect(body.key).toMatch(/^pages\/[0-9a-f-]{36}\.json$/)
+    expect(body.contentType).toBe("application/json")
+    expect(r2.store.has(body.key)).toBe(true)
+
+    // 检查 customMetadata
+    const r2Obj = await r2.get(body.key)
+    expect(r2Obj?.customMetadata?.category).toBe("pages")
+    expect(r2Obj?.customMetadata?.uploaderId).toBeTruthy()
+
+    // 检查落盘内容已消毒（embeddable 剥除、customData 剥除、link 清洗为 null、files 清空）
+    const savedText = await r2Obj?.text()
+    const savedJson = JSON.parse(savedText ?? "{}")
+    expect(savedJson.elements).toHaveLength(1)
+    expect(savedJson.elements[0].id).toBe("r1")
+    expect(savedJson.elements[0].link).toBeNull()
+    expect(savedJson.elements[0].customData).toBeUndefined()
+    expect(savedJson.appState.viewBackgroundColor).toBe("#ffffff")
+    expect(savedJson.appState.zoom).toBeUndefined()
+    expect(savedJson.files).toEqual({})
+
+    // 带会话读取
+    const read = await request(env, `/api/files/${body.key}`, {
+      headers: { cookie: admin }
+    })
+    expect(read.status).toBe(200)
+    expect(read.headers.get("content-type")).toBe("application/json")
+    expect(read.headers.get("cache-control")).toContain("private")
+    expect(read.headers.get("cache-control")).toContain("max-age=3600")
+
+    // 无会话读取 401
+    const anon = await request(env, `/api/files/${body.key}`)
+    expect(anon.status).toBe(401)
+  })
+
+  it("场景 JSON 超过 2MB 返回 413", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 构造大于 2MB 的 JSON
+    const largePadding = "x".repeat(2 * 1024 * 1024 + 10)
+    const rawScene = {
+      type: "excalidraw",
+      version: 2,
+      elements: [
+        {
+          id: "t1",
+          type: "text",
+          text: largePadding
+        }
+      ],
+      appState: {}
+    }
+    const sceneBytes = new TextEncoder().encode(JSON.stringify(rawScene))
+    const form = new FormData()
+    form.append(
+      "file",
+      new File([sceneBytes], "big.json", { type: "application/json" })
+    )
+
+    const res = await upload(env, admin, form)
+    expect(res.status).toBe(413)
+    expect(await res.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+  })
+
+  it("非法 JSON 或非 Excalidraw 格式返回 400", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 非法 JSON 语法
+    const badSyntaxForm = new FormData()
+    badSyntaxForm.append(
+      "file",
+      new File([new TextEncoder().encode("{ bad json")], "broken.json", {
+        type: "application/json"
+      })
+    )
+    const badRes = await upload(env, admin, badSyntaxForm)
+    expect(badRes.status).toBe(400)
+
+    // 缺少必要字段（不是 excalidraw）
+    const notExcalidrawForm = new FormData()
+    notExcalidrawForm.append(
+      "file",
+      new File(
+        [new TextEncoder().encode(JSON.stringify({ some: "data" }))],
+        "other.json",
+        { type: "application/json" }
+      )
+    )
+    const otherRes = await upload(env, admin, notExcalidrawForm)
+    expect(otherRes.status).toBe(400)
+  })
+
+  it("头像上传接口拒收场景 JSON", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawScene = {
+      type: "excalidraw",
+      version: 2,
+      elements: [],
+      appState: {}
+    }
+    const form = new FormData()
+    form.append(
+      "file",
+      new File(
+        [new TextEncoder().encode(JSON.stringify(rawScene))],
+        "avatar.json",
+        { type: "application/json" }
+      )
+    )
+
+    const res = await request(env, "/api/me/avatar", {
+      method: "POST",
+      headers: { cookie: admin },
+      body: form
+    })
+    expect(res.status).toBe(400)
+  })
 })

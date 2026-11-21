@@ -14,6 +14,7 @@ import {
   CLEANUP_LOCK_TTL_MS,
   DELETE_LIMIT_PER_RUN,
   R2CleanupBusyError,
+  extractFileKeys,
   runR2Cleanup
 } from "../src/core/r2-cleanup"
 import { runContentCleanup } from "../src/core/content-cleanup"
@@ -1092,5 +1093,34 @@ describe("运行态：GET 的 running", () => {
     writeLock(db, CLEANUP_LOCK_TTL_MS + 60_000, { trigger: "waker" })
     const stale = (await (await getIdle()).json()) as { running: unknown }
     expect(stale.running).toBeNull()
+  })
+
+  it("extractFileKeys 能够提取普通文件引用、data-scene-key 以及 JSON sceneKey", () => {
+    const html =
+      '<p><img src="/api/files/pages/11111111-2222-4333-8444-555555555555.png" ' +
+      'data-type="excalidraw" ' +
+      'data-scene-key="pages/66666666-7777-4888-8999-aaaaaaaaaaaa.json" ' +
+      'data-preview-key="pages/11111111-2222-4333-8444-555555555555.png"></p>'
+    const keys = extractFileKeys(html)
+    expect(keys).toContain("pages/11111111-2222-4333-8444-555555555555.png")
+    expect(keys).toContain("pages/66666666-7777-4888-8999-aaaaaaaaaaaa.json")
+
+    const json = JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "excalidraw",
+          attrs: {
+            sceneKey: "pages/bbbbbbbb-cccc-4ddd-8eee-ffffffffffff.json",
+            previewKey: "pages/11111111-2222-4333-8444-555555555555.png"
+          }
+        }
+      ]
+    })
+    const jsonKeys = extractFileKeys(json)
+    expect(jsonKeys).toContain(
+      "pages/bbbbbbbb-cccc-4ddd-8eee-ffffffffffff.json"
+    )
+    expect(jsonKeys).toContain("pages/11111111-2222-4333-8444-555555555555.png")
   })
 })
