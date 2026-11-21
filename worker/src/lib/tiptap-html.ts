@@ -160,6 +160,32 @@ const ImportColor = Extension.create({
 })
 
 /**
+ * 行内字号：与 web 侧同一套 data 载具（`span[data-font-size]`）。
+ *
+ * 同样通过 `textStyle` mark 的全局属性承载，renderHTML 渲染为 data 属性。
+ * 默认值为 null（表示清除/继承正文字号）；非法值与未知单位在消毒层剥除。
+ */
+const ImportFontSize = Extension.create({
+  name: "fontSize",
+  addGlobalAttributes() {
+    return [
+      {
+        types: ["textStyle"],
+        attributes: {
+          fontSize: {
+            default: null,
+            renderHTML: (attributes: Record<string, unknown>) =>
+              attributes.fontSize
+                ? { "data-font-size": attributes.fontSize }
+                : {}
+          }
+        }
+      }
+    ]
+  }
+})
+
+/**
  * 代码块折叠（三态）：`true` = 明确折叠、`false` = 明确展开（永不自动折）、
  * `null`/缺省 = 未表态（阅读页按行数自动决定），三种状态落库时都只是 codeBlock 的
  * `collapsed` 属性，不迁移、不回填。
@@ -305,6 +331,7 @@ const extensions: Extensions = [
   }),
   TextStyle,
   ImportColor,
+  ImportFontSize,
   ImportCodeBlockCollapse,
   Highlight.configure({ multicolor: true }),
   ImportImage.configure({ allowBase64: true, inline: false }),
