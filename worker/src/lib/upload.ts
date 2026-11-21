@@ -1,5 +1,6 @@
 /**
- * 图片上传的单一入口：类型白名单（按魔数，不收 svg）、单张 ≤10MB、落 R2。
+ * 文件上传的单一入口：类型白名单（图片按魔数、场景 JSON 按白名单预检消毒）、
+ * 图片 ≤10MB / 场景 JSON ≤2MB、落 R2。
  *
  * `/api/files`、`/api/import/files` 与 `/api/me/avatar` 共用同一份实现（规格
  * §12.1 / §1：头像专用口与导入都不复刻一套校验，口径与 /api/files 完全一致）；
@@ -7,20 +8,23 @@
  */
 import type { Context } from "hono"
 import type { HonoEnv } from "../types"
+import { sanitizeExcalidrawSceneJson } from "./excalidraw-sanitize"
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+export const MAX_SCENE_BYTES = 2 * 1024 * 1024
 
 /** 新上传 key 的来源类别（规格 §1）：只决定 key 的前缀目录。 */
 export type UploadCategory = "avatars" | "pages" | "imports"
 
 /**
- * 对外暴露的 key 形状：`<类别>/<UUID>.<图片扩展名>`，或存量的平铺
- * `<UUID>.<图片扩展名>`。读接口与头像校验按它挡掉随便拼的路径。
+ * 对外暴露的 key 形状：`<类别>/<UUID>.<扩展名>`，或存量的平铺
+ * `<UUID>.<扩展名>`。读接口与头像校验按它挡掉随便拼的路径。
  * 存量平铺 key 永不迁移（规格 §2），所以两种形状都认；未知前缀与形状不符
  * （多级前缀、大写 hex、svg 等）一律不匹配。
  */
 export const UPLOAD_KEY_RE =
-  /^(?:(?:avatars|pages|imports)\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp)$/
+  /^(?:(?:avatars|pages|imports)\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp|json)$/
 
 export interface ImageType {
   mime: string
@@ -69,11 +73,12 @@ export type UploadRead =
 
 /**
  * 读取并校验 `multipart/form-data` 单文件：content-length 预检 → 解析表单 →
- * `file` 字段存在 → 10MB 上限 → 魔数判定。失败时把可直接返回的响应带出来，
- * 调用方不必重复这套口径。
+ * `file` 字段存在 → 大小上限（图片 10MB、场景 JSON 2MB） → 魔数或 JSON 消毒预检。
+ * 失败时把可直接返回的响应带出来，调用方不必重复这套口径。
  */
-export async function readImageUpload(
-  c: Context<HonoEnv>
+export async function readUpload(
+  c: Context<HonoEnv>,
+  allowJson = true
 ): Promise<UploadRead> {
   const declared = Number.parseInt(c.req.header("content-length") ?? "0", 10)
   if (declared > MAX_UPLOAD_BYTES + 1024 * 1024) {
@@ -97,6 +102,50 @@ export async function readImageUpload(
   if (!(file instanceof File)) {
     return { ok: false, response: c.json({ error: "Missing file field" }, 400) }
   }
+
+  const isJson =
+    allowJson &&
+    (file.type === "application/json" ||
+      file.name.toLowerCase().endsWith(".json"))
+
+  if (isJson) {
+    if (file.size > MAX_SCENE_BYTES) {
+      return {
+        ok: false,
+        response: c.json(
+          { error: "File too large", code: "FILE_TOO_LARGE" },
+          413
+        )
+      }
+    }
+
+    const text = await file.text()
+    const sanitized = sanitizeExcalidrawSceneJson(text)
+    if (!sanitized) {
+      return {
+        ok: false,
+        response: c.json({ error: "Invalid Excalidraw scene JSON" }, 400)
+      }
+    }
+
+    const sanitizedBytes = new TextEncoder().encode(JSON.stringify(sanitized))
+    if (sanitizedBytes.length > MAX_SCENE_BYTES) {
+      return {
+        ok: false,
+        response: c.json(
+          { error: "File too large", code: "FILE_TOO_LARGE" },
+          413
+        )
+      }
+    }
+
+    return {
+      ok: true,
+      bytes: sanitizedBytes,
+      type: { mime: "application/json", ext: "json" }
+    }
+  }
+
   if (file.size > MAX_UPLOAD_BYTES) {
     return {
       ok: false,
@@ -106,16 +155,54 @@ export async function readImageUpload(
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   const type = sniffImage(bytes)
-  if (!type) {
-    return {
-      ok: false,
-      response: c.json(
-        { error: "Only png/jpg/jpeg/gif/webp images are accepted" },
-        400
-      )
+  if (type) {
+    return { ok: true, bytes, type }
+  }
+
+  if (allowJson) {
+    if (file.size <= MAX_SCENE_BYTES) {
+      const text = new TextDecoder().decode(bytes)
+      const sanitized = sanitizeExcalidrawSceneJson(text)
+      if (sanitized) {
+        const sanitizedBytes = new TextEncoder().encode(
+          JSON.stringify(sanitized)
+        )
+        if (sanitizedBytes.length > MAX_SCENE_BYTES) {
+          return {
+            ok: false,
+            response: c.json(
+              { error: "File too large", code: "FILE_TOO_LARGE" },
+              413
+            )
+          }
+        }
+        return {
+          ok: true,
+          bytes: sanitizedBytes,
+          type: { mime: "application/json", ext: "json" }
+        }
+      }
     }
   }
-  return { ok: true, bytes, type }
+
+  return {
+    ok: false,
+    response: c.json(
+      {
+        error: allowJson
+          ? "Only png/jpg/jpeg/gif/webp images or excalidraw json are accepted"
+          : "Only png/jpg/jpeg/gif/webp images are accepted"
+      },
+      400
+    )
+  }
+}
+
+export async function readImageUpload(
+  c: Context<HonoEnv>,
+  allowJson = true
+): Promise<UploadRead> {
+  return readUpload(c, allowJson)
 }
 
 /** 落盘后的元数据：普通上传的响应体就是这个形状。 */
@@ -137,7 +224,8 @@ export async function storeImageUpload(
   uploaderId: number,
   category: UploadCategory
 ): Promise<UploadStored> {
-  const read = await readImageUpload(c)
+  const allowJson = category !== "avatars"
+  const read = await readUpload(c, allowJson)
   if (!read.ok) return read
 
   const { bytes, type } = read
