@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AppShell } from "@/components/AppShell"
 import { i18n } from "@/i18n"
 import type { Me, Space } from "@/lib/api"
+import { buildVersionLabel } from "@/lib/build-info"
 import { useAuthStore } from "@/stores/auth"
 import { usePagesStore } from "@/stores/pages"
 import { useSiteStore } from "@/stores/site"
@@ -184,9 +185,9 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(await screen.findByText("页面")).toBeInTheDocument()
   })
 
-  it("侧边栏页脚是三段式：站点名 · 版本号 · 构建版本", () => {
+  it("侧边栏页脚是「站名 · semver · 短哈希+build.提交数」三段式", () => {
     renderShell("/")
-    expect(screen.getByText("Ciki · 1.0.0 · test-build")).toBeInTheDocument()
+    expect(screen.getByText(buildVersionLabel("Ciki"))).toBeInTheDocument()
   })
 
   it("桌面普通页的搜索框落在正文那一栏，左缘与正文左缘同一条基线", () => {

@@ -52,6 +52,7 @@ function mockSettings(overrides: Partial<SiteSettings> = {}): SiteSettings {
       smtp: {
         host: "smtp.example.com",
         port: 587,
+        encryption: "starttls",
         username: "mailer",
         from: "noreply@example.com",
         fromName: "Ciki",
@@ -174,6 +175,7 @@ describe("系统管理 · 邮件配置 (SmtpTab / EmailSection)", () => {
         smtp: {
           host: "smtp.example.com",
           port: 587,
+          encryption: "starttls",
           username: "mailer",
           from: "noreply@example.com",
           fromName: "Ciki",
@@ -186,6 +188,34 @@ describe("系统管理 · 邮件配置 (SmtpTab / EmailSection)", () => {
         }
       }
     })
+  })
+
+  it("加密方式下拉随表单提交，默认回填 starttls", async () => {
+    vi.mocked(adminApi.updateSettings).mockResolvedValue({ success: true })
+
+    const user = userEvent.setup()
+    render(<SmtpTab />)
+
+    await screen.findByLabelText("服务器")
+    // 后端保存的是 starttls，回填成中文选项文案
+    expect(
+      screen.getByRole("combobox", { name: "加密方式" })
+    ).toHaveTextContent("STARTTLS")
+
+    // 改成 TLS 后保存，加密方式随表单一起提交
+    await user.click(screen.getByRole("combobox", { name: "加密方式" }))
+    await user.click(
+      screen.getByRole("option", { name: "TLS（465 端口，全程加密）" })
+    )
+    await user.click(screen.getByRole("button", { name: "保存邮件配置" }))
+
+    expect(adminApi.updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: expect.objectContaining({
+          smtp: expect.objectContaining({ encryption: "tls" })
+        })
+      })
+    )
   })
 
   it("重录密码才提交新值，保存成功后输入框清空", async () => {
@@ -204,6 +234,7 @@ describe("系统管理 · 邮件配置 (SmtpTab / EmailSection)", () => {
         smtp: {
           host: "smtp.example.com",
           port: 587,
+          encryption: "starttls",
           username: "mailer",
           from: "noreply@example.com",
           fromName: "Ciki",
