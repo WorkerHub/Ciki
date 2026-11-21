@@ -303,14 +303,15 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     // 点击收起
     fireEvent.click(collapseButton)
 
-    // 收起后：展示 48px 图标列，左下角页脚与版本号同行显示展开按钮，正文顶栏不显示展开按钮，localStorage 写入 "false"
+    // 收起后：展示图标列（填充 48px 面板宽度），左下角页脚放置展开按钮；
+    // 48px 图标列物理上无法并排横向容纳长版本号，版本号通过 sr-only 与外层 title 保持可访问性
     const expandButton = await screen.findByRole("button", {
       name: "展开侧边栏"
     })
     expect(expandButton).toBeInTheDocument()
     const iconColumn = container.querySelector("[data-sidebar-collapsed]")
     expect(iconColumn).not.toBeNull()
-    expect(iconColumn).toHaveClass("w-12")
+    expect(iconColumn).toHaveClass("w-full")
     expect(iconColumn?.querySelector('a[href="/"]')).not.toBeNull()
     expect(iconColumn?.querySelector("[data-space-switcher]")).not.toBeNull()
     expect(screen.queryByText("页面")).toBeNull()
@@ -319,7 +320,8 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(mainHeader?.contains(expandButton)).toBe(false)
     const collapsedFooter = expandButton.closest("div")
     expect(collapsedFooter).toHaveClass("border-t")
-    expect(collapsedFooter).toHaveTextContent(/Ciki/)
+    expect(collapsedFooter?.getAttribute("title")).toMatch(/Ciki/)
+    expect(collapsedFooter?.querySelector(".sr-only")).toHaveTextContent(/Ciki/)
     expect(localStorage.getItem("app-sidebar-open")).toBe("false")
 
     // 点击展开
@@ -342,7 +344,7 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(screen.queryByRole("button", { name: "收起侧边栏" })).toBeNull()
     const iconColumn = container.querySelector("[data-sidebar-collapsed]")
     expect(iconColumn).not.toBeNull()
-    expect(iconColumn).toHaveClass("w-12")
+    expect(iconColumn).toHaveClass("w-full")
     unmount()
   })
 

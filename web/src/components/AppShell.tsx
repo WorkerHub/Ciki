@@ -185,12 +185,13 @@ function IconColumn({
   onExpand: () => void
 }) {
   const { t } = useTranslation()
+  const versionLabel = buildVersionLabel(siteName)
 
   return (
     <TooltipProvider delayDuration={0}>
       <div
         data-sidebar-collapsed
-        className="flex h-full w-12 flex-col bg-sidebar text-sidebar-foreground"
+        className="flex h-full w-full flex-col bg-sidebar text-sidebar-foreground"
       >
         <div className="flex h-12 shrink-0 items-center justify-center border-b border-border">
           <Tooltip>
@@ -208,12 +209,19 @@ function IconColumn({
             </TooltipContent>
           </Tooltip>
         </div>
-        <div className="border-b border-sidebar-border py-2 flex justify-center">
+        <div className="flex justify-center border-b border-sidebar-border py-2">
           <SpaceSwitcher compact />
         </div>
         <div className="min-h-0 flex-1" />
-        <div className="flex h-10 shrink-0 items-center justify-center border-t border-sidebar-border px-1.5 py-1">
-          <span className="sr-only">{buildVersionLabel(siteName)}</span>
+        {/* 收起态（48px 图标列）页脚：
+            对齐模板/Cbox 规格，48px 列宽仅能容纳单列图标，物理上无法并排横向放置文字版本号；
+            展开态在 SidebarContent 严格保持「左版本号、右收起按钮」；
+            收起态展开按钮位于图标列页脚（视口左下角），并通过 sr-only 与 title 保留版本号文本可访问性。 */}
+        <div
+          title={versionLabel}
+          className="flex h-10 shrink-0 items-center justify-center border-t border-sidebar-border px-1.5 py-1"
+        >
+          <span className="sr-only">{versionLabel}</span>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
