@@ -366,8 +366,8 @@ describe("Excalidraw 弹窗 Portal 挂载与节点选区交互", () => {
       )
     })
 
-    expect(ed?.state.selection.toJSON().type).toBe("node")
-    expect((ed?.state.selection as any).node?.type?.name).toBe("excalidraw")
+    expect(ed).not.toBeNull()
+    expect(ed!.state.selection.toJSON().type).toBe("node")
+    expect((ed!.state.selection as any).node?.type?.name).toBe("excalidraw")
   })
 })
-

@@ -123,10 +123,7 @@ export function ExcalidrawModal({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !saving) {
-        if (
-          isInput(e.target) ||
-          isInput(document.activeElement)
-        ) {
+        if (isInput(e.target) || isInput(document.activeElement)) {
           return
         }
         onClose()
