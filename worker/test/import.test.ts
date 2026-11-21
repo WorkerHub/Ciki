@@ -360,6 +360,74 @@ describe("导入接口：令牌鉴权与四个端点", () => {
     expect(page.contentText).toContain("坏色")
   })
 
+  it("contentJson 包含行内字号：合法刻度落成 span[data-font-size]、非法字号剥除载具、保留文字", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const token = await issueToken(env, admin)
+
+    const fontSizeDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "大字号",
+              marks: [{ type: "textStyle", attrs: { fontSize: "24px" } }]
+            },
+            {
+              type: "text",
+              text: "双属性",
+              marks: [
+                {
+                  type: "textStyle",
+                  attrs: { color: "#de350b", fontSize: "18px" }
+                }
+              ]
+            },
+            {
+              type: "text",
+              text: "非法刻度",
+              marks: [{ type: "textStyle", attrs: { fontSize: "15px" } }]
+            }
+          ]
+        }
+      ]
+    }
+
+    const res = await importRequest(env, token, "POST", "/api/import/pages", {
+      title: "字号导入",
+      contentJson: fontSizeDoc,
+      conflict: "create_copy"
+    })
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as { pageId: string }
+
+    const page = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${body.pageId}`,
+        undefined,
+        admin
+      )
+    ).json()) as PageDetail
+
+    // 合法刻度：落成 span[data-font-size] 载具，不含 style
+    expect(page.contentHtml).toContain('data-font-size="24px"')
+    expect(page.contentHtml).toContain('data-font-size="18px"')
+    expect(page.contentHtml).toContain('data-text-color="#de350b"')
+    expect(page.contentHtml).not.toContain("style=")
+    // 非法刻度：被消毒层剥除属性，文字保留
+    expect(page.contentHtml).not.toContain('data-font-size="15px"')
+    expect(page.contentHtml).toContain("非法刻度")
+    // 纯文本保留
+    expect(page.contentText).toContain("大字号")
+    expect(page.contentText).toContain("双属性")
+    expect(page.contentText).toContain("非法刻度")
+  })
+
   it("check 命中同名页；conflict=update 覆盖并追加 revision，create_copy 另建一页", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
