@@ -17,11 +17,6 @@ export const SIDEBAR_DEFAULT_SIZE = "18%"
  */
 export const SIDEBAR_WIDTH_ICON = 48
 
-/**
- * @deprecated 丙方案已废弃系统页 260px logo 预留区与让位逻辑，顶栏全宽顶头；保留常量兼容外部引用。
- */
-export const SYSTEM_SIDEBAR_HEADER_WIDTH = 260
-
 /** 读开合状态：只有明确写过 `"false"` 才收起，其余按展开。 */
 export function readSidebarOpen(): boolean {
   try {
