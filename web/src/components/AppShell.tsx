@@ -440,41 +440,6 @@ export function AppShell() {
     </Suspense>
   )
 
-  // 文章页读、写两态走同一条分支：宽度只由 PageCanvas 决定，两处不会各写一份。
-  const main = isArticleRoute ? (
-    <PageCanvas>{content}</PageCanvas>
-  ) : (
-    // 分类页（搜索等）与文章页共用同一条左缘：贴着分割线 16px/24px 起排，
-    // 不再用 1140px 居中容器把内容推得比正文更靠右；宽度上限保留，只去掉居中。
-    // 系统页正文列：正文列左缘 = max(居中位置, logo 区右缘)。
-    // 宽屏（≥1920px）正文列居中、左右留白对称、视觉与改前一致；
-    // 窄屏（<1920px，如 1440/1728px）居中位置会撞上 logo 区，左缘让到 logo 区右缘（260px）。
-    <div
-      className={cn(
-        "px-4 py-5 sm:px-6 sm:py-6",
-        isSystemRoute
-          ? cn(
-              "max-w-[1400px]",
-              isMobile ? "mx-auto" : "ml-[260px] min-[1920px]:mx-auto"
-            )
-          : "w-full max-w-[1140px]"
-      )}
-    >
-      {content}
-    </div>
-  )
-
-  const animatedMain = (
-    <motion.div
-      key={location.pathname}
-      initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: "easeOut" }}
-    >
-      {main}
-    </motion.div>
-  )
-
   const siteLink = (
     <Link
       to="/"
@@ -492,6 +457,41 @@ export function AppShell() {
         {t("shell.backToDocument")}
       </Link>
     </Button>
+  )
+
+  // 文章页读、写两态走同一条分支：宽度只由 PageCanvas 决定，两处不会各写一份。
+  const main = isArticleRoute ? (
+    <PageCanvas>{content}</PageCanvas>
+  ) : isSystemRoute ? (
+    // 系统页正文列：流式居中、自动收缩（丙方案定版）。
+    // 列宽上限 1400px，每侧边距下限 = max(16px, 视口宽的 3.7%)，居中后两侧边距恒等。
+    // 「返回文档」移入正文列，作为正文列顶部第一行（面包屑位置）、与正文左缘对齐。
+    <div
+      className="mx-auto max-w-[1400px] py-5 sm:py-6"
+      style={{
+        width: "min(1400px, calc(100% - 2 * max(16px, 3.7vw)))"
+      }}
+    >
+      <div className="mb-4">{backToDocButton}</div>
+      {content}
+    </div>
+  ) : (
+    // 分类页（搜索等）与文章页共用同一条左缘：贴着分割线 16px/24px 起排，
+    // 不再用 1140px 居中容器把内容推得比正文更靠右；宽度上限保留，只去掉居中。
+    <div className="w-full max-w-[1140px] px-4 py-5 sm:px-6 sm:py-6">
+      {content}
+    </div>
+  )
+
+  const animatedMain = (
+    <motion.div
+      key={location.pathname}
+      initial={reduceMotion ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
+      {main}
+    </motion.div>
   )
 
   const createButton = canWrite ? (
@@ -562,29 +562,12 @@ export function AppShell() {
       {isMobile || isSystemRoute ? (
         <>
           <header className="relative flex h-12 shrink-0 items-center border-b border-border">
-            {/* 系统页：顶栏为 logo 预留固定宽度左侧区（260px），
-                logo+标题置于其内左上角；正文内容列（含「返回文档」）位于该区右侧，
-                与正文标题列左边缘对齐。
-                宽屏（≥1920px）正文列居中、左右留白对称、视觉与改前一致；
-                窄屏（<1920px，如 1440/1728px）居中位置会撞上 logo 区，左缘让到 logo 区右缘（260px）。 */}
+            {/* 系统页：顶栏全宽、logo 左上角顶头，右侧主题/头像不变（丙方案定版） */}
             {isSystemRoute ? (
-              isMobile ? (
-                <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
-                  {backToDocButton}
-                  {siteLink}
-                  {accountActions}
-                </div>
-              ) : (
-                <div className="relative flex h-12 w-full items-center">
-                  <div className="absolute inset-y-0 left-0 flex h-12 w-[260px] items-center gap-2 px-2 sm:px-3">
-                    {siteLink}
-                  </div>
-                  <div className="flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6 ml-[260px] min-[1920px]:mx-auto">
-                    {backToDocButton}
-                    {accountActions}
-                  </div>
-                </div>
-              )
+              <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
+                {siteLink}
+                {accountActions}
+              </div>
             ) : (
               <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
                 {mobileMenu}
