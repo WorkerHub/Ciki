@@ -316,7 +316,10 @@ export function cleanConfluenceHtml(html: string): string {
       "width",
       "height",
       "data-confluence-img",
-      "data-original-src"
+      "data-original-src",
+      "data-type",
+      "data-scene-key",
+      "data-preview-key"
     ],
     TD: ["colspan", "rowspan", "data-cell-bg"],
     TH: ["colspan", "rowspan", "data-cell-bg"],

@@ -12,6 +12,7 @@ import {
   ListOrdered,
   Minus,
   PaintBucket,
+  Palette,
   Quote,
   Redo2,
   Strikethrough,
@@ -395,6 +396,18 @@ export function EditorToolbar({
         onClick={() => imageInput.current?.click()}
       >
         <ImagePlus aria-hidden="true" />
+      </Button>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        aria-label={t("editor.toolbar.excalidraw")}
+        title={t("editor.toolbar.excalidraw")}
+        onClick={() => {
+          editor.chain().focus().setExcalidraw().run()
+        }}
+      >
+        <Palette aria-hidden="true" />
       </Button>
       <input
         ref={imageInput}

@@ -620,7 +620,10 @@
 /* React 节点视图的壳默认撑满正文列：图片态收窄到图片宽度，选中框与手柄才能贴住
    图片；未转存的占位卡片仍要整列，所以只匹配含 figure 的那个壳。 */
 .wiki-content .react-renderer.node-image:has(figure[data-image-block]),
+.wiki-content
+  .react-renderer.node-excalidraw:has(figure[data-excalidraw-block]:has(img)),
 .wiki-content figure[data-image-block],
+.wiki-content figure[data-excalidraw-block]:has(img),
 .wiki-content [data-resize-wrapper] {
   width: fit-content;
   max-width: 100%;
@@ -656,6 +659,15 @@
     width: 1.25rem;
     height: 1.25rem;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Excalidraw 画布沙箱：彻底隐藏图库侧栏触发器与侧栏内容，遵循自托管与零外部链接红线
+ * ------------------------------------------------------------------ */
+.wiki-excalidraw-modal .sidebar-trigger__label-element,
+.wiki-excalidraw-modal .default-sidebar-trigger,
+.wiki-excalidraw-modal .default-sidebar {
+  display: none;
 }
 
 .wiki-content .is-empty::before {

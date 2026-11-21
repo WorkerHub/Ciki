@@ -435,6 +435,7 @@
       "cellBackground": "Cell background",
       "link": "Insert link",
       "image": "Upload image",
+      "excalidraw": "Insert canvas",
       "undo": {
         "label": "Undo",
         "hint": "Undo (Ctrl/⌘ + Z)"
@@ -512,6 +513,15 @@
       "captureTimeout": "The Ciki plugin did not respond; upload a replacement manually.",
       "captureInvalid": "The plugin’s image could not be decoded.",
       "captureEmpty": "The plugin sent an empty image."
+    },
+    "excalidraw": {
+      "modalTitle": "Canvas editor",
+      "edit": "Edit canvas",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "blankCanvas": "Blank canvas",
+      "clickToEdit": "Click to open fullscreen canvas editor"
     }
   },
   "settings": {
