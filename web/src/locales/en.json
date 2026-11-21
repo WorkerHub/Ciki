@@ -1129,7 +1129,6 @@
   },
   "about": {
     "title": "About Ciki",
-    "version": "Version {{version}}",
     "intro": {
       "title": "What this is",
       "body": "ciki is an internal team wiki. Pages are organized in a tree, and the editor supports headings, code blocks, tables, task lists and images; every save leaves a version you can roll back to, and page bodies are full-text searchable. Members collaborate per space, sign-in supports Passkeys and two-factor verification, and a browser extension can clip external pages into it."
@@ -1162,6 +1161,7 @@
     "build": {
       "title": "Build info",
       "version": "Version",
+      "date": "Build date",
       "time": "Build time"
     },
     "repo": "Source: {{url}}"

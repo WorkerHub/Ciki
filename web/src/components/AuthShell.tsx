@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { CikiLogo } from "@/components/CikiLogo"
 import { LanguageCycleButton } from "@/components/LanguageToggle"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
+import { buildInfo } from "@/lib/build-info"
 import { useSiteStore } from "@/stores/site"
 
 /** 未登录页面的统一外壳：品牌、主题切换、页脚版本号（规格 §8）。 */
@@ -38,7 +39,7 @@ export function AuthShell({
         </div>
       </main>
       <footer className="px-4 pb-4 text-center text-[11px] text-muted-foreground">
-        {siteName} · {__APP_PACKAGE_VERSION__} · {__APP_VERSION__}
+        {siteName ? `${siteName} · ${buildInfo.version}` : buildInfo.version}
       </footer>
     </div>
   )

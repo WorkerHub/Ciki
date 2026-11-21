@@ -1,7 +1,7 @@
 /**
  * 展示层格式化：全站时间统一按 `Asia/Shanghai`（UTC+8）展示，
  * 文案与日期格式跟随当前界面语言（规格 §2.11）。
- * 例外：要求按注入值原样呈现的时刻（如关于页的构建时间）用 formatIsoUtc 直出 UTC。
+ * 例外：要求按注入值原样呈现的时刻用 formatIsoUtc 直出 UTC。
  */
 import { currentLanguage, i18n } from "@/i18n"
 import { intlLocale, type Language } from "@/lib/language"
@@ -68,7 +68,7 @@ export function formatDateTime(iso: string | null | undefined): string {
 }
 
 /**
- * ISO 8601 UTC（秒级精度、`Z` 后缀）：给需要按注入值原样呈现的时刻用（如构建时间）。
+ * ISO 8601 UTC（秒级精度、`Z` 后缀）：给需要按注入值原样呈现的时刻用。
  * 用 UTC 直出，不经运行环境本地时区换算，展示值与被注入的时刻是同一瞬间。
  */
 export function formatIsoUtc(iso: string | null | undefined): string {
