@@ -18,6 +18,7 @@
     "check:deploy": "pnpm --filter worker exec wrangler deploy --dry-run",
     "predev": "node scripts/build-info.mjs",
     "prebuild": "node scripts/build-info.mjs",
+    "prebuild:web": "node scripts/build-info.mjs",
     "pretypecheck": "node scripts/build-info.mjs",
     "pretest": "node scripts/build-info.mjs"
   },
