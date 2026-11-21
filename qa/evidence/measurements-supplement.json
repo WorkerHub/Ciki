@@ -1,0 +1,105 @@
+{
+  "results": [
+    {
+      "name": "补1 未登录页无 g 前缀长格式、无 +build 串",
+      "ok": true,
+      "detail": "[\"Ciki · v1.0.0-94-e3923c0\"]"
+    },
+    {
+      "name": "补2 全站（含登录/首页/文档/编辑/搜索/设置/管理/关于）无旧长格式串（g 前缀 / +build 直出）",
+      "ok": true,
+      "detail": "命中=[]；豁免(侧栏页脚 buildVersionLabel)=[{\"route\":\"/\",\"t\":\"Ciki · 1.0.0 · e3923c0+build.94\"},{\"route\":\"/s/space-1\",\"t\":\"Ciki · 1.0.0 · e3923c0+build.94\"},{\"route\":\"/p/1\",\"t\":\"Ciki · 1.0.0 · e3923c0+build.94\"},{\"route\":\"/p/1/edit\",\"t\":\"Ciki · 1.0.0 · e3923c0+build.94\"},{\"route\":\"/s/space-1/search?q=QA48\",\"t\":\"Ciki · 1.0.0 · e3923c0+build.94\"}]"
+    },
+    {
+      "name": "补3 展开态设置页：返回文档左缘 = 正文标题列左缘",
+      "ok": true,
+      "detail": "back.x=284 title.x=284 (wrap.x=260+pad=24px) title=\"设置\" Δ=0"
+    },
+    {
+      "name": "补4 系统页 logo 点击不被返回按钮拦截（点 logo 回首页而非回文档页）",
+      "ok": false,
+      "detail": "click(36,24) → http://127.0.0.1:8791/p/1（logo 文案=\"Ciki\"）"
+    },
+    {
+      "name": "补5 设置页无「退出登录」入口（第六项回归）",
+      "ok": true,
+      "detail": "hasLogout=false"
+    }
+  ],
+  "allVersionTexts": [
+    {
+      "route": "/",
+      "label": "首页（RootRedirect→空间首页）",
+      "texts": [
+        "Ciki · 1.0.0 · e3923c0+build.94"
+      ]
+    },
+    {
+      "route": "/s/space-1",
+      "label": "空间页",
+      "texts": [
+        "Ciki · 1.0.0 · e3923c0+build.94"
+      ]
+    },
+    {
+      "route": "/p/1",
+      "label": "文档页",
+      "texts": [
+        "Ciki · 1.0.0 · e3923c0+build.94"
+      ]
+    },
+    {
+      "route": "/p/1/edit",
+      "label": "编辑页",
+      "texts": [
+        "Ciki · 1.0.0 · e3923c0+build.94"
+      ]
+    },
+    {
+      "route": "/s/space-1/search?q=QA48",
+      "label": "搜索页",
+      "texts": [
+        "Ciki · 1.0.0 · e3923c0+build.94"
+      ]
+    },
+    {
+      "route": "/settings",
+      "label": "设置页",
+      "texts": [
+        "127.0.0.1 · 最近活动 刚刚 · 创建于 2026-11-21 23:20",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 4 分钟前 · 创建于 2026-11-21 23:17",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 4 分钟前 · 创建于 2026-11-21 23:16",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 4 分钟前 · 创建于 2026-11-21 23:16",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 6 分钟前 · 创建于 2026-11-21 23:14",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 6 分钟前 · 创建于 2026-11-21 23:14",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 6 分钟前 · 创建于 2026-11-21 23:14",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 7 分钟前 · 创建于 2026-11-21 23:13",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 8 分钟前 · 创建于 2026-11-21 23:13",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/159.0.0.0 Safari/537.36",
+        "127.0.0.1 · 最近活动 8 分钟前 · 创建于 2026-11-21 23:12",
+        "curl/8.7.1",
+        "127.0.0.1 · 最近活动 14 分钟前 · 创建于 2026-11-21 23:06"
+      ]
+    },
+    {
+      "route": "/admin",
+      "label": "系统管理页",
+      "texts": []
+    },
+    {
+      "route": "/about",
+      "label": "关于页",
+      "texts": [
+        "v1.0.0-94-e3923c0"
+      ]
+    }
+  ]
+}
