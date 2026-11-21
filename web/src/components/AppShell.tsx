@@ -1,5 +1,6 @@
 import { cn } from "cn"
 import {
+  ArrowLeft,
   CircleHelp,
   Info,
   LogOut,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { Suspense, useEffect, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import { useTranslation } from "react-i18next"
 import {
   Group,
@@ -97,7 +99,13 @@ function isArticlePath(pathname: string): boolean {
   return pathname.startsWith("/p/")
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  onCollapse
+}: {
+  onNavigate?: () => void
+  onCollapse?: () => void
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const siteName = useSiteStore((state) => state.name)
@@ -131,9 +139,23 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-4">
         <PageTree onNavigate={onNavigate} />
       </div>
-      <p className="truncate border-t border-sidebar-border px-3 py-2 text-[11px] text-muted-foreground">
-        {buildVersionLabel(siteName)}
-      </p>
+      <div className="flex items-center justify-between gap-2 border-t border-sidebar-border px-3 py-1.5 text-[11px] text-muted-foreground">
+        <p className="truncate">{buildVersionLabel(siteName)}</p>
+        {onCollapse ? (
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            data-sidebar-collapse
+            aria-label={t("shell.sidebar.collapse")}
+            title={t("shell.sidebar.collapse")}
+            onClick={onCollapse}
+            className="shrink-0"
+          >
+            <PanelLeftClose aria-hidden="true" />
+          </Button>
+        ) : null}
+      </div>
 
       <CreatePageDialog
         open={createOpen}
@@ -270,6 +292,7 @@ export function AppShell() {
     onlySaveAfterUserInteractions: true
   })
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
+  const [collapsible, setCollapsible] = useState(() => !readSidebarOpen())
   const [isCollapsed, setIsCollapsed] = useState(() => !readSidebarOpen())
 
   useEffect(() => {
@@ -279,6 +302,9 @@ export function AppShell() {
   }, [])
 
   const handleCollapse = () => {
+    flushSync(() => {
+      setCollapsible(true)
+    })
     sidebarPanelRef.current?.collapse()
     setIsCollapsed(true)
     writeSidebarOpen(false)
@@ -288,6 +314,7 @@ export function AppShell() {
     sidebarPanelRef.current?.expand()
     setIsCollapsed(false)
     writeSidebarOpen(true)
+    setCollapsible(false)
   }
 
   const handlePanelResize = (size: {
@@ -367,6 +394,15 @@ export function AppShell() {
     </Link>
   )
 
+  const backHomeButton = (
+    <Button asChild variant="ghost" size="sm" className="gap-1.5">
+      <Link to="/">
+        <ArrowLeft aria-hidden="true" />
+        {t("page.backHome")}
+      </Link>
+    </Button>
+  )
+
   const createButton = canWrite ? (
     <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
       <Plus aria-hidden="true" />
@@ -437,7 +473,12 @@ export function AppShell() {
           <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
             {mobileMenu}
             {siteLink}
-            {isMobile ? (
+            {isSystemRoute ? (
+              <>
+                {backHomeButton}
+                {accountActions}
+              </>
+            ) : isMobile ? (
               mobileActions
             ) : (
               <>
@@ -465,7 +506,7 @@ export function AppShell() {
             defaultSize={SIDEBAR_DEFAULT_SIZE}
             minSize={SIDEBAR_MIN_WIDTH}
             maxSize={SIDEBAR_MAX_WIDTH}
-            collapsible
+            collapsible={collapsible}
             onResize={handlePanelResize}
             className="h-full"
           >
@@ -476,24 +517,11 @@ export function AppShell() {
               )}
               hidden={isCollapsed}
             >
-              <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2 sm:px-3">
+              <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
                 {siteLink}
-                {!isCollapsed && (
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="ghost"
-                    data-sidebar-collapse
-                    aria-label={t("shell.sidebar.collapse")}
-                    title={t("shell.sidebar.collapse")}
-                    onClick={handleCollapse}
-                  >
-                    <PanelLeftClose aria-hidden="true" />
-                  </Button>
-                )}
               </div>
               <div className="min-h-0 flex-1">
-                <SidebarContent />
+                <SidebarContent onCollapse={handleCollapse} />
               </div>
             </div>
           </Panel>
@@ -505,23 +533,10 @@ export function AppShell() {
             aria-label={t("shell.sidebar.resize")}
           />
           <Panel id="main" minSize={360} className="h-full">
-            <div className="flex h-full flex-col">
+            <div className="relative flex h-full flex-col">
               {/* 左内边距与 PageCanvas 同口径（手机 16px、≥640px 24px）；
                   右侧保持原样 8px/12px，不给账号按钮换位置。 */}
               <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4 sm:pr-3 sm:pl-6">
-                {isCollapsed ? (
-                  <Button
-                    type="button"
-                    size="icon-xs"
-                    variant="ghost"
-                    data-sidebar-expand
-                    aria-label={t("shell.sidebar.expand")}
-                    title={t("shell.sidebar.expand")}
-                    onClick={handleExpand}
-                  >
-                    <PanelLeftOpen aria-hidden="true" />
-                  </Button>
-                ) : null}
                 <SearchBox className="max-w-md flex-1" />
                 {createButton}
                 {accountActions}
@@ -529,6 +544,22 @@ export function AppShell() {
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {animatedMain}
               </div>
+              {isCollapsed ? (
+                <div className="absolute bottom-3 left-3 z-20">
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="outline"
+                    className="bg-background/80 shadow-xs backdrop-blur-xs hover:bg-accent"
+                    data-sidebar-expand
+                    aria-label={t("shell.sidebar.expand")}
+                    title={t("shell.sidebar.expand")}
+                    onClick={handleExpand}
+                  >
+                    <PanelLeftOpen aria-hidden="true" />
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </Panel>
         </Group>

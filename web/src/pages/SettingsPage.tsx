@@ -3,7 +3,6 @@ import {
   Languages,
   Laptop,
   Lock,
-  LogOut,
   Mail,
   MonitorSmartphone,
   ShieldCheck
@@ -11,7 +10,6 @@ import {
 import QRCode from "qrcode"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router"
 import { ApiTokensCard } from "@/components/ApiTokensCard"
 import { ImportTokensCard } from "@/components/ImportTokensCard"
 import { LanguageSegmented } from "@/components/LanguageToggle"
@@ -124,8 +122,6 @@ export function SettingsPage() {
   const setUser = useAuthStore((state) => state.setUser)
   const refreshMe = useAuthStore((state) => state.refreshMe)
   const setRestricted = useAuthStore((state) => state.setRestricted)
-  const logout = useAuthStore((state) => state.logout)
-  const navigate = useNavigate()
   const { t } = useTranslation()
 
   const [error, setError] = useState("")
@@ -869,20 +865,6 @@ export function SettingsPage() {
           </ul>
         </CardContent>
       </Card>
-
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            void logout().then(() => navigate("/login"))
-          }}
-        >
-          <LogOut aria-hidden="true" />
-          {t("shell.userMenu.logout")}
-        </Button>
-      </div>
 
       <PasswordConfirmDialog
         open={disableTotpOpen}
