@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   ApiError,
+  type ApiTokenCreated,
   type ApiTokenKind,
   type ApiTokenSummary,
   describeApiError,
@@ -34,6 +35,8 @@ import {
   type TokenSpaceIds
 } from "@/lib/api"
 import { formatDateTime } from "@/lib/format"
+import { buildIntegrationPrompt } from "@/lib/token-prompt"
+import { useSpacesStore } from "@/stores/spaces"
 
 /** 名称上限（契约：trim 后 ≤40 码点）。 */
 const NAME_MAX = 40
@@ -61,7 +64,8 @@ function nameLength(name: string): number {
  * 列表顺序直接用服务端给的 created_at 升序，不在前端重排。
  */
 export function ApiTokensCard() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const spaces = useSpacesStore((s) => s.spaces)
 
   const [tokens, setTokens] = useState<ApiTokenSummary[] | null>(null)
   const [loadingError, setLoadingError] = useState("")
@@ -71,7 +75,9 @@ export function ApiTokensCard() {
   const [issued, setIssued] = useState("")
   /** 明文属于哪一条：吊销别的令牌时不能把还没保存的明文一起清掉。 */
   const [issuedId, setIssuedId] = useState<number | null>(null)
+  const [issuedMeta, setIssuedMeta] = useState<ApiTokenCreated | null>(null)
   const [copied, setCopied] = useState(false)
+  const [copiedPrompt, setCopiedPrompt] = useState(false)
   const [busy, setBusy] = useState(false)
 
   // 新建面
@@ -113,6 +119,7 @@ export function ApiTokensCard() {
     setCreateError("")
     setNoticeKey("")
     setCopied(false)
+    setCopiedPrompt(false)
     setBusy(true)
     try {
       const result = await meApi.createToken({
@@ -123,6 +130,7 @@ export function ApiTokensCard() {
       })
       setIssued(result.token)
       setIssuedId(result.id)
+      setIssuedMeta(result)
       setCreating(false)
       setKind("read")
       setName("")
@@ -177,7 +185,9 @@ export function ApiTokensCard() {
       if (issuedId === token.id) {
         setIssued("")
         setIssuedId(null)
+        setIssuedMeta(null)
         setCopied(false)
+        setCopiedPrompt(false)
       }
       if (scopeFor === token.id) setScopeFor(null)
       setNoticeKey("settings.tokens.api.revoked")
@@ -203,6 +213,25 @@ export function ApiTokensCard() {
       window.setTimeout(() => setCopied(false), 1600)
     } catch {
       setCopied(false)
+      setError(t("settings.tokens.common.copyFailed"))
+    }
+  }
+
+  const copyPrompt = async () => {
+    if (!issuedMeta) return
+    setError("")
+    try {
+      const prompt = buildIntegrationPrompt({
+        lang: i18n.language,
+        kind: issuedMeta.kind,
+        spaceIds: issuedMeta.spaceIds,
+        spaces
+      })
+      await navigator.clipboard.writeText(prompt)
+      setCopiedPrompt(true)
+      window.setTimeout(() => setCopiedPrompt(false), 1600)
+    } catch {
+      setCopiedPrompt(false)
       setError(t("settings.tokens.common.copyFailed"))
     }
   }
@@ -267,6 +296,26 @@ export function ApiTokensCard() {
                 size="sm"
                 variant="outline"
                 aria-label={
+                  copiedPrompt
+                    ? t("settings.tokens.common.copied")
+                    : t("settings.tokens.api.copyPromptLabel")
+                }
+                onClick={() => void copyPrompt()}
+              >
+                {copiedPrompt ? (
+                  <Check aria-hidden="true" />
+                ) : (
+                  <Copy aria-hidden="true" />
+                )}
+                {copiedPrompt
+                  ? t("settings.tokens.common.copied")
+                  : t("settings.tokens.api.copyPrompt")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                aria-label={
                   copied
                     ? t("settings.tokens.common.copied")
                     : t("settings.tokens.common.copyLabel")
@@ -291,7 +340,9 @@ export function ApiTokensCard() {
                 onClick={() => {
                   setIssued("")
                   setIssuedId(null)
+                  setIssuedMeta(null)
                   setCopied(false)
+                  setCopiedPrompt(false)
                 }}
               >
                 {t("settings.tokens.common.saved")}

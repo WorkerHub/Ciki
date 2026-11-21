@@ -1,4 +1,4 @@
-import { Check, Copy, PlugZap, Plus } from "lucide-react"
+import { Check, CircleHelp, Copy, PlugZap, Plus } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
@@ -15,6 +15,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
 import {
   ApiError,
   describeApiError,
@@ -144,7 +150,23 @@ export function ImportTokensCard() {
               className="size-4 text-muted-foreground"
               aria-hidden="true"
             />
-            {t("settings.tokens.plugin.title")}
+            <span>{t("settings.tokens.plugin.title")}</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    aria-label={t("settings.tokens.plugin.helpLabel")}
+                  >
+                    <CircleHelp className="size-4" aria-hidden="true" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {t("settings.tokens.plugin.helpTooltip")}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </CardTitle>
           <Button
             type="button"

@@ -262,4 +262,47 @@ describe("API Token 卡", () => {
 
     expect(await screen.findByText("只读 Token")).toBeInTheDocument()
   })
+
+  it("创建成功后签发面板出现两个复制按钮，并排且各自独立复制反馈", async () => {
+    vi.mocked(meApi.tokens)
+      .mockResolvedValueOnce({ tokens: [] })
+      .mockResolvedValue({ tokens: [READ_TOKEN] })
+    const user = userEvent.setup()
+    const writeSpy = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+    render(<ApiTokensCard />)
+
+    await screen.findByText("还没有 API Token")
+    await user.click(screen.getByRole("button", { name: "新建 Token" }))
+    await user.click(screen.getByRole("button", { name: "创建" }))
+
+    expect(await screen.findByText(TOKEN)).toBeInTheDocument()
+
+    const copyTokenBtn = screen.getByRole("button", { name: "复制 Token" })
+    const copyPromptBtn = screen.getByRole("button", { name: "复制接入提示词" })
+    expect(copyTokenBtn).toBeInTheDocument()
+    expect(copyPromptBtn).toBeInTheDocument()
+
+    // 1. 点击复制 Token
+    await user.click(copyTokenBtn)
+    expect(writeSpy).toHaveBeenLastCalledWith(TOKEN)
+    expect(screen.getByRole("button", { name: "已复制" })).toBeInTheDocument()
+
+    // 2. 点击复制接入提示词
+    await user.click(copyPromptBtn)
+    expect(writeSpy).toHaveBeenLastCalledWith(
+      expect.stringContaining("{{CIKI_API_TOKEN}}")
+    )
+    const promptText = writeSpy.mock.calls[1][0] as string
+    expect(promptText).toContain("Token 我随后单独发给你")
+    expect(promptText).toContain("全部空间")
+    expect(promptText).not.toContain(TOKEN) // 绝不包含明文
+
+    // 3. 点击「我已保存」
+    await user.click(screen.getByRole("button", { name: "我已保存" }))
+    expect(screen.queryByText(TOKEN)).toBeNull()
+    expect(screen.queryByRole("button", { name: "复制 Token" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "复制接入提示词" })).toBeNull()
+  })
 })
