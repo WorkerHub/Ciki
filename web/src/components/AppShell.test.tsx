@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -207,15 +207,20 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(brand?.parentElement).toHaveClass("h-12", "px-2", "sm:px-3")
     unmount()
 
-    // 系统页没有侧栏，仍是整条顶栏 + 顶栏里的搜索框
+    // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮，而是显示「回到首页」按钮
     const system = renderShell("/settings")
     const systemHeader = system.container.querySelector("header")
     expect(system.container.querySelectorAll("header")).toHaveLength(1)
-    expect(systemHeader?.querySelector("form")).not.toBeNull()
-    expect(systemHeader?.querySelector('a[href="/"]')).not.toBeNull()
+    expect(systemHeader?.querySelector("form")).toBeNull()
+    expect(
+      within(systemHeader!).getByRole("link", { name: "回到首页" })
+    ).toHaveAttribute("href", "/")
+    expect(
+      within(systemHeader!).queryByRole("button", { name: "新建页面" })
+    ).toBeNull()
   })
 
-  it("移动端保持整条顶栏：没有搜索框，页面树走抽屉", () => {
+  it("移动端保持整条顶栏：没有搜索框，页面树走抽屉，抽屉内不包含收起侧栏按钮", () => {
     const original = window.matchMedia
     window.matchMedia = ((query: string) => ({
       matches: query.includes("max-width"),
@@ -233,9 +238,15 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       expect(container.querySelector("header form")).toBeNull()
       // 移动端没有侧栏那一栏，品牌回到同一条顶栏里
       expect(container.querySelector('header a[href="/"]')).not.toBeNull()
+      const openDrawerBtn = screen.getByRole("button", { name: "打开页面树" })
+      expect(openDrawerBtn).toBeInTheDocument()
+
+      // 打开抽屉
+      fireEvent.click(openDrawerBtn)
+      // 抽屉内不应该有收起侧边栏按钮
       expect(
-        screen.getByRole("button", { name: "打开页面树" })
-      ).toBeInTheDocument()
+        screen.queryByRole("button", { name: "收起侧边栏" })
+      ).toBeNull()
     } finally {
       window.matchMedia = original
     }
@@ -276,22 +287,31 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(settings.container.querySelector("[data-page-canvas]")).toBeNull()
   })
 
-  it("桌面普通页侧栏带有收起按钮，点击收起后顶栏显示展开按钮并持久化", async () => {
+  it("桌面普通页侧栏底部带有收起按钮，点击收起后左下角显示展开按钮并持久化", async () => {
     localStorage.clear()
-    const { unmount } = renderShell("/p/a")
+    const { container, unmount } = renderShell("/p/a")
 
     const collapseButton = screen.getByRole("button", { name: "收起侧边栏" })
     expect(collapseButton).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "展开侧边栏" })).toBeNull()
 
+    // 收起按钮位于侧栏底部（footer），旁边有版本信息，侧栏顶部没有收起按钮
+    const brand = container.querySelector('a[href="/"]')
+    expect(brand?.parentElement?.contains(collapseButton)).toBe(false)
+    const footer = collapseButton.closest("div")
+    expect(footer).toHaveTextContent(/Ciki/)
+
     // 点击收起
     fireEvent.click(collapseButton)
 
-    // 收起后：顶栏显示展开按钮，localStorage 写入 "false"
+    // 收起后：左下角显示展开按钮，正文顶栏不显示展开按钮，localStorage 写入 "false"
     const expandButton = await screen.findByRole("button", {
       name: "展开侧边栏"
     })
     expect(expandButton).toBeInTheDocument()
+    const mainHeader = container.querySelector("header")
+    expect(mainHeader?.contains(expandButton)).toBe(false)
+    expect(expandButton.closest("div")).toHaveClass("bottom-3", "left-3")
     expect(localStorage.getItem("app-sidebar-open")).toBe("false")
 
     // 点击展开
@@ -376,6 +396,15 @@ describe("应用外壳：英文界面", () => {
       await screen.findByRole("button", { name: "Expand sidebar" })
     ).toBeInTheDocument()
     unmount()
+  })
+
+  it("系统页面显示 Back to home 按钮而不显示搜索框与新建页面", async () => {
+    const { container } = renderShell("/settings")
+    expect(container.querySelector("form")).toBeNull()
+    expect(
+      screen.getByRole("link", { name: "Back to home" })
+    ).toHaveAttribute("href", "/")
+    expect(screen.queryByRole("button", { name: "New page" })).toBeNull()
   })
 
   it("空间切换器与页面空态也是英文", async () => {
