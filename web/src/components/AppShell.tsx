@@ -66,7 +66,6 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
   SIDEBAR_WIDTH_ICON,
-  SYSTEM_SIDEBAR_HEADER_WIDTH,
   writeSidebarOpen
 } from "@/lib/sidebar"
 import { canEdit } from "@/lib/space"
@@ -447,22 +446,19 @@ export function AppShell() {
   ) : (
     // 分类页（搜索等）与文章页共用同一条左缘：贴着分割线 16px/24px 起排，
     // 不再用 1140px 居中容器把内容推得比正文更靠右；宽度上限保留，只去掉居中。
-    // 系统页正文列：为顶栏左上角 logo 预留 260px 左侧区。宽屏（≥1920px）正文列居中、
-    // 左缘越过 260px 区，视觉不变；窄屏（如 1440/1728px）不再居中，左缘让给 logo 区。
+    // 系统页正文列：正文列左缘 = max(居中位置, logo 区右缘)。
+    // 宽屏（≥1920px）正文列居中、左右留白对称、视觉与改前一致；
+    // 窄屏（<1920px，如 1440/1728px）居中位置会撞上 logo 区，左缘让到 logo 区右缘（260px）。
     <div
       className={cn(
         "px-4 py-5 sm:px-6 sm:py-6",
-        isSystemRoute ? "max-w-[1400px]" : "w-full max-w-[1140px]"
+        isSystemRoute
+          ? cn(
+              "max-w-[1400px]",
+              isMobile ? "mx-auto" : "ml-[260px] min-[1920px]:mx-auto"
+            )
+          : "w-full max-w-[1140px]"
       )}
-      style={
-        isSystemRoute && !isMobile
-          ? {
-              marginLeft: `max(${SYSTEM_SIDEBAR_HEADER_WIDTH}px, calc((100% - 1400px) / 2))`
-            }
-          : isSystemRoute
-            ? { marginLeft: "auto", marginRight: "auto" }
-            : undefined
-      }
     >
       {content}
     </div>
@@ -566,10 +562,11 @@ export function AppShell() {
       {isMobile || isSystemRoute ? (
         <>
           <header className="relative flex h-12 shrink-0 items-center border-b border-border">
-            {/* 系统页：顶栏为 logo 预留固定宽度左侧区（260px，对应 wiki 侧栏头部展开宽度），
+            {/* 系统页：顶栏为 logo 预留固定宽度左侧区（260px），
                 logo+标题置于其内左上角；正文内容列（含「返回文档」）位于该区右侧，
-                与正文标题列左边缘对齐。宽屏正文列居中、左缘越过 logo 区，视觉不变；
-                窄屏正文列不再居中、左缘让给 logo 区（= wiki 侧栏头部占位行为）。 */}
+                与正文标题列左边缘对齐。
+                宽屏（≥1920px）正文列居中、左右留白对称、视觉与改前一致；
+                窄屏（<1920px，如 1440/1728px）居中位置会撞上 logo 区，左缘让到 logo 区右缘（260px）。 */}
             {isSystemRoute ? (
               isMobile ? (
                 <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
@@ -578,16 +575,11 @@ export function AppShell() {
                   {accountActions}
                 </div>
               ) : (
-                <div className="flex h-12 w-full items-center">
+                <div className="relative flex h-12 w-full items-center">
                   <div className="absolute inset-y-0 left-0 flex h-12 w-[260px] items-center gap-2 px-2 sm:px-3">
                     {siteLink}
                   </div>
-                  <div
-                    className="flex h-12 flex-1 max-w-[1400px] items-center gap-2 px-4 sm:px-6"
-                    style={{
-                      marginLeft: `max(${SYSTEM_SIDEBAR_HEADER_WIDTH}px, calc((100% - 1400px) / 2))`
-                    }}
-                  >
+                  <div className="flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6 ml-[260px] min-[1920px]:mx-auto">
                     {backToDocButton}
                     {accountActions}
                   </div>

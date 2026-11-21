@@ -238,9 +238,7 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     const headerContent = backButton.parentElement as HTMLElement
     expect(headerContent).toHaveClass("max-w-[1400px]", "px-4", "sm:px-6")
     expect(headerContent.contains(systemBrand ?? null)).toBe(false)
-    expect(headerContent.style.marginLeft).toMatch(
-      /max\(260px,\s*(calc\()?50% - 700px/
-    )
+    expect(headerContent).toHaveClass("ml-[260px]", "min-[1920px]:mx-auto")
   })
 
   it("移动端保持整条顶栏：没有搜索框，页面树走抽屉，抽屉内不包含收起侧栏按钮", () => {
@@ -290,9 +288,10 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
 
     renderShell("/settings")
     const systemWrapper = screen.getByText("页面内容").parentElement
-    expect(systemWrapper).toHaveClass("max-w-[1400px]")
-    expect(systemWrapper?.style.marginLeft).toMatch(
-      /max\(260px,\s*(calc\()?50% - 700px/
+    expect(systemWrapper).toHaveClass(
+      "max-w-[1400px]",
+      "ml-[260px]",
+      "min-[1920px]:mx-auto"
     )
   })
 
@@ -496,8 +495,10 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(desktopContentCol.contains(brand ?? null)).toBe(false)
 
     const desktopSystemWrapper = screen.getByText("页面内容").parentElement
-    expect(desktopContentCol.style.marginLeft).toBe(
-      desktopSystemWrapper?.style.marginLeft
+    expect(desktopContentCol).toHaveClass("ml-[260px]", "min-[1920px]:mx-auto")
+    expect(desktopSystemWrapper).toHaveClass(
+      "ml-[260px]",
+      "min-[1920px]:mx-auto"
     )
     desktop.unmount()
 
@@ -519,6 +520,9 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       const mobileBrand = mobileHeader?.querySelector('a[href="/"]')
       expect(mobileBrand?.parentElement).not.toHaveClass("w-[260px]")
       expect(mobileBrand?.parentElement).toHaveClass("px-2", "sm:px-3")
+      const mobileSystemWrapper = screen.getByText("页面内容").parentElement
+      expect(mobileSystemWrapper).toHaveClass("mx-auto")
+      expect(mobileSystemWrapper).not.toHaveClass("ml-[260px]")
       mobile.unmount()
     } finally {
       window.matchMedia = original
