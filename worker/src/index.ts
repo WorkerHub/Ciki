@@ -1,4 +1,7 @@
 import { Hono } from "hono"
+import { DEFAULT_SITE_NAME } from "./core/identity"
+import { getSetting } from "./db/queries/settings"
+import { buildWebAppManifest } from "./lib/manifest"
 import { getTablePrefix, isValidTablePrefix } from "./lib/table-prefix"
 import { isEncryptionKeyUsable } from "./core/secret-box"
 import { wakerGateState } from "./core/waker-gate"
@@ -130,6 +133,19 @@ app.all("/api/*", (c) => c.json({ error: "Not found" }, 404))
 // waker 回调入口（规格 §3）：必须在 SPA 回落之前挂上，否则 `/_waker/execute`
 // 会被回落成 200 的 index.html，平台会把“没跑”当成功。验签与幂等全在 SDK 里。
 app.route(CALLBACK_MOUNT_PATH, wakerRoutes())
+
+// PWA 安装清单（规格对齐模板）：由 Worker 动态生成（站点名取 DB 设置 site_name，fallback DEFAULT_SITE_NAME）。
+// 必须在 SPA 回落 app.get("*") 之前注册；缓存口径与 /api/public 对齐。
+app.get("/manifest.webmanifest", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const siteName =
+    (await getSetting(c.env.DB, prefix, "site_name").catch(() => null)) ??
+    DEFAULT_SITE_NAME
+  return c.newResponse(JSON.stringify(buildWebAppManifest(siteName)), 200, {
+    "Content-Type": "application/manifest+json",
+    "Cache-Control": "public, max-age=60"
+  })
+})
 
 // SPA 回落：静态资源命中就直接返回，未命中（客户端路由）返回 index.html。
 app.get("*", async (c) => {
