@@ -47,11 +47,7 @@ export function CommentComposer({
   const requestSeq = useRef(0)
 
   const empty = !value.trim()
-  // 草稿为空时（如父级提交成功清空草稿或外部复位），退出预览态收起预览区
-  if (empty && previewHtml !== null) {
-    setPreviewHtml(null)
-  }
-  const open = previewHtml !== null && !empty
+  const open = previewHtml !== null
 
   async function togglePreview() {
     if (open) {
