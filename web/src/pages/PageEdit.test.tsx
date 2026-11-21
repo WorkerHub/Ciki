@@ -338,6 +338,73 @@ describe("编辑页的保存保护", () => {
     expect(screen.queryByText("还有未保存的修改")).toBeNull()
     expect(pagesApi.update).not.toHaveBeenCalled()
   })
+
+  it("保存按钮保存成功后自动返回阅读模式，且离开守卫不弹窗", async () => {
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
+    vi.mocked(pagesApi.update).mockResolvedValue({
+      ...page,
+      title: `${page.title}！`,
+      updatedAt: "2026-11-21T12:00:00.000Z"
+    })
+    const user = userEvent.setup()
+    renderEdit()
+
+    const title = await screen.findByLabelText("页面标题")
+    await user.type(title, "！")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    await waitFor(() => expect(pagesApi.update).toHaveBeenCalled())
+    // 保存成功后自动回阅读页，离开守卫不拦截
+    expect(await screen.findByText("阅读页占位")).toBeInTheDocument()
+    expect(screen.queryByText("还有未保存的修改")).toBeNull()
+  })
+
+  it("保存按钮保存失败时留在编辑模式展示报错，不跳回阅读页", async () => {
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
+    vi.mocked(pagesApi.update).mockRejectedValue(
+      new ApiError(500, "网络保存异常")
+    )
+    const user = userEvent.setup()
+    renderEdit()
+
+    const title = await screen.findByLabelText("页面标题")
+    await user.type(title, "！")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    await waitFor(() => expect(pagesApi.update).toHaveBeenCalled())
+    // 留在编辑页，展示报错，不导航
+    expect(await screen.findByText("网络保存异常")).toBeInTheDocument()
+    expect(screen.queryByText("阅读页占位")).toBeNull()
+    expect(screen.getByLabelText("页面标题")).toHaveValue(`${page.title}！`)
+  })
+
+  it("Ctrl/⌘+S 保存成功后停留在编辑模式当作存档点，不跳回阅读页", async () => {
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
+    vi.mocked(pagesApi.update).mockResolvedValue({
+      ...page,
+      title: `${page.title}！`,
+      updatedAt: "2026-11-21T12:00:00.000Z"
+    })
+    const user = userEvent.setup()
+    renderEdit()
+
+    const title = await screen.findByLabelText("页面标题")
+    await user.type(title, "！")
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true })
+    )
+
+    await waitFor(() => expect(pagesApi.update).toHaveBeenCalled())
+    // 不跳回阅读页
+    expect(screen.queryByText("阅读页占位")).toBeNull()
+    // 工具条中保存状态从「有未保存的更改」变为「已保存」
+    const toolbar = screen.getByRole("toolbar")
+    await waitFor(() =>
+      expect(within(toolbar).queryByText("有未保存的更改")).toBeNull()
+    )
+    expect(within(toolbar).getByText(/^已保存 /)).toBeInTheDocument()
+  })
 })
 
 describe("编辑页按记忆锚点定位", () => {
