@@ -16,20 +16,20 @@
 
 **口径**：正文内容列左缘 = `[data-page-canvas]` 实际渲染左缘（文章页）/ 「搜索」标题 h1 左缘（搜索页）；判定阈值 `|Δ| ≤ 0.5px`。
 
-| # | 视口 | 状态 | 页面 | 搜索框 x（期望） | 正文列 x（期望） | Δ（实测） | 判定 | 截图 |
-|---|---|---|---|---|---|---|---|---|
-| A1 | 1440 | 展开 | 文章页 `/p/3` | 284 | 284 | **0.0** | 通过 | `qa/evidence/10-article-expanded-1440.png` |
-| A2 | 1440 | 展开 | 搜索页 | 284 | 284 | **0.0** | 通过 | `qa/evidence/12-search-expanded-1440.png` |
-| A3 | 1440 | 收起 | 文章页 | 73 | 73 | **0.0** | 通过 | `qa/evidence/11-article-collapsed-1440.png` |
-| A4 | 1440 | 收起 | 搜索页 | 73 | 73 | **0.0** | 通过 | `qa/evidence/13-search-collapsed-1440.png` |
-| A5 | 1728 | 展开 | 文章页 | 335.9 | 335.9 | **0.0** | 通过 | `qa/evidence/10-article-expanded-1728.png` |
-| A6 | 1728 | 展开 | 搜索页 | 335.9 | 335.9 | **0.0** | 通过 | `qa/evidence/12-search-expanded-1728.png` |
-| A7 | 1728 | 收起 | 文章页 | 88.5 | 88.5 | **0.0** | 通过 | `qa/evidence/11-article-collapsed-1728.png` |
-| A8 | 1728 | 收起 | 搜索页 | 73 | 73 | **0.0** | 通过 | `qa/evidence/13-search-collapsed-1728.png` |
-| A9 | 1920 | 展开 | 文章页 | 370.4 | 370.4 | **0.0** | 通过 | `qa/evidence/10-article-expanded-1920.png` |
-| A10 | 1920 | 展开 | 搜索页 | 370.4 | 370.4 | **0.0** | 通过 | `qa/evidence/12-search-expanded-1920.png` |
-| A11 | 1920 | 收起 | 文章页 | 184.5 | 184.5 | **0.0** | 通过 | `qa/evidence/11-article-collapsed-1920.png` |
-| A12 | 1920 | 收起 | 搜索页 | 73 | 73 | **0.0** | 通过 | `qa/evidence/13-search-collapsed-1920.png` |
+| #   | 视口 | 状态 | 页面          | 搜索框 x（期望） | 正文列 x（期望） | Δ（实测） | 判定 | 截图                                        |
+| --- | ---- | ---- | ------------- | ---------------- | ---------------- | --------- | ---- | ------------------------------------------- |
+| A1  | 1440 | 展开 | 文章页 `/p/3` | 284              | 284              | **0.0**   | 通过 | `qa/evidence/10-article-expanded-1440.png`  |
+| A2  | 1440 | 展开 | 搜索页        | 284              | 284              | **0.0**   | 通过 | `qa/evidence/12-search-expanded-1440.png`   |
+| A3  | 1440 | 收起 | 文章页        | 73               | 73               | **0.0**   | 通过 | `qa/evidence/11-article-collapsed-1440.png` |
+| A4  | 1440 | 收起 | 搜索页        | 73               | 73               | **0.0**   | 通过 | `qa/evidence/13-search-collapsed-1440.png`  |
+| A5  | 1728 | 展开 | 文章页        | 335.9            | 335.9            | **0.0**   | 通过 | `qa/evidence/10-article-expanded-1728.png`  |
+| A6  | 1728 | 展开 | 搜索页        | 335.9            | 335.9            | **0.0**   | 通过 | `qa/evidence/12-search-expanded-1728.png`   |
+| A7  | 1728 | 收起 | 文章页        | 88.5             | 88.5             | **0.0**   | 通过 | `qa/evidence/11-article-collapsed-1728.png` |
+| A8  | 1728 | 收起 | 搜索页        | 73               | 73               | **0.0**   | 通过 | `qa/evidence/13-search-collapsed-1728.png`  |
+| A9  | 1920 | 展开 | 文章页        | 370.4            | 370.4            | **0.0**   | 通过 | `qa/evidence/10-article-expanded-1920.png`  |
+| A10 | 1920 | 展开 | 搜索页        | 370.4            | 370.4            | **0.0**   | 通过 | `qa/evidence/12-search-expanded-1920.png`   |
+| A11 | 1920 | 收起 | 文章页        | 184.5            | 184.5            | **0.0**   | 通过 | `qa/evidence/11-article-collapsed-1920.png` |
+| A12 | 1920 | 收起 | 搜索页        | 73               | 73               | **0.0**   | 通过 | `qa/evidence/13-search-collapsed-1920.png`  |
 
 辅助参照：展开态侧栏实测宽度 1440 = 259 / 1728 = 310.9 / 1920 = 345.4；收起态图标列实测宽 **48.0**（三视口一致），即 `#24` 回归关注的「260px 错位」未复现。
 
@@ -39,14 +39,14 @@
 
 ## B 组 — #24 两条「设置→返回→文档页」路径 + 第五项三点
 
-| # | 场景 | 期望 | 实测 | 判定 | 截图 |
-|---|---|---|---|---|---|
-| B1 | 收起态：文档页 → 账号菜单 → 设置 → 「返回文档」→ 回文档页 | 布局不坏：图标列 48px、无系统页 logo 区、正文列存在 | Δ=0；iconColW=**48**；logoArea=false；canvas=true | 通过 | `qa/evidence/50-back-from-collapsed-{1440,1728,1920}.png` |
-| B2 | 展开态：文档页 → 设置 → 「返回文档」→ 回文档页 | 侧栏宽度与返回前一致、正文列正常 | Δ=0；sidebarW=**259 / 310.9 / 345.4**（与返回前逐视口相同）；canvas=true | 通过 | `qa/evidence/51-back-from-expanded-{1440,1728,1920}.png` |
-| B3 | 来源回退：设置 ↔ 系统管理互跳后点「返回文档」 | 回**来源文档页** `/p/3`（不是管理页、不是首页） | url=`/p/3`（三视口一致） | 通过 | `qa/evidence/20-settings-from-collapsed-*.png` |
-| B4 | 无来源回退首页：整页刷新直开 `/settings` → 点「返回文档」 | 回首页链 → 首页首篇 `/p/1` | url=`/p/1`（三视口一致，无超时）；搜索框存在、canvas 存在 | 通过 | `qa/evidence/52-no-source-home-{1440,1728,1920}.png` |
-| B5 | 文案 | 按钮文案为「返回文档」 | `text="返回文档"`（三视口） | 通过 | `qa/evidence/20-settings-{1440,1728,1920}.png` |
-| B6 | 按钮与正文对齐 | 返回按钮左缘 = 正文列左缘 | back.x=**284** = content.x=**284**，Δ=**0.0**（三视口；正文起点 = logo 区右缘 260 + 24px 内距） | 通过 | `qa/evidence/20-settings-from-collapsed-{1440,1728,1920}.png` |
+| #   | 场景                                                      | 期望                                                | 实测                                                                                            | 判定 | 截图                                                          |
+| --- | --------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------- |
+| B1  | 收起态：文档页 → 账号菜单 → 设置 → 「返回文档」→ 回文档页 | 布局不坏：图标列 48px、无系统页 logo 区、正文列存在 | Δ=0；iconColW=**48**；logoArea=false；canvas=true                                               | 通过 | `qa/evidence/50-back-from-collapsed-{1440,1728,1920}.png`     |
+| B2  | 展开态：文档页 → 设置 → 「返回文档」→ 回文档页            | 侧栏宽度与返回前一致、正文列正常                    | Δ=0；sidebarW=**259 / 310.9 / 345.4**（与返回前逐视口相同）；canvas=true                        | 通过 | `qa/evidence/51-back-from-expanded-{1440,1728,1920}.png`      |
+| B3  | 来源回退：设置 ↔ 系统管理互跳后点「返回文档」             | 回**来源文档页** `/p/3`（不是管理页、不是首页）     | url=`/p/3`（三视口一致）                                                                        | 通过 | `qa/evidence/20-settings-from-collapsed-*.png`                |
+| B4  | 无来源回退首页：整页刷新直开 `/settings` → 点「返回文档」 | 回首页链 → 首页首篇 `/p/1`                          | url=`/p/1`（三视口一致，无超时）；搜索框存在、canvas 存在                                       | 通过 | `qa/evidence/52-no-source-home-{1440,1728,1920}.png`          |
+| B5  | 文案                                                      | 按钮文案为「返回文档」                              | `text="返回文档"`（三视口）                                                                     | 通过 | `qa/evidence/20-settings-{1440,1728,1920}.png`                |
+| B6  | 按钮与正文对齐                                            | 返回按钮左缘 = 正文列左缘                           | back.x=**284** = content.x=**284**，Δ=**0.0**（三视口；正文起点 = logo 区右缘 260 + 24px 内距） | 通过 | `qa/evidence/20-settings-from-collapsed-{1440,1728,1920}.png` |
 
 **B 组判定：通过（6/6）。#24 原故障（返回后顶栏 logo + 返回按钮挤占 260px、内容大片偏移）在收起/展开两态、两个来源情形下均未复现。**
 
@@ -56,18 +56,18 @@
 
 对象页面：`/settings` 与 `/admin`，各三视口 = 6 组。
 
-| # | 验收点 | 期望 | 实测 | 判定 | 截图 |
-|---|---|---|---|---|---|
-| C1 | logo / 标题左上角顶头 | 位于页面左上角、贴顶 | logo.x=**12**，logo.y=**13.5**，header.y=**0**，文案「Ciki」（settings + admin × 三视口） | 通过 | `qa/evidence/20-settings-*.png`、`qa/evidence/21-admin-*.png` |
-| C2 | 系统页无侧栏 | 无页面树、无图标列、无收起按钮 | iconCol=false，sidebarPanel=false（6 组全部） | 通过 | 同上 |
-| C3 | 「返回文档」与正文列对齐 | 按钮左缘 = 正文列左缘 | back.x=**284** = content.x=**284**，Δ=**0.0**（6 组全部） | 通过 | 同上 |
-| C4 | 正文列左缘 = max(居中位, logo 区右缘 260) | 1440/1728 让位 260；1920 居中 | 1440：居中位 20 → 左缘 **260**；1728：居中位 164 → 左缘 **260**；1920：居中位 260 → 左缘 **260**（settings + admin） | 通过 | 同上 |
-| C5 | logo 与「返回文档」不重叠、互不拦截 | 两条独立链接、命中各自目标 | logo 12..**60.3**，返回 x=**284**（间隔 **223.7px**）；`elementFromPoint` 命中：logo→「Ciki」、返回→「返回文档」 | 通过 | `qa/evidence/60-logo-click-result-1440.png` |
-| C6 | 宽屏（≥1920）正文列居中、左右留白对称 | leftGap = rightGap | leftGap=**260** = rightGap=**260**，列宽 **1400**（settings + admin） | 通过 | `qa/evidence/20-settings-1920.png`、`qa/evidence/21-admin-1920.png` |
-| C7 | 与 #45 改前一致 | 改前 marginLeft=max(260,(100%-1400)/2)=260、列宽 1400 | 实测左缘 260、列宽 1400、留白 260/260 → **与改前一致**（#45 只把 1920 从「靠 260 起排」改为「居中」，实测两侧对称） | 通过 | 同 C6 |
-| C8 | 1728 按同一规则留证 | 与 1440/1920 同一规则 | 居中位 164 < 260 → 左缘 260、logo 区 260 让位（settings + admin） | 通过 | `qa/evidence/20-settings-1728.png`、`qa/evidence/21-admin-1728.png` |
-| C9 | 实点 logo 不被返回按钮拦截 | 点 logo → 首页链（非来源页） | 点 logo → `/p/1`（首页首篇；来源页为 `/p/3`，可区分） | 通过 | `qa/evidence/61-logo-click-lands-home-1440.png` |
-| C10 | 实点「返回文档」回来源页 | 回来源文档页 | 来源 `/p/3` 时 back.href=`/p/3`；实点后 url=`/p/3`；再进设置（来源 `/p/1`）实点回 `/p/1` | 通过 | `qa/evidence/60-logo-click-result-1440.png` |
+| #   | 验收点                                    | 期望                                                  | 实测                                                                                                                 | 判定 | 截图                                                                |
+| --- | ----------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------- |
+| C1  | logo / 标题左上角顶头                     | 位于页面左上角、贴顶                                  | logo.x=**12**，logo.y=**13.5**，header.y=**0**，文案「Ciki」（settings + admin × 三视口）                            | 通过 | `qa/evidence/20-settings-*.png`、`qa/evidence/21-admin-*.png`       |
+| C2  | 系统页无侧栏                              | 无页面树、无图标列、无收起按钮                        | iconCol=false，sidebarPanel=false（6 组全部）                                                                        | 通过 | 同上                                                                |
+| C3  | 「返回文档」与正文列对齐                  | 按钮左缘 = 正文列左缘                                 | back.x=**284** = content.x=**284**，Δ=**0.0**（6 组全部）                                                            | 通过 | 同上                                                                |
+| C4  | 正文列左缘 = max(居中位, logo 区右缘 260) | 1440/1728 让位 260；1920 居中                         | 1440：居中位 20 → 左缘 **260**；1728：居中位 164 → 左缘 **260**；1920：居中位 260 → 左缘 **260**（settings + admin） | 通过 | 同上                                                                |
+| C5  | logo 与「返回文档」不重叠、互不拦截       | 两条独立链接、命中各自目标                            | logo 12..**60.3**，返回 x=**284**（间隔 **223.7px**）；`elementFromPoint` 命中：logo→「Ciki」、返回→「返回文档」     | 通过 | `qa/evidence/60-logo-click-result-1440.png`                         |
+| C6  | 宽屏（≥1920）正文列居中、左右留白对称     | leftGap = rightGap                                    | leftGap=**260** = rightGap=**260**，列宽 **1400**（settings + admin）                                                | 通过 | `qa/evidence/20-settings-1920.png`、`qa/evidence/21-admin-1920.png` |
+| C7  | 与 #45 改前一致                           | 改前 marginLeft=max(260,(100%-1400)/2)=260、列宽 1400 | 实测左缘 260、列宽 1400、留白 260/260 → **与改前一致**（#45 只把 1920 从「靠 260 起排」改为「居中」，实测两侧对称）  | 通过 | 同 C6                                                               |
+| C8  | 1728 按同一规则留证                       | 与 1440/1920 同一规则                                 | 居中位 164 < 260 → 左缘 260、logo 区 260 让位（settings + admin）                                                    | 通过 | `qa/evidence/20-settings-1728.png`、`qa/evidence/21-admin-1728.png` |
+| C9  | 实点 logo 不被返回按钮拦截                | 点 logo → 首页链（非来源页）                          | 点 logo → `/p/1`（首页首篇；来源页为 `/p/3`，可区分）                                                                | 通过 | `qa/evidence/61-logo-click-lands-home-1440.png`                     |
+| C10 | 实点「返回文档」回来源页                  | 回来源文档页                                          | 来源 `/p/3` 时 back.href=`/p/3`；实点后 url=`/p/3`；再进设置（来源 `/p/1`）实点回 `/p/1`                             | 通过 | `qa/evidence/60-logo-click-result-1440.png`                         |
 
 **C 组判定：通过（10/10）。**
 
@@ -75,16 +75,16 @@
 
 ## D 组 — 第一项补漏（#28）：全站版本号扫描 + 关于页构建信息节 + 未登录页脚
 
-| # | 验收点 | 期望 | 实测 | 判定 | 截图 |
-|---|---|---|---|---|---|
-| D1 | 关于页版本行 = 版本全串 | `v1.0.0-94-e3923c0`（无 g 前缀、无 +build） | `v1.0.0-94-e3923c0` | 通过 | `qa/evidence/22-about-{1440,1728,1920}.png` |
-| D2 | 构建日期行 | 与构建时区一致的日期 | `2026-11-21` | 通过 | 同上 |
-| D3 | 构建时间行 = 时间 + 时区标注 | 独立行，含时区 | `23:05:52 Asia/Shanghai (UTC+08:00)` | 通过 | 同上 |
-| D4 | 未登录页脚 = 站名 · 版本 | `Ciki · v1.0.0-94-e3923c0` | 本地 `Ciki · v1.0.0-94-e3923c0`；**生产登录页同串** | 通过 | `qa/evidence/01-login-guest-1440.png`、`qa/evidence/70-production-login-1440.png` |
-| D5 | 全站无长格式残留（`-g<hash>` / `+build` 直出） | 0 命中 | 扫描 8 条路由（`/`、`/s/space-1`、`/p/1`、`/p/1/edit`、`/s/space-1/search?q=QA48`、`/settings`、`/admin`、`/about`）+ 未登录页：**长格式命中 0** | 通过 | `qa/evidence/measurements-supplement.json` |
-| D6 | 侧栏页脚三段式（#17 定版，#28 明示「不动」） | 属设计格式，不判残留 | `Ciki · 1.0.0 · e3923c0+build.94`（5 条含侧栏的路由命中此唯一一处） | 通过（豁免） | `qa/evidence/10-article-expanded-1440.png` |
-| D7 | 前端构建产物静态扫描 | 无 `__APP_*` define、无 g 前缀长串 | `web/dist` 扫描干净，仅 `v1.0.0-94-e3923c0` 全串与 commit 字段 | 通过 | — |
-| D8 | 线上实例版本自证 | 线上与被测同构建 | `GET https://ciki.pama.workers.dev/api/public` → `v1.0.0-94-e3923c0` | 通过 | `qa/evidence/70-production-login-1440.png` |
+| #   | 验收点                                         | 期望                                        | 实测                                                                                                                                             | 判定         | 截图                                                                              |
+| --- | ---------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------ | --------------------------------------------------------------------------------- |
+| D1  | 关于页版本行 = 版本全串                        | `v1.0.0-94-e3923c0`（无 g 前缀、无 +build） | `v1.0.0-94-e3923c0`                                                                                                                              | 通过         | `qa/evidence/22-about-{1440,1728,1920}.png`                                       |
+| D2  | 构建日期行                                     | 与构建时区一致的日期                        | `2026-11-21`                                                                                                                                     | 通过         | 同上                                                                              |
+| D3  | 构建时间行 = 时间 + 时区标注                   | 独立行，含时区                              | `23:05:52 Asia/Shanghai (UTC+08:00)`                                                                                                             | 通过         | 同上                                                                              |
+| D4  | 未登录页脚 = 站名 · 版本                       | `Ciki · v1.0.0-94-e3923c0`                  | 本地 `Ciki · v1.0.0-94-e3923c0`；**生产登录页同串**                                                                                              | 通过         | `qa/evidence/01-login-guest-1440.png`、`qa/evidence/70-production-login-1440.png` |
+| D5  | 全站无长格式残留（`-g<hash>` / `+build` 直出） | 0 命中                                      | 扫描 8 条路由（`/`、`/s/space-1`、`/p/1`、`/p/1/edit`、`/s/space-1/search?q=QA48`、`/settings`、`/admin`、`/about`）+ 未登录页：**长格式命中 0** | 通过         | `qa/evidence/measurements-supplement.json`                                        |
+| D6  | 侧栏页脚三段式（#17 定版，#28 明示「不动」）   | 属设计格式，不判残留                        | `Ciki · 1.0.0 · e3923c0+build.94`（5 条含侧栏的路由命中此唯一一处）                                                                              | 通过（豁免） | `qa/evidence/10-article-expanded-1440.png`                                        |
+| D7  | 前端构建产物静态扫描                           | 无 `__APP_*` define、无 g 前缀长串          | `web/dist` 扫描干净，仅 `v1.0.0-94-e3923c0` 全串与 commit 字段                                                                                   | 通过         | —                                                                                 |
+| D8  | 线上实例版本自证                               | 线上与被测同构建                            | `GET https://ciki.pama.workers.dev/api/public` → `v1.0.0-94-e3923c0`                                                                             | 通过         | `qa/evidence/70-production-login-1440.png`                                        |
 
 **D 组判定：通过（8/8）。**
 
@@ -113,26 +113,26 @@
 
 ## 文件索引
 
-| 文件 | 内容 |
-|---|---|
-| `qa/evidence/01-login-guest-1440.png` | 未登录登录页（页脚版本串） |
-| `qa/evidence/10-article-expanded-{1440,1728,1920}.png` | 文章页展开态（搜索框 vs 正文左缘、侧栏宽度） |
-| `qa/evidence/11-article-collapsed-{1440,1728,1920}.png` | 文章页收起态（图标列 48px） |
-| `qa/evidence/12-search-expanded-{1440,1728,1920}.png` | 搜索页展开态 |
-| `qa/evidence/13-search-collapsed-{1440,1728,1920}.png` | 搜索页收起态 |
-| `qa/evidence/20-settings-{1440,1728,1920}.png` | 系统页 `/settings`（logo 顶头、无侧栏、列左缘） |
-| `qa/evidence/20-settings-from-collapsed-{1440,1728,1920}.png` | 收起态进入的 `/settings`（返回按钮与正文对齐） |
-| `qa/evidence/21-admin-{1440,1728,1920}.png` | 系统页 `/admin` |
-| `qa/evidence/22-about-{1440,1728,1920}.png` | 关于页（版本/日期/时间/时区） |
-| `qa/evidence/50-back-from-collapsed-{1440,1728,1920}.png` | 收起态 设置→返回→文档页 |
-| `qa/evidence/51-back-from-expanded-{1440,1728,1920}.png` | 展开态 设置→返回→文档页 |
-| `qa/evidence/52-no-source-home-{1440,1728,1920}.png` | 无来源 设置→返回→首页 |
-| `qa/evidence/60-logo-click-result-1440.png` | 系统页顶栏 logo 点击落点（初版补漏） |
-| `qa/evidence/61-logo-click-lands-home-1440.png` | 实点 logo 落到 `/p/1` |
-| `qa/evidence/70-production-login-1440.png` | **生产**登录页页脚 `Ciki · v1.0.0-94-e3923c0` |
-| `qa/evidence/measurements.json` | 主脚本 71 条断言原始输出 |
-| `qa/evidence/measurements-supplement.json` | 补漏脚本 5 条断言原始输出（含全站版本串扫描明细） |
-| `qa/evidence/measurements-logo.json` | logo 点击专项 3 条断言原始输出 |
+| 文件                                                          | 内容                                              |
+| ------------------------------------------------------------- | ------------------------------------------------- |
+| `qa/evidence/01-login-guest-1440.png`                         | 未登录登录页（页脚版本串）                        |
+| `qa/evidence/10-article-expanded-{1440,1728,1920}.png`        | 文章页展开态（搜索框 vs 正文左缘、侧栏宽度）      |
+| `qa/evidence/11-article-collapsed-{1440,1728,1920}.png`       | 文章页收起态（图标列 48px）                       |
+| `qa/evidence/12-search-expanded-{1440,1728,1920}.png`         | 搜索页展开态                                      |
+| `qa/evidence/13-search-collapsed-{1440,1728,1920}.png`        | 搜索页收起态                                      |
+| `qa/evidence/20-settings-{1440,1728,1920}.png`                | 系统页 `/settings`（logo 顶头、无侧栏、列左缘）   |
+| `qa/evidence/20-settings-from-collapsed-{1440,1728,1920}.png` | 收起态进入的 `/settings`（返回按钮与正文对齐）    |
+| `qa/evidence/21-admin-{1440,1728,1920}.png`                   | 系统页 `/admin`                                   |
+| `qa/evidence/22-about-{1440,1728,1920}.png`                   | 关于页（版本/日期/时间/时区）                     |
+| `qa/evidence/50-back-from-collapsed-{1440,1728,1920}.png`     | 收起态 设置→返回→文档页                           |
+| `qa/evidence/51-back-from-expanded-{1440,1728,1920}.png`      | 展开态 设置→返回→文档页                           |
+| `qa/evidence/52-no-source-home-{1440,1728,1920}.png`          | 无来源 设置→返回→首页                             |
+| `qa/evidence/60-logo-click-result-1440.png`                   | 系统页顶栏 logo 点击落点（初版补漏）              |
+| `qa/evidence/61-logo-click-lands-home-1440.png`               | 实点 logo 落到 `/p/1`                             |
+| `qa/evidence/70-production-login-1440.png`                    | **生产**登录页页脚 `Ciki · v1.0.0-94-e3923c0`     |
+| `qa/evidence/measurements.json`                               | 主脚本 71 条断言原始输出                          |
+| `qa/evidence/measurements-supplement.json`                    | 补漏脚本 5 条断言原始输出（含全站版本串扫描明细） |
+| `qa/evidence/measurements-logo.json`                          | logo 点击专项 3 条断言原始输出                    |
 
 ---
 

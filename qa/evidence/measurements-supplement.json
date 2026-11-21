@@ -30,37 +30,27 @@
     {
       "route": "/",
       "label": "首页（RootRedirect→空间首页）",
-      "texts": [
-        "Ciki · 1.0.0 · e3923c0+build.94"
-      ]
+      "texts": ["Ciki · 1.0.0 · e3923c0+build.94"]
     },
     {
       "route": "/s/space-1",
       "label": "空间页",
-      "texts": [
-        "Ciki · 1.0.0 · e3923c0+build.94"
-      ]
+      "texts": ["Ciki · 1.0.0 · e3923c0+build.94"]
     },
     {
       "route": "/p/1",
       "label": "文档页",
-      "texts": [
-        "Ciki · 1.0.0 · e3923c0+build.94"
-      ]
+      "texts": ["Ciki · 1.0.0 · e3923c0+build.94"]
     },
     {
       "route": "/p/1/edit",
       "label": "编辑页",
-      "texts": [
-        "Ciki · 1.0.0 · e3923c0+build.94"
-      ]
+      "texts": ["Ciki · 1.0.0 · e3923c0+build.94"]
     },
     {
       "route": "/s/space-1/search?q=QA48",
       "label": "搜索页",
-      "texts": [
-        "Ciki · 1.0.0 · e3923c0+build.94"
-      ]
+      "texts": ["Ciki · 1.0.0 · e3923c0+build.94"]
     },
     {
       "route": "/settings",
@@ -97,9 +87,7 @@
     {
       "route": "/about",
       "label": "关于页",
-      "texts": [
-        "v1.0.0-94-e3923c0"
-      ]
+      "texts": ["v1.0.0-94-e3923c0"]
     }
   ]
 }
