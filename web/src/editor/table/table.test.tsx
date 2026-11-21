@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
@@ -19,6 +19,15 @@ import { docJson } from "@/test/tiptap-json"
  */
 
 const editors: Editor[] = []
+
+function cleanupEditors() {
+  while (editors.length) {
+    const ed = editors.pop()
+    const el = ed?.options.element
+    if (el instanceof Element) el.remove()
+    ed?.destroy()
+  }
+}
 
 function makeEditor(content: string): Editor {
   const host = document.createElement("div")
@@ -111,7 +120,7 @@ describe("工具条表格入口", () => {
   })
 
   afterEach(() => {
-    while (editors.length) editors.pop()?.destroy()
+    cleanupEditors()
   })
 
   it("光标不在表格内：只有选择器，没有「当前表格」一组", async () => {
@@ -266,7 +275,7 @@ describe("表格宽度 CSS 的判据", () => {
   })
 
   afterEach(() => {
-    while (editors.length) editors.pop()?.destroy()
+    cleanupEditors()
   })
 
   // 与 index.css 里那条规则同源：多列 + 至少一列带明确列宽
@@ -329,5 +338,161 @@ describe("表格宽度 CSS 的判据", () => {
     ].join("")
     const table = wrapper.querySelector("table") as HTMLTableElement
     expect(table.matches(WIDTH_RULE)).toBe(false)
+  })
+})
+
+/**
+ * 响应式：渲染后光标移进表格（纯选区变化、不改内容），工具条随选区实时更新。
+ * 这是本单修复的失效模式——旧实现渲染时读一次 isActive，选区变化不重渲染。
+ */
+describe("工具条随选区实时更新（响应式）", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  afterEach(() => {
+    cleanupEditors()
+  })
+
+  it("渲染后光标移进表格：单元格背景按钮与「当前表格」分组实时出现", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor(
+      "<p>正文</p><table><tbody><tr><td>A</td></tr></tbody></table>"
+    )
+    render(<EditorToolbar editor={editor} />)
+
+    // 初始光标在正文：没有单元格背景入口
+    expect(screen.queryByRole("button", { name: "单元格背景" })).toBeNull()
+
+    // 光标移进表格（纯选区变化，不改内容）
+    act(() => putCursorAt(editor, "A"))
+
+    expect(
+      screen.getByRole("button", { name: "单元格背景" })
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "表格" }))
+    expect(await screen.findByText("当前表格")).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "在下方插入行" })
+    ).toBeInTheDocument()
+  })
+})
+
+/**
+ * 增删行列闭环：经工具条增删后，模型行列数与表头行口径正确（首行仍是 tableHeader）。
+ */
+describe("增删行列闭环", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  afterEach(() => {
+    cleanupEditors()
+  })
+
+  it("在下方插入行 + 在右侧插入列：行列数增长，首行仍是表头", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor(
+      "<table><tbody><tr><th>H</th><th>H2</th></tr><tr><td>A</td><td>B</td></tr></tbody></table>"
+    )
+    putCursorAt(editor, "A")
+    render(<EditorToolbar editor={editor} />)
+
+    await user.click(screen.getByRole("button", { name: "表格" }))
+    await user.click(
+      await screen.findByRole("button", { name: "在下方插入行" })
+    )
+    // 等面板真正收起（菜单项从 DOM 移除）
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "在下方插入行" })).toBeNull()
+    )
+    // TipTap 的 focus() 会通过 requestAnimationFrame 延迟把焦点交还编辑器视口；
+    // 必须等待编辑器真正拿到焦点，避免这记延迟 focus 在下一次展开面板后才到达、
+    // 被 Radix 的 useFocusOutside 当成外部聚焦而误关刚打开的面板。
+    await waitFor(() => expect(editor.view.hasFocus()).toBe(true))
+
+    await user.click(screen.getByRole("button", { name: "表格" }))
+    await user.click(
+      await screen.findByRole("button", { name: "在右侧插入列" })
+    )
+
+    const table = docJson(editor).content?.find((node) => node.type === "table")
+    expect(table?.content).toHaveLength(3)
+    const [header, body, added] = table?.content ?? []
+    expect(header.content?.map((cell) => cell.type)).toEqual([
+      "tableHeader",
+      "tableHeader",
+      "tableHeader"
+    ])
+    expect(body.content?.map((cell) => cell.type)).toEqual([
+      "tableCell",
+      "tableCell",
+      "tableCell"
+    ])
+    expect(added.content?.map((cell) => cell.type)).toEqual([
+      "tableCell",
+      "tableCell",
+      "tableCell"
+    ])
+  })
+
+  it("删除当前行：光标所在数据行被移除，表头行保留", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor(
+      "<table><tbody><tr><th>H</th></tr><tr><td>A</td></tr><tr><td>B</td></tr></tbody></table>"
+    )
+    putCursorAt(editor, "A")
+    render(<EditorToolbar editor={editor} />)
+
+    await user.click(screen.getByRole("button", { name: "表格" }))
+    await user.click(await screen.findByRole("button", { name: "删除当前行" }))
+
+    const table = docJson(editor).content?.find((node) => node.type === "table")
+    expect(table?.content).toHaveLength(2)
+    const [header, body] = table?.content ?? []
+    expect(header.content?.map((cell) => cell.type)).toEqual(["tableHeader"])
+    expect(body.content?.map((cell) => cell.type)).toEqual(["tableCell"])
+    // 删除的是 A 所在行，剩下 B 行
+    expect(editor.getText()).toContain("B")
+    expect(editor.getText()).not.toContain("A")
+  })
+
+  it("删除当前列：光标所在列被移除", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor(
+      "<table><tbody><tr><th>H</th><th>H2</th></tr><tr><td>A</td><td>B</td></tr></tbody></table>"
+    )
+    putCursorAt(editor, "A")
+    render(<EditorToolbar editor={editor} />)
+
+    await user.click(screen.getByRole("button", { name: "表格" }))
+    await user.click(await screen.findByRole("button", { name: "删除当前列" }))
+
+    const table = docJson(editor).content?.find((node) => node.type === "table")
+    expect(table?.content).toHaveLength(2)
+    const [header, body] = table?.content ?? []
+    expect(header.content?.map((cell) => cell.type)).toEqual(["tableHeader"])
+    expect(body.content?.map((cell) => cell.type)).toEqual(["tableCell"])
+    // 删除的是 A 所在列（第 1 列），剩下 B 列与表头 H2
+    expect(editor.getText()).toContain("H2")
+    expect(editor.getText()).toContain("B")
+    expect(editor.getText()).not.toContain("A")
+  })
+
+  it("删除表格：表格节点整体移除", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor(
+      "<p>正文</p><table><tbody><tr><th>H</th></tr><tr><td>A</td></tr></tbody></table>"
+    )
+    putCursorAt(editor, "A")
+    render(<EditorToolbar editor={editor} />)
+
+    await user.click(screen.getByRole("button", { name: "表格" }))
+    await user.click(await screen.findByRole("button", { name: "删除表格" }))
+
+    expect(
+      docJson(editor).content?.find((node) => node.type === "table")
+    ).toBeUndefined()
   })
 })

@@ -1,4 +1,4 @@
-import type { Editor } from "@tiptap/react"
+import { type Editor, useEditorState } from "@tiptap/react"
 import { useTranslation } from "react-i18next"
 import {
   Select,
@@ -41,9 +41,14 @@ function currentHeading(editor: Editor): string {
  */
 export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
   const { t } = useTranslation()
+  // 当前段落样式随选区实时更新：光标进/出标题、换段都重读。
+  const heading = useEditorState({
+    editor,
+    selector: ({ editor }) => currentHeading(editor)
+  })
   return (
     <Select
-      value={currentHeading(editor)}
+      value={heading}
       onValueChange={(value) => {
         if (value === "p") editor.chain().focus().setParagraph().run()
         else {

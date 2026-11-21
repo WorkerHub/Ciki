@@ -1,4 +1,4 @@
-import type { Editor } from "@tiptap/react"
+import { type Editor, useEditorState } from "@tiptap/react"
 import {
   Baseline,
   Bold,
@@ -93,6 +93,28 @@ export function EditorToolbar({
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
   const { t } = useTranslation()
+
+  // 工具条状态随选区实时刷新：useEditorState 订阅 transaction/update，
+  // 纯选区变化（点进表格、移动光标、选中文字）也会重渲染并重读这些值。
+  const format = useEditorState({
+    editor,
+    selector: ({ editor }) => ({
+      bold: editor.isActive("bold"),
+      italic: editor.isActive("italic"),
+      underline: editor.isActive("underline"),
+      strike: editor.isActive("strike"),
+      bulletList: editor.isActive("bulletList"),
+      orderedList: editor.isActive("orderedList"),
+      taskList: editor.isActive("taskList"),
+      blockquote: editor.isActive("blockquote"),
+      codeBlock: editor.isActive("codeBlock"),
+      link: editor.isActive("link"),
+      textColor: currentTextColor(editor),
+      highlight: currentHighlight(editor),
+      cellBackground: currentCellBackground(editor),
+      inTable: editor.isActive("table")
+    })
+  })
 
   const resetPageSearch = () => {
     setPageQuery("")
@@ -231,7 +253,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.bold.label")}
         title={t("editor.toolbar.bold.hint")}
-        pressed={editor.isActive("bold")}
+        pressed={format.bold}
         onPressedChange={() => editor.chain().focus().toggleBold().run()}
       >
         <Bold aria-hidden="true" />
@@ -240,7 +262,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.italic.label")}
         title={t("editor.toolbar.italic.hint")}
-        pressed={editor.isActive("italic")}
+        pressed={format.italic}
         onPressedChange={() => editor.chain().focus().toggleItalic().run()}
       >
         <Italic aria-hidden="true" />
@@ -249,7 +271,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.underline.label")}
         title={t("editor.toolbar.underline.hint")}
-        pressed={editor.isActive("underline")}
+        pressed={format.underline}
         onPressedChange={() => editor.chain().focus().toggleUnderline().run()}
       >
         <UnderlineIcon aria-hidden="true" />
@@ -258,7 +280,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.strike")}
         title={t("editor.toolbar.strike")}
-        pressed={editor.isActive("strike")}
+        pressed={format.strike}
         onPressedChange={() => editor.chain().focus().toggleStrike().run()}
       >
         <Strikethrough aria-hidden="true" />
@@ -267,14 +289,14 @@ export function EditorToolbar({
         label={t("editor.toolbar.textColor")}
         icon={Baseline}
         colors={TEXT_COLORS}
-        activeColor={currentTextColor(editor)}
+        activeColor={format.textColor}
         onPick={(color) => setTextColor(editor, color)}
       />
       <ColorMenu
         label={t("editor.toolbar.highlight")}
         icon={Highlighter}
         colors={HIGHLIGHT_COLORS}
-        activeColor={currentHighlight(editor)}
+        activeColor={format.highlight}
         onPick={(color) => setHighlight(editor, color)}
       />
 
@@ -284,7 +306,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.bulletList")}
         title={t("editor.toolbar.bulletList")}
-        pressed={editor.isActive("bulletList")}
+        pressed={format.bulletList}
         onPressedChange={() => editor.chain().focus().toggleBulletList().run()}
       >
         <List aria-hidden="true" />
@@ -293,7 +315,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.orderedList")}
         title={t("editor.toolbar.orderedList")}
-        pressed={editor.isActive("orderedList")}
+        pressed={format.orderedList}
         onPressedChange={() => editor.chain().focus().toggleOrderedList().run()}
       >
         <ListOrdered aria-hidden="true" />
@@ -302,7 +324,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.taskList")}
         title={t("editor.toolbar.taskList")}
-        pressed={editor.isActive("taskList")}
+        pressed={format.taskList}
         onPressedChange={() => editor.chain().focus().toggleTaskList().run()}
       >
         <ListChecks aria-hidden="true" />
@@ -311,7 +333,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.blockquote")}
         title={t("editor.toolbar.blockquote")}
-        pressed={editor.isActive("blockquote")}
+        pressed={format.blockquote}
         onPressedChange={() => editor.chain().focus().toggleBlockquote().run()}
       >
         <Quote aria-hidden="true" />
@@ -320,7 +342,7 @@ export function EditorToolbar({
         size="sm"
         aria-label={t("editor.toolbar.codeBlock")}
         title={t("editor.toolbar.codeBlock")}
-        pressed={editor.isActive("codeBlock")}
+        pressed={format.codeBlock}
         onPressedChange={() => editor.chain().focus().toggleCodeBlock().run()}
       >
         <Code2 aria-hidden="true" />
@@ -340,12 +362,12 @@ export function EditorToolbar({
 
       <TableMenu editor={editor} />
 
-      {editor.isActive("table") ? (
+      {format.inTable ? (
         <ColorMenu
           label={t("editor.toolbar.cellBackground")}
           icon={PaintBucket}
           colors={CELL_COLORS}
-          activeColor={currentCellBackground(editor)}
+          activeColor={format.cellBackground}
           onPick={(color) => setCellBackground(editor, color)}
         />
       ) : null}
@@ -353,7 +375,7 @@ export function EditorToolbar({
       <Button
         type="button"
         size="icon-sm"
-        variant={editor.isActive("link") ? "secondary" : "ghost"}
+        variant={format.link ? "secondary" : "ghost"}
         aria-label={t("editor.toolbar.link")}
         title={t("editor.toolbar.link")}
         onClick={openLinkDialog}

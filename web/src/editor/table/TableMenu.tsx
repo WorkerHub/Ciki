@@ -1,4 +1,4 @@
-import type { Editor } from "@tiptap/react"
+import { type Editor, useEditorState } from "@tiptap/react"
 import { cn } from "cn"
 import { Rows3, Table2, Trash2 } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
@@ -53,13 +53,22 @@ function TableAction({
 export function TableMenu({ editor }: { editor: Editor }) {
   const [open, setOpen] = useState(false)
   const { t } = useTranslation()
-  // 插入完成后阻止 Radix 把焦点抢回触发器，光标留在新表格首格
+  // 插入或执行表格操作完成后阻止 Radix 把焦点抢回触发器，光标留在表格内
   const keepFocusInEditor = useRef(false)
 
-  // open 状态一变就会重渲染，这里读到的是「点开那一刻」的选区
-  const inTable = editor.isActive("table")
+  // 光标是否在表格内、增删行列是否可用：useEditorState 订阅事务变化，
+  // 光标移进/移出表格（纯选区变化、不改内容）也会实时刷新这一组。
+  const tableState = useEditorState({
+    editor,
+    selector: ({ editor }) => ({
+      inTable: editor.isActive("table"),
+      canAddRowAfter: editor.can().addRowAfter(),
+      canAddColumnAfter: editor.can().addColumnAfter()
+    })
+  })
 
   const run = (command: () => void) => {
+    keepFocusInEditor.current = true
     command()
     setOpen(false)
   }
@@ -70,7 +79,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
         <Button
           type="button"
           size="icon-sm"
-          variant={inTable ? "secondary" : "ghost"}
+          variant={tableState.inTable ? "secondary" : "ghost"}
           aria-label={t("editor.table.label")}
           title={t("editor.table.label")}
         >
@@ -89,7 +98,6 @@ export function TableMenu({ editor }: { editor: Editor }) {
       >
         <TableSizePicker
           onPick={(rows, cols) => {
-            keepFocusInEditor.current = true
             run(() =>
               editor
                 .chain()
@@ -100,7 +108,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
           }}
         />
 
-        {inTable ? (
+        {tableState.inTable ? (
           <>
             <Separator className="my-1" />
             <div className="px-1.5 py-1 text-xs font-medium text-muted-foreground">
@@ -108,7 +116,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
             </div>
             <TableAction
               icon={Rows3}
-              disabled={!editor.can().addRowAfter()}
+              disabled={!tableState.canAddRowAfter}
               onSelect={() =>
                 run(() => editor.chain().focus().addRowAfter().run())
               }
@@ -116,7 +124,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
               {t("editor.table.insertRowBelow")}
             </TableAction>
             <TableAction
-              disabled={!editor.can().addColumnAfter()}
+              disabled={!tableState.canAddColumnAfter}
               onSelect={() =>
                 run(() => editor.chain().focus().addColumnAfter().run())
               }
@@ -124,7 +132,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
               {t("editor.table.insertColumnRight")}
             </TableAction>
             <TableAction
-              disabled={!editor.isActive("table")}
+              disabled={!tableState.inTable}
               onSelect={() =>
                 run(() => editor.chain().focus().deleteRow().run())
               }
@@ -132,7 +140,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
               {t("editor.table.deleteRow")}
             </TableAction>
             <TableAction
-              disabled={!editor.isActive("table")}
+              disabled={!tableState.inTable}
               onSelect={() =>
                 run(() => editor.chain().focus().deleteColumn().run())
               }
@@ -142,7 +150,7 @@ export function TableMenu({ editor }: { editor: Editor }) {
             <TableAction
               icon={Trash2}
               destructive
-              disabled={!editor.isActive("table")}
+              disabled={!tableState.inTable}
               onSelect={() =>
                 run(() => editor.chain().focus().deleteTable().run())
               }
