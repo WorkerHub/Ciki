@@ -1,0 +1,1117 @@
+{
+  "results": [
+    {
+      "id": "A--settings-1512",
+      "item": "系统页 /settings 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=56.00 rightGap=56.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "A2--settings-1512",
+      "item": "系统页 /settings 边距符合口径期望值",
+      "expect": "每侧 56px（±1px）",
+      "actual": "实测 leftGap=56.00 rightGap=56.00；列宽=1400（期望 1400）",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "B1--settings-1512",
+      "item": "系统页 /settings 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=56 content.left=56 h1.left=56 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "B2--settings-1512",
+      "item": "系统页 /settings 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=56 column.left=56 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "C1--settings-1512",
+      "item": "系统页 /settings logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "C2--settings-1512",
+      "item": "系统页 /settings logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "C3--settings-1512",
+      "item": "系统页 /settings logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 56..150.23",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "D1--settings-1512",
+      "item": "系统页 /settings 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1512（宽 1512）vw=1512；theme.right=1381.81 user.right=1500 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "D2--settings-1512",
+      "item": "系统页 /settings 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1512 vw=1512",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "D3--settings-1512",
+      "item": "系统页 /settings 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "A--admin-1512",
+      "item": "系统页 /admin 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=56.00 rightGap=56.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "A2--admin-1512",
+      "item": "系统页 /admin 边距符合口径期望值",
+      "expect": "每侧 56px（±1px）",
+      "actual": "实测 leftGap=56.00 rightGap=56.00；列宽=1400（期望 1400）",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "B1--admin-1512",
+      "item": "系统页 /admin 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=56 content.left=56 h1.left=56 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "B2--admin-1512",
+      "item": "系统页 /admin 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=56 column.left=56 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "C1--admin-1512",
+      "item": "系统页 /admin logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "C2--admin-1512",
+      "item": "系统页 /admin logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "C3--admin-1512",
+      "item": "系统页 /admin logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 56..150.23",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "D1--admin-1512",
+      "item": "系统页 /admin 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1512（宽 1512）vw=1512；theme.right=1381.81 user.right=1500 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "D2--admin-1512",
+      "item": "系统页 /admin 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1512 vw=1512",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "D3--admin-1512",
+      "item": "系统页 /admin 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1512.png"
+    },
+    {
+      "id": "A--about-1512",
+      "item": "系统页 /about 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=56.00 rightGap=56.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "A2--about-1512",
+      "item": "系统页 /about 边距符合口径期望值",
+      "expect": "每侧 56px（±1px）",
+      "actual": "实测 leftGap=56.00 rightGap=56.00；列宽=1400（期望 1400）",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "B1--about-1512",
+      "item": "系统页 /about 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=56 content.left=56 h1.left=56 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "B2--about-1512",
+      "item": "系统页 /about 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=56 column.left=56 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "C1--about-1512",
+      "item": "系统页 /about logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "C2--about-1512",
+      "item": "系统页 /about logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "C3--about-1512",
+      "item": "系统页 /about logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 56..150.23",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "D1--about-1512",
+      "item": "系统页 /about 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1512（宽 1512）vw=1512；theme.right=1381.81 user.right=1500 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "D2--about-1512",
+      "item": "系统页 /about 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1512 vw=1512",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "D3--about-1512",
+      "item": "系统页 /about 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-about-1512.png"
+    },
+    {
+      "id": "D4--p-2-1512",
+      "item": "回归：wiki/文章页 /p/2 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=296.98 sidebar.w=271.98 iconCol.w=null search.left=296.98）",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-1512.png"
+    },
+    {
+      "id": "D5--p-2-1512",
+      "item": "回归：wiki/文章页 /p/2 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=1512 vw=1512；前：scrollWidth=1512",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-1512.png"
+    },
+    {
+      "id": "D4---1512",
+      "item": "回归：wiki/文章页 / 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=296.98 sidebar.w=271.98 iconCol.w=null search.left=296.98）",
+      "pass": true,
+      "evidence": "pc-post-doc--1512.png"
+    },
+    {
+      "id": "D5---1512",
+      "item": "回归：wiki/文章页 / 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=1512 vw=1512；前：scrollWidth=1512",
+      "pass": true,
+      "evidence": "pc-post-doc--1512.png"
+    },
+    {
+      "id": "A--settings-1440",
+      "item": "系统页 /settings 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=53.28 rightGap=53.28 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "A2--settings-1440",
+      "item": "系统页 /settings 边距符合口径期望值",
+      "expect": "每侧 53.28px（±1px）",
+      "actual": "实测 leftGap=53.28 rightGap=53.28；列宽=1333.44（期望 1333.44）",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "B1--settings-1440",
+      "item": "系统页 /settings 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=53.28 content.left=53.28 h1.left=53.28 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "B2--settings-1440",
+      "item": "系统页 /settings 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=53.28 column.left=53.28 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "C1--settings-1440",
+      "item": "系统页 /settings logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "C2--settings-1440",
+      "item": "系统页 /settings logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "C3--settings-1440",
+      "item": "系统页 /settings logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 53.28..147.52",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "D1--settings-1440",
+      "item": "系统页 /settings 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1440（宽 1440）vw=1440；theme.right=1309.81 user.right=1428 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "D2--settings-1440",
+      "item": "系统页 /settings 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1440 vw=1440",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "D3--settings-1440",
+      "item": "系统页 /settings 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1440.png"
+    },
+    {
+      "id": "A--admin-1440",
+      "item": "系统页 /admin 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=53.28 rightGap=53.28 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "A2--admin-1440",
+      "item": "系统页 /admin 边距符合口径期望值",
+      "expect": "每侧 53.28px（±1px）",
+      "actual": "实测 leftGap=53.28 rightGap=53.28；列宽=1333.44（期望 1333.44）",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "B1--admin-1440",
+      "item": "系统页 /admin 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=53.28 content.left=53.28 h1.left=53.28 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "B2--admin-1440",
+      "item": "系统页 /admin 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=53.28 column.left=53.28 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "C1--admin-1440",
+      "item": "系统页 /admin logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "C2--admin-1440",
+      "item": "系统页 /admin logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "C3--admin-1440",
+      "item": "系统页 /admin logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 53.28..147.52",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "D1--admin-1440",
+      "item": "系统页 /admin 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1440（宽 1440）vw=1440；theme.right=1309.81 user.right=1428 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "D2--admin-1440",
+      "item": "系统页 /admin 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1440 vw=1440",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "D3--admin-1440",
+      "item": "系统页 /admin 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1440.png"
+    },
+    {
+      "id": "A--about-1440",
+      "item": "系统页 /about 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=53.28 rightGap=53.28 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "A2--about-1440",
+      "item": "系统页 /about 边距符合口径期望值",
+      "expect": "每侧 53.28px（±1px）",
+      "actual": "实测 leftGap=53.28 rightGap=53.28；列宽=1333.44（期望 1333.44）",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "B1--about-1440",
+      "item": "系统页 /about 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=53.28 content.left=53.28 h1.left=53.28 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "B2--about-1440",
+      "item": "系统页 /about 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=53.28 column.left=53.28 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "C1--about-1440",
+      "item": "系统页 /about logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "C2--about-1440",
+      "item": "系统页 /about logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "C3--about-1440",
+      "item": "系统页 /about logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 53.28..147.52",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "D1--about-1440",
+      "item": "系统页 /about 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1440（宽 1440）vw=1440；theme.right=1309.81 user.right=1428 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "D2--about-1440",
+      "item": "系统页 /about 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1440 vw=1440",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "D3--about-1440",
+      "item": "系统页 /about 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-about-1440.png"
+    },
+    {
+      "id": "D4--p-2-1440",
+      "item": "回归：wiki/文章页 /p/2 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=284.02 sidebar.w=259.02 iconCol.w=null search.left=284.02）",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-1440.png"
+    },
+    {
+      "id": "D5--p-2-1440",
+      "item": "回归：wiki/文章页 /p/2 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=1440 vw=1440；前：scrollWidth=1440",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-1440.png"
+    },
+    {
+      "id": "D4---1440",
+      "item": "回归：wiki/文章页 / 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=284.02 sidebar.w=259.02 iconCol.w=null search.left=284.02）",
+      "pass": true,
+      "evidence": "pc-post-doc--1440.png"
+    },
+    {
+      "id": "D5---1440",
+      "item": "回归：wiki/文章页 / 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=1440 vw=1440；前：scrollWidth=1440",
+      "pass": true,
+      "evidence": "pc-post-doc--1440.png"
+    },
+    {
+      "id": "A--settings-1920",
+      "item": "系统页 /settings 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=260.00 rightGap=260.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "A2--settings-1920",
+      "item": "系统页 /settings 边距符合口径期望值",
+      "expect": "每侧 260px（±1px）",
+      "actual": "实测 leftGap=260.00 rightGap=260.00；列宽=1400（期望 1400）",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "B1--settings-1920",
+      "item": "系统页 /settings 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=260 content.left=260 h1.left=260 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "B2--settings-1920",
+      "item": "系统页 /settings 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=260 column.left=260 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "C1--settings-1920",
+      "item": "系统页 /settings logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "C2--settings-1920",
+      "item": "系统页 /settings logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "C3--settings-1920",
+      "item": "系统页 /settings logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 260..354.23",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "D1--settings-1920",
+      "item": "系统页 /settings 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1920（宽 1920）vw=1920；theme.right=1789.81 user.right=1908 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "D2--settings-1920",
+      "item": "系统页 /settings 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1920 vw=1920",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "D3--settings-1920",
+      "item": "系统页 /settings 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1920.png"
+    },
+    {
+      "id": "A--admin-1920",
+      "item": "系统页 /admin 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=260.00 rightGap=260.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "A2--admin-1920",
+      "item": "系统页 /admin 边距符合口径期望值",
+      "expect": "每侧 260px（±1px）",
+      "actual": "实测 leftGap=260.00 rightGap=260.00；列宽=1400（期望 1400）",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "B1--admin-1920",
+      "item": "系统页 /admin 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=260 content.left=260 h1.left=260 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "B2--admin-1920",
+      "item": "系统页 /admin 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=260 column.left=260 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "C1--admin-1920",
+      "item": "系统页 /admin logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "C2--admin-1920",
+      "item": "系统页 /admin logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "C3--admin-1920",
+      "item": "系统页 /admin logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 260..354.23",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "D1--admin-1920",
+      "item": "系统页 /admin 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1920（宽 1920）vw=1920；theme.right=1789.81 user.right=1908 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "D2--admin-1920",
+      "item": "系统页 /admin 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1920 vw=1920",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "D3--admin-1920",
+      "item": "系统页 /admin 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-admin-1920.png"
+    },
+    {
+      "id": "A--about-1920",
+      "item": "系统页 /about 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=260.00 rightGap=260.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "A2--about-1920",
+      "item": "系统页 /about 边距符合口径期望值",
+      "expect": "每侧 260px（±1px）",
+      "actual": "实测 leftGap=260.00 rightGap=260.00；列宽=1400（期望 1400）",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "B1--about-1920",
+      "item": "系统页 /about 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=260 content.left=260 h1.left=260 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "B2--about-1920",
+      "item": "系统页 /about 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=260 column.left=260 Δ=0.00；back.bottom=100 content.top=116",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "C1--about-1920",
+      "item": "系统页 /about logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=12..60.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "C2--about-1920",
+      "item": "系统页 /about logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=12 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "C3--about-1920",
+      "item": "系统页 /about logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=72 垂直间隔=38.50px；水平区间 logo 12..60.33 vs back 260..354.23",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "D1--about-1920",
+      "item": "系统页 /about 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..1920（宽 1920）vw=1920；theme.right=1789.81 user.right=1908 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "D2--about-1920",
+      "item": "系统页 /about 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=1920 vw=1920",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "D3--about-1920",
+      "item": "系统页 /about 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-about-1920.png"
+    },
+    {
+      "id": "D4--p-2-1920",
+      "item": "回归：wiki/文章页 /p/2 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=370.42 sidebar.w=345.42 iconCol.w=null search.left=370.42）",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-1920.png"
+    },
+    {
+      "id": "D5--p-2-1920",
+      "item": "回归：wiki/文章页 /p/2 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=1920 vw=1920；前：scrollWidth=1920",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-1920.png"
+    },
+    {
+      "id": "D4---1920",
+      "item": "回归：wiki/文章页 / 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=370.42 sidebar.w=345.42 iconCol.w=null search.left=370.42）",
+      "pass": true,
+      "evidence": "pc-post-doc--1920.png"
+    },
+    {
+      "id": "D5---1920",
+      "item": "回归：wiki/文章页 / 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=1920 vw=1920；前：scrollWidth=1920",
+      "pass": true,
+      "evidence": "pc-post-doc--1920.png"
+    },
+    {
+      "id": "A--settings-390",
+      "item": "系统页 /settings 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=16.00 rightGap=16.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "A2--settings-390",
+      "item": "系统页 /settings 边距符合口径期望值",
+      "expect": "每侧 16px（±1px）",
+      "actual": "实测 leftGap=16.00 rightGap=16.00；列宽=358（期望 358）",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "B1--settings-390",
+      "item": "系统页 /settings 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=16 content.left=16 h1.left=16 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "B2--settings-390",
+      "item": "系统页 /settings 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=16 column.left=16 Δ=0.00；back.bottom=96 content.top=112",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "C1--settings-390",
+      "item": "系统页 /settings logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=8..56.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "C2--settings-390",
+      "item": "系统页 /settings logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=8 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "C3--settings-390",
+      "item": "系统页 /settings logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=68 垂直间隔=34.50px；水平区间 logo 8..56.33 vs back 16..110.23",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "D1--settings-390",
+      "item": "系统页 /settings 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..390（宽 390）vw=390；theme.right=263.81 user.right=382 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "D2--settings-390",
+      "item": "系统页 /settings 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=390 vw=390",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "D3--settings-390",
+      "item": "系统页 /settings 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-settings-390.png"
+    },
+    {
+      "id": "A--admin-390",
+      "item": "系统页 /admin 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=16.00 rightGap=16.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "A2--admin-390",
+      "item": "系统页 /admin 边距符合口径期望值",
+      "expect": "每侧 16px（±1px）",
+      "actual": "实测 leftGap=16.00 rightGap=16.00；列宽=358（期望 358）",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "B1--admin-390",
+      "item": "系统页 /admin 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=16 content.left=16 h1.left=16 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "B2--admin-390",
+      "item": "系统页 /admin 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=16 column.left=16 Δ=0.00；back.bottom=96 content.top=112",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "C1--admin-390",
+      "item": "系统页 /admin logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=8..56.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "C2--admin-390",
+      "item": "系统页 /admin logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=8 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "C3--admin-390",
+      "item": "系统页 /admin logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=68 垂直间隔=34.50px；水平区间 logo 8..56.33 vs back 16..110.23",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "D1--admin-390",
+      "item": "系统页 /admin 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..390（宽 390）vw=390；theme.right=263.81 user.right=382 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "D2--admin-390",
+      "item": "系统页 /admin 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=390 vw=390",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "D3--admin-390",
+      "item": "系统页 /admin 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-admin-390.png"
+    },
+    {
+      "id": "A--about-390",
+      "item": "系统页 /about 左右边距相等（≤2px）",
+      "expect": "|leftGap - rightGap| ≤ 2px",
+      "actual": "leftGap=16.00 rightGap=16.00 Δ=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "A2--about-390",
+      "item": "系统页 /about 边距符合口径期望值",
+      "expect": "每侧 16px（±1px）",
+      "actual": "实测 leftGap=16.00 rightGap=16.00；列宽=358（期望 358）",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "B1--about-390",
+      "item": "系统页 /about 「返回文档」左缘 = 正文左缘",
+      "expect": "Δ ≤ 1px（正文内容与 h1 标题各测一次）",
+      "actual": "back.left=16 content.left=16 h1.left=16 Δ(内容)=0.00 Δ(h1)=0.00",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "B2--about-390",
+      "item": "系统页 /about 「返回文档」在正文列首行且与列左缘对齐",
+      "expect": "back 是正文列第一个子行；Δ ≤ 1px",
+      "actual": "首行=true back.left=16 column.left=16 Δ=0.00；back.bottom=96 content.top=112",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "C1--about-390",
+      "item": "系统页 /about logo 与页面任何元素无矩形交叠",
+      "expect": "交叠元素数 = 0",
+      "actual": "交叠=0 []；logo=8..56.33 @top 13.5",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "C2--about-390",
+      "item": "系统页 /about logo 位于顶栏左上角顶头且未被遮挡",
+      "expect": "logo.left ≤ 16；logo.top < 顶栏底；elementFromPoint 命中 logo",
+      "actual": "logo.left=8 logo.top=13.5 header.top=0 header.bottom=48 命中=path.[object SVGAnimatedString]",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "C3--about-390",
+      "item": "系统页 /about logo 与「返回文档」互不重叠（分属顶栏行与正文列首行）",
+      "expect": "矩形交叠面积 = 0",
+      "actual": "交叠面积=0；logo.bottom=33.5 back.top=68 垂直间隔=34.50px；水平区间 logo 8..56.33 vs back 16..110.23",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "D1--about-390",
+      "item": "系统页 /about 顶栏全宽，右侧主题/头像在右端且可点",
+      "expect": "顶栏宽 = 视口宽；主题在头像左侧；头像右缘 ≥ 视口宽-24；elementFromPoint 命中按钮",
+      "actual": "header=0..390（宽 390）vw=390；theme.right=263.81 user.right=382 命中(theme/user)=BUTTON.group/button inline-flex shrink-0 items-/SPAN.max-w-[6rem] truncate text-xs text-muted",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "D2--about-390",
+      "item": "系统页 /about 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "scrollWidth=390 vw=390",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "D3--about-390",
+      "item": "系统页 /about 无页面树侧栏（系统页全宽）",
+      "expect": "无侧栏面板、无图标列",
+      "actual": "sidebar=false iconCol=false",
+      "pass": true,
+      "evidence": "pc-post-system-about-390.png"
+    },
+    {
+      "id": "D4--p-2-390",
+      "item": "回归：wiki/文章页 /p/2 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=16 sidebar.w=null iconCol.w=null search.left=undefined）",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-390.png"
+    },
+    {
+      "id": "D5--p-2-390",
+      "item": "回归：wiki/文章页 /p/2 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=390 vw=390；前：scrollWidth=390",
+      "pass": true,
+      "evidence": "pc-post-doc-p-2-390.png"
+    },
+    {
+      "id": "D4---390",
+      "item": "回归：wiki/文章页 / 布局与 #50 之前逐项一致（Δ ≤ 0.5px）",
+      "expect": "关键度量全部相等",
+      "actual": "全部相等（canvas.left=16 sidebar.w=null iconCol.w=null search.left=undefined）",
+      "pass": true,
+      "evidence": "pc-post-doc--390.png"
+    },
+    {
+      "id": "D5---390",
+      "item": "回归：wiki/文章页 / 无横向溢出",
+      "expect": "scrollWidth ≤ 视口宽",
+      "actual": "后：scrollWidth=390 vw=390；前：scrollWidth=390",
+      "pass": true,
+      "evidence": "pc-post-doc--390.png"
+    },
+    {
+      "id": "F1",
+      "item": "系统页「返回文档」实点回到来源文档页（应用内进入设置页）",
+      "expect": "回到 /p/2",
+      "actual": "href=/p/2 点击后 pathname=/p/2",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "F2",
+      "item": "无来源兜底：整页刷新直开 /settings → 「返回文档」回首页链",
+      "expect": "href=/ 且落到首页首篇（/p/1）",
+      "actual": "href=/ 点击后 pathname=/p/1",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    },
+    {
+      "id": "F3",
+      "item": "系统页 logo 实点跳首页（不被返回按钮拦截）",
+      "expect": "跳到首页链（/ 或 /p/1 首页首篇）",
+      "actual": "点击后 pathname=/p/1",
+      "pass": true,
+      "evidence": "pc-post-system-settings-1512.png"
+    }
+  ],
+  "consoleErrors": []
+}
