@@ -194,4 +194,49 @@ describe("导入渲染：在 Worker 运行时里跑", () => {
     if (result.ok) return
     expect(result.code).toBe("INVALID_CONTENT_JSON")
   })
+
+  it("行内字号：span[data-font-size] 在 Worker 运行时里保真渲染并完成白名单消毒", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            {
+              type: "text",
+              text: "大字",
+              marks: [{ type: "textStyle", attrs: { fontSize: "24px" } }]
+            },
+            {
+              type: "text",
+              text: "彩色大字",
+              marks: [
+                {
+                  type: "textStyle",
+                  attrs: { color: "#de350b", fontSize: "18px" }
+                }
+              ]
+            },
+            {
+              type: "text",
+              text: "非法字号",
+              marks: [{ type: "textStyle", attrs: { fontSize: "15px" } }]
+            }
+          ]
+        }
+      ]
+    }
+    const result = normalizeImportedContent({
+      title: "字号测试",
+      contentJson: JSON.stringify(doc)
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.contentHtml).toContain('data-font-size="24px"')
+    expect(result.value.contentHtml).toContain('data-font-size="18px"')
+    expect(result.value.contentHtml).toContain('data-text-color="#de350b"')
+    expect(result.value.contentHtml).not.toContain('data-font-size="15px"')
+    expect(result.value.contentHtml).toContain("非法字号")
+  })
 })

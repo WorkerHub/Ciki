@@ -410,6 +410,218 @@ describe("页尾评论区", () => {
     expect(screen.queryByText("加粗")).toBeNull()
   })
 
+  it("预览态提交成功后预览状态复位，预览区消失并回到空文本域", async () => {
+    const user = userEvent.setup()
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [thread()]
+    })
+    vi.mocked(commentsApi.preview).mockResolvedValue({
+      html: "<p>预览段<strong>加粗</strong></p>"
+    })
+    renderSection()
+    await screen.findByText("第一行")
+
+    const composer = screen.getByRole("textbox", { name: "发表评论" })
+    await user.type(composer, "草稿内容")
+    await user.click(screen.getByRole("button", { name: "预览" }))
+
+    expect(await screen.findByText("加粗")).toBeInTheDocument()
+    expect(screen.queryByRole("textbox", { name: "发表评论" })).toBeNull()
+
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 2,
+      threads: [
+        thread(),
+        thread({
+          id: 2,
+          bodyMd: "草稿内容",
+          html: "<p>预览段<strong>加粗</strong></p>"
+        })
+      ]
+    })
+    await user.click(screen.getByRole("button", { name: "发表" }))
+
+    expect(vi.mocked(commentsApi.create)).toHaveBeenCalledWith(1, {
+      bodyMd: "草稿内容",
+      parentId: null
+    })
+    // 提交成功后评论上列表、回到文本域、清空草稿、预览区消失、预览按钮与发表按钮恢复禁用
+    const resetComposer = await screen.findByRole("textbox", {
+      name: "发表评论"
+    })
+    expect(resetComposer).toHaveValue("")
+    expect(within(item(2) as HTMLElement).getByText("加粗")).toBeInTheDocument()
+    expect(within(composerOf(resetComposer)).queryByText("加粗")).toBeNull()
+    expect(screen.getByRole("button", { name: "预览" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "发表" })).toBeDisabled()
+  })
+
+  it("预览态提交失败时，保留草稿与预览区，草稿不丢且可重试或切回编辑", async () => {
+    const user = userEvent.setup()
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [thread()]
+    })
+    vi.mocked(commentsApi.preview).mockResolvedValue({
+      html: "<p>预览段<strong>加粗</strong></p>"
+    })
+    renderSection()
+    await screen.findByText("第一行")
+
+    const composer = screen.getByRole("textbox", { name: "发表评论" })
+    await user.type(composer, "草稿内容")
+    await user.click(screen.getByRole("button", { name: "预览" }))
+
+    expect(await screen.findByText("加粗")).toBeInTheDocument()
+    expect(screen.queryByRole("textbox", { name: "发表评论" })).toBeNull()
+
+    vi.mocked(commentsApi.create).mockRejectedValueOnce(
+      new ApiError(500, "网络异常")
+    )
+    await user.click(screen.getByRole("button", { name: "发表" }))
+
+    // 失败后：预览区仍在、发表按钮重新可用、预览切换按钮可用
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "发表" })).toBeEnabled()
+    )
+    expect(screen.getByRole("button", { name: "预览" })).toBeEnabled()
+    expect(screen.getByText("加粗")).toBeInTheDocument()
+    expect(screen.queryByRole("textbox", { name: "发表评论" })).toBeNull()
+
+    // 用户可以切回文本域，草稿内容完好
+    await user.click(screen.getByRole("button", { name: "预览" }))
+    const restoredComposer = await screen.findByRole("textbox", {
+      name: "发表评论"
+    })
+    expect(restoredComposer).toHaveValue("草稿内容")
+  })
+
+  it("回复与编辑在预览态下提交保存后，不残留预览态", async () => {
+    const user = userEvent.setup()
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [thread({ id: 1, bodyMd: "原文", html: "<p>原文</p>" })]
+    })
+    vi.mocked(commentsApi.preview).mockResolvedValue({
+      html: "<p><em>渲染后</em></p>"
+    })
+    renderSection()
+    await screen.findByText("原文")
+
+    // 1. 回复路径：展开回复、输入并预览，提交后回复框收起；再次点击回复时不残留预览态
+    await user.click(
+      within(item(1) as HTMLElement).getByRole("button", { name: "回复" })
+    )
+    const replyBox = screen.getByRole("textbox", { name: "回复内容" })
+    await user.type(replyBox, "我的回复")
+    const replyComposer = composerOf(replyBox)
+    await user.click(
+      within(replyComposer).getByRole("button", { name: "预览" })
+    )
+    expect(await within(replyComposer).findByText("渲染后")).toBeInTheDocument()
+    expect(screen.queryByRole("textbox", { name: "回复内容" })).toBeNull()
+
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 2,
+      threads: [
+        thread({
+          id: 1,
+          bodyMd: "原文",
+          html: "<p>原文</p>",
+          replies: [
+            comment({
+              id: 2,
+              parentId: 1,
+              bodyMd: "我的回复",
+              html: "<p>我的回复</p>"
+            })
+          ]
+        })
+      ]
+    })
+    await user.click(
+      within(replyComposer).getByRole("button", { name: "回复" })
+    )
+    expect(vi.mocked(commentsApi.create)).toHaveBeenCalledWith(1, {
+      bodyMd: "我的回复",
+      parentId: 1
+    })
+    // 回复框已关闭
+    await waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: "回复内容" })).toBeNull()
+    )
+    // 再次点回复展开，显示的是初始文本域，未残留预览态
+    await user.click(
+      within(item(1) as HTMLElement).getByRole("button", { name: "回复" })
+    )
+    const newReplyBox = await screen.findByRole("textbox", {
+      name: "回复内容"
+    })
+    expect(newReplyBox).toHaveValue("")
+    expect(within(composerOf(newReplyBox)).queryByText("渲染后")).toBeNull()
+    await user.click(
+      within(composerOf(newReplyBox)).getByRole("button", { name: "取消" })
+    )
+
+    // 2. 编辑路径：点击编辑、预览、保存后回到呈现态；再次点击编辑时不残留预览态
+    await user.click(
+      within(item(1) as HTMLElement).getByRole("button", { name: "编辑" })
+    )
+    const editBox = within(item(1) as HTMLElement).getByRole("textbox", {
+      name: "编辑评论"
+    })
+    const editComposer = composerOf(editBox)
+    await user.click(within(editComposer).getByRole("button", { name: "预览" }))
+    expect(await within(editComposer).findByText("渲染后")).toBeInTheDocument()
+    expect(
+      within(item(1) as HTMLElement).queryByRole("textbox", {
+        name: "编辑评论"
+      })
+    ).toBeNull()
+
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 2,
+      threads: [
+        thread({
+          id: 1,
+          bodyMd: "已修改",
+          html: "<p>已修改</p>",
+          replies: [
+            comment({
+              id: 2,
+              parentId: 1,
+              bodyMd: "我的回复",
+              html: "<p>我的回复</p>"
+            })
+          ]
+        })
+      ]
+    })
+    await user.click(within(editComposer).getByRole("button", { name: "保存" }))
+    expect(vi.mocked(commentsApi.update)).toHaveBeenCalledWith(1, 1, "原文")
+    // 编辑框已关闭，回到展示态
+    await waitFor(() =>
+      expect(
+        within(item(1) as HTMLElement).queryByRole("textbox", {
+          name: "编辑评论"
+        })
+      ).toBeNull()
+    )
+    // 再次点击编辑，显示的是预填原文的文本域，未残留预览态
+    await user.click(
+      within(item(1) as HTMLElement).getByRole("button", { name: "编辑" })
+    )
+    const newEditBox = await within(item(1) as HTMLElement).findByRole(
+      "textbox",
+      {
+        name: "编辑评论"
+      }
+    )
+    expect(newEditBox).toHaveValue("已修改")
+    expect(within(composerOf(newEditBox)).queryByText("渲染后")).toBeNull()
+  })
+
   it("列表拉取失败时给出错误与重试，成功后就地恢复", async () => {
     const user = userEvent.setup()
     vi.mocked(commentsApi.list).mockRejectedValueOnce(new ApiError(500, "boom"))
