@@ -553,23 +553,30 @@ export function AppShell() {
     <div className="flex h-svh flex-col bg-background">
       {isMobile || isSystemRoute ? (
         <>
-          <header className="flex h-12 shrink-0 items-center border-b border-border">
-            {/* 系统页：内容包在与正文容器同口径的居中容器里；
-              「返回文档」按钮放在首位，左缘与正文标题列左缘同一条线。 */}
-            {isSystemRoute ? (
+          {isSystemRoute ? (
+            <header className="relative flex h-12 shrink-0 items-center border-b border-border">
+              {/* 系统页（无侧栏）：logo/标题移到左上角顶头，对齐 wiki 侧栏头部口径
+                  （px-2 sm:px-3）；用绝对定位占住左上角，不占流内空间，保证下面
+                  居中容器与正文左缘对齐不被 logo 宽度推移。 */}
+              <div className="absolute left-0 top-0 flex h-12 items-center px-2 sm:px-3">
+                {siteLink}
+              </div>
+              {/* 「返回文档」与账号操作包在与正文容器同口径的居中容器里，
+                  按钮左缘与正文标题列左缘同一条线。 */}
               <div className="mx-auto flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6">
                 {backToDocButton}
-                {siteLink}
                 {accountActions}
               </div>
-            ) : (
+            </header>
+          ) : (
+            <header className="flex h-12 shrink-0 items-center border-b border-border">
               <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
                 {mobileMenu}
                 {siteLink}
                 {mobileActions}
               </div>
-            )}
-          </header>
+            </header>
+          )}
           <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
         </>
       ) : (

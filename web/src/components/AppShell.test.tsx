@@ -216,25 +216,33 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     expect(brand?.parentElement).toHaveClass("h-12", "px-2", "sm:px-3")
     unmount()
 
-    // 系统页没有侧栏，整条顶栏不显示搜索框与新建按钮，而是显示「返回文档」按钮；
-    // 顶栏内容包在与正文容器同口径的居中容器里，按钮左缘对齐正文标题列左缘
+    // 系统页没有侧栏，仍是整条顶栏：不显示搜索框与新建按钮，而是显示「返回文档」按钮；
+    // logo/标题移到左上角顶头，「返回文档」包在与正文容器同口径的居中容器里，按钮左缘对齐正文标题列左缘
     const system = renderShell("/settings")
     const systemHeader = system.container.querySelector("header")
     expect(system.container.querySelectorAll("header")).toHaveLength(1)
     expect(systemHeader?.querySelector("form")).toBeNull()
-    expect(
-      within(systemHeader!).getByRole("link", { name: "返回文档" })
-    ).toHaveAttribute("href", "/")
+    const backLink = within(systemHeader!).getByRole("link", {
+      name: "返回文档"
+    })
+    expect(backLink).toHaveAttribute("href", "/")
     expect(
       within(systemHeader!).queryByRole("button", { name: "新建页面" })
     ).toBeNull()
-    const headerInner = systemHeader!.firstElementChild as HTMLElement
+    // 「返回文档」所在容器：与正文同口径的居中容器
+    const headerInner = backLink.closest("div.mx-auto") as HTMLElement
     expect(headerInner).toHaveClass(
       "mx-auto",
       "max-w-[1400px]",
       "px-4",
       "sm:px-6"
     )
+    // logo/标题在左上角顶头，不在这条居中容器里
+    const systemBrand = within(systemHeader!).getByRole("link", {
+      name: "Ciki"
+    })
+    expect(headerInner?.contains(systemBrand)).toBe(false)
+    expect(systemBrand.parentElement).toHaveClass("px-2", "sm:px-3")
   })
 
   it("移动端保持整条顶栏：没有搜索框，页面树走抽屉，抽屉内不包含收起侧栏按钮", () => {
