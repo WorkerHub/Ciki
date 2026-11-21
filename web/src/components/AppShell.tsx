@@ -616,12 +616,14 @@ export function AppShell() {
           />
           <Panel id="main" minSize={360} className="h-full">
             <div className="relative flex h-full flex-col">
-              {/* 左内边距与 PageCanvas 同口径（手机 16px、≥640px 24px）；
-                  右侧保持原样 8px/12px，不给账号按钮换位置。 */}
-              <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border pr-2 pl-4 sm:pr-3 sm:pl-6">
-                <SearchBox className="max-w-md flex-1" />
-                {createButton}
-                {accountActions}
+              {/* 对齐正文内容列实际渲染左边缘（与 PageCanvas 同口径：px-4 sm:px-6 + max-w-[1600px] 居中容器）；
+                  收起与展开两态下，搜索框左边缘与正文（面包屑/标题列）左边缘在像素级完全一致。 */}
+              <header className="flex h-12 shrink-0 items-center border-b border-border px-4 sm:px-6">
+                <div className="mx-auto flex w-full max-w-[1600px] items-center gap-2">
+                  <SearchBox className="max-w-md flex-1" />
+                  {createButton}
+                  {accountActions}
+                </div>
               </header>
               <div className="min-h-0 flex-1 overflow-y-auto">
                 {animatedMain}
