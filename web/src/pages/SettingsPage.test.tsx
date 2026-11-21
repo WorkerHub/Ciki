@@ -469,6 +469,15 @@ describe("界面语言", () => {
     expect(i18n.language).toBe("zh")
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("zh")
   })
+  it("不再在设置页底部显示退出登录按钮", () => {
+    vi.mocked(meApi.sessions).mockResolvedValue([])
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    expect(
+      screen.queryByRole("button", { name: /退出登录|登出|Log out|Sign out/i })
+    ).toBeNull()
+  })
 })
 
 describe("设置页 · 英文界面", () => {
