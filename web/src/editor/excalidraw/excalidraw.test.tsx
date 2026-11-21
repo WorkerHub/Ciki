@@ -318,3 +318,56 @@ describe("Excalidraw 画布挂载沙箱约束", () => {
     expect(sidebar).toHaveStyle({ display: "none" })
   })
 })
+
+describe("Excalidraw 弹窗 Portal 挂载与节点选区交互", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  afterEach(() => {
+    cleanupEditors()
+  })
+
+  it("点击「编辑画布」时，全屏编辑器通过 createPortal 挂载到 document.body，彻底脱离 ProseMirror 容器", async () => {
+    const user = userEvent.setup()
+    const { container } = render(<Harness mode="edit" content={CANVAS_HTML} />)
+    expect(await screen.findByTestId("ready")).toHaveTextContent("yes")
+
+    const editBtn = screen.getByRole("button", { name: "编辑画布" })
+    await user.click(editBtn)
+
+    await waitFor(() => {
+      const modal = document.querySelector(".wiki-excalidraw-modal")
+      expect(modal).toBeInTheDocument()
+      expect(modal?.parentElement).toBe(document.body)
+      expect(container.contains(modal)).toBe(false)
+    })
+  })
+
+  it("点击画布预览图触发 mousedown 时，建立 NodeSelection 并触发编辑器聚焦", async () => {
+    let ed: any = null
+    const { container } = render(
+      <Harness
+        mode="edit"
+        content={CANVAS_HTML}
+        onEditor={(editor) => {
+          ed = editor
+        }}
+      />
+    )
+    expect(await screen.findByTestId("ready")).toHaveTextContent("yes")
+
+    const img = container.querySelector("img[data-type='excalidraw']")
+    expect(img).toBeInTheDocument()
+
+    act(() => {
+      img?.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, button: 0 })
+      )
+    })
+
+    expect(ed?.state.selection.toJSON().type).toBe("node")
+    expect((ed?.state.selection as any).node?.type?.name).toBe("excalidraw")
+  })
+})
+

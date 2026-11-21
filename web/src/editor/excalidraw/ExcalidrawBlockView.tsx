@@ -1,6 +1,7 @@
 import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
 import { Loader2, Palette } from "lucide-react"
 import { Suspense, lazy, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { imageWidth } from "@/editor/image-attributes"
@@ -61,7 +62,7 @@ export function ExcalidrawBlockView({
   return (
     <NodeViewWrapper as="figure" className="my-4" data-excalidraw-block="">
       {previewKey ? (
-        <div className="relative group/canvas inline-block max-w-full">
+        <div className="relative group/canvas inline-block max-w-full min-w-[120px]">
           <ResizableExcalidraw
             node={node}
             editor={editor}
@@ -108,21 +109,24 @@ export function ExcalidrawBlockView({
         </div>
       )}
 
-      {modalOpen ? (
-        <Suspense
-          fallback={
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          }
-        >
-          <LazyExcalidrawModal
-            sceneKey={sceneKey || undefined}
-            onClose={() => setModalOpen(false)}
-            onSave={handleSave}
-          />
-        </Suspense>
-      ) : null}
+      {modalOpen && typeof document !== "undefined"
+        ? createPortal(
+            <Suspense
+              fallback={
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              }
+            >
+              <LazyExcalidrawModal
+                sceneKey={sceneKey || undefined}
+                onClose={() => setModalOpen(false)}
+                onSave={handleSave}
+              />
+            </Suspense>,
+            document.body
+          )
+        : null}
     </NodeViewWrapper>
   )
 }

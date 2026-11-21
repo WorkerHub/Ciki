@@ -40,11 +40,16 @@ export function syncExcalidrawAttributes(
   const width = imageWidth(attrs)
   if (width === null) {
     img.style.width = ""
+    img.style.minWidth = "120px"
+    img.style.minHeight = "48px"
     img.removeAttribute("width")
   } else {
     img.style.width = `${width}px`
+    img.style.minWidth = ""
+    img.style.minHeight = ""
     img.setAttribute("width", String(width))
   }
+  img.style.objectFit = "contain"
   img.style.height = ""
 }
 
@@ -61,17 +66,32 @@ export function ResizableExcalidraw({
 }: ResizableExcalidrawProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
-  const latest = useRef({ node, updateAttributes })
-  latest.current = { node, updateAttributes }
+  const latest = useRef({ node, updateAttributes, onDoubleClick })
+  latest.current = { node, updateAttributes, onDoubleClick }
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
 
     const img = document.createElement("img")
-    if (onDoubleClick) {
-      img.ondblclick = onDoubleClick
+    img.ondblclick = () => latest.current.onDoubleClick?.()
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      if (typeof getPos === "function") {
+        try {
+          const pos = getPos()
+          if (typeof pos === "number") {
+            e.preventDefault()
+            editor.commands.setNodeSelection(pos)
+            editor.commands.focus()
+          }
+        } catch {
+          // 节点可能已卸载
+        }
+      }
     }
+    img.addEventListener("mousedown", onMouseDown)
 
     const view = new ResizableNodeView({
       element: img,
@@ -102,10 +122,11 @@ export function ResizableExcalidraw({
 
     imageRef.current = img
     return () => {
+      img.removeEventListener("mousedown", onMouseDown)
       view.destroy()
       imageRef.current = null
     }
-  }, [editor, getPos, onDoubleClick])
+  }, [editor, getPos])
 
   useEffect(() => {
     const img = imageRef.current
