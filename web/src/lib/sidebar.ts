@@ -18,10 +18,7 @@ export const SIDEBAR_DEFAULT_SIZE = "18%"
 export const SIDEBAR_WIDTH_ICON = 48
 
 /**
- * 系统页顶栏为 logo 预留的固定宽度左侧区（260px）。
- * 正文列左缘 = max(居中位置, logo 区右缘)。
- * 宽屏（≥1920px）正文列居中、左右留白对称、视觉与改前一致；
- * 窄屏（<1920px）居中位置会撞上 logo 区，正文列左缘让给 logo 区（260px）。
+ * @deprecated 丙方案已废弃系统页 260px logo 预留区与让位逻辑，顶栏全宽顶头；保留常量兼容外部引用。
  */
 export const SYSTEM_SIDEBAR_HEADER_WIDTH = 260
 
