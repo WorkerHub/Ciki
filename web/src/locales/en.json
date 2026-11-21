@@ -73,6 +73,7 @@
       "collapse": "Collapse sidebar",
       "expand": "Expand sidebar"
     },
+    "backToDocument": "Back to documents",
     "newPage": "New page",
     "loadingPage": "Loading page",
     "pageTree": "Page tree",

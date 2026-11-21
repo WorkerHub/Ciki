@@ -371,12 +371,9 @@ export function AppShell() {
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
   const [collapsible, setCollapsible] = useState(() => !readSidebarOpen())
   const [isCollapsed, setIsCollapsed] = useState(() => !readSidebarOpen())
-
-  useEffect(() => {
-    if (!readSidebarOpen() && !sidebarPanelRef.current?.isCollapsed()) {
-      sidebarPanelRef.current?.collapse()
-    }
-  }, [])
+  // 记住进入系统页之前最近访问的文档路由（仅内存，不落盘）：
+  // 顶栏「返回文档」回这里；系统页之间互跳（设置 ↔ 系统管理）不覆盖它；
+  // 刷新 / 直接打开系统页时为 null，回退首页「/」。
 
   const handleCollapse = () => {
     flushSync(() => {
@@ -393,6 +390,25 @@ export function AppShell() {
     writeSidebarOpen(true)
     setCollapsible(false)
   }
+
+  // 收起态与 Panel 挂载状态的同步：从系统页返回普通页时，顶层的 Group/Panel
+  // 会整树重新挂载并回到 defaultSize（展开宽度），而收起与否只存在 React state
+  // 里，初始化 effect 只跑一次、帮不上重挂载。这里按依赖持续同步：只要
+  // 「state 认为收起、新挂载的 Panel 却是展开的」，就立即 collapse 回 48px
+  // 图标列，避免出现图标列被撑成 260px 的布局错乱。展开态或移动端不介入。
+  useEffect(() => {
+    if (isMobile || isSystemRoute || !isCollapsed) return
+    if (!sidebarPanelRef.current?.isCollapsed()) {
+      sidebarPanelRef.current?.collapse()
+    }
+  }, [isMobile, isSystemRoute, isCollapsed])
+
+  // 文档路由跟踪：只在非系统页时更新（系统页之间互跳不覆盖来源）；
+  // 全页刷新 / 直接落在系统页时保持 null，返回按钮回退「/」。
+  const lastDocRouteRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isSystemRoute) lastDocRouteRef.current = location.pathname
+  }, [location.pathname, isSystemRoute])
 
   useEffect(() => {
     void loadSpaces()
@@ -461,11 +477,11 @@ export function AppShell() {
     </Link>
   )
 
-  const backHomeButton = (
+  const backToDocButton = (
     <Button asChild variant="ghost" size="sm" className="gap-1.5">
-      <Link to="/">
+      <Link to={lastDocRouteRef.current ?? "/"}>
         <ArrowLeft aria-hidden="true" />
-        {t("page.backHome")}
+        {t("shell.backToDocument")}
       </Link>
     </Button>
   )
@@ -537,24 +553,23 @@ export function AppShell() {
     <div className="flex h-svh flex-col bg-background">
       {isMobile || isSystemRoute ? (
         <>
-          <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 sm:px-3">
-            {mobileMenu}
-            {siteLink}
-            {isSystemRoute ? (
-              <>
-                {backHomeButton}
-                {accountActions}
-              </>
-            ) : isMobile ? (
-              mobileActions
-            ) : (
-              <>
-                <SearchBox className="mx-3 max-w-md flex-1" />
-                {createButton}
-                {accountActions}
-              </>
-            )}
-          </header>
+          <header className="flex h-12 shrink-0 items-center border-b border-border">
+          {/* 系统页：内容包在与正文容器同口径的居中容器里；
+              「返回文档」按钮放在首位，左缘与正文标题列左缘同一条线。 */}
+          {isSystemRoute ? (
+            <div className="mx-auto flex h-12 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6">
+              {backToDocButton}
+              {siteLink}
+              {accountActions}
+            </div>
+          ) : (
+            <div className="flex h-12 w-full items-center gap-2 px-2 sm:px-3">
+              {mobileMenu}
+              {siteLink}
+              {mobileActions}
+            </div>
+          )}
+        </header>
           <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
         </>
       ) : (
