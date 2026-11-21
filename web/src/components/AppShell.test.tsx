@@ -227,7 +227,12 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       within(systemHeader!).queryByRole("button", { name: "新建页面" })
     ).toBeNull()
     const headerInner = systemHeader!.firstElementChild as HTMLElement
-    expect(headerInner).toHaveClass("mx-auto", "max-w-[1400px]", "px-4", "sm:px-6")
+    expect(headerInner).toHaveClass(
+      "mx-auto",
+      "max-w-[1400px]",
+      "px-4",
+      "sm:px-6"
+    )
   })
 
   it("移动端保持整条顶栏：没有搜索框，页面树走抽屉，抽屉内不包含收起侧栏按钮", () => {
@@ -431,16 +436,17 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       ],
       { initialEntries: ["/p/7"] }
     )
-    const { container, unmount } = render(<RouterProvider router={router} />)
+    const { unmount } = render(<RouterProvider router={router} />)
 
     // 进入系统页前在 /p/7；设置 → 系统管理 → 设置 来回切不覆盖来源
     router.navigate("/settings")
     await screen.findByText("设置内容")
     router.navigate("/admin")
     await screen.findByText("管理内容")
-    expect(
-      screen.getByRole("link", { name: "返回文档" })
-    ).toHaveAttribute("href", "/p/7")
+    expect(screen.getByRole("link", { name: "返回文档" })).toHaveAttribute(
+      "href",
+      "/p/7"
+    )
 
     fireEvent.click(screen.getByRole("link", { name: "返回文档" }))
     expect(router.state.location.pathname).toBe("/p/7")
