@@ -516,7 +516,9 @@ describe("页尾评论区", () => {
     const replyBox = screen.getByRole("textbox", { name: "回复内容" })
     await user.type(replyBox, "我的回复")
     const replyComposer = composerOf(replyBox)
-    await user.click(within(replyComposer).getByRole("button", { name: "预览" }))
+    await user.click(
+      within(replyComposer).getByRole("button", { name: "预览" })
+    )
     expect(await within(replyComposer).findByText("渲染后")).toBeInTheDocument()
     expect(screen.queryByRole("textbox", { name: "回复内容" })).toBeNull()
 
@@ -538,7 +540,9 @@ describe("页尾评论区", () => {
         })
       ]
     })
-    await user.click(within(replyComposer).getByRole("button", { name: "回复" }))
+    await user.click(
+      within(replyComposer).getByRole("button", { name: "回复" })
+    )
     expect(vi.mocked(commentsApi.create)).toHaveBeenCalledWith(1, {
       bodyMd: "我的回复",
       parentId: 1
