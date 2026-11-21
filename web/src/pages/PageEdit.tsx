@@ -60,8 +60,8 @@ export function PageEdit() {
   const role = useSpaceRole(page?.spaceId)
   const readOnly = page !== null && !canEdit(role)
   const syncedPage = useRef<number | null>(null)
-  /** 「放弃修改」已经放行过这一次导航：blocker 不能再拦（它读到的是置位前的 dirty）。 */
-  const leavingByCancel = useRef(false)
+  /** 显式放行离开（放弃修改、或保存按钮保存成功自动返回阅读）：blocker 不能再拦。 */
+  const bypassBlocker = useRef(false)
 
   const editor = useWikiEditor({
     contentJson: page?.contentJson ?? "",
@@ -189,9 +189,19 @@ export function PageEdit() {
   const discardChanges = useCallback(() => {
     if (pageId === null) return
     setCancelOpen(false)
-    leavingByCancel.current = true
+    bypassBlocker.current = true
     navigate(pagePath(pageId))
   }, [navigate, pageId])
+
+  /** 保存按钮：保存成功后自动返回阅读模式；保存失败留编辑模式并显示报错。 */
+  const handleSave = useCallback(async () => {
+    if (pageId === null) return
+    const ok = await save()
+    if (ok) {
+      bypassBlocker.current = true
+      navigate(pagePath(pageId))
+    }
+  }, [pageId, save, navigate])
 
   // 页面加载完成前不挂 Ctrl/⌘+S：否则会把空文档写回页面
   useEffect(() => {
@@ -218,7 +228,7 @@ export function PageEdit() {
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      !leavingByCancel.current &&
+      !bypassBlocker.current &&
       dirty &&
       currentLocation.pathname !== nextLocation.pathname
   )
@@ -359,7 +369,7 @@ export function PageEdit() {
             <Button
               type="button"
               size="sm"
-              onClick={() => void save()}
+              onClick={() => void handleSave()}
               disabled={saving || !ready}
             >
               <Save aria-hidden="true" />
