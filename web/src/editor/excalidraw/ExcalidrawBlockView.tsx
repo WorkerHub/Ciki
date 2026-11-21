@@ -62,7 +62,7 @@ export function ExcalidrawBlockView({
   return (
     <NodeViewWrapper as="figure" className="my-4" data-excalidraw-block="">
       {previewKey ? (
-        <div className="relative group/canvas inline-block max-w-full min-w-[120px]">
+        <div className="relative group/canvas inline-block max-w-full">
           <ResizableExcalidraw
             node={node}
             editor={editor}
@@ -70,7 +70,7 @@ export function ExcalidrawBlockView({
             updateAttributes={updateAttributes}
             onDoubleClick={() => setModalOpen(true)}
           />
-          <div className="absolute top-2 right-2 opacity-0 group-hover/canvas:opacity-100 transition-opacity z-10">
+          <div className="absolute top-2 right-2 opacity-0 group-hover/canvas:opacity-100 transition-opacity z-10 pointer-events-none group-hover/canvas:pointer-events-auto">
             <Button
               type="button"
               size="sm"
