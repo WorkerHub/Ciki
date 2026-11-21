@@ -68,4 +68,98 @@ if (typeof window !== "undefined") {
       dispatchEvent: () => false
     })) as unknown as typeof window.matchMedia
   }
+  if (typeof HTMLCanvasElement !== "undefined") {
+    HTMLCanvasElement.prototype.getContext = (() => ({
+      filter: "none",
+      fillRect: () => {},
+      clearRect: () => {},
+      getImageData: () => ({ data: new Array(4) }),
+      putImageData: () => {},
+      createImageData: () => ({ data: new Array(4) }),
+      setTransform: () => {},
+      drawImage: () => {},
+      save: () => {},
+      fillText: () => {},
+      restore: () => {},
+      beginPath: () => {},
+      moveTo: () => {},
+      lineTo: () => {},
+      closePath: () => {},
+      stroke: () => {},
+      translate: () => {},
+      scale: () => {},
+      rotate: () => {},
+      arc: () => {},
+      fill: () => {},
+      measureText: () => ({ width: 0 }),
+      transform: () => {},
+      rect: () => {},
+      clip: () => {}
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.toBlob = (callback, type = "image/png") => {
+      const blob = new Blob(["mock-image-bytes"], { type })
+      callback(blob)
+    }
+  }
+  if (!("Path2D" in globalThis)) {
+    class Path2DStub {
+      addPath() {}
+      closePath() {}
+      moveTo() {}
+      lineTo() {}
+      bezierCurveTo() {}
+      quadraticCurveTo() {}
+      arc() {}
+      arcTo() {}
+      ellipse() {}
+      rect() {}
+    }
+    ;(globalThis as unknown as { Path2D: unknown }).Path2D = Path2DStub
+    if (typeof window !== "undefined") {
+      ;(window as unknown as { Path2D: unknown }).Path2D = Path2DStub
+    }
+  }
+  if (!("FontFace" in globalThis)) {
+    class FontFaceStub {
+      family: string
+      source: string | ArrayBuffer
+      descriptors?: unknown
+      status = "loaded"
+      unicodeRange = "U+0-10ffff"
+      constructor(
+        family: string,
+        source: string | ArrayBuffer,
+        descriptors?: { unicodeRange?: string }
+      ) {
+        this.family = family
+        this.source = source
+        this.descriptors = descriptors
+        if (descriptors?.unicodeRange) {
+          this.unicodeRange = descriptors.unicodeRange
+        }
+      }
+      async load() {
+        return this
+      }
+    }
+    ;(globalThis as unknown as { FontFace: unknown }).FontFace = FontFaceStub
+    if (typeof window !== "undefined") {
+      ;(window as unknown as { FontFace: unknown }).FontFace = FontFaceStub
+    }
+  }
+  if (
+    typeof document !== "undefined" &&
+    !(document as unknown as { fonts?: unknown }).fonts
+  ) {
+    const fontSet = new Set()
+    ;(document as unknown as { fonts: unknown }).fonts = {
+      has: (f: unknown) => fontSet.has(f),
+      add: (f: unknown) => fontSet.add(f),
+      delete: (f: unknown) => fontSet.delete(f),
+      clear: () => fontSet.clear(),
+      check: () => true,
+      load: async () => [],
+      ready: Promise.resolve()
+    }
+  }
 }

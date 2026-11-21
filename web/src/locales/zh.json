@@ -431,6 +431,7 @@
       "cellBackground": "单元格背景",
       "link": "插入链接",
       "image": "上传图片",
+      "excalidraw": "插入画布",
       "undo": {
         "label": "撤销",
         "hint": "撤销（Ctrl/⌘ + Z）"
@@ -508,6 +509,15 @@
       "captureTimeout": "没等到 Ciki 插件补抓，请手动上传替换。",
       "captureInvalid": "插件给的图片没有解码成功",
       "captureEmpty": "插件给的图片是空的"
+    },
+    "excalidraw": {
+      "modalTitle": "画布编辑器",
+      "edit": "编辑画布",
+      "save": "保存",
+      "saving": "保存中…",
+      "cancel": "取消",
+      "blankCanvas": "空白画布",
+      "clickToEdit": "点击以打开全屏画布编辑器"
     }
   },
   "settings": {

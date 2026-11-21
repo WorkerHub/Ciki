@@ -19,6 +19,7 @@ import {
 import { WikiFontSize } from "@/editor/font-size/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
 import { imageWidth } from "@/editor/image-attributes"
+import { WikiExcalidraw } from "@/editor/excalidraw/extension"
 
 /** lowlight 只在模块加载时建一次；common 覆盖了 Confluence 里常见语言。 */
 export const lowlight = createLowlight(common)
@@ -144,6 +145,7 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
       languageClassPrefix: "language-"
     }),
     WikiImage.configure({ allowBase64: true, inline: false }),
+    WikiExcalidraw,
     // 颜色与行内字号：文字样式（TextStyle + Color + FontSize）、高亮、单元格底色。
     // HTML 载具一律是 data 属性，详见 colors 与 font-size 扩展说明。
     WikiTextStyle,
@@ -171,3 +173,5 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
       : [])
   ]
 }
+
+export { WikiExcalidraw }
