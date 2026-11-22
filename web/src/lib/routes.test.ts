@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
 import {
+  adminEmailPath,
+  adminOthersPath,
+  adminPath,
+  adminSecurityPath,
+  adminSitePath,
+  adminSpacesPath,
+  adminUsersPath,
   pageEditPath,
   pagePath,
   parseIdParam,
@@ -47,3 +54,16 @@ describe("链接生成", () => {
     expect(spacePath("a b")).toBe("/s/a%20b")
   })
 })
+
+describe("系统管理路由出口", () => {
+  it("生成固定的绝对路径", () => {
+    expect(adminPath()).toBe("/admin")
+    expect(adminUsersPath()).toBe("/admin/users")
+    expect(adminSpacesPath()).toBe("/admin/spaces")
+    expect(adminSitePath()).toBe("/admin/site")
+    expect(adminSecurityPath()).toBe("/admin/security")
+    expect(adminEmailPath()).toBe("/admin/email")
+    expect(adminOthersPath()).toBe("/admin/others")
+  })
+})
+
