@@ -302,6 +302,8 @@
       },
       "home": "首页",
       "updatedAt": "更新于 {{time}}",
+      "createdAt": "创建于 {{time}}",
+      "lastEditedAt": "最后编辑于 {{time}}",
       "readOnlyMember": "只读成员",
       "refresh": "刷新",
       "edit": "编辑",

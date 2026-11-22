@@ -78,7 +78,11 @@ const page: PageDetail = {
   createdBy: 2,
   updatedBy: 2,
   createdAt: "2026-11-08T00:00:00.000Z",
-  updatedAt: "2026-11-08T00:00:00.000Z"
+  updatedAt: "2026-11-08T00:00:00.000Z",
+  createdByName: "张三",
+  createdByAvatarUrl: "/avatars/zhangsan.png",
+  updatedByName: "张三",
+  updatedByAvatarUrl: "/avatars/zhangsan.png"
 }
 
 function space(overrides: Partial<Space>): Space {
@@ -822,7 +826,7 @@ describe("阅读页：英文界面", () => {
     vi.mocked(pagesApi.download).mockReset()
   })
 
-  it("头部动作、更新时间都是英文，中文一个字不留", async () => {
+  it("头部动作、署名时间都是英文，中文一个字不留", async () => {
     await i18n.changeLanguage("en")
     renderView()
 
@@ -834,7 +838,8 @@ describe("阅读页：英文界面", () => {
     expect(
       screen.getByRole("button", { name: "Download .md" })
     ).toBeInTheDocument()
-    expect(screen.getByText(/^Updated /)).toBeInTheDocument()
+    expect(screen.getByText(/^Created /)).toBeInTheDocument()
+    expect(screen.queryByText(/^创建于/)).toBeNull()
     expect(screen.queryByText(/^更新于/)).toBeNull()
   })
 
@@ -905,5 +910,156 @@ describe("阅读页：英文界面", () => {
     expect(
       screen.getByRole("link", { name: "Back to home" })
     ).toBeInTheDocument()
+  })
+})
+
+describe("阅读页标题下署名行", () => {
+  beforeEach(() => {
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.download).mockReset()
+    useSpacesStore.setState({
+      spaces: [space({ myRole: "editor" })],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+  })
+
+  it("新建未编辑：只显示创建段，不显示编辑段，带创建者头像与日期", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "张三",
+      createdByAvatarUrl: "/avatars/zhangsan.png",
+      updatedByName: "张三",
+      updatedByAvatarUrl: "/avatars/zhangsan.png",
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.getByText("张三")).toBeInTheDocument()
+    expect(screen.getByText("创建于 2026-11-08")).toBeInTheDocument()
+    expect(screen.queryByText(/最后编辑于/)).toBeNull()
+    expect(screen.queryByText("·")).toBeNull()
+  })
+
+  it("编辑后：显示创建者与最后编辑者，中间带点号分隔，头像各自显示", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "张三",
+      createdByAvatarUrl: "/avatars/zhangsan.png",
+      updatedByName: "李四",
+      updatedByAvatarUrl: "/avatars/lisi.png",
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-09T03:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.getByText("张三")).toBeInTheDocument()
+    expect(screen.getByText("创建于 2026-11-08")).toBeInTheDocument()
+    expect(screen.getByText("·")).toBeInTheDocument()
+    expect(screen.getByText("李四")).toBeInTheDocument()
+    expect(screen.getByText("最后编辑于 2026-11-09")).toBeInTheDocument()
+  })
+
+  it("createdByName 为 null 时不显示创建段，若已编辑仅显示最后编辑段", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: null,
+      createdByAvatarUrl: null,
+      updatedByName: "李四",
+      updatedByAvatarUrl: "/avatars/lisi.png",
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-09T03:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.queryByText(/创建于/)).toBeNull()
+    expect(screen.queryByText("·")).toBeNull()
+    expect(screen.getByText("李四")).toBeInTheDocument()
+    expect(screen.getByText("最后编辑于 2026-11-09")).toBeInTheDocument()
+  })
+
+  it("两段皆无（createdByName 为 null 且未编辑）：整行不渲染", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: null,
+      createdByAvatarUrl: null,
+      updatedByName: null,
+      updatedByAvatarUrl: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.queryByText(/创建于/)).toBeNull()
+    expect(screen.queryByText(/最后编辑于/)).toBeNull()
+    expect(screen.queryByText("·")).toBeNull()
+    expect(screen.queryByText(/更新于/)).toBeNull()
+  })
+
+  it("两段皆无但为只读成员（viewer）：不显示署名段，但仍显示只读成员徽标", async () => {
+    useSpacesStore.setState({ spaces: [space({ myRole: "viewer" })] })
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: null,
+      createdByAvatarUrl: null,
+      updatedByName: null,
+      updatedByAvatarUrl: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.getByText("只读成员")).toBeInTheDocument()
+    expect(screen.queryByText(/创建于/)).toBeNull()
+    expect(screen.queryByText(/最后编辑于/)).toBeNull()
+  })
+
+  it("已注销用户作为创建者时正常回落显示", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "已注销用户",
+      createdByAvatarUrl: null,
+      updatedByName: "李四",
+      updatedByAvatarUrl: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-09T03:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.getByText("已注销用户")).toBeInTheDocument()
+    expect(screen.getByText("创建于 2026-11-08")).toBeInTheDocument()
+    expect(screen.getByText("李四")).toBeInTheDocument()
+    expect(screen.getByText("最后编辑于 2026-11-09")).toBeInTheDocument()
+  })
+
+  it("英文环境下展示 Created 与 Last edited", async () => {
+    await i18n.changeLanguage("en")
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "Alice",
+      createdByAvatarUrl: null,
+      updatedByName: "Bob",
+      updatedByAvatarUrl: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-09T03:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(screen.getByText("Alice")).toBeInTheDocument()
+    expect(screen.getByText(/^Created /)).toBeInTheDocument()
+    expect(screen.getByText("·")).toBeInTheDocument()
+    expect(screen.getByText("Bob")).toBeInTheDocument()
+    expect(screen.getByText(/^Last edited /)).toBeInTheDocument()
+    expect(screen.queryByText(/创建于/)).toBeNull()
+    expect(screen.queryByText(/最后编辑于/)).toBeNull()
   })
 })
