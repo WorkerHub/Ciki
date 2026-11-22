@@ -21,6 +21,7 @@ import type { Env } from "../src/types"
 interface AgentSummary {
   id: number
   username: string
+  avatarUrl: string | null
   isActive: boolean
   createdAt: string
 }
@@ -40,6 +41,31 @@ interface IssuedToken {
   kind: "read" | "write"
   spaceIds: number[] | null
   token: string
+}
+
+/** 最小合法 PNG 魔数头部（沿用 identity.test.ts 的口径）。 */
+const PNG = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
+  0x48, 0x44, 0x52
+])
+
+function agentAvatarForm(bytes: Uint8Array, type = "image/png"): FormData {
+  const form = new FormData()
+  form.append("file", new File([bytes], "avatar.png", { type }))
+  return form
+}
+
+async function postAgentAvatar(
+  env: Env,
+  cookie: string,
+  agentId: number,
+  form: FormData
+): Promise<Response> {
+  return request(env, `/api/me/agents/${agentId}/avatar`, {
+    method: "POST",
+    headers: cookie ? { cookie } : {},
+    body: form
+  })
 }
 
 async function createSpace(
@@ -304,6 +330,234 @@ describe("/api/me/agents 基础 CRUD 与校验", () => {
     expect(await invalidPatch.json()).toEqual({
       error: "isActive must be a boolean"
     })
+  })
+})
+
+describe("/api/me/agents/:id/avatar 头像上传/更换/删除", () => {
+  it("上传/更换/删除生效：落 avatar_key、复用现行存储与校验、删旧图", async () => {
+    const { env, r2, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const owner = await userSession(env, admin, "avatar-owner@example.com")
+
+    const botRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/me/agents",
+      { username: "avatar-bot" },
+      owner
+    )
+    expect(botRes.status).toBe(201)
+    const bot = (await botRes.json()) as AgentSummary
+    expect(bot.avatarUrl).toBeNull()
+
+    // 1. 上传：响应含 avatars/ 前缀的 avatarUrl，R2 记 uploaderId=agent id、category=avatars
+    const first = await postAgentAvatar(
+      env,
+      owner,
+      bot.id,
+      agentAvatarForm(PNG)
+    )
+    expect(first.status).toBe(200)
+    const firstDto = (await first.json()) as AgentSummary
+    const firstKey = (firstDto.avatarUrl ?? "").replace("/api/files/", "")
+    expect(firstKey).toMatch(/^avatars\/[0-9a-f-]{36}\.png$/)
+    expect(r2.store.get(firstKey)?.customMetadata).toMatchObject({
+      uploaderId: String(bot.id),
+      category: "avatars"
+    })
+
+    // avatar_key 落库
+    const rowAfterFirst = db.db
+      .prepare("SELECT avatar_key FROM ciki_users WHERE id = ?")
+      .get(bot.id) as { avatar_key: string }
+    expect(rowAfterFirst.avatar_key).toBe(firstKey)
+
+    // 头像地址带会话可读
+    const read = await request(env, firstDto.avatarUrl ?? "", {
+      headers: { cookie: owner }
+    })
+    expect(read.status).toBe(200)
+
+    // 2. 更换：旧图被删、新图落新 key、avatar_key 更新
+    const second = await postAgentAvatar(
+      env,
+      owner,
+      bot.id,
+      agentAvatarForm(PNG)
+    )
+    expect(second.status).toBe(200)
+    const secondDto = (await second.json()) as AgentSummary
+    const secondKey = (secondDto.avatarUrl ?? "").replace("/api/files/", "")
+    expect(secondKey).not.toBe(firstKey)
+    expect(r2.store.has(firstKey)).toBe(false)
+    expect(r2.store.has(secondKey)).toBe(true)
+
+    // 3. 列表项同步带上最新头像地址
+    const listRes = await jsonRequest(
+      env,
+      "GET",
+      "/api/me/agents",
+      undefined,
+      owner
+    )
+    const list = (await listRes.json()) as AgentSummary[]
+    expect(list.find((b) => b.id === bot.id)?.avatarUrl).toBe(
+      secondDto.avatarUrl
+    )
+
+    // 4. 删除：avatarUrl 归 null、旧图被删、avatar_key 清空
+    const del = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/agents/${bot.id}/avatar`,
+      undefined,
+      owner
+    )
+    expect(del.status).toBe(200)
+    const delDto = (await del.json()) as AgentSummary
+    expect(delDto.avatarUrl).toBeNull()
+    expect(r2.store.has(secondKey)).toBe(false)
+
+    const rowAfterDel = db.db
+      .prepare("SELECT avatar_key FROM ciki_users WHERE id = ?")
+      .get(bot.id) as { avatar_key: string }
+    expect(rowAfterDel.avatar_key).toBe("")
+
+    // 5. 无头像时再次删除仍 200（幂等）
+    const delAgain = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/agents/${bot.id}/avatar`,
+      undefined,
+      owner
+    )
+    expect(delAgain.status).toBe(200)
+    expect((await delAgain.json()) as AgentSummary).toMatchObject({
+      avatarUrl: null
+    })
+  })
+
+  it("校验口径与真人头像一致：非图片 400、超 10MB 413、未登录 401", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const owner = await userSession(env, admin, "avatar-validation@example.com")
+
+    const botRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/me/agents",
+      { username: "validation-bot" },
+      owner
+    )
+    const bot = (await botRes.json()) as AgentSummary
+
+    const fake = await postAgentAvatar(
+      env,
+      owner,
+      bot.id,
+      agentAvatarForm(new TextEncoder().encode("not really an image"))
+    )
+    expect(fake.status).toBe(400)
+
+    const big = new Uint8Array(10 * 1024 * 1024 + 1)
+    big.set(PNG)
+    const tooLarge = await postAgentAvatar(
+      env,
+      owner,
+      bot.id,
+      agentAvatarForm(big)
+    )
+    expect(tooLarge.status).toBe(413)
+    expect(await tooLarge.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+
+    const anonymous = await postAgentAvatar(
+      env,
+      "",
+      bot.id,
+      agentAvatarForm(PNG)
+    )
+    expect(anonymous.status).toBe(401)
+  })
+
+  it("严格 owner 边界：非 owner、管理员、非 Agent 或不存在 ID 一律 404", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const owner = await userSession(env, admin, "avatar-boundary@example.com")
+    const intruder = await userSession(
+      env,
+      admin,
+      "avatar-intruder@example.com"
+    )
+
+    const botRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/me/agents",
+      { username: "boundary-bot" },
+      owner
+    )
+    const bot = (await botRes.json()) as AgentSummary
+
+    // 他人上传/删除 -> 404
+    const intruderPost = await postAgentAvatar(
+      env,
+      intruder,
+      bot.id,
+      agentAvatarForm(PNG)
+    )
+    expect(intruderPost.status).toBe(404)
+    expect(await intruderPost.json()).toEqual({ error: "Agent not found" })
+
+    const intruderDelete = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/agents/${bot.id}/avatar`,
+      undefined,
+      intruder
+    )
+    expect(intruderDelete.status).toBe(404)
+    expect(await intruderDelete.json()).toEqual({ error: "Agent not found" })
+
+    // 站点管理员不代改 -> 404
+    const adminPost = await postAgentAvatar(
+      env,
+      admin,
+      bot.id,
+      agentAvatarForm(PNG)
+    )
+    expect(adminPost.status).toBe(404)
+    expect(await adminPost.json()).toEqual({ error: "Agent not found" })
+
+    const adminDelete = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/agents/${bot.id}/avatar`,
+      undefined,
+      admin
+    )
+    expect(adminDelete.status).toBe(404)
+
+    // 目标不是 Agent（真人用户 ID）或不存在 ID -> 404
+    const meRes = await jsonRequest(env, "GET", "/api/me", undefined, owner)
+    const me = (await meRes.json()) as { id: number }
+
+    const humanPost = await postAgentAvatar(
+      env,
+      owner,
+      me.id,
+      agentAvatarForm(PNG)
+    )
+    expect(humanPost.status).toBe(404)
+    expect(await humanPost.json()).toEqual({ error: "Agent not found" })
+
+    const nonExistentPost = await postAgentAvatar(
+      env,
+      owner,
+      999999,
+      agentAvatarForm(PNG)
+    )
+    expect(nonExistentPost.status).toBe(404)
+    expect(await nonExistentPost.json()).toEqual({ error: "Agent not found" })
   })
 })
 

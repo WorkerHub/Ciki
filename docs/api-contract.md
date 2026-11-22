@@ -930,11 +930,14 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   {
     "id": 10,
     "username": "doc-sync-bot",
+    "avatarUrl": null,
     "isActive": true,
     "createdAt": "2026-11-20T10:00:00.000Z"
   }
 ]
 ```
+
+- `avatarUrl`：该 Agent 的头像地址（`/api/files/<key>`），未设置头像时为 `null`；图片本身要会话才能读。
 
 #### POST /api/me/agents
 
@@ -947,7 +950,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```
 
 - `username`：必填，1–40 字符，自动去控制字符并规范化。非法 400 `code:"INVALID_USERNAME"`；重名 409 `code:"USERNAME_TAKEN"`。
-- 创建成功 201，返回与 `GET /api/me/agents` 单项结构相同的 DTO：`{ id, username, isActive, createdAt }`。
+- 创建成功 201，返回与 `GET /api/me/agents` 单项结构相同的 DTO：`{ id, username, avatarUrl, isActive, createdAt }`（新建 Agent 无头像，`avatarUrl` 为 `null`）。
 - 新建 Agent 初始为启用状态（`is_active = 1`），`approval_status = 'approved'`，`email_verified = 1`，`owner_user_id` 指向当前登录用户。
 
 #### PATCH /api/me/agents/:id
@@ -962,11 +965,47 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - `isActive` 必须为布尔值，否则 400 `{"error":"isActive must be a boolean"}`。
 - 非本人名下或非 Agent 返回 404。
-- 成功返回更新后的 `{ id, username, isActive, createdAt }`。停用 Agent 时，其名下持有的 API 令牌在调用鉴权时立即连带失效。
+- 成功返回更新后的 `{ id, username, avatarUrl, isActive, createdAt }`。停用 Agent 时，其名下持有的 API 令牌在调用鉴权时立即连带失效。
 
 #### DELETE /api/me/agents/:id
 
 彻底删除本人名下的 Agent 账号：成功 200 `{"success":true}`。级联清理其会话、Passkey、TOTP、验证码、所有空间成员关系（`space_members`）与用户行。非本人名下或非 Agent 返回 404。
+
+#### POST /api/me/agents/:id/avatar
+
+为本人名下的 Agent 上传/更换头像。`multipart/form-data`，字段名 `file`，单文件；校验与存储口径与 `POST /api/me/avatar`、`POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId`（该 Agent 的用户 id）与 `category:"avatars"`。同一请求内完成「写入该 Agent 的 `avatar_key` → 删除旧头像对象」（旧图删不掉只留孤儿对象，不影响响应）。
+
+成功 200 返回该 Agent 的 DTO（与 `GET /api/me/agents` 单项同结构，含最新 `avatarUrl`），前端一次拿到新的头像地址：
+
+```json
+{
+  "id": 10,
+  "username": "doc-sync-bot",
+  "avatarUrl": "/api/files/avatars/<uuid>.png",
+  "isActive": true,
+  "createdAt": "2026-11-20T10:00:00.000Z"
+}
+```
+
+- 头像读路径复用 `/api/files/:key`（会话即可读，无归属校验），显示面零新增逻辑。
+- 非本人名下 / 目标不存在 / 目标不是 Agent 一律 404 `{"error":"Agent not found"}`，不泄露存在性；站点管理员亦不可代改他人名下 Agent 的头像。
+- 校验失败与 `POST /api/me/avatar` 同口径：非图片 400、单张 >10MB 413 `code:"FILE_TOO_LARGE"`、未登录 401。
+
+#### DELETE /api/me/agents/:id/avatar
+
+删除本人名下 Agent 的头像：清空其 `avatar_key` 并 best-effort 删除旧头像对象。成功 200 返回该 Agent 的 DTO（`avatarUrl` 为 `null`）：
+
+```json
+{
+  "id": 10,
+  "username": "doc-sync-bot",
+  "avatarUrl": null,
+  "isActive": true,
+  "createdAt": "2026-11-20T10:00:00.000Z"
+}
+```
+
+- 无头像时删除仍 200（幂等）；非本人名下 / 目标不存在 / 目标不是 Agent 一律 404。
 
 #### GET /api/me/agents/:id/tokens
 
