@@ -7,6 +7,7 @@ import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { editorPayload } from "@/editor/Editor"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import {
   MIN_EXCALIDRAW_PREVIEW_HEIGHT,
@@ -229,6 +230,42 @@ describe("工具栏「插入画布」动作", () => {
     expect(excalidrawNode).toBeDefined()
     expect(excalidrawNode?.attrs?.sceneKey).toBe("")
     expect(excalidrawNode?.attrs?.previewKey).toBe("")
+  })
+
+  it("插入空白画布后若未绘制，保存时 editorPayload 自动剔除该空白节点（方案 A：未绘制画布在保存后从文档中消失）", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor("<p>正文段落</p>")
+    render(<EditorToolbar editor={editor} />)
+
+    const insertBtn = screen.getByRole("button", { name: "插入画布" })
+    await user.click(insertBtn)
+
+    // 确认已插入空白画布节点
+    expect(
+      editor.getJSON().content?.some((node) => node.type === "excalidraw")
+    ).toBe(true)
+
+    // 保存前执行 editorPayload 组装
+    const payload = editorPayload(editor)
+
+    // 验证 payload.contentJson 与 contentHtml 均不包含未绘制的空白画布节点
+    expect(payload.contentJson).not.toContain('"type":"excalidraw"')
+    expect(payload.contentHtml).not.toContain('data-type="excalidraw"')
+    expect(payload.contentJson).toContain("正文段落")
+
+    // 验证当前编辑器中未绘制画布也已同步剔除，不会残留空占位
+    expect(
+      editor.getJSON().content?.some((node) => node.type === "excalidraw")
+    ).toBe(false)
+  })
+
+  it("已绘制的有效画布节点在 editorPayload 时被正常保留", () => {
+    const editor = makeEditor(CANVAS_HTML)
+    const payload = editorPayload(editor)
+    expect(payload.contentJson).toContain(SCENE_KEY)
+    expect(payload.contentJson).toContain(PREVIEW_KEY)
+    expect(payload.contentHtml).toContain(SCENE_KEY)
+    expect(payload.contentHtml).toContain(PREVIEW_KEY)
   })
 })
 
