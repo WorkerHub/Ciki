@@ -22,7 +22,17 @@ import {
 import { deleteUserPasskeys } from "../db/queries/passkeys"
 import { deleteTotp } from "../db/queries/totp"
 import { deleteUserEmailCodes } from "../db/queries/email-codes"
-import { deleteSpaceMembershipsForUser } from "../db/queries/spaces"
+import {
+  countSpaceAdmins,
+  deleteSpaceMember,
+  deleteSpaceMembershipsForUser,
+  findSpaceMember,
+  insertSpaceMember,
+  listAllSpaces,
+  listSpacesForUser,
+  updateSpaceMemberRole,
+  type SpaceWithRoleRow
+} from "../db/queries/spaces"
 import { twofaSummary } from "./auth-2fa"
 import { isUsernameConflict, normalizeUsername } from "../core/identity"
 import { isLanguage, normalizeLanguage, type Language } from "../core/language"
@@ -58,6 +68,12 @@ import {
   parseTokenScopeInput,
   type TokenScope
 } from "../core/token-scope"
+import {
+  isSpaceManager,
+  isSpaceRole,
+  resolveSpaceAccess,
+  type SpaceRole
+} from "../core/space-access"
 import { clearPasswordResetCredentials } from "../core/password-reset"
 import { clientIp, parseId, readJsonBody } from "../lib/http"
 import type { HonoEnv } from "../types"
@@ -596,11 +612,24 @@ meRoutes.delete("/import-tokens/:id", async (c) => {
 // - POST /api/me/agents/:id/tokens：代管为其签发令牌（复用 issueApiToken 与空间范围校验，选 kind 与 spaceIds）
 // - DELETE /api/me/agents/:id/tokens/:tokenId：代管吊销单枚令牌
 //
+// 空间授权（Task #100）：
+// - GET /api/me/agents/:id/spaces：列出 owner 有成员管理权的空间，附该 agent 现行角色（未加入为 null）
+// - PUT /api/me/agents/:id/spaces：批量加入/改角色（{spaceIds, role?}），结果逐项回报
+// - DELETE /api/me/agents/:id/spaces/:spaceId：单个移出空间
+//
 // 越权与隔离边界：
 // 非 owner（访问他人 agent、目标不存在、或目标不是 agent）一律返回 404，不泄露存在性。
 // 站点管理员亦不可跨账号代签/代管他人名下 agent。
 
 const AGENT_NOT_FOUND = { error: "Agent not found" } as const
+const USER_NOT_ELIGIBLE = {
+  error: "User cannot join a space",
+  code: "USER_NOT_ELIGIBLE"
+} as const
+const SPACE_NOT_FOUND = {
+  error: "Space not found",
+  code: "SPACE_NOT_FOUND"
+} as const
 
 function agentDto(row: UserRow) {
   return {
@@ -803,5 +832,211 @@ meRoutes.delete("/agents/:id/tokens/:tokenId", async (c) => {
 
   const revoked = await revokeTokenById(c.env.DB, prefix, agent.id, tokenId)
   if (!revoked) return c.json(TOKEN_NOT_FOUND, 404)
+  return c.json({ success: true })
+})
+
+// ── Agent 空间授权（Task #100） ─────────────────────────────────────
+//
+// owner 只能操作自己有成员管理权（空间 admin 或站点管理员）的空间；非 owner
+// 的 agent 一律 404。批量写入一次提交、逐项回报，越权 / 不存在 / 最后一名 admin
+// 逐项点名失败，不静默吞。
+
+/** 批量空间写入的逐项结果：成功带落定角色，失败点名原因。 */
+type SpaceWriteResult =
+  | { spaceId: number; ok: true; role: SpaceRole }
+  | { spaceId: number; ok: false; error: string; code: string }
+
+/** owner 有成员管理权的空间：站点管理员看全部，其余只看自己是 admin 的空间。 */
+async function listOwnerManagedSpaces(
+  db: D1Database,
+  prefix: string,
+  userId: number,
+  siteAdmin: boolean
+): Promise<SpaceWithRoleRow[]> {
+  if (siteAdmin) {
+    const spaces = await listAllSpaces(db, prefix)
+    return spaces.map((space) => ({ ...space, role: "admin" as SpaceRole }))
+  }
+  const spaces = await listSpacesForUser(db, prefix, userId)
+  return spaces.filter((space) => isSpaceManager(space.role))
+}
+
+/** 列出 owner 有成员管理权的空间，附该 agent 现行角色（未加入为 null）。 */
+meRoutes.get("/agents/:id/spaces", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const ownerId = c.get("userId")
+  const agent = await findAgentByOwner(c.env.DB, prefix, ownerId, agentId)
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const managed = await listOwnerManagedSpaces(
+    c.env.DB,
+    prefix,
+    ownerId,
+    c.get("role") === "admin"
+  )
+  const agentSpaces = await listSpacesForUser(c.env.DB, prefix, agent.id)
+  const roleBySpace = new Map(
+    agentSpaces.map((space) => [space.id, space.role])
+  )
+
+  return c.json(
+    managed.map((space) => ({
+      spaceId: space.id,
+      slug: space.slug,
+      name: space.name,
+      role: roleBySpace.get(space.id) ?? null
+    }))
+  )
+})
+
+/**
+ * 批量加入/改角色：
+ * - `spaceIds` 必填、非空正整数数组（去重升序）；
+ * - `role` 可选，默认 `editor`（普通成员档），限 admin/editor/viewer；
+ * - 每个空间独立解析权限与成员关系，逐项回报，部分失败点名失败空间与原因；
+ * - 把最后一名 admin 降级时该项回 LAST_SPACE_ADMIN，不动其它空间。
+ */
+meRoutes.put("/agents/:id/spaces", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const ownerId = c.get("userId")
+  const agent = await findAgentByOwner(c.env.DB, prefix, ownerId, agentId)
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+  if (!agent.is_active || agent.approval_status !== "approved") {
+    return c.json(USER_NOT_ELIGIBLE, 409)
+  }
+
+  const body = await readJsonObject(c)
+  if (!body.ok) return body.response
+
+  const parsed = parseTokenScopeInput(body.body, { required: true })
+  if (!parsed.ok || parsed.action !== "set" || parsed.scope === null) {
+    return c.json(INVALID_SPACE_SCOPE, 400)
+  }
+  const spaceIds = parsed.scope
+
+  const role = body.body.role === undefined ? "editor" : body.body.role
+  if (!isSpaceRole(role)) {
+    return c.json(
+      { error: "role must be admin, editor or viewer", code: "INVALID_ROLE" },
+      400
+    )
+  }
+
+  const siteAdmin = c.get("role") === "admin"
+  const now = new Date().toISOString()
+  const results: SpaceWriteResult[] = []
+
+  for (const spaceId of spaceIds) {
+    const access = await resolveSpaceAccess(
+      c.env.DB,
+      prefix,
+      spaceId,
+      ownerId,
+      siteAdmin
+    )
+    if (!access) {
+      results.push({
+        spaceId,
+        ok: false,
+        error: "Space not found",
+        code: "SPACE_NOT_FOUND"
+      })
+      continue
+    }
+    if (!isSpaceManager(access.role)) {
+      results.push({
+        spaceId,
+        ok: false,
+        error: "Space forbidden",
+        code: "SPACE_FORBIDDEN"
+      })
+      continue
+    }
+
+    const member = await findSpaceMember(c.env.DB, prefix, spaceId, agent.id)
+    if (!member) {
+      await insertSpaceMember(c.env.DB, prefix, {
+        space_id: spaceId,
+        user_id: agent.id,
+        role,
+        created_at: now
+      }).run()
+      results.push({ spaceId, ok: true, role })
+      continue
+    }
+
+    if (member.role === role) {
+      results.push({ spaceId, ok: true, role })
+      continue
+    }
+
+    if (member.role === "admin" && role !== "admin") {
+      const admins = await countSpaceAdmins(c.env.DB, prefix, spaceId)
+      if (admins <= 1) {
+        results.push({
+          spaceId,
+          ok: false,
+          error: "A space must keep at least one admin",
+          code: "LAST_SPACE_ADMIN"
+        })
+        continue
+      }
+    }
+
+    await updateSpaceMemberRole(c.env.DB, prefix, spaceId, agent.id, role)
+    results.push({ spaceId, ok: true, role })
+  }
+
+  return c.json({ results })
+})
+
+/** 单个移出空间：owner 有成员管理权才可操作；移出最后一名 admin 409。 */
+meRoutes.delete("/agents/:id/spaces/:spaceId", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const ownerId = c.get("userId")
+  const agent = await findAgentByOwner(c.env.DB, prefix, ownerId, agentId)
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const spaceId = parseId(c.req.param("spaceId"))
+  if (spaceId === null) return c.json(SPACE_NOT_FOUND, 404)
+
+  const access = await resolveSpaceAccess(
+    c.env.DB,
+    prefix,
+    spaceId,
+    ownerId,
+    c.get("role") === "admin"
+  )
+  if (!access) return c.json(SPACE_NOT_FOUND, 404)
+  if (!isSpaceManager(access.role)) return c.json({ error: "Forbidden" }, 403)
+
+  const member = await findSpaceMember(c.env.DB, prefix, spaceId, agent.id)
+  if (!member) {
+    return c.json({ error: "Member not found", code: "MEMBER_NOT_FOUND" }, 404)
+  }
+
+  if (member.role === "admin") {
+    const admins = await countSpaceAdmins(c.env.DB, prefix, spaceId)
+    if (admins <= 1) {
+      return c.json(
+        {
+          error: "A space must keep at least one admin",
+          code: "LAST_SPACE_ADMIN"
+        },
+        409
+      )
+    }
+  }
+
+  await deleteSpaceMember(c.env.DB, prefix, spaceId, agent.id)
   return c.json({ success: true })
 })

@@ -1020,6 +1020,69 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 代管吊销本人名下 Agent 的单枚接口令牌：成功 200 `{"success":true}`，该令牌立即失效。非本人名下 / 目标不存在 / 已吊销均 404。
 
+#### GET /api/me/agents/:id/spaces
+
+列出 owner 有成员管理权的空间，附该 Agent 现行角色（未加入为 `null`）：
+
+```json
+[
+  { "spaceId": 2, "slug": "team", "name": "团队", "role": "editor" },
+  { "spaceId": 5, "slug": "notes", "name": "笔记", "role": null }
+]
+```
+
+- 仅返回 owner 可管理的空间：常规用户是其中 `admin` 的空间；站点管理员是全部空间（有效 `myRole` 均为 `admin`）。
+- `role` 是该 Agent 在此空间的现行成员角色（`admin` / `editor` / `viewer`），尚未加入为 `null`。
+- 非本人名下 / 目标不存在 / 非 Agent 一律 404 `{"error":"Agent not found"}`（不泄露存在性）。
+
+#### PUT /api/me/agents/:id/spaces
+
+批量加入 / 改角色，一次提交、逐项回报：
+
+```json
+{ "spaceIds": [2, 5], "role": "editor" }
+```
+
+- `spaceIds` 必填：正整数数组（去重、升序），为空 / 非数组 / 含非法项回 400 `code:"INVALID_SPACE_SCOPE"`。
+- `role` 可选，默认 `editor`（普通成员档）；取值仅 `admin` / `editor` / `viewer`，非法回 400 `code:"INVALID_ROLE"`。
+- 每个空间独立校验 owner 的管理权与成员关系，**部分失败不影响其余空间写入**，逐项回报：
+
+```json
+{
+  "results": [
+    { "spaceId": 2, "ok": true, "role": "editor" },
+    {
+      "spaceId": 5,
+      "ok": false,
+      "error": "Space forbidden",
+      "code": "SPACE_FORBIDDEN"
+    },
+    {
+      "spaceId": 999,
+      "ok": false,
+      "error": "Space not found",
+      "code": "SPACE_NOT_FOUND"
+    }
+  ]
+}
+```
+
+- 单项成功：`{ "spaceId": n, "ok": true, "role": "…" }`（未加入则加入，已加入则改角色）。
+- 单项失败逐一点名，不静默吞：
+  - `code:"SPACE_NOT_FOUND"`：空间不存在，或 owner 非该空间成员（对 owner 视为不可见）。
+  - `code:"SPACE_FORBIDDEN"`：owner 是该空间成员但无管理权（`editor` / `viewer`）。
+  - `code:"LAST_SPACE_ADMIN"`：把该空间最后一名 `admin` 降级。
+- 非本人名下 / 目标不存在 / 非 Agent 一律 404 `{"error":"Agent not found"}`。
+- Agent 已停用 / 未批准一律 409 `{"error":"User cannot join a space","code":"USER_NOT_ELIGIBLE"}`（与既有 POST /api/spaces/:id/members 对齐）。
+
+#### DELETE /api/me/agents/:id/spaces/:spaceId
+
+将 Agent 移出单个空间，成功 200 `{"success":true}`。仅 owner 有成员管理权的空间可操作：
+
+- 非本人名下 / 目标不存在 / 非 Agent 一律 404 `{"error":"Agent not found"}`。
+- 空间不存在或 owner 非成员 404 `code:"SPACE_NOT_FOUND"`；owner 是成员但无管理权 403 `{"error":"Forbidden"}`。
+- Agent 非该空间成员 404 `code:"MEMBER_NOT_FOUND"`；移除最后一名 `admin` 409 `code:"LAST_SPACE_ADMIN"`。
+
 ### 管理（全部需管理员，非管理员 403）
 
 #### GET /api/admin/users?status=all|pending
