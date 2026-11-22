@@ -605,6 +605,7 @@ export function AppShell() {
             collapsible={collapsible}
             collapsedSize={SIDEBAR_WIDTH_ICON}
             className="h-full"
+            style={{ overflow: "hidden" }}
           >
             {isCollapsed ? (
               <IconColumn siteName={siteName} onExpand={handleExpand} />
@@ -628,8 +629,13 @@ export function AppShell() {
             )}
             aria-label={t("shell.sidebar.resize")}
           />
-          <Panel id="main" minSize={360} className="h-full">
-            <div className="relative flex h-full flex-col">
+          <Panel
+            id="main"
+            minSize={360}
+            className="h-full"
+            style={{ overflow: "hidden" }}
+          >
+            <div className="relative flex h-full flex-col overflow-hidden">
               {/* 对齐正文内容列实际渲染左边缘：
                   文章页与 PageCanvas 同口径（px-4 sm:px-6 + max-w-[1600px] 居中容器）；
                   分类/搜索页与分类容器同口径（px-4 sm:px-6 左对齐，不居中）；
