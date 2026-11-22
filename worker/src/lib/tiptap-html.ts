@@ -57,6 +57,7 @@ import {
 } from "@tiptap/pm/model"
 import StarterKit from "@tiptap/starter-kit"
 import { GlobalWindow } from "happy-dom"
+import { PREVIEW_KEY_RE, SCENE_KEY_RE } from "./sanitize"
 
 /** 内容无法按编辑器 schema 渲染（未知节点/属性、结构不合法）。 */
 export class TiptapRenderError extends Error {
@@ -523,6 +524,27 @@ function validateContent(
     throw new TiptapRenderError(`Unknown node type: ${value.type}`)
   }
   validateAttrs(nodeType.spec.attrs, value.attrs, `node "${value.type}"`)
+
+  if (value.type === "excalidraw") {
+    const attrs = isPlainObject(value.attrs) ? value.attrs : {}
+    const sceneKey = attrs.sceneKey
+    if (typeof sceneKey !== "string" || !SCENE_KEY_RE.test(sceneKey)) {
+      throw new TiptapRenderError(
+        `${path} excalidraw requires a valid sceneKey (pages/<uuid>.json)`
+      )
+    }
+    const previewKey = attrs.previewKey
+    if (
+      previewKey !== undefined &&
+      previewKey !== null &&
+      previewKey !== "" &&
+      (typeof previewKey !== "string" || !PREVIEW_KEY_RE.test(previewKey))
+    ) {
+      throw new TiptapRenderError(
+        `${path} excalidraw previewKey is invalid (pages/<uuid>.png)`
+      )
+    }
+  }
 
   if (value.text !== undefined && typeof value.text !== "string") {
     throw new TiptapRenderError(`${path}.text must be a string`)

@@ -137,8 +137,9 @@ export function normalizePageInput(
   ) {
     return { ok: false, error: "contentJson/contentHtml/contentText required" }
   }
+  let parsedJson: unknown
   try {
-    JSON.parse(contentJson)
+    parsedJson = JSON.parse(contentJson)
   } catch {
     return { ok: false, error: "contentJson must be valid JSON" }
   }
@@ -148,6 +149,19 @@ export function normalizePageInput(
   if (utf8Length(contentJson) > MAX_JSON_BYTES) return payloadTooLarge()
   if (utf8Length(contentHtml) > MAX_HTML_INPUT_BYTES) return payloadTooLarge()
   if (contentText.length > MAX_TEXT_INPUT_CHARS) return payloadTooLarge()
+
+  try {
+    parseTiptapDoc(parsedJson)
+  } catch (err) {
+    if (err instanceof TiptapRenderError) {
+      return {
+        ok: false,
+        error: `contentJson cannot be rendered: ${err.message}`,
+        code: "INVALID_CONTENT_JSON"
+      }
+    }
+    throw err
+  }
 
   const plainTitle = normalizePageTitle(title)
   if (!plainTitle) {
