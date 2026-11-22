@@ -81,7 +81,11 @@ const restoredPage: PageDetail = {
   createdBy: 1,
   updatedBy: 1,
   createdAt: "2026-11-09T04:00:00.000Z",
-  updatedAt: "2026-11-09T07:00:00.000Z"
+  updatedAt: "2026-11-09T07:00:00.000Z",
+  createdByName: "张三",
+  createdByAvatarUrl: null,
+  updatedByName: "李四",
+  updatedByAvatarUrl: null
 }
 
 function renderDialog(readOnly = false) {

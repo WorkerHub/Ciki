@@ -17,6 +17,7 @@ import { BackToTop } from "@/components/BackToTop"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { CommentSection } from "@/components/comments/CommentSection"
 import { MovePageDialog } from "@/components/MovePageDialog"
+import { UserAvatar } from "@/components/UserAvatar"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,7 +53,7 @@ import {
   type PageDetail,
   pagesApi
 } from "@/lib/api"
-import { formatRelative } from "@/lib/format"
+import { formatDate } from "@/lib/format"
 import { downloadPageMarkdown } from "@/lib/markdown-download"
 import { pageEditPath, pagePath, parseIdParam } from "@/lib/routes"
 import {
@@ -295,6 +296,14 @@ export function PageView() {
     )
   }
 
+  const showCreated = Boolean(page.createdByName)
+  const isNeverEdited =
+    page.updatedAt === page.createdAt ||
+    new Date(page.updatedAt).getTime() === new Date(page.createdAt).getTime()
+  const showEdited = Boolean(page.updatedByName) && !isNeverEdited
+  const hasByline = showCreated || showEdited
+  const showMetaRow = hasByline || role === "viewer"
+
   return (
     <article className="space-y-4">
       <Breadcrumb>
@@ -332,16 +341,54 @@ export function PageView() {
             <h1 className="font-heading text-[1.75rem] leading-tight font-semibold tracking-tight text-balance break-words">
               {page.title}
             </h1>
-            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
-              {t("page.view.updatedAt", {
-                time: formatRelative(page.updatedAt)
-              })}
-              {role === "viewer" ? (
-                <Badge variant="secondary" className="text-[10px]">
-                  {t("page.view.readOnlyMember")}
-                </Badge>
-              ) : null}
-            </p>
+            {showMetaRow ? (
+              <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground tabular-nums">
+                {showCreated ? (
+                  <span className="inline-flex items-center gap-1">
+                    <UserAvatar
+                      user={{
+                        username: page.createdByName ?? "",
+                        email: "",
+                        avatarUrl: page.createdByAvatarUrl
+                      }}
+                      className="size-4 text-[9px]"
+                    />
+                    <span>{page.createdByName}</span>
+                    <span>
+                      {t("page.view.createdAt", {
+                        time: formatDate(page.createdAt)
+                      })}
+                    </span>
+                  </span>
+                ) : null}
+                {showCreated && showEdited ? (
+                  <span aria-hidden="true">·</span>
+                ) : null}
+                {showEdited ? (
+                  <span className="inline-flex items-center gap-1">
+                    <UserAvatar
+                      user={{
+                        username: page.updatedByName ?? "",
+                        email: "",
+                        avatarUrl: page.updatedByAvatarUrl
+                      }}
+                      className="size-4 text-[9px]"
+                    />
+                    <span>{page.updatedByName}</span>
+                    <span>
+                      {t("page.view.lastEditedAt", {
+                        time: formatDate(page.updatedAt)
+                      })}
+                    </span>
+                  </span>
+                ) : null}
+                {role === "viewer" ? (
+                  <Badge variant="secondary" className="text-[10px]">
+                    {t("page.view.readOnlyMember")}
+                  </Badge>
+                ) : null}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <TooltipProvider>

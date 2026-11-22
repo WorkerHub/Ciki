@@ -485,6 +485,10 @@ export interface PageDetail {
   updatedBy: number
   createdAt: string
   updatedAt: string
+  createdByName: string | null
+  createdByAvatarUrl: string | null
+  updatedByName: string | null
+  updatedByAvatarUrl: string | null
 }
 
 /**
