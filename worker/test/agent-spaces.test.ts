@@ -60,7 +60,13 @@ async function createAgent(
   cookie: string,
   username: string
 ): Promise<AgentSummary> {
-  const res = await jsonRequest(env, "POST", "/api/me/agents", { username }, cookie)
+  const res = await jsonRequest(
+    env,
+    "POST",
+    "/api/me/agents",
+    { username },
+    cookie
+  )
   expect(res.status).toBe(201)
   return (await res.json()) as AgentSummary
 }
@@ -91,9 +97,9 @@ describe("/api/me/agents/:id/spaces 会话鉴权与 owner 边界", () => {
   it("无会话统一回 401", async () => {
     const { env } = await initializedContext()
 
-    expect((await jsonRequest(env, "GET", "/api/me/agents/1/spaces")).status).toBe(
-      401
-    )
+    expect(
+      (await jsonRequest(env, "GET", "/api/me/agents/1/spaces")).status
+    ).toBe(401)
     expect(
       (
         await jsonRequest(env, "PUT", "/api/me/agents/1/spaces", {
@@ -235,8 +241,18 @@ describe("/api/me/agents/:id/spaces 批量逐项回报", () => {
     const body = (await put.json()) as { results: SpaceWriteResult[] }
     expect(body.results).toEqual([
       { spaceId: spaceA, ok: true, role: "editor" },
-      { spaceId: spaceC, ok: false, error: "Space forbidden", code: "SPACE_FORBIDDEN" },
-      { spaceId: 999999, ok: false, error: "Space not found", code: "SPACE_NOT_FOUND" }
+      {
+        spaceId: spaceC,
+        ok: false,
+        error: "Space forbidden",
+        code: "SPACE_FORBIDDEN"
+      },
+      {
+        spaceId: 999999,
+        ok: false,
+        error: "Space not found",
+        code: "SPACE_NOT_FOUND"
+      }
     ])
 
     // 只有 spaceA 真正写入；spaceC 本就不在 owner 的可管理列表里
@@ -265,7 +281,10 @@ describe("/api/me/agents/:id/spaces 参数校验", () => {
       code: "INVALID_ROLE"
     })
 
-    const badScope = { error: "Invalid space scope", code: "INVALID_SPACE_SCOPE" }
+    const badScope = {
+      error: "Invalid space scope",
+      code: "INVALID_SPACE_SCOPE"
+    }
     for (const body of [
       { spaceIds: [] },
       { spaceIds: null },
@@ -404,5 +423,98 @@ describe("/api/me/agents/:id/spaces 最后一名 admin 保护", () => {
       error: "A space must keep at least one admin",
       code: "LAST_SPACE_ADMIN"
     })
+  })
+})
+
+describe("/api/me/agents/:id/spaces 停用 Agent (is_active=0) 限制", () => {
+  it("停用 Agent 拒绝批量加入空间（409 USER_NOT_ELIGIBLE），移出与列表不拦，重新激活后恢复", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const owner = await userSession(env, admin, "inactive-owner@example.com")
+    const spaceA = await createSpace(env, owner, "space-inactive-a")
+    const spaceB = await createSpace(env, owner, "space-inactive-b")
+    const bot = await createAgent(env, owner, "inactive-bot")
+
+    // 先加入 spaceA
+    let putRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/me/agents/${bot.id}/spaces`,
+      { spaceIds: [spaceA], role: "editor" },
+      owner
+    )
+    expect(putRes.status).toBe(200)
+
+    // 停用该 Agent
+    const patchRes = await jsonRequest(
+      env,
+      "PATCH",
+      `/api/me/agents/${bot.id}`,
+      { isActive: false },
+      owner
+    )
+    expect(patchRes.status).toBe(200)
+    expect(((await patchRes.json()) as { isActive: boolean }).isActive).toBe(
+      false
+    )
+
+    // 停用后尝试批量加入 spaceB（或修改 spaceA 角色）一律 409 USER_NOT_ELIGIBLE
+    putRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/me/agents/${bot.id}/spaces`,
+      { spaceIds: [spaceB], role: "viewer" },
+      owner
+    )
+    expect(putRes.status).toBe(409)
+    expect(await putRes.json()).toEqual({
+      error: "User cannot join a space",
+      code: "USER_NOT_ELIGIBLE"
+    })
+
+    // 停用状态下：查询空间列表不受阻
+    const entries = await listSpaces(env, owner, bot.id)
+    expect(entries.find((e) => e.spaceId === spaceA)?.role).toBe("editor")
+
+    // 停用状态下：移出空间（DELETE）不受阻
+    const delRes = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/agents/${bot.id}/spaces/${spaceA}`,
+      undefined,
+      owner
+    )
+    expect(delRes.status).toBe(200)
+    expect(await delRes.json()).toEqual({ success: true })
+
+    // 重新启用 Agent
+    const reactivateRes = await jsonRequest(
+      env,
+      "PATCH",
+      `/api/me/agents/${bot.id}`,
+      { isActive: true },
+      owner
+    )
+    expect(reactivateRes.status).toBe(200)
+    expect(
+      ((await reactivateRes.json()) as { isActive: boolean }).isActive
+    ).toBe(true)
+
+    // 重新启用后可正常批量加入
+    putRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/me/agents/${bot.id}/spaces`,
+      { spaceIds: [spaceA, spaceB], role: "admin" },
+      owner
+    )
+    expect(putRes.status).toBe(200)
+    const putBody = (await putRes.json()) as {
+      results: { spaceId: number; ok: boolean; role: string }[]
+    }
+    expect(putBody.results).toEqual([
+      { spaceId: spaceA, ok: true, role: "admin" },
+      { spaceId: spaceB, ok: true, role: "admin" }
+    ])
   })
 })

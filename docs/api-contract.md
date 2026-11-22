@@ -1051,8 +1051,18 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 {
   "results": [
     { "spaceId": 2, "ok": true, "role": "editor" },
-    { "spaceId": 5, "ok": false, "error": "Space forbidden", "code": "SPACE_FORBIDDEN" },
-    { "spaceId": 999, "ok": false, "error": "Space not found", "code": "SPACE_NOT_FOUND" }
+    {
+      "spaceId": 5,
+      "ok": false,
+      "error": "Space forbidden",
+      "code": "SPACE_FORBIDDEN"
+    },
+    {
+      "spaceId": 999,
+      "ok": false,
+      "error": "Space not found",
+      "code": "SPACE_NOT_FOUND"
+    }
   ]
 }
 ```
@@ -1063,6 +1073,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   - `code:"SPACE_FORBIDDEN"`：owner 是该空间成员但无管理权（`editor` / `viewer`）。
   - `code:"LAST_SPACE_ADMIN"`：把该空间最后一名 `admin` 降级。
 - 非本人名下 / 目标不存在 / 非 Agent 一律 404 `{"error":"Agent not found"}`。
+- Agent 已停用 / 未批准一律 409 `{"error":"User cannot join a space","code":"USER_NOT_ELIGIBLE"}`（与既有 POST /api/spaces/:id/members 对齐）。
 
 #### DELETE /api/me/agents/:id/spaces/:spaceId
 

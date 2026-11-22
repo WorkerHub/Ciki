@@ -622,6 +622,10 @@ meRoutes.delete("/import-tokens/:id", async (c) => {
 // 站点管理员亦不可跨账号代签/代管他人名下 agent。
 
 const AGENT_NOT_FOUND = { error: "Agent not found" } as const
+const USER_NOT_ELIGIBLE = {
+  error: "User cannot join a space",
+  code: "USER_NOT_ELIGIBLE"
+} as const
 const SPACE_NOT_FOUND = {
   error: "Space not found",
   code: "SPACE_NOT_FOUND"
@@ -903,6 +907,9 @@ meRoutes.put("/agents/:id/spaces", async (c) => {
   const ownerId = c.get("userId")
   const agent = await findAgentByOwner(c.env.DB, prefix, ownerId, agentId)
   if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+  if (!agent.is_active || agent.approval_status !== "approved") {
+    return c.json(USER_NOT_ELIGIBLE, 409)
+  }
 
   const body = await readJsonObject(c)
   if (!body.ok) return body.response
