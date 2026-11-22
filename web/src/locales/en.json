@@ -292,6 +292,7 @@
     "loading": "Loading page",
     "loadFailed": "Failed to load the page",
     "backHome": "Back to home",
+    "backToTop": "Back to top",
     "toc": {
       "label": "On this page"
     },
