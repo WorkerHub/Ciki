@@ -188,6 +188,34 @@ describe("画布节点 sceneKey & previewKey 校验", () => {
       expect(badPreviewRes.code).toBe("INVALID_CONTENT_JSON")
     }
   })
+
+  it("normalizePageInput：超限体积优先被 PAYLOAD_TOO_LARGE 拦截，不先跑 parseTiptapDoc 建树", () => {
+    // 构造超长 contentJson，同时包含非法的 excalidraw 节点
+    const hugeDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "excalidraw",
+          attrs: { sceneKey: "invalid-key" }
+        },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "a".repeat(900_000) }]
+        }
+      ]
+    }
+    const res = normalizePageInput({
+      title: "大页面",
+      contentJson: JSON.stringify(hugeDoc),
+      contentHtml: "<p>大页面</p>",
+      contentText: "大页面"
+    })
+    expect(res.ok).toBe(false)
+    if (!res.ok) {
+      expect(res.error).toBe("Payload too large")
+      expect(res.code).toBe("PAYLOAD_TOO_LARGE")
+    }
+  })
 })
 
 describe("POST /api/pages/:id/canvas-preview 端点", () => {
@@ -316,6 +344,19 @@ describe("POST /api/pages/:id/canvas-preview 端点", () => {
       admin
     )
     const page = (await pageRes.json()) as PageDetail
+
+    // 非法/数组 body 400
+    const arrayBody = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/canvas-preview`,
+      [],
+      admin
+    )
+    expect(arrayBody.status).toBe(400)
+    expect(await arrayBody.json()).toMatchObject({
+      code: "INVALID_REQUEST_BODY"
+    })
 
     // 非法/缺失 sceneKey
     const badScene = await jsonRequest(

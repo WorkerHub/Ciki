@@ -144,6 +144,12 @@ export function normalizePageInput(
     return { ok: false, error: "contentJson must be valid JSON" }
   }
 
+  // 原始体积的粗筛只用于挡住明显超限的请求；最终以消毒/规范化后的体积为准。
+  if (title.length > 4096) return payloadTooLarge()
+  if (utf8Length(contentJson) > MAX_JSON_BYTES) return payloadTooLarge()
+  if (utf8Length(contentHtml) > MAX_HTML_INPUT_BYTES) return payloadTooLarge()
+  if (contentText.length > MAX_TEXT_INPUT_CHARS) return payloadTooLarge()
+
   try {
     parseTiptapDoc(parsedJson)
   } catch (err) {
@@ -156,12 +162,6 @@ export function normalizePageInput(
     }
     throw err
   }
-
-  // 原始体积的粗筛只用于挡住明显超限的请求；最终以消毒/规范化后的体积为准。
-  if (title.length > 4096) return payloadTooLarge()
-  if (utf8Length(contentJson) > MAX_JSON_BYTES) return payloadTooLarge()
-  if (utf8Length(contentHtml) > MAX_HTML_INPUT_BYTES) return payloadTooLarge()
-  if (contentText.length > MAX_TEXT_INPUT_CHARS) return payloadTooLarge()
 
   const plainTitle = normalizePageTitle(title)
   if (!plainTitle) {

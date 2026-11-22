@@ -502,7 +502,7 @@ pageRoutes.post("/:id/canvas-preview", async (c) => {
     sceneKey?: unknown
     previewKey?: unknown
   }>(c)
-  if (!body || typeof body !== "object") {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
     return c.json(
       { error: "Invalid request body", code: "INVALID_REQUEST_BODY" },
       400
