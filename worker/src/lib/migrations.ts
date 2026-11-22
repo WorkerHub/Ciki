@@ -78,6 +78,12 @@ export const BASELINE_MIGRATION_NAME = "schema_v1"
 export const EMAIL_PROVIDER_MIGRATION_NAME = "schema_v9"
 
 /**
+ * Agent 身份模型与归属关系（Task #74）：
+ * 为 users 表增加 kind 与 owner_user_id 列。
+ */
+export const AGENT_IDENTITY_MIGRATION_NAME = "schema_v10"
+
+/**
  * 坍缩前留在账本里的旧记录（`schema_v2`–`schema_v8`）：应用 `schema_v1` 时一并清除。
  * `schema_v1` 自己不在列表里——它的旧同名行由执行器在记账时删掉再写。
  *
@@ -265,6 +271,34 @@ const SCHEMA_V9: Migration = {
   sql: ""
 }
 
+/**
+ * `schema_v10` —— Agent 身份模型与归属关系（Task #74）：
+ * 为 users 表增加 kind（'human' | 'agent'，非空默认 'human'）
+ * 和 owner_user_id（INTEGER，默认 NULL，人类为 NULL，Agent 为所有者用户 ID）。
+ */
+function schemaV10(prefix: string): string {
+  const users = usersTable(prefix)
+  return `ALTER TABLE ${users} ADD COLUMN kind TEXT NOT NULL DEFAULT 'human';
+ALTER TABLE ${users} ADD COLUMN owner_user_id INTEGER DEFAULT NULL`
+}
+
+async function schemaV10Applied(ctx: MigrationContext): Promise<boolean> {
+  const { db, prefix, applied } = ctx
+  if (applied.has(AGENT_IDENTITY_MIGRATION_NAME)) return true
+  if (!(await tableExists(db, usersTable(prefix)))) return false
+  const columns = await db
+    .prepare(`PRAGMA table_info(${usersTable(prefix)})`)
+    .all<{ name: string }>()
+  const colNames = new Set(columns.results.map((c) => c.name))
+  return colNames.has("kind") && colNames.has("owner_user_id")
+}
+
+const SCHEMA_V10: Migration = {
+  name: AGENT_IDENTITY_MIGRATION_NAME,
+  sql: "",
+  isApplied: schemaV10Applied
+}
+
 export function getMigrations(
   prefix: string,
   language: Language = DEFAULT_LANGUAGE
@@ -289,6 +323,7 @@ export function getMigrations(
 
   return [
     { ...SCHEMA_V1, sql },
-    { ...SCHEMA_V9, sql: schemaV9(prefix) }
+    { ...SCHEMA_V9, sql: schemaV9(prefix) },
+    { ...SCHEMA_V10, sql: schemaV10(prefix) }
   ]
 }

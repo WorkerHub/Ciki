@@ -22,6 +22,11 @@ const MIGRATION_NAMES = getMigrations("ciki_").map(
   (migration) => migration.name
 )
 
+/** 账本查询返回的迁移名（主键索引按 name 升序排序）。 */
+const SORTED_LEDGER_ROWS = [...MIGRATION_NAMES]
+  .sort()
+  .map((name) => ({ name }))
+
 /** 「全部 applied / 全部 skipped」的账本回显。 */
 function migrationList(status: "applied" | "skipped") {
   return MIGRATION_NAMES.map((name) => ({ name, status }))
@@ -296,7 +301,7 @@ describe("初始化迁移：默认空间与播种", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual(MIGRATION_NAMES.map((name) => ({ name })))
+    expect(ledger).toEqual(SORTED_LEDGER_ROWS)
 
     // 身份三列与页面所属空间都在 CREATE 里建全，不需要 prepare 补列。
     const userColumns = (
@@ -485,7 +490,7 @@ describe("schema_v1：基线结构上幂等空转", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual(MIGRATION_NAMES.map((name) => ({ name })))
+    expect(ledger).toEqual(SORTED_LEDGER_ROWS)
   })
 
   it("email_codes：复合主键 + purpose 校验，同键重发只留一行", async () => {
@@ -581,7 +586,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual(MIGRATION_NAMES.map((name) => ({ name })))
+    expect(ledger).toEqual(SORTED_LEDGER_ROWS)
     const spaces = db.db
       .prepare("SELECT COUNT(*) AS count FROM ciki_spaces")
       .get() as { count: number }
@@ -607,7 +612,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     const ledger = db.db
       .prepare("SELECT name FROM _ciki_schema_migrations")
       .all() as Array<{ name: string }>
-    expect(ledger).toEqual(MIGRATION_NAMES.map((name) => ({ name })))
+    expect(ledger).toEqual(SORTED_LEDGER_ROWS)
   })
 
   it("新旧账本同存 → 409 LEDGER_CONFLICT，两套账本与记录都不动", async () => {
@@ -643,7 +648,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
       db.db
         .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
         .all()
-    ).toEqual(MIGRATION_NAMES.map((name) => ({ name })))
+    ).toEqual(SORTED_LEDGER_ROWS)
     const names = tableNames(db)
     expect(names).not.toContain("ciki_users")
     expect(names).not.toContain("ciki_system_settings")
