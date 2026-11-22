@@ -681,6 +681,24 @@ describe("只读接口：GET /api/read/files/:key", () => {
     })
     expect(deactivatedRes.status).toBe(401)
     expect(deactivatedRes.headers.get("cache-control")).toContain("no-store")
+
+    // 7. 用户未批准（置回 rejected）
+    const unapprovedCookie = await userSession(
+      env,
+      admin,
+      "unapproved@example.com"
+    )
+    const unapprovedToken = await createApiToken(env, unapprovedCookie, "read")
+    db.db
+      .prepare(
+        "UPDATE ciki_users SET approval_status = 'rejected' WHERE email = ?"
+      )
+      .run("unapproved@example.com")
+    const unapprovedRes = await request(env, `/api/read/files/${key}`, {
+      headers: { authorization: `Bearer ${unapprovedToken.token}` }
+    })
+    expect(unapprovedRes.status).toBe(401)
+    expect(unapprovedRes.headers.get("cache-control")).toContain("no-store")
   })
 
   it("会话端点 GET /api/files/:key 回归正常：保持无归属校验且需会话", async () => {
