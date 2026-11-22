@@ -103,14 +103,19 @@ export function ExcalidrawBlockView({
               if (cancelled) return
               const newKey = uploadRes.key
 
-              await pagesApi.canvasPreview(pageId, {
+              const previewRes = await pagesApi.canvasPreview(pageId, {
                 sceneKey,
                 previewKey: newKey
               })
               if (cancelled) return
 
-              setCurrentPreviewKey(newKey)
-              updateAttributes({ previewKey: newKey })
+              const effectiveKey =
+                previewRes.status === "already_filled" && previewRes.previewKey
+                  ? previewRes.previewKey
+                  : newKey
+
+              setCurrentPreviewKey(effectiveKey)
+              updateAttributes({ previewKey: effectiveKey })
               if (liveUrlRef.current) {
                 URL.revokeObjectURL(liveUrlRef.current)
                 liveUrlRef.current = null

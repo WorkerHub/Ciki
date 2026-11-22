@@ -513,8 +513,10 @@ describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
     })
 
     const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview").mockResolvedValue({
-      success: true,
-      status: "updated"
+      ok: true,
+      status: "updated",
+      sceneKey: SCENE_KEY,
+      previewKey: NEW_PREVIEW_KEY
     })
 
     render(
@@ -539,6 +541,45 @@ describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
     expect(canvasPreviewSpy).toHaveBeenCalledWith(88, {
       sceneKey: SCENE_KEY,
       previewKey: NEW_PREVIEW_KEY
+    })
+  })
+
+  it("2.1 并发回填收到 already_filled 状态时采用服务端已保存的 previewKey", async () => {
+    const SERVER_PREVIEW_KEY = "pages/server-first-winner.png"
+    const LOCAL_UPLOAD_KEY = "pages/local-loser.png"
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any) => {
+      const url = String(input)
+      if (url.includes(SCENE_KEY)) {
+        return new Response(JSON.stringify(MOCK_SCENE_DATA), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      }
+      return new Response("Not found", { status: 404 })
+    })
+
+    vi.spyOn(api, "upload").mockResolvedValue({
+      key: LOCAL_UPLOAD_KEY,
+      url: `/api/files/${LOCAL_UPLOAD_KEY}`,
+      contentType: "image/png",
+      size: 2048
+    })
+
+    vi.spyOn(pagesApi, "canvasPreview").mockResolvedValue({
+      ok: true,
+      status: "already_filled",
+      sceneKey: SCENE_KEY,
+      previewKey: SERVER_PREVIEW_KEY
+    })
+
+    render(
+      <ReadView html={NO_PREVIEW_CANVAS_HTML} pageId={88} canWrite={true} />
+    )
+
+    await waitFor(() => {
+      const img = screen.getByRole("img", { name: EXTRACTED_TEXT })
+      expect(img).toHaveAttribute("src", `/api/files/${SERVER_PREVIEW_KEY}`)
+      expect(img).toHaveAttribute("data-preview-key", SERVER_PREVIEW_KEY)
     })
   })
 

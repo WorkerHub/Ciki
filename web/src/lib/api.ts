@@ -1075,10 +1075,12 @@ export const pagesApi = {
     id: number,
     data: { sceneKey: string; previewKey: string }
   ) =>
-    api.post<{ success: true; status?: string }>(
-      `/pages/${id}/canvas-preview`,
-      data
-    )
+    api.post<{
+      ok: true
+      status: "updated" | "already_filled"
+      sceneKey: string
+      previewKey: string
+    }>(`/pages/${id}/canvas-preview`, data)
 }
 
 export const commentsApi = {
