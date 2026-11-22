@@ -1,11 +1,4 @@
-import {
-  Bot,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  Plus
-} from "lucide-react"
+import { Bot, Check, ChevronDown, ChevronUp, Copy, Plus } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { TokenSpaceScope } from "@/components/TokenSpaceScope"
@@ -75,16 +68,17 @@ export function AgentAccountsCard() {
   const [createError, setCreateError] = useState("")
 
   // 删除 Agent
-  const [deleteTargetAgent, setDeleteTargetAgent] = useState<AgentAccount | null>(
-    null
-  )
+  const [deleteTargetAgent, setDeleteTargetAgent] =
+    useState<AgentAccount | null>(null)
 
   // 令牌代管展开展平状态
   const [expandedAgentId, setExpandedAgentId] = useState<number | null>(null)
   const [tokensMap, setTokensMap] = useState<Record<number, ApiTokenSummary[]>>(
     {}
   )
-  const [tokensLoading, setTokensLoading] = useState<Record<number, boolean>>({})
+  const [tokensLoading, setTokensLoading] = useState<Record<number, boolean>>(
+    {}
+  )
   const [tokensError, setTokensError] = useState<Record<number, string>>({})
 
   // 签发代管 Token
@@ -476,12 +470,18 @@ export function AgentAccountsCard() {
                         {isExpanded ? (
                           <>
                             {t("settings.agents.tokens.collapse")}
-                            <ChevronUp className="size-3.5" aria-hidden="true" />
+                            <ChevronUp
+                              className="size-3.5"
+                              aria-hidden="true"
+                            />
                           </>
                         ) : (
                           <>
                             {t("settings.agents.tokens.expand")}
-                            <ChevronDown className="size-3.5" aria-hidden="true" />
+                            <ChevronDown
+                              className="size-3.5"
+                              aria-hidden="true"
+                            />
                           </>
                         )}
                       </Button>
@@ -547,9 +547,15 @@ export function AgentAccountsCard() {
                                 }
                               >
                                 {copiedToken ? (
-                                  <Check className="size-3.5" aria-hidden="true" />
+                                  <Check
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                  />
                                 ) : (
-                                  <Copy className="size-3.5" aria-hidden="true" />
+                                  <Copy
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                  />
                                 )}
                                 {copiedToken
                                   ? t("settings.tokens.common.copied")
@@ -569,9 +575,15 @@ export function AgentAccountsCard() {
                                 }
                               >
                                 {copiedPrompt ? (
-                                  <Check className="size-3.5" aria-hidden="true" />
+                                  <Check
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                  />
                                 ) : (
-                                  <Copy className="size-3.5" aria-hidden="true" />
+                                  <Copy
+                                    className="size-3.5"
+                                    aria-hidden="true"
+                                  />
                                 )}
                                 {copiedPrompt
                                   ? t("settings.tokens.common.copied")
@@ -659,7 +671,10 @@ export function AgentAccountsCard() {
                           />
 
                           {issueError ? (
-                            <p role="alert" className="text-xs text-destructive">
+                            <p
+                              role="alert"
+                              className="text-xs text-destructive"
+                            >
                               {issueError}
                             </p>
                           ) : null}
@@ -841,7 +856,10 @@ export function AgentAccountsCard() {
               disabled={busy}
               onClick={() => {
                 if (revokingToken) {
-                  void revokeToken(revokingToken.agentId, revokingToken.token.id)
+                  void revokeToken(
+                    revokingToken.agentId,
+                    revokingToken.token.id
+                  )
                 }
               }}
             >

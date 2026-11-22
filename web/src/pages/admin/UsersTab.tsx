@@ -212,7 +212,10 @@ export function UsersTab() {
                     <TableCell className="max-w-[18rem] truncate font-medium">
                       {user.email}
                       {user.isAgent ? (
-                        <Badge variant="secondary" className="ml-1.5 text-[10px]">
+                        <Badge
+                          variant="secondary"
+                          className="ml-1.5 text-[10px]"
+                        >
                           Agent
                         </Badge>
                       ) : null}

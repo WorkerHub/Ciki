@@ -257,13 +257,17 @@ describe("空间设置与成员管理", () => {
     vi.mocked(spacesApi.candidates).mockResolvedValue([agentCandidate])
     renderSettings()
 
-    const memberRow = (await screen.findByText("bot-helper")).closest("tr") as HTMLElement
+    const memberRow = (await screen.findByText("bot-helper")).closest(
+      "tr"
+    ) as HTMLElement
     expect(within(memberRow).getByText("Agent")).toBeInTheDocument()
 
     await user.type(screen.getByLabelText("添加成员"), "candidate-agent")
     await user.click(screen.getByRole("button", { name: "搜索" }))
 
-    const candidateItem = (await screen.findByText("candidate-agent")).closest("li") as HTMLElement
+    const candidateItem = (await screen.findByText("candidate-agent")).closest(
+      "li"
+    ) as HTMLElement
     expect(within(candidateItem).getByText("Agent")).toBeInTheDocument()
   })
 
