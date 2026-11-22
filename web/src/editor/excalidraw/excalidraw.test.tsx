@@ -8,7 +8,13 @@ import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { EditorToolbar } from "@/editor/EditorToolbar"
+import {
+  MIN_EXCALIDRAW_PREVIEW_HEIGHT,
+  MIN_EXCALIDRAW_PREVIEW_WIDTH,
+  syncExcalidrawAttributes
+} from "@/editor/excalidraw/ResizableExcalidraw"
 import { createExtensions, type EditorMode } from "@/editor/extensions"
+import { MIN_IMAGE_WIDTH } from "@/editor/image-attributes"
 import { ReadView } from "@/editor/ReadView"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
@@ -316,5 +322,79 @@ describe("Excalidraw 画布挂载沙箱约束", () => {
     // 确保即便侧栏被意外打开（如快捷键触发），其根容器在沙箱 CSS 下也为 display: none，彻底隔绝外部图库入口呈现
     expect(window.getComputedStyle(sidebar!).display).toBe("none")
     expect(sidebar).toHaveStyle({ display: "none" })
+  })
+})
+
+describe("Excalidraw 弹窗 Portal 挂载与节点选区交互", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  afterEach(() => {
+    cleanupEditors()
+  })
+
+  it("点击「编辑画布」时，全屏编辑器通过 createPortal 挂载到 document.body，彻底脱离 ProseMirror 容器", async () => {
+    const user = userEvent.setup()
+    const { container } = render(<Harness mode="edit" content={CANVAS_HTML} />)
+    expect(await screen.findByTestId("ready")).toHaveTextContent("yes")
+
+    const editBtn = screen.getByRole("button", { name: "编辑画布" })
+    await user.click(editBtn)
+
+    await waitFor(() => {
+      const modal = document.querySelector(".wiki-excalidraw-modal")
+      expect(modal).toBeInTheDocument()
+      expect(modal?.parentElement).toBe(document.body)
+      expect(container.contains(modal)).toBe(false)
+    })
+  })
+
+  it("点击画布预览图触发 mousedown 时，建立 NodeSelection 并触发编辑器聚焦", async () => {
+    let ed: any = null
+    const { container } = render(
+      <Harness
+        mode="edit"
+        content={CANVAS_HTML}
+        onEditor={(editor) => {
+          ed = editor
+        }}
+      />
+    )
+    expect(await screen.findByTestId("ready")).toHaveTextContent("yes")
+
+    const img = container.querySelector("img[data-type='excalidraw']")
+    expect(img).toBeInTheDocument()
+
+    act(() => {
+      img?.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, button: 0 })
+      )
+    })
+
+    expect(ed).not.toBeNull()
+    expect(ed!.state.selection.toJSON().type).toBe("node")
+    expect((ed!.state.selection as any).node?.type?.name).toBe("excalidraw")
+  })
+
+  it("空画布或未设宽度时对齐 MIN_IMAGE_WIDTH (48px) 保底，设宽后清除 minWidth 不钳制缩放", () => {
+    expect(MIN_EXCALIDRAW_PREVIEW_WIDTH).toBe(MIN_IMAGE_WIDTH)
+    expect(MIN_EXCALIDRAW_PREVIEW_HEIGHT).toBe(MIN_IMAGE_WIDTH)
+
+    const img = document.createElement("img")
+    // 1. 未指定 width（width === null）
+    syncExcalidrawAttributes(img, { previewKey: PREVIEW_KEY })
+    expect(img.style.minWidth).toBe(`${MIN_IMAGE_WIDTH}px`)
+    expect(img.style.minHeight).toBe(`${MIN_IMAGE_WIDTH}px`)
+    expect(img.style.width).toBe("")
+
+    // 2. 指定已缩放到 48px（MIN_IMAGE_WIDTH）
+    syncExcalidrawAttributes(img, {
+      previewKey: PREVIEW_KEY,
+      width: MIN_IMAGE_WIDTH
+    })
+    expect(img.style.width).toBe(`${MIN_IMAGE_WIDTH}px`)
+    expect(img.style.minWidth).toBe("")
+    expect(img.style.minHeight).toBe("")
   })
 })

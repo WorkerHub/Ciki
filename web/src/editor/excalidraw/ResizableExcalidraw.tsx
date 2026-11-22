@@ -3,6 +3,17 @@ import type { NodeViewProps } from "@tiptap/react"
 import { useEffect, useRef } from "react"
 import { MIN_IMAGE_WIDTH, imageWidth } from "@/editor/image-attributes"
 
+/**
+ * 空画布或未设宽度时预览图的保底渲染下限（宽高与图片块 resize 下限 MIN_IMAGE_WIDTH=48 对齐）。
+ *
+ * 为什么与 MIN_IMAGE_WIDTH 对齐而非更大值：
+ * 1. 保证默认未设宽度时极小画布（如 20×20 空画布）具有基本的点击与悬停可交互面积；
+ * 2. 避免 minWidth 高于 ResizableNodeView 的缩放下限，导致拖拽缩放时 offsetWidth 被 CSS 钳制在 120px，
+ *    使画布预览在编辑态能够与图片块一致平滑缩放到 48px 规格下限。
+ */
+export const MIN_EXCALIDRAW_PREVIEW_WIDTH = MIN_IMAGE_WIDTH
+export const MIN_EXCALIDRAW_PREVIEW_HEIGHT = MIN_IMAGE_WIDTH
+
 interface ResizableExcalidrawProps {
   node: NodeViewProps["node"]
   editor: NodeViewProps["editor"]
@@ -40,11 +51,16 @@ export function syncExcalidrawAttributes(
   const width = imageWidth(attrs)
   if (width === null) {
     img.style.width = ""
+    img.style.minWidth = `${MIN_EXCALIDRAW_PREVIEW_WIDTH}px`
+    img.style.minHeight = `${MIN_EXCALIDRAW_PREVIEW_HEIGHT}px`
     img.removeAttribute("width")
   } else {
     img.style.width = `${width}px`
+    img.style.minWidth = ""
+    img.style.minHeight = ""
     img.setAttribute("width", String(width))
   }
+  img.style.objectFit = "contain"
   img.style.height = ""
 }
 
@@ -61,17 +77,32 @@ export function ResizableExcalidraw({
 }: ResizableExcalidrawProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const imageRef = useRef<HTMLImageElement | null>(null)
-  const latest = useRef({ node, updateAttributes })
-  latest.current = { node, updateAttributes }
+  const latest = useRef({ node, updateAttributes, onDoubleClick })
+  latest.current = { node, updateAttributes, onDoubleClick }
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
 
     const img = document.createElement("img")
-    if (onDoubleClick) {
-      img.ondblclick = onDoubleClick
+    img.ondblclick = () => latest.current.onDoubleClick?.()
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return
+      if (typeof getPos === "function") {
+        try {
+          const pos = getPos()
+          if (typeof pos === "number") {
+            e.preventDefault()
+            editor.commands.setNodeSelection(pos)
+            editor.commands.focus()
+          }
+        } catch {
+          // 节点可能已卸载
+        }
+      }
     }
+    img.addEventListener("mousedown", onMouseDown)
 
     const view = new ResizableNodeView({
       element: img,
@@ -102,10 +133,11 @@ export function ResizableExcalidraw({
 
     imageRef.current = img
     return () => {
+      img.removeEventListener("mousedown", onMouseDown)
       view.destroy()
       imageRef.current = null
     }
-  }, [editor, getPos, onDoubleClick])
+  }, [editor, getPos])
 
   useEffect(() => {
     const img = imageRef.current

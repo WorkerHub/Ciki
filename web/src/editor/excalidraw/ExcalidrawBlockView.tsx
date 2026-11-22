@@ -1,6 +1,7 @@
 import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
 import { Loader2, Palette } from "lucide-react"
 import { Suspense, lazy, useState } from "react"
+import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { imageWidth } from "@/editor/image-attributes"
@@ -69,7 +70,7 @@ export function ExcalidrawBlockView({
             updateAttributes={updateAttributes}
             onDoubleClick={() => setModalOpen(true)}
           />
-          <div className="absolute top-2 right-2 opacity-0 group-hover/canvas:opacity-100 transition-opacity z-10">
+          <div className="absolute top-2 right-2 opacity-0 group-hover/canvas:opacity-100 transition-opacity z-10 pointer-events-none group-hover/canvas:pointer-events-auto">
             <Button
               type="button"
               size="sm"
@@ -108,21 +109,24 @@ export function ExcalidrawBlockView({
         </div>
       )}
 
-      {modalOpen ? (
-        <Suspense
-          fallback={
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          }
-        >
-          <LazyExcalidrawModal
-            sceneKey={sceneKey || undefined}
-            onClose={() => setModalOpen(false)}
-            onSave={handleSave}
-          />
-        </Suspense>
-      ) : null}
+      {modalOpen && typeof document !== "undefined"
+        ? createPortal(
+            <Suspense
+              fallback={
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              }
+            >
+              <LazyExcalidrawModal
+                sceneKey={sceneKey || undefined}
+                onClose={() => setModalOpen(false)}
+                onSave={handleSave}
+              />
+            </Suspense>,
+            document.body
+          )
+        : null}
     </NodeViewWrapper>
   )
 }

@@ -109,10 +109,23 @@ export function ExcalidrawModal({
     }
   }, [sceneKey, resolvedTheme])
 
-  // 按 Esc 键退出（保存中不响应）
+  // 按 Esc 键退出（保存中不响应；输入框编辑中优先让组件自身处理 Esc）
   useEffect(() => {
+    const isInput = (el: EventTarget | null) => {
+      if (!el || !(el instanceof Element)) return false
+      const tag = el.tagName.toLowerCase()
+      return (
+        tag === "input" ||
+        tag === "textarea" ||
+        (el as HTMLElement).isContentEditable
+      )
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !saving) {
+        if (isInput(e.target) || isInput(document.activeElement)) {
+          return
+        }
         onClose()
       }
     }
