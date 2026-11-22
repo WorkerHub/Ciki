@@ -73,7 +73,7 @@ export async function findSession(
     .prepare(
       `SELECT s.id AS sessionId, s.user_id AS userId, s.needs_2fa_setup AS restricted,
               u.role AS role, u.email AS email, u.approval_status AS approvalStatus,
-              u.is_active AS isActive, u.created_at AS createdAt
+              u.is_active AS isActive, u.created_at AS createdAt, u.kind AS kind
          FROM ${sessionsTable(prefix)} s
          JOIN ${usersTable(prefix)} u ON u.id = s.user_id
         WHERE s.token_hash = ? AND s.expires_at > ?`
@@ -88,9 +88,15 @@ export async function findSession(
       approvalStatus: string
       isActive: number
       createdAt: string
+      kind: string
     }>()
   if (!row) return null
-  if (!row.isActive || row.approvalStatus !== "approved") return null
+  if (
+    !row.isActive ||
+    row.approvalStatus !== "approved" ||
+    row.kind !== "human"
+  )
+    return null
   return {
     sessionId: row.sessionId,
     userId: row.userId,

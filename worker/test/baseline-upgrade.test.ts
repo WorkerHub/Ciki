@@ -44,6 +44,7 @@ const PREFIX = "ciki_"
 
 /** 当前账本里应有的迁移名（顺序即执行顺序）：断言按它生成，不写死字面量。 */
 const MIGRATION_NAMES = getMigrations(PREFIX).map((migration) => migration.name)
+const SORTED_MIGRATION_NAMES = [...MIGRATION_NAMES].sort()
 
 function migrationList(status: "applied" | "skipped") {
   return MIGRATION_NAMES.map((name) => ({ name, status }))
@@ -128,6 +129,7 @@ function businessSnapshot(ctx: TestContext): Record<string, unknown[]> {
 /**
  * 去掉 `system_settings` 里三态邮件新增的行：`schema_v9` 会为存量 SMTP 库
  * 补写 `email_provider`（值 none→smtp），`seedDefaultSettings` 会播种 `resend_config`（值 {}），
+ * 以及 `schema_v10` 为 `users` 表追加的 `kind` 与 `owner_user_id` 列。
  * 其余设置/数据仍应一字不变。
  */
 function withoutEmailSettings(
@@ -139,6 +141,10 @@ function withoutEmailSettings(
       (row as { key?: string }).key !== "email_provider" &&
       (row as { key?: string }).key !== "resend_config"
   )
+  next.users = (next.users ?? []).map((row) => {
+    const { kind, owner_user_id, ...rest } = row as Record<string, unknown>
+    return rest
+  })
   return next
 }
 
@@ -201,7 +207,7 @@ describe("最终形态存量库 → 单条 schema_v1：只动账本", () => {
     if (!result.success) throw new Error(result.error)
 
     expect(result.migrations).toEqual(migrationList("applied"))
-    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
+    expect(ledgerNames(context)).toEqual(SORTED_MIGRATION_NAMES)
 
     // 坍缩不改任何结构：表/索引集合与升级前完全一致。
     expect(tableNames(context).sort()).toEqual(beforeTables)
@@ -235,14 +241,22 @@ describe("最终形态存量库 → 单条 schema_v1：只动账本", () => {
     expect(context.content.store.size).toBe(beforeObjects)
     await expectContentIntact(context)
 
-    // 用户行也一字未动（证明没有借坍缩顺手改列）。
-    expect(
-      (
-        db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
-          name: string
-        }>
-      ).map((column) => column.name)
-    ).toContain("username")
+    // 用户行原有列一字未动，schema_v10 为存量用户补齐 kind 与 owner_user_id 默认值。
+    const userColumns = (
+      db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
+        name: string
+      }>
+    ).map((column) => column.name)
+    expect(userColumns).toContain("username")
+    expect(userColumns).toContain("kind")
+    expect(userColumns).toContain("owner_user_id")
+
+    const userRows = db.db
+      .prepare(`SELECT kind, owner_user_id FROM ${tableName(PREFIX, "users")}`)
+      .all() as Array<{ kind: string; owner_user_id: number | null }>
+    for (const row of userRows) {
+      expect(row).toEqual({ kind: "human", owner_user_id: null })
+    }
   })
 
   it("存量明文令牌升级后仍可鉴权，范围隔离不变", async () => {
@@ -320,8 +334,8 @@ describe("全新库与幂等", () => {
     if (!result.success) throw new Error(result.error)
 
     expect(result.migrations).toEqual(migrationList("applied"))
-    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
-    expect(MIGRATION_NAMES).toEqual(["schema_v1", "schema_v9"])
+    expect(ledgerNames(context)).toEqual(SORTED_MIGRATION_NAMES)
+    expect(MIGRATION_NAMES).toEqual(["schema_v1", "schema_v9", "schema_v10"])
 
     const tables = tableNames(context)
     for (const table of SCHEMA_TABLES) {
@@ -373,7 +387,7 @@ describe("全新库与幂等", () => {
     const again = await runSetup(context.env)
     if (!again.success) throw new Error(again.error)
     expect(again.migrations).toEqual(migrationList("skipped"))
-    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
+    expect(ledgerNames(context)).toEqual(SORTED_MIGRATION_NAMES)
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
@@ -393,7 +407,7 @@ describe("全新库与幂等", () => {
     const again = await runSetup(context.env)
     if (!again.success) throw new Error(again.error)
     expect(again.migrations).toEqual(migrationList("applied"))
-    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
+    expect(ledgerNames(context)).toEqual(SORTED_MIGRATION_NAMES)
     expect(businessSnapshot(context)).toEqual(afterUpgrade)
   })
 
@@ -409,7 +423,7 @@ describe("全新库与幂等", () => {
     const result = await runSetup(context.env)
     if (!result.success) throw new Error(result.error)
     expect(result.migrations).toEqual(migrationList("applied"))
-    expect(ledgerNames(context)).toEqual(MIGRATION_NAMES)
+    expect(ledgerNames(context)).toEqual(SORTED_MIGRATION_NAMES)
     expect(tableNames(context)).toContain(tableName(PREFIX, "pages"))
   })
 })
