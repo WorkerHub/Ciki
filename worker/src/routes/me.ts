@@ -604,10 +604,12 @@ meRoutes.delete("/import-tokens/:id", async (c) => {
 // ── Agent 账号管理与令牌代管（Task #75） ──────────────────────────────
 //
 // 挂会话 Cookie，严格限定 owner 本人：
-// - GET /api/me/agents：名下 agent 账号列表（id, username, isActive, createdAt）
+// - GET /api/me/agents：名下 agent 账号列表（id, username, avatarUrl, isActive, createdAt）
 // - POST /api/me/agents：创建 {username}，返回新账号
 // - PATCH /api/me/agents/:id：启停 {isActive}
 // - DELETE /api/me/agents/:id：彻底删除 agent 账号（走与 admin 一致的彻底删除口径）
+// - POST /api/me/agents/:id/avatar：为名下 agent 上传/更换头像（复用真人头像管线，规格 §1）
+// - DELETE /api/me/agents/:id/avatar：删除名下 agent 的头像（规格 §1）
 // - GET /api/me/agents/:id/tokens：代管查询其全部有效令牌
 // - POST /api/me/agents/:id/tokens：代管为其签发令牌（复用 issueApiToken 与空间范围校验，选 kind 与 spaceIds）
 // - DELETE /api/me/agents/:id/tokens/:tokenId：代管吊销单枚令牌
@@ -635,6 +637,7 @@ function agentDto(row: UserRow) {
   return {
     id: row.id,
     username: row.username ?? "",
+    avatarUrl: row.avatar_key ? `/api/files/${row.avatar_key}` : null,
     isActive: row.is_active === 1,
     createdAt: row.created_at
   }
@@ -731,6 +734,55 @@ meRoutes.delete("/agents/:id", async (c) => {
   await deleteUser(c.env.DB, prefix, agent.id)
 
   return c.json({ success: true })
+})
+
+/**
+ * 为名下 Agent 上传/更换头像（规格 §1）：复用真人头像上传管线（同一格式/大小/裁剪
+ * 校验、落 avatars/、旧图 best-effort 删除），写该 agent 的 `users.avatar_key`。
+ * 响应为该 agent 的 DTO（含最新 avatarUrl），前端一次拿到新头像地址。
+ */
+meRoutes.post("/agents/:id/avatar", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const agent = await findAgentByOwner(
+    c.env.DB,
+    prefix,
+    c.get("userId"),
+    agentId
+  )
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const stored = await storeImageUpload(c, agent.id, "avatars")
+  if (!stored.ok) return stored.response
+
+  await updateUser(c.env.DB, prefix, agent.id, { avatar_key: stored.image.key })
+  await deleteReplacedAvatar(c, agent.avatar_key, stored.image.key)
+
+  const updated = (await findUserById(c.env.DB, prefix, agent.id)) ?? agent
+  return c.json(agentDto(updated))
+})
+
+/** 删除名下 Agent 的头像（规格 §1）：清空 avatar_key 并 best-effort 删旧图。 */
+meRoutes.delete("/agents/:id/avatar", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const agent = await findAgentByOwner(
+    c.env.DB,
+    prefix,
+    c.get("userId"),
+    agentId
+  )
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  await updateUser(c.env.DB, prefix, agent.id, { avatar_key: "" })
+  await deleteReplacedAvatar(c, agent.avatar_key, null)
+
+  const updated = (await findUserById(c.env.DB, prefix, agent.id)) ?? agent
+  return c.json(agentDto(updated))
 })
 
 /** 代管查询 Agent 名下的全部有效令牌，按创建时间升序。 */
