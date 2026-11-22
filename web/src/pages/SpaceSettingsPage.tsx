@@ -508,9 +508,16 @@ export function SpaceSettingsPage() {
                   return (
                     <TableRow key={member.userId}>
                       <TableCell>
-                        <span className="block truncate font-medium">
-                          {member.username || member.email}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-medium">
+                            {member.username || member.email}
+                          </span>
+                          {member.isAgent ? (
+                            <Badge variant="secondary" className="text-[10px]">
+                              Agent
+                            </Badge>
+                          ) : null}
+                        </div>
                         <span className="block truncate text-xs text-muted-foreground">
                           {member.email}
                         </span>
@@ -628,9 +635,16 @@ export function SpaceSettingsPage() {
                     className="flex flex-wrap items-center gap-2 px-3 py-2"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {candidate.username || candidate.email}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-medium">
+                          {candidate.username || candidate.email}
+                        </p>
+                        {candidate.isAgent ? (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Agent
+                          </Badge>
+                        ) : null}
+                      </div>
                       <p className="truncate text-[11px] text-muted-foreground">
                         {candidate.email}
                       </p>

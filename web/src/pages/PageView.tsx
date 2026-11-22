@@ -354,6 +354,11 @@ export function PageView() {
                       className="size-4 text-[9px]"
                     />
                     <span>{page.createdByName}</span>
+                    {page.createdByIsAgent ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Agent
+                      </Badge>
+                    ) : null}
                     <span>
                       {t("page.view.createdAt", {
                         time: formatDate(page.createdAt)
@@ -375,6 +380,11 @@ export function PageView() {
                       className="size-4 text-[9px]"
                     />
                     <span>{page.updatedByName}</span>
+                    {page.updatedByIsAgent ? (
+                      <Badge variant="secondary" className="text-[10px]">
+                        Agent
+                      </Badge>
+                    ) : null}
                     <span>
                       {t("page.view.lastEditedAt", {
                         time: formatDate(page.updatedAt)

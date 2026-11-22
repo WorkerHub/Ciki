@@ -1040,6 +1040,26 @@ describe("阅读页标题下署名行", () => {
     expect(screen.getByText("最后编辑于 2026-11-09")).toBeInTheDocument()
   })
 
+  it("当创建者或最后编辑者是 Agent 时，署名旁展示 Agent 徽标且不展示 owner 名字", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "deploy-bot",
+      createdByAvatarUrl: null,
+      createdByIsAgent: true,
+      updatedByName: "sync-agent",
+      updatedByAvatarUrl: null,
+      updatedByIsAgent: true,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-09T03:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("deploy-bot")).toBeInTheDocument()
+    expect(screen.getByText("sync-agent")).toBeInTheDocument()
+    const badges = screen.getAllByText("Agent")
+    expect(badges).toHaveLength(2)
+  })
+
   it("英文环境下展示 Created 与 Last edited", async () => {
     await i18n.changeLanguage("en")
     vi.mocked(pagesApi.get).mockResolvedValue({

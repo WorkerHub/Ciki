@@ -32,17 +32,27 @@ vi.mock("@/lib/api", async (importOriginal) => {
       updateProfile: vi.fn(),
       changePassword: vi.fn(),
       tokens: vi.fn(),
-      importTokens: vi.fn()
+      importTokens: vi.fn(),
+      agents: {
+        list: vi.fn(),
+        create: vi.fn(),
+        update: vi.fn(),
+        delete: vi.fn(),
+        tokens: vi.fn(),
+        issueToken: vi.fn(),
+        revokeToken: vi.fn()
+      }
     }
   }
 })
 
 const { authApi, meApi } = await import("@/lib/api")
 
-// 设置页里的两张令牌卡挂载时各拉一次列表：给默认值，别让旧用例打到真 fetch。
+// 设置页里的令牌卡与 Agent 卡挂载时各拉一次列表：给默认值，别让旧用例打到真 fetch。
 beforeEach(() => {
   vi.mocked(meApi.tokens).mockResolvedValue({ tokens: [] })
   vi.mocked(meApi.importTokens).mockResolvedValue({ tokens: [] })
+  vi.mocked(meApi.agents.list).mockResolvedValue([])
 })
 
 function setUser(twofa: {

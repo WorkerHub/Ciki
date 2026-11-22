@@ -237,6 +237,36 @@ describe("空间设置与成员管理", () => {
     })
   })
 
+  it("空间成员与候选人列表正确展示 Agent 徽标", async () => {
+    const user = userEvent.setup()
+    const agentMember: SpaceMember = {
+      userId: 10,
+      username: "bot-helper",
+      email: "bot-helper@internal",
+      role: "viewer",
+      isAgent: true,
+      createdAt: "2026-11-08T00:00:00.000Z"
+    }
+    vi.mocked(spacesApi.members).mockResolvedValue([members[0], agentMember])
+    const agentCandidate: SpaceCandidate = {
+      userId: 11,
+      username: "candidate-agent",
+      email: "candidate-agent@internal",
+      isAgent: true
+    }
+    vi.mocked(spacesApi.candidates).mockResolvedValue([agentCandidate])
+    renderSettings()
+
+    const memberRow = (await screen.findByText("bot-helper")).closest("tr") as HTMLElement
+    expect(within(memberRow).getByText("Agent")).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText("添加成员"), "candidate-agent")
+    await user.click(screen.getByRole("button", { name: "搜索" }))
+
+    const candidateItem = (await screen.findByText("candidate-agent")).closest("li") as HTMLElement
+    expect(within(candidateItem).getByText("Agent")).toBeInTheDocument()
+  })
+
   it("默认空间不能删除", async () => {
     vi.mocked(spacesApi.get).mockResolvedValue({ ...space, isDefault: true })
     renderSettings()
