@@ -1,6 +1,12 @@
 import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
-import { currentFontSize, setFontSize } from "@/editor/font-size/commands"
+import {
+  canStepFontSize,
+  currentFontSize,
+  selectionFontSize,
+  setFontSize,
+  stepFontSize
+} from "@/editor/font-size/commands"
 import { currentTextColor, setTextColor } from "@/editor/colors/commands"
 import { createExtensions } from "@/editor/extensions"
 import { ALLOWED_FONT_SIZES, normalizeFontSize } from "@/lib/font-size"
@@ -176,5 +182,83 @@ describe("行内字号命令与编辑器模型", () => {
       { type: "textStyle", attrs: { color: null, fontSize: "16px" } }
     ])
     expect(currentFontSize(editor)).toBe("16px")
+  })
+
+  it("选区字号探测与混排识别（selectionFontSize）", () => {
+    // 1. 全部默认
+    const ed1 = makeEditor("<p>默认文本</p>")
+    ed1.commands.selectAll()
+    expect(selectionFontSize(ed1)).toEqual({ size: null, isMixed: false })
+
+    // 2. 全部统一字号
+    const ed2 = makeEditor('<p><span data-font-size="20px">统一大号</span></p>')
+    ed2.commands.selectAll()
+    expect(selectionFontSize(ed2)).toEqual({ size: "20px", isMixed: false })
+
+    // 3. 部分文字有字号、部分为默认（混排）
+    const ed3 = makeEditor('<p>默认<span data-font-size="20px">大号</span></p>')
+    ed3.commands.selectAll()
+    expect(selectionFontSize(ed3)).toEqual({ size: null, isMixed: true })
+    expect(currentFontSize(ed3)).toBeNull()
+
+    // 4. 多种不同字号混排
+    const ed4 = makeEditor(
+      '<p><span data-font-size="14px">小</span><span data-font-size="24px">大</span></p>'
+    )
+    ed4.commands.selectAll()
+    expect(selectionFontSize(ed4)).toEqual({ size: null, isMixed: true })
+    expect(currentFontSize(ed4)).toBeNull()
+
+    // 5. 跨段落全选混排（含不同刻度与默认无字号）
+    const ed5 = makeEditor(
+      '<p>段落一默认</p><p><span data-font-size="16px">段落二字号</span></p><p><span data-font-size="24px">段落三不同字号</span></p>'
+    )
+    ed5.commands.selectAll()
+    expect(selectionFontSize(ed5)).toEqual({ size: null, isMixed: true })
+    expect(currentFontSize(ed5)).toBeNull()
+  })
+
+  it("沿刻度阶梯逐档步进（stepFontSize & canStepFontSize）", () => {
+    const editor = makeEditor("<p>步进测试文本</p>")
+    editor.commands.selectAll()
+
+    // 初始为默认（null）
+    expect(currentFontSize(editor)).toBeNull()
+    expect(canStepFontSize(editor, "down")).toBe(false)
+    expect(canStepFontSize(editor, "up")).toBe(true)
+
+    // 步进 +：默认 -> 12px
+    stepFontSize(editor, "up")
+    expect(currentFontSize(editor)).toBe("12px")
+    expect(canStepFontSize(editor, "down")).toBe(true)
+
+    // 步进 -：12px -> 默认（清除）
+    stepFontSize(editor, "down")
+    expect(currentFontSize(editor)).toBeNull()
+
+    // 连续步进 + 到顶 32px
+    const expectedSteps = [
+      "12px",
+      "14px",
+      "16px",
+      "18px",
+      "20px",
+      "24px",
+      "32px"
+    ] as const
+    for (const expected of expectedSteps) {
+      stepFontSize(editor, "up")
+      expect(currentFontSize(editor)).toBe(expected)
+    }
+
+    // 达到 32px 到顶不可再增
+    expect(canStepFontSize(editor, "up")).toBe(false)
+    expect(canStepFontSize(editor, "down")).toBe(true)
+    stepFontSize(editor, "up")
+    expect(currentFontSize(editor)).toBe("32px")
+
+    // 降一档回到 24px
+    stepFontSize(editor, "down")
+    expect(currentFontSize(editor)).toBe("24px")
   })
 })

@@ -56,7 +56,6 @@ import {
 } from "@/editor/colors/palette"
 import { ParagraphStyleMenu } from "@/editor/ParagraphStyleMenu"
 import { FontSizeMenu } from "@/editor/font-size/FontSizeMenu"
-import { currentFontSize } from "@/editor/font-size/commands"
 import { TableMenu } from "@/editor/table/TableMenu"
 import { describeApiError, type SearchResult, searchApi } from "@/lib/api"
 import { pagePath } from "@/lib/routes"
@@ -115,7 +114,6 @@ export function EditorToolbar({
       textColor: currentTextColor(editor),
       highlight: currentHighlight(editor),
       cellBackground: currentCellBackground(editor),
-      fontSize: currentFontSize(editor),
       inTable: editor.isActive("table")
     })
   })

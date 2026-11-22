@@ -459,7 +459,9 @@
     },
     "fontSize": {
       "label": "字号",
-      "default": "默认"
+      "default": "默认",
+      "decrease": "减小字号",
+      "increase": "增大字号"
     },
     "codeBlock": {
       "show": "展开代码",

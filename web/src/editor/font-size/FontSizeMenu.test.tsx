@@ -3,11 +3,8 @@ import userEvent from "@testing-library/user-event"
 import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { createExtensions } from "@/editor/extensions"
-import {
-  FONT_SIZE_OPTIONS,
-  FontSizeMenu
-} from "@/editor/font-size/FontSizeMenu"
-import { currentFontSize } from "@/editor/font-size/commands"
+import { FontSizeMenu } from "@/editor/font-size/FontSizeMenu"
+import { currentFontSize, setFontSize } from "@/editor/font-size/commands"
 import { i18n } from "@/i18n"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
@@ -34,7 +31,7 @@ function putCursorAt(editor: Editor, text: string) {
   editor.commands.setTextSelection(pos)
 }
 
-describe("字号下拉组件（FontSizeMenu）", () => {
+describe("字号步进数字框组件（FontSizeMenu）", () => {
   beforeAll(() => {
     installTiptapJsdomShims()
   })
@@ -44,59 +41,128 @@ describe("字号下拉组件（FontSizeMenu）", () => {
     while (editors.length) editors.pop()?.destroy()
   })
 
-  it("选项包含默认项与 7 档固定刻度", () => {
-    expect(FONT_SIZE_OPTIONS.map((opt) => opt.value)).toEqual([
-      "default",
-      "12px",
-      "14px",
-      "16px",
-      "18px",
-      "20px",
-      "24px",
-      "32px"
-    ])
-  })
-
-  it("双语国际化：默认项文案跟随语言切换（中文：默认，英文：Default）", async () => {
+  it("双语国际化：文案跟随语言切换（中文：默认/字号，英文：Default/Font size）", async () => {
     await i18n.changeLanguage("zh")
     const editor = makeEditor("<p>测试</p>")
     const { unmount } = render(<FontSizeMenu editor={editor} />)
-    expect(screen.getByRole("combobox", { name: "字号" })).toHaveTextContent(
+    expect(screen.getByRole("button", { name: "字号" })).toHaveTextContent(
       "默认"
     )
+    expect(screen.getByRole("button", { name: "减小字号" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "增大字号" })).toBeInTheDocument()
     unmount()
 
     await i18n.changeLanguage("en")
     render(<FontSizeMenu editor={editor} />)
+    expect(screen.getByRole("button", { name: "Font size" })).toHaveTextContent(
+      "Default"
+    )
     expect(
-      screen.getByRole("combobox", { name: "Font size" })
-    ).toHaveTextContent("Default")
+      screen.getByRole("button", { name: "Decrease font size" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Increase font size" })
+    ).toBeInTheDocument()
   })
 
-  it("下拉切换字号应用到选区，选择默认项清除字号", async () => {
+  it("通过 − / + 沿固定刻度逐档增减，并在端点正确禁用", async () => {
     const user = userEvent.setup()
     const editor = makeEditor("<p>选中文字</p>")
     editor.commands.selectAll()
     render(<FontSizeMenu editor={editor} />)
 
-    const trigger = screen.getByRole("combobox", { name: "字号" })
+    const minusBtn = screen.getByRole("button", { name: "减小字号" })
+    const plusBtn = screen.getByRole("button", { name: "增大字号" })
+    const trigger = screen.getByRole("button", { name: "字号" })
+
+    // 默认档：- 禁用，+ 可用
+    expect(trigger).toHaveTextContent("默认")
+    expect(minusBtn).toBeDisabled()
+    expect(plusBtn).toBeEnabled()
+
+    // 点击 + -> 12
+    await user.click(plusBtn)
+    expect(currentFontSize(editor)).toBe("12px")
+    expect(trigger).toHaveTextContent("12")
+    expect(minusBtn).toBeEnabled()
+
+    // 点击 + -> 14
+    await user.click(plusBtn)
+    expect(currentFontSize(editor)).toBe("14px")
+    expect(trigger).toHaveTextContent("14")
+
+    // 点击 - -> 回到 12
+    await user.click(minusBtn)
+    expect(currentFontSize(editor)).toBe("12px")
+    expect(trigger).toHaveTextContent("12")
+
+    // 点击 - -> 降回默认
+    await user.click(minusBtn)
+    expect(currentFontSize(editor)).toBeNull()
+    expect(trigger).toHaveTextContent("默认")
+    expect(minusBtn).toBeDisabled()
+
+    // 设为最大刻度 32px
+    act(() => {
+      setFontSize(editor, "32px")
+    })
+    expect(trigger).toHaveTextContent("32")
+    expect(plusBtn).toBeDisabled()
+    expect(minusBtn).toBeEnabled()
+  })
+
+  it("点数字弹出纯数字刻度列表，点选切换字号并支持清除为默认", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor("<p>列表点选测试</p>")
+    editor.commands.selectAll()
+    render(<FontSizeMenu editor={editor} />)
+
+    const trigger = screen.getByRole("button", { name: "字号" })
     expect(trigger).toHaveTextContent("默认")
 
-    // 打开下拉选择 20px
+    // 打开下拉选择 20
     await user.click(trigger)
-    const opt20 = await screen.findByRole("option", { name: "20px" })
-    await user.click(opt20)
+    const item20 = await screen.findByRole("menuitem", { name: "20" })
+    await user.click(item20)
 
     expect(currentFontSize(editor)).toBe("20px")
-    expect(trigger).toHaveTextContent("20px")
+    expect(trigger).toHaveTextContent("20")
 
-    // 重新打开选择「默认」
+    // 重新打开选择「默认」清除字号
     await user.click(trigger)
-    const optDefault = await screen.findByRole("option", { name: "默认" })
-    await user.click(optDefault)
+    const itemDefault = await screen.findByRole("menuitem", { name: "默认" })
+    await user.click(itemDefault)
 
     expect(currentFontSize(editor)).toBeNull()
     expect(trigger).toHaveTextContent("默认")
+  })
+
+  it("选区字号不一致时显示「—」，−/+ 置灰，点选任一刻度统一应用", async () => {
+    const user = userEvent.setup()
+    const editor = makeEditor(
+      '<p>常规文字<span data-font-size="20px">大字号</span></p>'
+    )
+    editor.commands.selectAll()
+    render(<FontSizeMenu editor={editor} />)
+
+    const trigger = screen.getByRole("button", { name: "字号" })
+    const minusBtn = screen.getByRole("button", { name: "减小字号" })
+    const plusBtn = screen.getByRole("button", { name: "增大字号" })
+
+    // 选区混排：显示 —，两端按钮禁用
+    expect(trigger).toHaveTextContent("—")
+    expect(minusBtn).toBeDisabled()
+    expect(plusBtn).toBeDisabled()
+
+    // 点开列表统一选 24
+    await user.click(trigger)
+    const item24 = await screen.findByRole("menuitem", { name: "24" })
+    await user.click(item24)
+
+    expect(currentFontSize(editor)).toBe("24px")
+    expect(trigger).toHaveTextContent("24")
+    expect(minusBtn).toBeEnabled()
+    expect(plusBtn).toBeEnabled()
   })
 
   it("光标在不同字号文本间切换时实时响应（响应式）", () => {
@@ -105,11 +171,11 @@ describe("字号下拉组件（FontSizeMenu）", () => {
     )
     render(<FontSizeMenu editor={editor} />)
 
-    const trigger = screen.getByRole("combobox", { name: "字号" })
+    const trigger = screen.getByRole("button", { name: "字号" })
     expect(trigger).toHaveTextContent("默认")
 
     act(() => putCursorAt(editor, "超大文字"))
-    expect(trigger).toHaveTextContent("24px")
+    expect(trigger).toHaveTextContent("24")
 
     act(() => putCursorAt(editor, "常规文字"))
     expect(trigger).toHaveTextContent("默认")

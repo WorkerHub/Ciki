@@ -463,7 +463,9 @@
     },
     "fontSize": {
       "label": "Font size",
-      "default": "Default"
+      "default": "Default",
+      "decrease": "Decrease font size",
+      "increase": "Increase font size"
     },
     "codeBlock": {
       "show": "Show code",
