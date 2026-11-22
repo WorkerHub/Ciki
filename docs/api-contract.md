@@ -61,6 +61,8 @@
 - 存量库（**唯一支持的升级源 = 当前生产形态**，即最终令牌形态——坍缩前的 `schema_v3`：整数 id、正文在 R2、`users` 三列已删、`username` 唯一索引在位、令牌三表已是最终形态）：`prepare` 只做**只读形态校验**，通过后结构与数据一字不动，唯一的动作是**账本手术**——把残留的 `schema_v1`–`schema_v3` 三行（连同历史 `schema_v4`–`schema_v8` 旧行）在同一个 `db.batch()`（事务）里清掉并写回一行 `schema_v1`。校验不过、或账本有 `schema_v2` 却没有 `schema_v3`（停在令牌合并那一步）：setup 以 409 `MIGRATION_REJECTED` 中止并把指路信息回显给管理员——**先用上一版（支持 v2 → v3 的发布）升到 `schema_v3`，再换本版升级**；若账本已记着 `schema_v3` 而结构对不上，说明结构在升级后被改动过——先按升级前记下的 Time Travel bookmark 还原（或修好不符项）再试。两种情况都是数据与账本一字未动，不猜测式修复、不部分执行。
 - 更早的形态（`users` 还带 `base_currency`/`timezone`/`theme`、正文还在 `content_json`、`pages` 缺失、或删掉唯一索引冒充最终形态）**一律拒绝**：错误信息列出不符项并指路，一个表都不动。
 - `schema_v2`–`schema_v8` 的旧增量定义已清除（含旧 `schema_v6` 的 UUID→整数全表重建路径与旧 `schema_v3` 的令牌合并路径）；升级时账本收敛为单条 `schema_v1`，执行器只认这一条。
+- `schema_v9`：发信服务配置初始化迁移（若已配置过 `smtp_config` 且 host 非空，则将 `email_provider` 键设为 `smtp`，否则保持未配置 `none`）。
+- `schema_v10`：为 `users` 表追加 `kind` 列（`TEXT NOT NULL DEFAULT 'human'`）和 `owner_user_id` 列（`INTEGER DEFAULT NULL`），引入 Agent 账号身份模型与归属关系。
 - 已是当前形态的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本收敛）。
 
 今后结构变化只在末尾追加新的 `schema_vN`（新表/新索引写进本条迁移自己的 sql，不改 `schema_v1` 基线清单），`schema_v1` 不得改名、改内容或调序。
@@ -85,9 +87,20 @@
 | approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                    |
 | email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在结构坍缩（`schema_v1` 之前那版）时已一律置 1                                          |
 | language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。主题等纯前端偏好不进数据库 |
+| kind                   | TEXT NOT NULL DEFAULT 'human'    | 账号类型：`human`（人类用户，默认） / `agent`（Agent 账号）                                                                                                                            |
+| owner_user_id          | INTEGER DEFAULT NULL             | Agent 账号的所有者用户 ID（对应人类用户的 `id`）；人类用户此列固定为 `NULL`                                                                                                            |
 | created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                                                               |
 
 索引：`username` 上有唯一索引 `{prefix}users_username`（`COLLATE NOCASE`：`alice` 与 `Alice` 视为重名；`WHERE username <> ''`：空串不参与），并发改重名由数据库兜底。撞名只在建号时按 `-2`/`-3` 规避（`insertWithUniqueUsername`），存量重名已在 `schema_v1` 之前那版消解完毕。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
+
+#### Agent 账号身份口径
+
+- **身份定位**：Agent 是系统内受人类用户（owner）代管的一等公民账号，有独立 `id`、`username`、`kind = 'agent'` 及自身在各空间的成员角色。
+- **不能登录**：无法通过密码登录（`/api/auth/login` 一律 401 `Invalid credentials`）、找回密码（`/api/auth/password/forgot` 静默返回受理但不发信）、Passkey 等方式建立交互式会话；`findSession` 对 `kind = 'agent'` 账号一律返回 `null`（即使 `sessions` 表强行插入亦会被过滤阻断），对外不泄露账号类型。
+- **不能成为站点管理员**：`role` 锁定为 `user`；管理员通过 `PUT /api/admin/users/:id` 尝试提升其为 `admin` 时将被 400 拒绝（`Agent cannot be granted admin role`）。
+- **生而有效**：由 owner 创建后立即生效（`is_active = 1`、`approval_status = 'approved'`、`email_verified = 1`），无需管理员审批或邮箱验证；密码哈希为不可比对的专用占位串（`$agent$disabled_login$...`）。
+- **所有者关系**：Agent 必须由有效的 active 人类用户拥有（`owner_user_id` 指向其 owner；Agent 自身不能拥有 Agent）；owner 停用或删除时，其名下 Agent 的 API 令牌在校验时连带失效。
+- **管理操作**：站点管理员可对 Agent 账号执行停用、启用或彻底删除操作。
 
 ### user_2fa（TOTP + 邮箱验证码开关）
 
@@ -904,6 +917,109 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 - `enable`：同样先检查 `emailConfigured`（503 且**不消费验证码**），再密码重认证，再 `email_code_verify` 限频（5 次/10 分钟，超限 429），最后校验 `2fa_enable` 用途、`binding=''` 的验证码；错码/无码/过期一律 400 `{"error":"Invalid code","code":"INVALID_CODE"}`，第 5 次错误删除该码。成功只写 `email_otp_enabled` 一列（TOTP 字段原样保留），并清除当前受限会话的 `needs_2fa_setup`。
 - `disable`：**不看 SMTP 是否可用**（发信坏掉时用户仍必须能关掉，否则被锁死），不改 TOTP/Passkey、不吊销会话。
 
+### Agent 账号与令牌代管（均需会话）
+
+用于人类用户（owner）管理其名下的 Agent 账号及代管签发/吊销其 API 令牌。非 owner（访问他人 Agent、目标不存在、或目标不是 Agent）一律 404 `{"error":"Agent not found"}`，不泄露存在性；站点管理员亦不可跨账号代签或代管他人名下的 Agent。
+
+#### GET /api/me/agents
+
+返回当前登录用户名下的全部 Agent 账号，按创建时间升序：
+
+```json
+[
+  {
+    "id": 10,
+    "username": "doc-sync-bot",
+    "isActive": true,
+    "createdAt": "2026-11-20T10:00:00.000Z"
+  }
+]
+```
+
+#### POST /api/me/agents
+
+创建 Agent 账号：
+
+```json
+{
+  "username": "doc-sync-bot"
+}
+```
+
+- `username`：必填，1–40 字符，自动去控制字符并规范化。非法 400 `code:"INVALID_USERNAME"`；重名 409 `code:"USERNAME_TAKEN"`。
+- 创建成功 201，返回与 `GET /api/me/agents` 单项结构相同的 DTO：`{ id, username, isActive, createdAt }`。
+- 新建 Agent 初始为启用状态（`is_active = 1`），`approval_status = 'approved'`，`email_verified = 1`，`owner_user_id` 指向当前登录用户。
+
+#### PATCH /api/me/agents/:id
+
+启停本人名下的 Agent 账号：
+
+```json
+{
+  "isActive": false
+}
+```
+
+- `isActive` 必须为布尔值，否则 400 `{"error":"isActive must be a boolean"}`。
+- 非本人名下或非 Agent 返回 404。
+- 成功返回更新后的 `{ id, username, isActive, createdAt }`。停用 Agent 时，其名下持有的 API 令牌在调用鉴权时立即连带失效。
+
+#### DELETE /api/me/agents/:id
+
+彻底删除本人名下的 Agent 账号：成功 200 `{"success":true}`。级联清理其会话、Passkey、TOTP、验证码、所有空间成员关系（`space_members`）与用户行。非本人名下或非 Agent 返回 404。
+
+#### GET /api/me/agents/:id/tokens
+
+代管查询本人名下 Agent 的全部**未吊销** API 令牌，按创建时间升序：
+
+```json
+{
+  "tokens": [
+    {
+      "id": 5,
+      "name": "只读 Token",
+      "kind": "read",
+      "spaceIds": [1, 2],
+      "createdAt": "2026-11-20T10:05:00.000Z",
+      "lastUsedAt": null
+    }
+  ]
+}
+```
+
+#### POST /api/me/agents/:id/tokens
+
+代管为本人名下的 Agent 签发接口令牌（**令牌代管例外**）：
+
+```json
+{
+  "kind": "write",
+  "name": "写入流水线",
+  "spaceIds": [1]
+}
+```
+
+- **权限约束**：只有 owner 本人可签发（管理员亦不可代管他人名下的 Agent）。
+- **参数规格**：`kind` 必填（`"read"` 或 `"write"`）；`name` 可选（缺省用默认名）；`spaceIds` 可选（`null` 表示不限制，数组表示限定空间）。
+- **空间范围校验**：`spaceIds` 中的每一个空间 ID 必须在 **owner 当前可见的空间范围内**（防止越权代签 owner 不可见的空间）；包含不可见空间时 400 `code:"INVALID_SPACE_SCOPE"`。
+- **生效模型**：端到端读写生效范围遵循「**Agent 自身空间成员 ∩ 令牌 scope**」。即 Agent 必须已被添加为对应空间的成员（且具备对应角色权限），该令牌在对应空间的操作才会生效；若 Agent 尚未加入该空间，即使令牌 scope 包含该空间，读接口亦不可见（返回空）、写接口亦报 404。
+- **限流**：按 owner 账号计入 `read_token` / `write_token` 限流桶（10 次 / 5 分钟），超限 429。
+- **明文只返回一次**，201：
+
+```json
+{
+  "id": 6,
+  "name": "写入流水线",
+  "kind": "write",
+  "spaceIds": [1],
+  "token": "ciki_wt_…"
+}
+```
+
+#### DELETE /api/me/agents/:id/tokens/:tokenId
+
+代管吊销本人名下 Agent 的单枚接口令牌：成功 200 `{"success":true}`，该令牌立即失效。非本人名下 / 目标不存在 / 已吊销均 404。
+
 ### 管理（全部需管理员，非管理员 403）
 
 #### GET /api/admin/users?status=all|pending
@@ -917,12 +1033,34 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
     "role": "user",
     "isActive": false,
     "approvalStatus": "pending",
+    "isAgent": false,
+    "kind": "human",
+    "ownerUserId": null,
+    "owner": null,
+    "createdAt": "…"
+  },
+  {
+    "id": 3,
+    "email": "agent-xxx@internal",
+    "username": "doc-bot",
+    "role": "user",
+    "isActive": true,
+    "approvalStatus": "approved",
+    "isAgent": true,
+    "kind": "agent",
+    "ownerUserId": 1,
+    "owner": {
+      "id": 1,
+      "username": "alice"
+    },
     "createdAt": "…"
   }
 ]
 ```
 
-`id` 是整数（管理接口的 `:id` 路径参数同样是整数）；响应不含 `publicId`（已删除），`username` 是唯一对外身份。
+- `id` 是整数（管理接口的 `:id` 路径参数同样是整数）；响应不含 `publicId`（已删除），`username` 是唯一对外身份。
+- 包含 `isAgent: boolean`（`kind === 'agent'`）与 `kind: "human" | "agent"`。
+- 包含 `ownerUserId: number | null` 与 `owner: { id: number, username: string } | null`（当且仅当该用户为 Agent 且其所有者存在时展开，人类用户均为 `null`）。
 
 #### POST /api/admin/users
 
@@ -938,7 +1076,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 { "role": "admin", "isActive": true, "email": "…", "password": "…" }
 ```
 
-字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话；改密码时同样清掉该用户未使用的 `password_reset` 凭据（验证码与 resetToken）。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。改邮箱时一并删除该用户全部 `email_codes`（旧邮箱收到的码立即作废）。`username` / 头像不在此接口里改（改显示名走 `PUT /api/me/profile`）。
+字段均可选。不能改自己的角色、不能停用自己。改角色/停用/改密码后吊销该用户全部会话；改密码时同样清掉该用户未使用的 `password_reset` 凭据（验证码与 resetToken）。邮箱撞已有账号 → 409 `code:"EMAIL_TAKEN"`（并发下也不回 500）。改邮箱时一并删除该用户全部 `email_codes`（旧邮箱收到的码立即作废）。`username` / 头像不在此接口里改（改显示名走 `PUT /api/me/profile`）。Agent 账号的角色锁定为 `user`，禁止赋予 `admin` 角色；传入 `{ "role": "admin" }` 时返回 400 `{"error":"Agent cannot be granted admin role"}`。管理员可正常启停或删除 Agent 账号。
 
 #### DELETE /api/admin/users/:id
 
@@ -1071,8 +1209,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```text
 Space        = { id, slug, name, description, myRole: "admin"|"editor"|"viewer",
                  isDefault, createdAt, updatedAt }
-SpaceMember  = { userId, username, email, role, createdAt }
-SpaceCandidate = { userId, username, email }
+SpaceMember  = { userId, username, email, role, isAgent, createdAt }
+SpaceCandidate = { userId, username, email, isAgent }
 ```
 
 站点管理员对每个空间的有效 `myRole` 都是 `admin`（不要求是成员）。
@@ -1149,7 +1287,7 @@ SpaceCandidate = { userId, username, email }
 仅空间 `admin` / 站点管理员。候选用户（已激活、已批准、尚未加入该空间），按显示名/邮箱模糊匹配，最多 20 条：
 
 ```json
-[{ "userId": 3, "username": "alice", "email": "…" }]
+[{ "userId": 3, "username": "alice", "email": "…", "isAgent": false }]
 ```
 
 ### 页面
@@ -1205,18 +1343,20 @@ SpaceCandidate = { userId, username, email }
   "createdBy": 1,
   "createdByName": "张三",
   "createdByAvatarUrl": "/api/files/avatars/….png",
+  "createdByIsAgent": false,
   "updatedBy": 1,
   "updatedByName": "张三",
   "updatedByAvatarUrl": "/api/files/avatars/….png",
+  "updatedByIsAgent": false,
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
 
-- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`updatedByName`、`updatedByAvatarUrl` 四个字段，保留原数字 `createdBy` 与 `updatedBy`。
-  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`；
-  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`；
-  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`。
+- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`createdByIsAgent`、`updatedByName`、`updatedByAvatarUrl`、`updatedByIsAgent` 等字段，保留原数字 `createdBy` 与 `updatedBy`。
+  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`，`isAgent` 为 `false`；
+  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`，`isAgent` 为 `false`；
+  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`，`isAgent` 为布尔值（`user.kind === 'agent'`）。
 
 **阅读热路径不读 R2**：详情默认**不含** `contentJson`，`contentHtml` / `contentText` / `contentMd` 都是 D1 里的派生列（`contentMd` 是库里的值，空正文页为空串，绝不会是 `null`）。
 

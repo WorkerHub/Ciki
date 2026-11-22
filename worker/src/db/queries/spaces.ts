@@ -13,6 +13,7 @@ import {
   spacesTable,
   usersTable
 } from "../../lib/tables"
+import type { UserKind } from "./users"
 
 export type SpaceRole = "admin" | "editor" | "viewer"
 
@@ -41,6 +42,7 @@ export interface SpaceMemberViewRow {
   username: string
   email: string
   role: SpaceRole
+  kind: UserKind
   created_at: string
 }
 
@@ -48,6 +50,7 @@ export interface MemberCandidateRow {
   user_id: number
   username: string
   email: string
+  kind: UserKind
 }
 
 export interface SpaceOverviewRow extends SpaceRow {
@@ -257,7 +260,7 @@ export async function listSpaceMembers(
   const rows = await db
     .prepare(
       `SELECT m.user_id, m.role, m.created_at,
-              u.username, u.email
+              u.username, u.email, u.kind
          FROM ${spaceMembersTable(prefix)} m
          JOIN ${usersTable(prefix)} u ON u.id = m.user_id
         WHERE m.space_id = ?
@@ -368,7 +371,7 @@ export async function listMemberCandidates(
       ? "1 = 1"
       : `(u.username LIKE ? ESCAPE '\\'
           OR u.email LIKE ? ESCAPE '\\')`
-  const sql = `SELECT u.id AS user_id, u.username, u.email
+  const sql = `SELECT u.id AS user_id, u.username, u.email, u.kind
      FROM ${usersTable(prefix)} u
     WHERE u.is_active = 1 AND u.approval_status = 'approved'
       AND NOT EXISTS (

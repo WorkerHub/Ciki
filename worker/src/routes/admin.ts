@@ -90,15 +90,30 @@ import type { HonoEnv } from "../types"
 const EMAIL_RE =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
 
-function userDto(user: UserRow) {
+interface UserOwnerSummary {
+  id: number
+  username: string
+}
+
+function userDto(user: UserRow, ownerMap?: Map<number, UserOwnerSummary>) {
+  const isAgent = user.kind === "agent"
+  let owner: UserOwnerSummary | null = null
+  if (isAgent && user.owner_user_id) {
+    const o = ownerMap?.get(user.owner_user_id)
+    if (o) {
+      owner = { id: o.id, username: o.username }
+    }
+  }
   return {
     id: user.id,
     email: user.email,
     role: user.role,
     isActive: Boolean(user.is_active),
     approvalStatus: user.approval_status,
+    isAgent,
     kind: user.kind,
     ownerUserId: user.owner_user_id,
+    owner,
     createdAt: user.created_at
   }
 }
@@ -132,11 +147,15 @@ adminRoutes.get("/users", async (c) => {
   const prefix = getTablePrefix(c.env)
   const status = c.req.query("status") ?? "all"
   const users = await listUsers(c.env.DB, prefix)
+  const ownerMap = new Map<number, UserOwnerSummary>()
+  for (const u of users) {
+    ownerMap.set(u.id, { id: u.id, username: u.username })
+  }
   const filtered =
     status === "pending"
       ? users.filter((user) => user.approval_status === "pending")
       : users
-  return c.json(filtered.map(userDto))
+  return c.json(filtered.map((u) => userDto(u, ownerMap)))
 })
 
 adminRoutes.post("/users", async (c) => {

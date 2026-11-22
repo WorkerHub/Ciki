@@ -30,7 +30,7 @@ import {
   type PageRow,
   type PageSummaryRow
 } from "../db/queries/pages"
-import { findUsersByIds } from "../db/queries/users"
+import { findUsersByIds, type UserAuthorSummary } from "../db/queries/users"
 import { findDefaultSpace } from "../db/queries/spaces"
 import {
   deleteRevision,
@@ -98,18 +98,19 @@ function toSummary(row: PageSummaryRow) {
 
 function resolveAuthor(
   userId: number,
-  userMap: Map<number, { username: string; avatar_key: string }>
-): { name: string | null; avatarUrl: string | null } {
+  userMap: Map<number, UserAuthorSummary>
+): { name: string | null; avatarUrl: string | null; isAgent: boolean } {
   if (userId === 0) {
-    return { name: null, avatarUrl: null }
+    return { name: null, avatarUrl: null, isAgent: false }
   }
   const user = userMap.get(userId)
   if (!user) {
-    return { name: DELETED_AUTHOR_NAME, avatarUrl: null }
+    return { name: DELETED_AUTHOR_NAME, avatarUrl: null, isAgent: false }
   }
   return {
     name: user.username,
-    avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null
+    avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null,
+    isAgent: user.kind === "agent"
   }
 }
 
@@ -134,9 +135,11 @@ async function toDetail(db: D1Database, prefix: string, row: PageRow) {
     createdBy: row.created_by,
     createdByName: createdAuthor.name,
     createdByAvatarUrl: createdAuthor.avatarUrl,
+    createdByIsAgent: createdAuthor.isAgent,
     updatedBy: row.updated_by,
     updatedByName: updatedAuthor.name,
     updatedByAvatarUrl: updatedAuthor.avatarUrl,
+    updatedByIsAgent: updatedAuthor.isAgent,
     createdAt: row.created_at
   }
 }

@@ -71,6 +71,7 @@ function toMemberDto(row: SpaceMemberViewRow) {
     username: row.username,
     email: row.email,
     role: row.role,
+    isAgent: row.kind === "agent",
     createdAt: row.created_at
   }
 }
@@ -79,7 +80,8 @@ function toCandidateDto(row: MemberCandidateRow) {
   return {
     userId: row.user_id,
     username: row.username,
-    email: row.email
+    email: row.email,
+    isAgent: row.kind === "agent"
   }
 }
 
@@ -358,6 +360,7 @@ spaceRoutes.post("/:id/members", async (c) => {
       username: user.username,
       email: user.email,
       role: body.role,
+      isAgent: user.kind === "agent",
       createdAt: now
     },
     201
@@ -417,6 +420,7 @@ spaceRoutes.put("/:id/members/:userId", async (c) => {
     username: user?.username ?? "",
     email: user?.email ?? "",
     role: body.role,
+    isAgent: user?.kind === "agent",
     createdAt: member.created_at
   })
 })
