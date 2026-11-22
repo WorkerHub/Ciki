@@ -335,3 +335,34 @@ export async function deleteUser(
     .bind(id)
     .run()
 }
+
+export async function listAgentsByOwner(
+  db: D1Database,
+  prefix: string,
+  ownerUserId: number
+): Promise<UserRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM ${usersTable(prefix)}
+        WHERE kind = 'agent' AND owner_user_id = ?
+        ORDER BY created_at ASC, id ASC`
+    )
+    .bind(ownerUserId)
+    .all<UserRow>()
+  return rows.results
+}
+
+export async function findAgentByOwner(
+  db: D1Database,
+  prefix: string,
+  ownerUserId: number,
+  agentId: number
+): Promise<UserRow | null> {
+  return db
+    .prepare(
+      `SELECT * FROM ${usersTable(prefix)}
+        WHERE id = ? AND kind = 'agent' AND owner_user_id = ?`
+    )
+    .bind(agentId, ownerUserId)
+    .first<UserRow>()
+}
