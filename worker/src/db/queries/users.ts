@@ -231,6 +231,7 @@ export interface UserAuthorSummary {
   id: number
   username: string
   avatar_key: string
+  kind: UserKind
 }
 
 export async function findUsersByIds(
@@ -243,7 +244,7 @@ export async function findUsersByIds(
   const placeholders = uniqueIds.map(() => "?").join(", ")
   const rows = await db
     .prepare(
-      `SELECT id, username, avatar_key FROM ${usersTable(prefix)} WHERE id IN (${placeholders})`
+      `SELECT id, username, avatar_key, kind FROM ${usersTable(prefix)} WHERE id IN (${placeholders})`
     )
     .bind(...uniqueIds)
     .all<UserAuthorSummary>()
