@@ -1,3 +1,4 @@
+import { exportToBlob } from "@excalidraw/excalidraw"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -75,6 +76,7 @@ describe("ExcalidrawModal 全屏画布编辑器", () => {
 
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.mocked(exportToBlob).mockClear()
     vi.spyOn(api, "upload").mockImplementation(async (file: File) => {
       if (file.name.endsWith(".json")) {
         return {
@@ -186,6 +188,20 @@ describe("ExcalidrawModal 全屏画布编辑器", () => {
     })
 
     expect(api.upload).toHaveBeenCalledTimes(2)
+
+    expect(exportToBlob).toHaveBeenCalledTimes(1)
+    const exportCall = vi.mocked(exportToBlob).mock.calls[0][0]
+    expect(exportCall.appState).toMatchObject({
+      exportScale: 2,
+      exportBackground: true
+    })
+    expect(exportCall.mimeType).toBe("image/png")
+    expect(exportCall.getDimensions).toBeTypeOf("function")
+    expect(exportCall.getDimensions?.(100, 200)).toEqual({
+      width: 200,
+      height: 400,
+      scale: 2
+    })
   })
 
   it("6. 满足红线与安全约束：validateEmbeddable 关闭、禁用图片工具、覆盖隐藏图库侧栏触发器", async () => {

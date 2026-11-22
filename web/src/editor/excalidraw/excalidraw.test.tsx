@@ -2,6 +2,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { Editor } from "@tiptap/core"
 import { EditorContent, useEditor } from "@tiptap/react"
+import * as excalidraw from "@excalidraw/excalidraw"
 import { DefaultSidebar, Excalidraw } from "@excalidraw/excalidraw"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
@@ -445,7 +446,8 @@ describe("Excalidraw 弹窗 Portal 挂载与节点选区交互", () => {
     expect(img.style.minHeight).toBe("")
   })
 
-  it("exportSceneToBlob 能够执行", async () => {
+  it("exportSceneToBlob 能够执行，并传递 getDimensions 兑现真 2x", async () => {
+    const exportSpy = vi.spyOn(excalidraw, "exportToBlob")
     const blob = await exportSceneToBlob({
       elements: [
         {
@@ -462,6 +464,23 @@ describe("Excalidraw 弹窗 Portal 挂载与节点选区交互", () => {
     const url = URL.createObjectURL(blob)
     expect(url).toMatch(/^blob:/)
     URL.revokeObjectURL(url)
+
+    expect(exportSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        appState: expect.objectContaining({
+          exportScale: 2,
+          exportBackground: true
+        }),
+        mimeType: "image/png",
+        getDimensions: expect.any(Function)
+      })
+    )
+    const lastCall = exportSpy.mock.calls[0][0]
+    expect(lastCall.getDimensions?.(100, 200)).toEqual({
+      width: 200,
+      height: 400,
+      scale: 2
+    })
   })
 })
 
