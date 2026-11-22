@@ -66,4 +66,3 @@ describe("系统管理路由出口", () => {
     expect(adminOthersPath()).toBe("/admin/others")
   })
 })
-

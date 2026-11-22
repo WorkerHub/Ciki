@@ -78,4 +78,3 @@ export function adminEmailPath(): string {
 export function adminOthersPath(): string {
   return "/admin/others"
 }
-

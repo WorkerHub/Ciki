@@ -231,9 +231,9 @@ describe("系统管理 · 真实路由子导航", () => {
     unmountSite()
 
     const { unmount: unmountSecurity } = renderAdmin("/admin/security")
-    expect(screen.getByRole("link", { name: "访问与安全" }).className).toContain(
-      "bg-background"
-    )
+    expect(
+      screen.getByRole("link", { name: "访问与安全" }).className
+    ).toContain("bg-background")
     expect(await screen.findByText("强制两步验证")).toBeInTheDocument()
     unmountSecurity()
 
