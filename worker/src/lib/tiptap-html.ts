@@ -33,8 +33,12 @@
 import {
   Extension,
   type Extensions,
+  Node,
   getSchema,
-  type JSONContent
+  getText,
+  getTextSerializersFromSchema,
+  type JSONContent,
+  mergeAttributes
 } from "@tiptap/core"
 import Highlight from "@tiptap/extension-highlight"
 import Image from "@tiptap/extension-image"
@@ -62,6 +66,15 @@ export class TiptapRenderError extends Error {
   }
 }
 
+/** 正整数像素宽度校验与序列化（与 web 的 imageWidth 同一规则）。 */
+function renderPixelWidth(raw: unknown): Record<string, string> {
+  const value =
+    typeof raw === "string" && /^\d+$/.test(raw.trim()) ? Number(raw) : raw
+  if (typeof value !== "number" || !Number.isFinite(value)) return {}
+  const width = Math.round(value)
+  return width > 0 ? { width: String(width) } : {}
+}
+
 /**
  * 图片：额外两个属性承载「未转存」标记（契约 §三 图片白名单同名），
  * 与 web 的 WikiImage 一致——这样含占位图的内容经服务端渲染还能还原成占位。
@@ -77,16 +90,7 @@ const ImportImage = Image.extend({
         // 与 web 的 imageWidth（web/src/editor/image-attributes.ts）逐条同口径：
         // 只认正整数像素——字符串必须是纯数字，布尔/数组/小数串一律丢弃，
         // 不猜用户意图（否则 width:true 会被 Number() 强转成 1）。
-        renderHTML: (attributes) => {
-          const raw = attributes.width
-          const value =
-            typeof raw === "string" && /^\d+$/.test(raw.trim())
-              ? Number(raw)
-              : raw
-          if (typeof value !== "number" || !Number.isFinite(value)) return {}
-          const width = Math.round(value)
-          return width > 0 ? { width: String(width) } : {}
-        }
+        renderHTML: (attributes) => renderPixelWidth(attributes.width)
       },
       originalSrc: {
         default: null,
@@ -106,6 +110,86 @@ const ImportImage = Image.extend({
   },
   parseHTML() {
     return [...(this.parent?.() ?? []), { tag: "img[data-original-src]" }]
+  }
+})
+
+/**
+ * 画布块（Excalidraw）：与 web 侧 WikiExcalidraw 同名同形。
+ *
+ * 载具结构为带有特定 data 属性的 <img> 标签：
+ * - data-type="excalidraw"
+ * - data-scene-key: R2 场景 JSON 的 key（pages/<uuid>.json）
+ * - data-preview-key: R2 预览图 PNG 的 key（pages/<uuid>.png）
+ * - src: 预览图访问地址（/api/files/${previewKey}）
+ * - alt: 画布中提取出的纯文本（无障碍回退与纯文本降级）
+ * - width: 可选的正整数像素宽度
+ *
+ * 服务端渲染无需加载 R2 场景 JSON，仅依赖 TipTap JSON 中的属性进行静态 HTML 渲染。
+ */
+const ImportExcalidraw = Node.create({
+  name: "excalidraw",
+  priority: 1000,
+  group: "block",
+  atom: true,
+
+  addAttributes() {
+    return {
+      sceneKey: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-scene-key") ?? "",
+        renderHTML: (attributes) => {
+          if (!attributes.sceneKey) return {}
+          return { "data-scene-key": attributes.sceneKey }
+        }
+      },
+      previewKey: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-preview-key") ?? "",
+        renderHTML: (attributes) => {
+          if (!attributes.previewKey) return {}
+          return {
+            "data-preview-key": attributes.previewKey,
+            src: `/api/files/${attributes.previewKey}`
+          }
+        }
+      },
+      extractedText: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("alt") ?? "",
+        renderHTML: (attributes) => {
+          return attributes.extractedText
+            ? { alt: attributes.extractedText }
+            : { alt: "" }
+        }
+      },
+      width: {
+        default: null,
+        parseHTML: (element) => {
+          const raw = element.getAttribute("width")?.trim() ?? ""
+          return /^\d+$/.test(raw) ? Number(raw) : null
+        },
+        renderHTML: (attributes) => renderPixelWidth(attributes.width)
+      }
+    }
+  },
+
+  parseHTML() {
+    return [
+      {
+        tag: 'img[data-type="excalidraw"]'
+      }
+    ]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "img",
+      mergeAttributes({ "data-type": "excalidraw" }, HTMLAttributes)
+    ]
+  },
+
+  renderText({ node }) {
+    return node.attrs.extractedText ? `${node.attrs.extractedText}\n` : ""
   }
 })
 
@@ -335,6 +419,7 @@ const extensions: Extensions = [
   ImportCodeBlockCollapse,
   Highlight.configure({ multicolor: true }),
   ImportImage.configure({ allowBase64: true, inline: false }),
+  ImportExcalidraw,
   // 始终包一层 .tableWrapper：读态超宽表格要横向滚动（与 web 一致）。
   ImportTable.configure({ renderWrapper: true }),
   TableRow,
@@ -490,6 +575,39 @@ export function parseTiptapDoc(json: unknown): ProseMirrorNode {
       err instanceof Error ? err.message : "contentJson cannot be rendered"
     )
   }
+}
+
+let cachedTextSerializers: Record<string, (props: any) => string> | null = null
+
+function textSerializers(): Record<string, (props: any) => string> {
+  if (!cachedTextSerializers) {
+    cachedTextSerializers = getTextSerializersFromSchema(schema())
+  }
+  return cachedTextSerializers
+}
+
+/**
+ * 将已校验的 ProseMirror 节点树渲染为 HTML 字符串。
+ */
+export function renderTiptapDoc(doc: ProseMirrorNode): string {
+  return serialize(doc)
+}
+
+/**
+ * ProseMirror 节点树 → 纯文本（与前端 editor.getText({ blockSeparator: "\n" }) 同一口径）。
+ */
+export function docToPlainText(doc: ProseMirrorNode): string {
+  return getText(doc, {
+    blockSeparator: "\n",
+    textSerializers: textSerializers()
+  })
+}
+
+/**
+ * TipTap JSON → 纯文本（与前端 editor.getText({ blockSeparator: "\n" }) 同一口径）。
+ */
+export function renderTiptapText(json: unknown): string {
+  return docToPlainText(parseTiptapDoc(json))
 }
 
 /**

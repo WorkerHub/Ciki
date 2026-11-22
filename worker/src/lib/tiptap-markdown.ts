@@ -104,8 +104,33 @@ function imageSrc(node: ProseMirrorNode): string {
 
 function renderImage(node: ProseMirrorNode): string {
   const alt = typeof node.attrs.alt === "string" ? node.attrs.alt : ""
-  const label = alt.replace(/[[\]]/g, (char) => `\\${char}`)
+  const normalizedAlt = alt.replace(/[\r\n]+/g, " ")
+  const label = normalizedAlt.replace(/[[\]]/g, (char) => `\\${char}`)
   return `![${label}](${imageSrc(node)})`
+}
+
+function excalidrawSrc(node: ProseMirrorNode): string {
+  const previewKey =
+    typeof node.attrs.previewKey === "string"
+      ? node.attrs.previewKey.trim()
+      : ""
+  if (!previewKey) return ""
+  if (previewKey.startsWith("http://") || previewKey.startsWith("https://")) {
+    return previewKey
+  }
+  const path = previewKey.startsWith("/")
+    ? previewKey
+    : `/api/files/${previewKey}`
+  return `${CIKI_MD_ORIGIN}${path}`
+}
+
+function renderExcalidraw(node: ProseMirrorNode): string {
+  const alt =
+    typeof node.attrs.extractedText === "string" ? node.attrs.extractedText : ""
+  // alt 里的换行归一（替换为空格），避免如 \n\n 导致 Markdown 链接断裂
+  const normalizedAlt = alt.replace(/[\r\n]+/g, " ")
+  const label = normalizedAlt.replace(/[[\]]/g, (char) => `\\${char}`)
+  return `![${label}](${excalidrawSrc(node)})`
 }
 
 /** 行内内容（paragraph / heading / 表格单元格里的文字）拍平成一行。 */
@@ -122,6 +147,10 @@ function renderInline(node: ProseMirrorNode): string {
     }
     if (child.type.name === "image") {
       out += renderImage(child)
+      return
+    }
+    if (child.type.name === "excalidraw") {
+      out += renderExcalidraw(child)
       return
     }
     // 其余行内节点（理论上没有）按「收文字」处理。
@@ -297,6 +326,8 @@ function renderBlock(node: ProseMirrorNode, depth: number): string | null {
       return "---"
     case "image":
       return renderImage(node)
+    case "excalidraw":
+      return renderExcalidraw(node)
     case "table":
       return renderTable(node)
     case "bulletList":

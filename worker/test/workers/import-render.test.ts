@@ -239,4 +239,76 @@ describe("导入渲染：在 Worker 运行时里跑", () => {
     expect(result.value.contentHtml).not.toContain('data-font-size="15px"')
     expect(result.value.contentHtml).toContain("非法字号")
   })
+
+  it("画布块（excalidraw）：在 Worker 运行时里保真渲染为带指定 data 属性的 img 载具", () => {
+    const sceneKey = "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json"
+    const previewKey = "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "画布前正文" }]
+        },
+        {
+          type: "excalidraw",
+          attrs: {
+            sceneKey,
+            previewKey,
+            extractedText: "架构设计图",
+            width: 720
+          }
+        }
+      ]
+    }
+    const result = normalizeImportedContent({
+      title: "画布导入测试",
+      contentJson: JSON.stringify(doc)
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.contentHtml).toContain('data-type="excalidraw"')
+    expect(result.value.contentHtml).toContain(`data-scene-key="${sceneKey}"`)
+    expect(result.value.contentHtml).toContain(
+      `data-preview-key="${previewKey}"`
+    )
+    expect(result.value.contentHtml).toContain(`src="/api/files/${previewKey}"`)
+    expect(result.value.contentHtml).toContain('alt="架构设计图"')
+    expect(result.value.contentHtml).toContain('width="720"')
+    expect(result.value.contentText).toContain("架构设计图")
+    expect(result.value.contentMd).toContain(
+      `![架构设计图](https://ciki.oneboy.app/api/files/${previewKey})`
+    )
+  })
+
+  it("画布块（excalidraw）：extractedText 含换行时 markdown 派生正常且纯文本并入 contentText", () => {
+    const sceneKey = "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json"
+    const previewKey = "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "excalidraw",
+          attrs: {
+            sceneKey,
+            previewKey,
+            extractedText: "系统服务\n\n消息队列\r\n持久化存储",
+            width: 800
+          }
+        }
+      ]
+    }
+    const result = normalizeImportedContent({
+      title: "多行画布导入测试",
+      contentJson: JSON.stringify(doc)
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+
+    expect(result.value.contentText).toBe("系统服务 消息队列 持久化存储")
+    expect(result.value.contentMd).toBe(
+      `![系统服务 消息队列 持久化存储](https://ciki.oneboy.app/api/files/${previewKey})`
+    )
+  })
 })

@@ -10,7 +10,12 @@
  * data-original-src + data-confluence-img，输出可能比输入大数倍，先按原始体积
  * 放行会让 2MB 的 D1 单行限制在保存时炸掉。
  */
-import { renderTiptapHtml, TiptapRenderError } from "./tiptap-html"
+import {
+  docToPlainText,
+  parseTiptapDoc,
+  renderTiptapDoc,
+  TiptapRenderError
+} from "./tiptap-html"
 import { derivePageMarkdown } from "./tiptap-markdown"
 import {
   MAX_HTML_BYTES,
@@ -185,8 +190,9 @@ function readContentJson(
 }
 
 /**
- * `/api/import/pages` 的入参：只收 contentJson，服务端渲染成 HTML 后过同一支
- * 消毒管线；contentText 由消毒后的 HTML 生成（不再信任插件侧的纯文本）。
+ * `/api/import/pages` 的入参：只收 contentJson，服务端按编辑器 schema 校验并渲染成 HTML，
+ * 过同一支消毒管线；contentText 通过 ProseMirror 序列化提取纯文本（含画布块 extractedText），
+ * 保持与编辑保存路径（Editor.tsx editor.getText）口径一致。
  */
 export function normalizeImportedContent(input: {
   title: unknown
@@ -211,9 +217,13 @@ export function normalizeImportedContent(input: {
   // 渲染前先按原始体积粗筛：明显超限的内容不必进序列化。
   if (utf8Length(read.text) > MAX_JSON_BYTES) return payloadTooLarge()
 
-  let rendered: string
+  let safeHtml: string
+  let plainText: string
   try {
-    rendered = renderTiptapHtml(read.parsed)
+    const doc = parseTiptapDoc(read.parsed)
+    const rendered = renderTiptapDoc(doc)
+    safeHtml = sanitizePageHtml(rendered)
+    plainText = toPlainText(docToPlainText(doc))
   } catch (err) {
     if (!(err instanceof TiptapRenderError)) throw err
     return {
@@ -223,8 +233,6 @@ export function normalizeImportedContent(input: {
     }
   }
 
-  const safeHtml = sanitizePageHtml(rendered)
-  const plainText = toPlainText(safeHtml)
   const markdown = derivePageMarkdown(read.text, plainText)
   const tooLarge = checkOutputSize(safeHtml, read.text, plainText, markdown)
   if (tooLarge) return tooLarge

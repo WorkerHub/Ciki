@@ -766,6 +766,82 @@ describe("写接口：改页", () => {
     expect(await revisions(env, admin, page.id)).toHaveLength(3)
   })
 
+  it("画布块：支持包含 excalidraw 节点的正文建页与更新", async () => {
+    const context = await initializedContext()
+    const { env } = context
+    const admin = await adminSession(env)
+    const { token } = await issueWriteToken(env, admin)
+
+    const sceneKey = "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json"
+    const previewKey = "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+    const excalidrawDoc = {
+      type: "doc",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "画布正文" }]
+        },
+        {
+          type: "excalidraw",
+          attrs: {
+            sceneKey,
+            previewKey,
+            extractedText: "架构设计图",
+            width: 720
+          }
+        }
+      ]
+    }
+
+    const created = await writeRequest(env, token, "POST", "/api/write/pages", {
+      title: "画布写接口页",
+      content_json: excalidrawDoc
+    })
+    expect(created.status).toBe(201)
+    const page = (await created.json()) as PageMeta
+
+    const row = pageRow(context, page.id)
+    expect(row.content_html).toContain('data-type="excalidraw"')
+    expect(row.content_html).toContain(`data-scene-key="${sceneKey}"`)
+    expect(row.content_html).toContain(`data-preview-key="${previewKey}"`)
+    expect(row.content_html).toContain(`src="/api/files/${previewKey}"`)
+    expect(row.content_html).toContain('alt="架构设计图"')
+    expect(row.content_html).toContain('width="720"')
+    expect(row.content_text).toContain("架构设计图")
+    expect(row.content_md).toContain(
+      `![架构设计图](https://ciki.oneboy.app/api/files/${previewKey})`
+    )
+
+    // 更新页面继续带画布块
+    const updated = await writeRequest(
+      env,
+      token,
+      "PUT",
+      `/api/write/pages/${page.id}`,
+      {
+        content_json: {
+          type: "doc",
+          content: [
+            {
+              type: "excalidraw",
+              attrs: {
+                sceneKey,
+                previewKey,
+                extractedText: "更新后架构设计图",
+                width: 600
+              }
+            }
+          ]
+        }
+      }
+    )
+    expect(updated.status).toBe(200)
+    const rowUpdated = pageRow(context, page.id)
+    expect(rowUpdated.content_html).toContain('alt="更新后架构设计图"')
+    expect(rowUpdated.content_html).toContain('width="600"')
+    expect(rowUpdated.content_text).toContain("更新后架构设计图")
+  })
+
   it("至少给一个字段；页面不存在/已删/坏 id 一律 404；正文错误码", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
