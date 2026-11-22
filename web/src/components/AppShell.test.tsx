@@ -620,4 +620,24 @@ describe("应用外壳：英文界面", () => {
     // 空树提示随语言走（空间名是用户数据，不翻译）
     expect(await screen.findByText(/No pages in/)).toBeInTheDocument()
   })
+
+  it("桌面端主内容与侧栏 Panel 显式覆盖 overflow 为 hidden，杜绝双滚动条与底部空白泄漏", async () => {
+    const { container } = renderShell("/p/abc")
+
+    const mainPanel = container.querySelector("#main")
+    expect(mainPanel).toBeInTheDocument()
+
+    // react-resizable-panels 为 Panel 生成直接 wrapper 子节点并注入 inline style
+    const mainWrapper = mainPanel?.firstElementChild as HTMLElement | null
+    expect(mainWrapper).not.toBeNull()
+    expect(mainWrapper?.style.overflow).toBe("hidden")
+
+    // 主内容列顶层容器显式包含 overflow-hidden，防止高度穿透
+    const flexCol = mainWrapper?.firstElementChild as HTMLElement | null
+    expect(flexCol).toHaveClass("overflow-hidden")
+
+    const sidebarPanel = container.querySelector("#sidebar")
+    const sidebarWrapper = sidebarPanel?.firstElementChild as HTMLElement | null
+    expect(sidebarWrapper?.style.overflow).toBe("hidden")
+  })
 })
