@@ -315,7 +315,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML（阅读页直读，不碰 R2）                                              |
 | content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要                                                                             |
 | content_md             | TEXT NOT NULL DEFAULT ''   | 从正文派生的 Markdown（导出/机读用，**永不反写正文**）                                  |
-| created_by, updated_by | INTEGER NOT NULL           | 用户 id（0 = 用户已彻底删除）                                                           |
+| created_by, updated_by | INTEGER NOT NULL           | 用户 id（0 = 播种时无用户；用户删除后保留原 id，不置 0）                                |
 | created_at, updated_at | TEXT NOT NULL              | ISO 时间                                                                                |
 | deleted_at             | TEXT NULL                  | 软删时间                                                                                |
 
