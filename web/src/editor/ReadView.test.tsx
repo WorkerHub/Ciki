@@ -184,9 +184,9 @@ describe("阅读态颜色（入库形态 → 渲染）", () => {
     )
   })
 
-  it("夜间模式自适应 CSS 变量渲染（过暗提亮 + 背景对称压暗 + 达标不变）", async () => {
+  it("夜间模式自适应 CSS 变量渲染（过暗提亮 + 亮红豁免 + 背景对称压暗 + 达标不变）", async () => {
     const htmlWithCompliant = [
-      '<p><span data-text-color="#de350b">红字</span><span data-text-color="#d97008">橙字</span></p>',
+      '<p><span data-text-color="#de350b">红字</span><span data-text-color="#0052cc">蓝字</span><span data-text-color="#d97008">橙字</span></p>',
       '<p><mark data-color="#ffe58f">高亮</mark></p>',
       '<table><tbody><tr><td data-cell-bg="#fffae6">单元格</td></tr></tbody></table>'
     ].join("")
@@ -195,6 +195,9 @@ describe("阅读态颜色（入库形态 → 渲染）", () => {
 
     const redSpan = container.querySelector(
       'span[data-text-color="#de350b"]'
+    ) as HTMLElement
+    const blueSpan = container.querySelector(
+      'span[data-text-color="#0052cc"]'
     ) as HTMLElement
     const orangeSpan = container.querySelector(
       'span[data-text-color="#d97008"]'
@@ -208,12 +211,15 @@ describe("阅读态颜色（入库形态 → 渲染）", () => {
 
     // 浅色内联样式不变
     expect(redSpan.style.color).toBe("rgb(222, 53, 11)")
+    expect(blueSpan.style.color).toBe("rgb(0, 82, 204)")
     expect(orangeSpan.style.color).toBe("rgb(217, 112, 8)")
     expect(mark.style.backgroundColor).toBe("rgb(255, 229, 143)")
     expect(cell.style.backgroundColor).toBe("rgb(255, 250, 230)")
 
-    // 暗黑模式兜底 CSS 变量：过暗红字提亮至达标 #f44e24
-    expect(redSpan.style.getPropertyValue("--dark-text-color")).toBe("#f44e24")
+    // 暗黑模式兜底 CSS 变量：决策 B 亮红豁免提亮，严格保持 #de350b
+    expect(redSpan.style.getPropertyValue("--dark-text-color")).toBe("#de350b")
+    // 暗黑模式兜底 CSS 变量：过暗蓝字提亮至达标 #3385ff
+    expect(blueSpan.style.getPropertyValue("--dark-text-color")).toBe("#3385ff")
     // 暗黑模式兜底 CSS 变量：原本达标的橙字保持不变
     expect(orangeSpan.style.getPropertyValue("--dark-text-color")).toBe(
       "#d97008"
@@ -221,6 +227,38 @@ describe("阅读态颜色（入库形态 → 渲染）", () => {
     // 暗黑模式兜底 CSS 变量：高亮与表格背景对称压暗
     expect(mark.style.getPropertyValue("--dark-bg-color")).toBe("#705600")
     expect(cell.style.getPropertyValue("--dark-bg-color")).toBe("#191400")
+  })
+
+  it("夜间模式联合自适应渲染（高亮与单元格底色基准配对）", async () => {
+    const jointHtml = [
+      '<p><span data-text-color="#172b4d"><mark data-color="#ffe58f">高亮内文字</mark></span></p>',
+      '<p><span data-text-color="#172b4d">前缀<mark data-color="#ffe58f">内嵌高亮</mark>后缀</span></p>',
+      '<table><tbody><tr><td data-cell-bg="#fffae6"><span data-text-color="#172b4d">单元格内文字</span></td></tr></tbody></table>'
+    ].join("")
+    const { container } = render(<ReadView html={jointHtml} />)
+    await screen.findByText("高亮内文字")
+
+    const marks = container.querySelectorAll<HTMLElement>(
+      'mark[data-color="#ffe58f"]'
+    )
+    const highlightMark1 = marks[0]
+    const highlightMark2 = marks[1]
+    const cellSpan = container.querySelector(
+      'td[data-cell-bg="#fffae6"] span[data-text-color="#172b4d"]'
+    ) as HTMLElement
+
+    // 高亮内文字：mark 自身获得针对高亮深底的自适应颜色（维持浅底深字 → 深底浅字）
+    expect(highlightMark1.style.getPropertyValue("--dark-text-color")).toBe(
+      "#c1d1ec"
+    )
+
+    // span 包裹 mark：嵌入的 mark 自身也获得针对高亮深底的自适应颜色
+    expect(highlightMark2.style.getPropertyValue("--dark-text-color")).toBe(
+      "#c1d1ec"
+    )
+
+    // cell 包裹 span：span 获得针对单元格深底的自适应颜色
+    expect(cellSpan.style.getPropertyValue("--dark-text-color")).toBe("#507dcb")
   })
 
   it("没有颜色载具的内容不产生任何颜色样式", async () => {

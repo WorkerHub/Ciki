@@ -1,7 +1,8 @@
 import { EditorContent, useEditor } from "@tiptap/react"
 import { useEffect, useMemo, useRef } from "react"
-import { createExtensions } from "@/editor/extensions"
 import { CanvasPageContext } from "@/editor/excalidraw/context"
+import { createExtensions } from "@/editor/extensions"
+import { applyJointColorAdaptation } from "@/lib/color-adapt"
 import { applyColWidthsFromColgroup } from "@/lib/table-columns"
 import { TOP_LEVEL_HEADINGS } from "@/lib/toc"
 
@@ -87,6 +88,7 @@ export function ReadView({
         if (heading) heading.id = id
       })
     }
+    applyJointColorAdaptation(root)
     onReadyRef.current?.(root)
     // prepared 也在依赖里：就地 setContent 换掉的标题节点不带 id，内容一变就要重新补
   }, [editor, headingIds, prepared, updateInPlace])

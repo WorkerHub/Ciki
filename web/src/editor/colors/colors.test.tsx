@@ -1,8 +1,7 @@
-import { Editor } from "@tiptap/core"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
-import { EditorToolbar } from "@/editor/EditorToolbar"
 import {
   currentCellBackground,
   currentHighlight,
@@ -16,11 +15,12 @@ import {
   HIGHLIGHT_COLORS,
   TEXT_COLORS
 } from "@/editor/colors/palette"
+import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
 import { i18n } from "@/i18n"
 import { normalizeColor } from "@/lib/color"
-import { docJson } from "@/test/tiptap-json"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
+import { docJson } from "@/test/tiptap-json"
 
 /**
  * 颜色能力的 Web 侧证据：模型形态（contract 冻结的 textStyle.color / highlight.color /
@@ -136,6 +136,36 @@ describe("颜色命令（编辑器模型）", () => {
       { type: "textStyle", attrs: { color: "#de350b", fontSize: null } },
       { type: "highlight", attrs: { color: "#fffae6" } }
     ])
+  })
+
+  it("决策 B：Confluence 亮红 (#de350b) 豁免夜间提亮，保持原色", () => {
+    const editor = makeEditor("<p>亮红测试</p>")
+    editor.commands.selectAll()
+    setTextColor(editor, "#de350b")
+
+    // HTML 输出与 DOM 均严格保持 #de350b
+    expect(editor.getHTML()).toContain('data-text-color="#de350b"')
+    expect(editor.getHTML()).toContain("--dark-text-color: #de350b")
+
+    const span = editor.view.dom.querySelector(
+      'span[data-text-color="#de350b"]'
+    ) as HTMLElement
+    expect(span.style.getPropertyValue("--dark-text-color")).toBe("#de350b")
+  })
+
+  it("决策 A：编辑态下文字与高亮/单元格底色联合自适应", () => {
+    const editor = makeEditor("<p>前缀高亮后缀</p>")
+    // 选中“高亮”两字（offset 3 到 5）并设置深黑字色 + 黄色高亮
+    editor.commands.setTextSelection({ from: 3, to: 5 })
+    setTextColor(editor, "#172b4d")
+    setHighlight(editor, "#ffe58f")
+
+    const mark = editor.view.dom.querySelector(
+      'mark[data-color="#ffe58f"]'
+    ) as HTMLElement
+    expect(mark).toBeTruthy()
+    // 联合背景自适应：mark 获得针对压暗高亮底色 (#705600) 的联合浅色
+    expect(mark.style.getPropertyValue("--dark-text-color")).toBe("#c1d1ec")
   })
 
   it("单元格底色：光标所在格与整表选区都能设，清除后属性回到 null", () => {

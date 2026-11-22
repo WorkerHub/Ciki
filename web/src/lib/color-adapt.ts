@@ -13,6 +13,8 @@ import { normalizeColor } from "./color"
 
 export const DEFAULT_DARK_BG = "#222222"
 export const WCAG_AA_CONTRAST = 4.5
+/** Confluence 标准亮红（拍板决策 B：夜间豁免提亮，严格保持原色） */
+export const EXEMPT_RED_COLOR = "#de350b"
 
 /** 将十六进制颜色解析为 [R, G, B] (0-255) */
 export function hexToRgb(hex: string): [number, number, number] | null {
@@ -142,6 +144,12 @@ export function adaptTextColorForDark(
 ): string | null {
   const normalized = normalizeColor(hex)
   if (!normalized) return null
+
+  // 拍板决策 B：#de350b（Confluence 标准亮红）夜间豁免提亮，严格保持原色
+  if (normalized === EXEMPT_RED_COLOR) {
+    return normalized
+  }
+
   const rgb = hexToRgb(normalized)
   if (!rgb) return null
 
@@ -208,4 +216,82 @@ export function adaptBackgroundColorForDark(
   const darkL = 1 - l
   const [r, g, b] = hslToRgb(h, s, darkL)
   return rgbToHex(r, g, b)
+}
+
+/**
+ * 联合自适应文字颜色（拍板决策 A）：
+ * 当文字颜色处于高亮（mark）或单元格底色（td/th）内时，
+ * 以对称压暗后的有效背景色为基准计算并自适应文字颜色（保持「浅底深字 → 深底浅字」配对）。
+ * 若未提供有效背景色（独立文字），则回退至默认深色背景（DEFAULT_DARK_BG）。
+ */
+export function adaptJointTextColorForDark(
+  textColor: string | null | undefined,
+  bgColor: string | null | undefined,
+  targetContrast = WCAG_AA_CONTRAST
+): string | null {
+  const normalizedText = normalizeColor(textColor)
+  if (!normalizedText) return null
+
+  // 豁免亮红一律保持原色
+  if (normalizedText === EXEMPT_RED_COLOR) {
+    return normalizedText
+  }
+
+  const normalizedBg = normalizeColor(bgColor)
+  // 有效底色：若有指定背景色，以对称压暗后的深色背景作为基准，否则以全局默认深底作为基准
+  const effectiveDarkBg = normalizedBg
+    ? (adaptBackgroundColorForDark(normalizedBg) ?? DEFAULT_DARK_BG)
+    : DEFAULT_DARK_BG
+
+  return adaptTextColorForDark(normalizedText, targetContrast, effectiveDarkBg)
+}
+
+/**
+ * 对 DOM 根节点下的内联颜色载具应用联合自适应：
+ * - 扫描所有 `span[data-text-color]` 与 `mark[data-color]`；
+ * - 检查是否嵌套于高亮背景或表格单元格底色下；
+ * - 动态计算并更新 `--dark-text-color` 变量。
+ */
+export function applyJointColorAdaptation(
+  root: HTMLElement | null | undefined
+) {
+  if (!root) return
+
+  // 1. 处理所有 span[data-text-color]
+  const spans = root.querySelectorAll<HTMLElement>("span[data-text-color]")
+  spans.forEach((span) => {
+    const textColor = span.getAttribute("data-text-color")
+    if (!textColor) return
+
+    // 检查是否有外部 mark 包裹，或外部单元格底色包裹
+    const mark = span.closest<HTMLElement>("mark[data-color]")
+    const cell = span.closest<HTMLElement>("td[data-cell-bg], th[data-cell-bg]")
+
+    const effectiveBg =
+      mark?.getAttribute("data-color") ?? cell?.getAttribute("data-cell-bg")
+
+    const darkColor = adaptJointTextColorForDark(textColor, effectiveBg)
+    if (darkColor) {
+      span.style.setProperty("--dark-text-color", darkColor)
+    }
+  })
+
+  // 2. 处理嵌套在 span[data-text-color] 内的 mark[data-color]：
+  // 当 span 包裹 mark 时，由于 mark 自身不是 span[data-text-color]，
+  // 为 mark 注入针对该高亮底色的联合字色变量，避免 mark 内部文本继承 span 的默认深底字色。
+  const marks = root.querySelectorAll<HTMLElement>("mark[data-color]")
+  marks.forEach((mark) => {
+    const parentSpan = mark.closest<HTMLElement>("span[data-text-color]")
+    const markBg = mark.getAttribute("data-color")
+    const textColor = parentSpan?.getAttribute("data-text-color")
+
+    if (parentSpan && markBg && textColor) {
+      const darkColor = adaptJointTextColorForDark(textColor, markBg)
+      if (darkColor) {
+        mark.style.setProperty("--dark-text-color", darkColor)
+      }
+    } else {
+      mark.style.removeProperty("--dark-text-color")
+    }
+  })
 }

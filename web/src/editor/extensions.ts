@@ -12,14 +12,15 @@ import { CodeBlockView } from "@/editor/CodeBlockView"
 import {
   WikiColor,
   WikiHighlight,
+  WikiJointColorAdaptation,
   WikiTableCell,
   WikiTableHeader,
   WikiTextStyle
 } from "@/editor/colors/extensions"
+import { WikiExcalidraw } from "@/editor/excalidraw/extension"
 import { WikiFontSize } from "@/editor/font-size/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
 import { imageWidth } from "@/editor/image-attributes"
-import { WikiExcalidraw } from "@/editor/excalidraw/extension"
 
 /** lowlight 只在模块加载时建一次；common 覆盖了 Confluence 里常见语言。 */
 export const lowlight = createLowlight(common)
@@ -152,6 +153,7 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
     WikiColor,
     WikiFontSize,
     WikiHighlight.configure({ multicolor: true }),
+    WikiJointColorAdaptation,
     Table.configure({
       resizable: isEdit,
       // 始终包一层 .tableWrapper：读态也要横向滚动，否则超宽表格会把正文挤变形

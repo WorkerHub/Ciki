@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest"
 import {
-  DEFAULT_DARK_BG,
-  WCAG_AA_CONTRAST,
   adaptBackgroundColorForDark,
+  adaptJointTextColorForDark,
   adaptTextColorForDark,
+  applyJointColorAdaptation,
   contrastRatio,
+  DEFAULT_DARK_BG,
+  EXEMPT_RED_COLOR,
   hexToRgb,
   hslToRgb,
   relativeLuminance,
   rgbToHex,
-  rgbToHsl
+  rgbToHsl,
+  WCAG_AA_CONTRAST
 } from "./color-adapt"
 
 describe("颜色转换与 WCAG 算法纯函数", () => {
@@ -63,7 +66,6 @@ describe("adaptTextColorForDark（夜间模式文字颜色自适应）", () => {
     const darkColors = [
       "#172b4d", // 预设深黑/深蓝
       "#0052cc", // 预设蓝色
-      "#de350b", // 预设红色
       "#000000", // 纯黑
       "#6f42c1", // 预设紫色
       "#1f845a", // 预设绿色
@@ -82,6 +84,15 @@ describe("adaptTextColorForDark（夜间模式文字颜色自适应）", () => {
     }
   })
 
+  it("拍板决策 B：#de350b（Confluence 亮红）夜间豁免提亮，严格保持原色", () => {
+    // 默认深底背景下保持原色
+    expect(adaptTextColorForDark(EXEMPT_RED_COLOR)).toBe(EXEMPT_RED_COLOR)
+    expect(adaptTextColorForDark("#de350b")).toBe("#de350b")
+    // 指定任意深色背景也严格保持原色
+    expect(adaptTextColorForDark("#de350b", 4.5, "#000000")).toBe("#de350b")
+    expect(adaptTextColorForDark("#de350b", 4.5, "#705600")).toBe("#de350b")
+  })
+
   it("已经达标 (>= 4.5:1) 的文字颜色原样保持不变", () => {
     // #d97008 在 #222222 下对比度约为 4.75:1，已达标
     expect(adaptTextColorForDark("#d97008")).toBe("#d97008")
@@ -90,7 +101,7 @@ describe("adaptTextColorForDark（夜间模式文字颜色自适应）", () => {
   })
 
   it("提亮时保持色相 H 与饱和度 S 恒定", () => {
-    const testColors = ["#0052cc", "#de350b", "#1f845a", "#6f42c1"]
+    const testColors = ["#0052cc", "#1f845a", "#6f42c1"]
     for (const color of testColors) {
       const [r1, g1, b1] = hexToRgb(color)!
       const [h1, s1, l1] = rgbToHsl(r1, g1, b1)
@@ -164,5 +175,91 @@ describe("adaptBackgroundColorForDark（夜间模式背景对称压暗）", () =
     expect(adaptBackgroundColorForDark(undefined)).toBeNull()
     expect(adaptBackgroundColorForDark("")).toBeNull()
     expect(adaptBackgroundColorForDark("not-a-color")).toBeNull()
+  })
+})
+
+describe("adaptJointTextColorForDark（联合背景基准自适应）", () => {
+  it("无有效背景时回退至默认深底 (#222222) 评估", () => {
+    const solo = adaptTextColorForDark("#0052cc")
+    const joint = adaptJointTextColorForDark("#0052cc", null)
+    expect(joint).toBe(solo)
+  })
+
+  it("高亮底色下以压暗后的有效底色为基准提亮，满足对比度 >= 4.5:1", () => {
+    const textColor = "#172b4d"
+    const highlightBg = "#ffe58f" // 压暗后为 #705600
+    const adaptedText = adaptJointTextColorForDark(textColor, highlightBg)!
+    expect(adaptedText).toBeTruthy()
+
+    const darkBg = adaptBackgroundColorForDark(highlightBg)!
+    const bgRgb = hexToRgb(darkBg)!
+    const textRgb = hexToRgb(adaptedText)!
+    const bgLum = relativeLuminance(bgRgb[0], bgRgb[1], bgRgb[2])
+    const textLum = relativeLuminance(textRgb[0], textRgb[1], textRgb[2])
+    const cr = contrastRatio(textLum, bgLum)
+    expect(cr).toBeGreaterThanOrEqual(WCAG_AA_CONTRAST)
+  })
+
+  it("表格单元格底色下以压暗后的有效底色为基准提亮，满足对比度 >= 4.5:1", () => {
+    const textColor = "#172b4d"
+    const cellBg = "#fffae6" // 压暗后为 #191400
+    const adaptedText = adaptJointTextColorForDark(textColor, cellBg)!
+    expect(adaptedText).toBeTruthy()
+
+    const darkBg = adaptBackgroundColorForDark(cellBg)!
+    const bgRgb = hexToRgb(darkBg)!
+    const textRgb = hexToRgb(adaptedText)!
+    const bgLum = relativeLuminance(bgRgb[0], bgRgb[1], bgRgb[2])
+    const textLum = relativeLuminance(textRgb[0], textRgb[1], textRgb[2])
+    const cr = contrastRatio(textLum, bgLum)
+    expect(cr).toBeGreaterThanOrEqual(WCAG_AA_CONTRAST)
+  })
+
+  it("豁免亮红 (#de350b) 在任何背景下均保持原色不变", () => {
+    expect(adaptJointTextColorForDark("#de350b", "#ffe58f")).toBe("#de350b")
+    expect(adaptJointTextColorForDark("#de350b", "#fffae6")).toBe("#de350b")
+  })
+})
+
+describe("applyJointColorAdaptation（DOM 树内联颜色载具联合自适应）", () => {
+  it("正确识别独立文字、高亮嵌套文字、单元格底色文字及嵌套高亮", () => {
+    const div = document.createElement("div")
+    div.innerHTML = [
+      '<p><span id="s1" data-text-color="#0052cc">独立字</span></p>',
+      '<p><span id="s2" data-text-color="#de350b">豁免红字</span></p>',
+      '<p><mark id="m1" data-color="#ffe58f"><span id="s3" data-text-color="#172b4d">高亮包文字</span></mark></p>',
+      '<p><span id="s4" data-text-color="#172b4d">文<mark id="m2" data-color="#ffe58f">字包高亮</mark>试</span></p>',
+      '<table><tbody><tr><td id="td1" data-cell-bg="#fffae6"><span id="s5" data-text-color="#172b4d">单元格文字</span></td></tr></tbody></table>'
+    ].join("")
+
+    applyJointColorAdaptation(div)
+
+    const s1 = div.querySelector("#s1") as HTMLElement
+    const s2 = div.querySelector("#s2") as HTMLElement
+    const s3 = div.querySelector("#s3") as HTMLElement
+    const s4 = div.querySelector("#s4") as HTMLElement
+    const m2 = div.querySelector("#m2") as HTMLElement
+    const s5 = div.querySelector("#s5") as HTMLElement
+
+    // s1: 独立文字提亮为 #3385ff
+    expect(s1.style.getPropertyValue("--dark-text-color")).toBe("#3385ff")
+    // s2: 决策 B 亮红豁免提亮，保持 #de350b
+    expect(s2.style.getPropertyValue("--dark-text-color")).toBe("#de350b")
+    // s3: mark 包裹 span，以 #705600（压暗高亮底色）为基准
+    expect(s3.style.getPropertyValue("--dark-text-color")).toBe(
+      adaptJointTextColorForDark("#172b4d", "#ffe58f")
+    )
+    // s4: span 外部独立字使用默认深底字色
+    expect(s4.style.getPropertyValue("--dark-text-color")).toBe(
+      adaptTextColorForDark("#172b4d")
+    )
+    // m2: span 包裹 mark，mark 自身获得针对高亮底色的联合字色
+    expect(m2.style.getPropertyValue("--dark-text-color")).toBe(
+      adaptJointTextColorForDark("#172b4d", "#ffe58f")
+    )
+    // s5: 表格单元格包裹 span，以 #191400 为基准
+    expect(s5.style.getPropertyValue("--dark-text-color")).toBe(
+      adaptJointTextColorForDark("#172b4d", "#fffae6")
+    )
   })
 })
