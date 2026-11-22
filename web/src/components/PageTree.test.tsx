@@ -82,7 +82,11 @@ describe("页面树空状态", () => {
       createdBy: 1,
       updatedBy: 1,
       createdAt: "2026-11-07T00:00:00.000Z",
-      updatedAt: "2026-11-07T00:00:00.000Z"
+      updatedAt: "2026-11-07T00:00:00.000Z",
+      createdByName: "Admin",
+      createdByAvatarUrl: null,
+      updatedByName: "Admin",
+      updatedByAvatarUrl: null
     })
     renderTree()
 
