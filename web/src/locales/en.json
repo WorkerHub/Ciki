@@ -292,6 +292,7 @@
     "loading": "Loading page",
     "loadFailed": "Failed to load the page",
     "backHome": "Back to home",
+    "backToTop": "Back to top",
     "toc": {
       "label": "On this page"
     },
@@ -990,6 +991,8 @@
         "description": "It may have been deleted, or your membership was removed."
       },
       "back": "Back to pages",
+      "backToOverview": "Back to space overview",
+      "backToSpace": "Back to space home",
       "loadFailed": "Could not load space settings",
       "reload": "Reload",
       "forbidden": {

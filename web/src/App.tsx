@@ -1,6 +1,7 @@
 import { lazy } from "react"
 import {
   createBrowserRouter,
+  Navigate,
   type RouteObject,
   RouterProvider
 } from "react-router"
@@ -18,6 +19,36 @@ import { NotFound } from "@/pages/NotFound"
 // 页面按路由懒加载：编辑器（TipTap + lowlight）与二维码库只在对应页面才下载。
 const AdminPage = lazy(() =>
   import("@/pages/AdminPage").then((module) => ({ default: module.AdminPage }))
+)
+const UsersTab = lazy(() =>
+  import("@/pages/admin/UsersTab").then((module) => ({
+    default: module.UsersTab
+  }))
+)
+const SpacesTab = lazy(() =>
+  import("@/pages/admin/SpacesTab").then((module) => ({
+    default: module.SpacesTab
+  }))
+)
+const SettingsTab = lazy(() =>
+  import("@/pages/admin/SettingsTab").then((module) => ({
+    default: module.SettingsTab
+  }))
+)
+const SecurityTab = lazy(() =>
+  import("@/pages/admin/SecurityTab").then((module) => ({
+    default: module.SecurityTab
+  }))
+)
+const SmtpTab = lazy(() =>
+  import("@/pages/admin/SmtpTab").then((module) => ({
+    default: module.SmtpTab
+  }))
+)
+const OthersTab = lazy(() =>
+  import("@/pages/admin/OthersTab").then((module) => ({
+    default: module.OthersTab
+  }))
 )
 const AboutPage = lazy(() =>
   import("@/pages/AboutPage").then((module) => ({ default: module.AboutPage }))
@@ -159,7 +190,16 @@ export const routes: RouteObject[] = [
               <RequireAdmin>
                 <AdminPage />
               </RequireAdmin>
-            )
+            ),
+            children: [
+              { index: true, element: <Navigate to="/admin/users" replace /> },
+              { path: "users", element: <UsersTab /> },
+              { path: "spaces", element: <SpacesTab /> },
+              { path: "site", element: <SettingsTab /> },
+              { path: "security", element: <SecurityTab /> },
+              { path: "email", element: <SmtpTab /> },
+              { path: "others", element: <OthersTab /> }
+            ]
           },
           { path: "*", element: <NotFound /> }
         ]
