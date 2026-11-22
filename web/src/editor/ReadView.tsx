@@ -1,6 +1,7 @@
 import { EditorContent, useEditor } from "@tiptap/react"
 import { useEffect, useMemo, useRef } from "react"
 import { createExtensions } from "@/editor/extensions"
+import { CanvasPageContext } from "@/editor/excalidraw/context"
 import { applyColWidthsFromColgroup } from "@/lib/table-columns"
 import { TOP_LEVEL_HEADINGS } from "@/lib/toc"
 
@@ -15,6 +16,10 @@ interface ReadViewProps {
    * 「正文换了、位置不跳」。默认 false：版本预览等场景保持原有重建行为。
    */
   updateInPlace?: boolean
+  /** 当前页面 ID（用于画布预览回填等上下文，可选） */
+  pageId?: number
+  /** 当前用户对该页面是否具备写/编辑权限（用于判断是否触发回填，默认 false） */
+  canWrite?: boolean
 }
 
 /**
@@ -30,9 +35,15 @@ export function ReadView({
   html,
   headingIds,
   onReady,
-  updateInPlace = false
+  updateInPlace = false,
+  pageId,
+  canWrite = false
 }: ReadViewProps) {
   const prepared = useMemo(() => applyColWidthsFromColgroup(html), [html])
+  const canvasContextValue = useMemo(
+    () => ({ pageId, canWrite }),
+    [pageId, canWrite]
+  )
   // 回调放 ref：编辑器与效果只跟内容走，回调始终是最新那个
   const onReadyRef = useRef(onReady)
   onReadyRef.current = onReady
@@ -80,5 +91,9 @@ export function ReadView({
     // prepared 也在依赖里：就地 setContent 换掉的标题节点不带 id，内容一变就要重新补
   }, [editor, headingIds, prepared, updateInPlace])
 
-  return <EditorContent editor={editor} />
+  return (
+    <CanvasPageContext.Provider value={canvasContextValue}>
+      <EditorContent editor={editor} />
+    </CanvasPageContext.Provider>
+  )
 }

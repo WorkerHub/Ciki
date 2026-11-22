@@ -519,7 +519,8 @@
       "saving": "保存中…",
       "cancel": "取消",
       "blankCanvas": "空白画布",
-      "clickToEdit": "点击以打开全屏画布编辑器"
+      "clickToEdit": "点击以打开全屏画布编辑器",
+      "loadFailed": "画布预览加载失败"
     }
   },
   "settings": {

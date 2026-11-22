@@ -1067,7 +1067,17 @@ export const pagesApi = {
     api.del<{ success: true }>(`/pages/${id}/revisions/${versionNo}`),
   /** 按页只保留最新一条，其余全删；返回真实删除条数。 */
   pruneRevisions: (id: number) =>
-    api.post<{ deleted: number }>(`/pages/${id}/revisions/prune`)
+    api.post<{ deleted: number }>(`/pages/${id}/revisions/prune`),
+  /**
+   * 画布预览回填：对缺失 previewKey 的画布块回填预览图，零版本增长。
+   */
+  canvasPreview: (id: number, data: { sceneKey: string; previewKey: string }) =>
+    api.post<{
+      ok: true
+      status: "updated" | "already_filled"
+      sceneKey: string
+      previewKey: string
+    }>(`/pages/${id}/canvas-preview`, data)
 }
 
 export const commentsApi = {

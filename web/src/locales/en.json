@@ -523,7 +523,8 @@
       "saving": "Saving…",
       "cancel": "Cancel",
       "blankCanvas": "Blank canvas",
-      "clickToEdit": "Click to open fullscreen canvas editor"
+      "clickToEdit": "Click to open fullscreen canvas editor",
+      "loadFailed": "Failed to load canvas preview"
     }
   },
   "settings": {

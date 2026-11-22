@@ -457,6 +457,8 @@ export function PageView() {
               headingIds={headingIds}
               onReady={handleContentReady}
               updateInPlace
+              pageId={page.id}
+              canWrite={canWrite}
             />
           </div>
           <ArticleToc items={toc} contentRoot={contentRoot} />

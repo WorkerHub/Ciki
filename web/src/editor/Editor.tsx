@@ -15,14 +15,65 @@ export interface EditorPayload {
 }
 
 /**
+ * 剔除编辑器文档中未绘制（sceneKey 为空）的空白 excalidraw 节点。
+ * 避免保存到服务端时触发 sceneKey 必填校验（400 INVALID_CONTENT_JSON），
+ * 交互口径：未绘制的画布在保存后自动从文档中消失。
+ */
+export function removeEmptyExcalidrawNodes(editor: Editor): void {
+  if (!editor || editor.isDestroyed) return
+  const { doc, tr } = editor.state
+  const positions: { from: number; to: number }[] = []
+  doc.descendants((node, pos) => {
+    if (node.type.name === "excalidraw") {
+      const sceneKey = node.attrs?.sceneKey
+      if (!sceneKey || (typeof sceneKey === "string" && !sceneKey.trim())) {
+        positions.push({ from: pos, to: pos + node.nodeSize })
+      }
+    }
+  })
+  if (positions.length > 0) {
+    for (let i = positions.length - 1; i >= 0; i--) {
+      tr.delete(positions[i].from, positions[i].to)
+    }
+    editor.view.dispatch(tr)
+  }
+}
+
+/**
+ * 递归剥离 JSONContent 结构中 sceneKey 为空的空白 excalidraw 节点。
+ */
+export function stripEmptyExcalidrawNodes(node: JSONContent): JSONContent {
+  const next: JSONContent = { ...node }
+  if (next.content) {
+    next.content = next.content
+      .filter((child) => {
+        if (child.type === "excalidraw") {
+          const sceneKey = child.attrs?.sceneKey
+          return Boolean(
+            sceneKey && typeof sceneKey === "string" && sceneKey.trim()
+          )
+        }
+        return true
+      })
+      .map(stripEmptyExcalidrawNodes)
+  }
+  return next
+}
+
+/**
  * 编辑器内容 → 保存接口要的三件套（契约 pages.contentJson/contentHtml/contentText）。
  *
- * 单列表格的 colwidth 在落库前再归一一次：载入时已经剥过，但会话里拖过列宽手柄的
- * 单列表格会重新长出 colwidth，保存口径不能因此回退（列宽对单列表格一律不生效）。
+ * 1. 未绘制的空白画布（sceneKey 为空）在保存前自动剔除，不落库、不触发服务端校验 400。
+ * 2. 单列表格的 colwidth 在落库前再归一一次：载入时已经剥过，但会话里拖过列宽手柄的
+ *    单列表格会重新长出 colwidth，保存口径不能因此回退（列宽对单列表格一律不生效）。
  */
 export function editorPayload(editor: Editor): EditorPayload {
+  removeEmptyExcalidrawNodes(editor)
+  const normalizedJson = stripEmptyExcalidrawNodes(
+    stripSingleColumnColwidths(editor.getJSON())
+  )
   return {
-    contentJson: JSON.stringify(stripSingleColumnColwidths(editor.getJSON())),
+    contentJson: JSON.stringify(normalizedJson),
     contentHtml: editor.getHTML(),
     contentText: editor.getText({ blockSeparator: "\n" })
   }
