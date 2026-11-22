@@ -299,7 +299,7 @@ describe("初始化迁移：默认空间与播种", () => {
     expect(members.count).toBe(0)
 
     const ledger = db.db
-      .prepare("SELECT name FROM _ciki_schema_migrations")
+      .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
       .all() as Array<{ name: string }>
     expect(ledger).toEqual(SORTED_LEDGER_ROWS)
 
@@ -584,7 +584,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     expect(names).not.toContain("ciki_schema_migrations")
 
     const ledger = db.db
-      .prepare("SELECT name FROM _ciki_schema_migrations")
+      .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
       .all() as Array<{ name: string }>
     expect(ledger).toEqual(SORTED_LEDGER_ROWS)
     const spaces = db.db
@@ -610,7 +610,7 @@ describe("迁移账本改名承接（规格 §4.4）", () => {
     expect(names).toContain("_ciki_schema_migrations")
     expect(names).not.toContain("ciki_schema_migrations")
     const ledger = db.db
-      .prepare("SELECT name FROM _ciki_schema_migrations")
+      .prepare("SELECT name FROM _ciki_schema_migrations ORDER BY name")
       .all() as Array<{ name: string }>
     expect(ledger).toEqual(SORTED_LEDGER_ROWS)
   })

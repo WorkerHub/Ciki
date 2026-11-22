@@ -1,12 +1,9 @@
 import { describe, expect, it } from "vitest"
 import {
   adminSession,
-  cookieOf,
   enableSmtpConfig,
   initializedContext,
-  jsonRequest,
-  makeContext,
-  userSession
+  jsonRequest
 } from "./support/app"
 import {
   createAgentUser,
@@ -20,11 +17,6 @@ import { findSession } from "../src/core/session"
 import { sha256Hex } from "../src/core/auth"
 import { sessionsTable } from "../src/lib/tables"
 import { runSetup } from "../src/lib/setup"
-import { createPasskey } from "./support/webauthn"
-import { isoBase64URL } from "@simplewebauthn/server/helpers"
-
-const RP_ID = "localhost"
-const ORIGIN = "http://localhost"
 
 describe("Agent 身份模型与 users 表 schema_v10 迁移", () => {
   it("schema_v10 迁移后，新用户与存量用户默认均为 human 且 owner_user_id 为 null", async () => {
@@ -32,15 +24,11 @@ describe("Agent 身份模型与 users 表 schema_v10 迁移", () => {
     const prefix = "ciki_"
 
     // PRAGMA 检查字段存在
-    const columns = (
-      db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
-        name: string
-        dflt_value: string | null
-      }>
-    ).reduce(
-      (acc, col) => ({ ...acc, [col.name]: col }),
-      {} as Record<string, { name: string; dflt_value: string | null }>
-    )
+    const rawColumns = db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
+      name: string
+      dflt_value: string | null
+    }>
+    const columns = Object.fromEntries(rawColumns.map((col) => [col.name, col]))
 
     expect(columns.kind).toBeDefined()
     expect(columns.kind.dflt_value).toBe("'human'")
@@ -130,6 +118,14 @@ describe("createAgentUser 工具函数", () => {
     expect(agent1?.avatar_key).toBe("avatars/bot.png")
 
     expect(agent2?.username).toBe("agent-bot-2")
+
+    // 自定义邮箱与已有用户冲突时抛错
+    await expect(
+      createAgentUser(env.DB, prefix, {
+        owner_user_id: ownerId,
+        email: "owner2@example.com"
+      })
+    ).rejects.toThrow("Email already taken")
   })
 
   it("所有者校验：所有者不存在、停用或为 Agent 时拒绝创建", async () => {

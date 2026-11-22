@@ -137,6 +137,13 @@ export async function createAgentUser(
     throw new Error("Owner must be an active user")
   }
 
+  if (data.email) {
+    const existing = await findUserByEmail(db, prefix, data.email)
+    if (existing) {
+      throw new Error("Email already taken")
+    }
+  }
+
   const uuid = crypto.randomUUID()
   const email = data.email ?? `agent-${uuid}@internal`
   const baseUsername = data.username?.trim()
