@@ -1271,6 +1271,36 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 两种情形都返回与正常保存同形的完整详情。
 
+#### POST /api/pages/:id/canvas-preview
+
+画布预览图后台回填端点（阅读态或后台检测到画布缺预览图时自动回填）：
+
+```json
+{
+  "sceneKey": "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json",
+  "previewKey": "pages/7fa3c5b1-e221-4d1a-8c90-9f201b1a3e45.png"
+}
+```
+
+- **鉴权**：Session Cookie，需当前页所属空间的 `editor` 及以上角色。未登录 401；`viewer` 403；页面不存在、已软删或空间不可见 404（不泄露存在性）。
+- **零版本增长与只读时间戳语义**：
+  - **绝不递增** `versionNo`，**绝不追加** `page_revisions` 表记录，不触发版本保留数修剪；
+  - **保持原状**：`updated_at`、`updated_by`、`created_at`、`created_by` 与 `title` 严格保持不变，页面不会在文档树或最近列表发生跳顶；
+  - **不重写 FTS**：全文检索索引 `fts_pages` 仅索引标题与纯文本（`contentText`），回填 `previewKey` 不影响纯文本，不重建 FTS；
+  - **改写范围**：仅原子更新 `pages` 行的 `content_hash`、`content_html`、`content_md`，并在 R2 内容桶（`ciki-content`）上传新的 `content/<hash>` 对象。
+- **节点匹配与幂等性**：
+  - 服务端遍历 TipTap JSON 树，根据 `sceneKey` 精准匹配所有 `type="excalidraw"` 节点（同页面多处相同场景文件时批量更新）；
+  - 若匹配节点已全部包含非空 `previewKey`，直接返回 200 `{"ok":true,"status":"already_filled","sceneKey":"…","previewKey":"…"}`，不产生任何 D1 与 R2 写入；
+  - 若页面中不存在任何匹配该 `sceneKey` 的画布节点，返回 404 `{"error":"Canvas block not found in page","code":"CANVAS_NOT_FOUND"}`。
+- **并发控制（CAS）**：
+  - 更新使用 CAS 条件更新（`WHERE id = ? AND content_hash = ? AND deleted_at IS NULL`）；
+  - 若发生并发冲突（例如其他用户恰好在此时更新了正文），自动重新拉取最新页面重试 1 次；若 2 次皆冲突返回 409 `{"error":"Concurrent update collision","code":"CONCURRENT_COLLISION"}`。
+- **成功响应**：200 `{"ok":true,"status":"updated","sceneKey":"…","previewKey":"…"}`。
+- **参数错误**：
+  - 请求体非合法 JSON 对象：400 `code:"INVALID_REQUEST_BODY"`；
+  - `sceneKey` 缺失或不符合 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`：400 `code:"INVALID_SCENE_KEY"`；
+  - `previewKey` 缺失或不符合 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`：400 `code:"INVALID_PREVIEW_KEY"`。
+
 #### POST /api/pages/:id/move
 
 ```json
@@ -1772,6 +1802,13 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 目标页面不存在、已软删、不在令牌范围内、或令牌主人没有该空间的 `editor` 及以上角色 → 一律 404 `{"error":"Page not found"}`（不泄露存在性）。
 - 请求体与响应字段一律 snake_case（本文件 camelCase 通则的例外，见「一、通用约定」）。
 - 正文**只收 TipTap JSON**（`content_json`，字符串或对象均可）：服务端渲染 HTML → 消毒 → 派生纯文本与 MD，入参规范化与体积上限沿用站内口径（400 `code:"INVALID_CONTENT_JSON"`、413 `code:"PAYLOAD_TOO_LARGE"`）。**本期不收 Markdown**——服务端没有 md→JSON 转换链，调用方自行转换。
+- **Agent 画布写入规范（两步范式）与预览图生成回填**：
+  - **废除旧口径**：正式废止「外部调用方必须自行渲染并上传预览图」的旧规定。外部调用方（如 AI Agent）无需自行打包无头浏览器或 Canvas 库渲染预览图，预览图统一由 Ciki 浏览器端在阅读态按标准规格（2x、带背景）即时渲染并向服务端回填。
+  - **标准两步写入范式**：
+    1. 步骤一：通过 `POST /api/write/files` 上传 Excalidraw 场景 JSON 文件，获取返回的 `sceneKey`（形如 `pages/<uuid>.json`）；
+    2. 步骤二：调用 `POST /api/write/pages` 或 `PUT /api/write/pages/:id`，在 `content_json` 中插入 `excalidraw` 节点，节点必须携带合法的 `sceneKey`，并直接**省略 `previewKey`**（或置为空串）；
+  - **兼容性**：若调用方已自行渲染并生成合法预览图，带上合法 `previewKey`（`^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`），服务端继续完全兼容接收、直接落库；
+  - **校验规则**：`excalidraw` 节点中 `sceneKey` 为必填且必须匹配正则（`^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`），缺失或格式非法回 400 `code:"INVALID_CONTENT_JSON"`；`previewKey` 为可选，但若存在则必须匹配 png 正则，格式非法同样回 400 `code:"INVALID_CONTENT_JSON"`。该校验对站内保存与外部写接口同口径生效。
 - 限流沿用 `auth_counters`：失败按 IP（`write_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`write` 600 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
 - 每次成功调用刷新令牌的 `lastUsedAt`。
 
@@ -1797,7 +1834,12 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 
 #### POST /api/write/files
 
-图片上传（写接口第五个端点，2026-11-12 追加）。`multipart/form-data`，字段名 `file`，单文件。校验与落盘复用 `POST /api/import/files` 的同一份实现（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），响应完全同形状，落 `pages/<uuid>.<ext>`（正文图目录，与插件导入的 `imports/` 分开）：
+文件上传（写接口第五个端点，2026-11-12 追加正文图，2026-11-22 补全 Excalidraw 场景 JSON）。`multipart/form-data`，字段名 `file`，单文件。落 `pages/<uuid>.<ext>`（正文资产目录，与插件导入的 `imports/` 分开）：
+
+- **正文图片**：支持 png/jpg/jpeg/gif/webp，按魔数校验、拒 svg 与伪装文件，单张 ≤10MB。
+- **Excalidraw 场景 JSON**：支持 `.json`，单文件 ≤2MB，由服务端预检并消毒，落 `pages/<uuid>.json`（`contentType: "application/json"`）。
+
+响应形状：
 
 ```json
 {
@@ -1808,11 +1850,22 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 }
 ```
 
+或 Excalidraw 场景 JSON：
+
+```json
+{
+  "key": "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json",
+  "url": "/api/files/pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json",
+  "contentType": "application/json",
+  "size": 6789
+}
+```
+
 - 鉴权同其它写端点：只认 `kind = write` 的接口令牌；`kind = read` 的令牌、导入令牌、会话 Cookie 一律 401。
-- **上传没有空间维度**：不受令牌空间范围限制（文件本身不属于任何空间）；把 `url` 引用进页面时仍走页面级范围与角色校验——范围外空间建页/改页照样 404。
+- **上传没有空间维度**：不受令牌空间范围限制（文件本身不属于任何空间）；把 `url` 或 `key` 引用进页面时仍走页面级范围与角色校验——范围外空间建页/改页照样 404。
 - 调用计入现有 `write` 限流桶（600 次 / 5 分钟），不新开桶。
-- 400 非图片 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`。
-- 图片的读取仍走 `GET /api/files/:key`（需会话 Cookie）：接口令牌读不到图片字节，已登录的页面读者正常渲染。
+- 400 非支持类型 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`。
+- 文件的读取仍走 `GET /api/files/:key`（需会话 Cookie）：接口令牌读不到文件字节，已登录的页面读者正常渲染。
 
 ### 服务端消毒规则（content_html）
 
@@ -1825,6 +1878,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 任务列表：`ul[data-type]`、`li[data-type][data-checked]`、`label`、只读 `input[type=checkbox][checked]`。
 - 链接：`a[href]` 仅 http/https/mailto/相对路径。
 - 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>`（存量平铺）或 `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀；`avatars/` 只服务资料页，不进正文），或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
+- 画布（Excalidraw）：`img[data-type="excalidraw"]`，允许 `data-scene-key`（格式 `pages/<uuid>.json`，必填）、`data-preview-key`（格式 `pages/<uuid>.png`，可选）、`data-extracted-text`、`width`。在回填预览图前，缺 `src` 与 `data-preview-key` 的画布标签正常保留，由读态前端渲染或触发回填。
 - 一律剥除 `script`/`style`/`iframe`/`object`/`embed`/`form` 及所有 `on*` 事件属性、未列出的 class/attr。
 - **评论正文（`comments.body_md`）**：服务端用 `marked` 渲染后再过同一份白名单，与正文只差 `img[src]` 一项——站内 `/api/files/…` 与 `https:` 外链原样保留，`http:` / `data:` / 非法地址删掉 `src`（评论区没有上传入口，不写 `data-original-src` 占位）。`<script>`、事件属性、`javascript:` 链接、白名单外标签一律剥除，与正文同口径。
 
