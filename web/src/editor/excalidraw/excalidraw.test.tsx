@@ -6,7 +6,15 @@ import { DefaultSidebar, Excalidraw } from "@excalidraw/excalidraw"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi
+} from "vitest"
 import { editorPayload } from "@/editor/Editor"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import {
@@ -489,16 +497,18 @@ describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
   })
 
   it("1. 缺失 previewKey 时阅读态先展示 Loading，拉取场景后现场渲染出 2x 预览并以 Object URL 展示", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any) => {
-      const url = String(input)
-      if (url.includes(SCENE_KEY)) {
-        return new Response(JSON.stringify(MOCK_SCENE_DATA), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        })
-      }
-      return new Response("Not found", { status: 404 })
-    })
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input: any) => {
+        const url = String(input)
+        if (url.includes(SCENE_KEY)) {
+          return new Response(JSON.stringify(MOCK_SCENE_DATA), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          })
+        }
+        return new Response("Not found", { status: 404 })
+      })
 
     const uploadSpy = vi.spyOn(api, "upload")
     const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview")
@@ -549,12 +559,14 @@ describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
       size: 2048
     })
 
-    const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview").mockResolvedValue({
-      ok: true,
-      status: "updated",
-      sceneKey: SCENE_KEY,
-      previewKey: NEW_PREVIEW_KEY
-    })
+    const canvasPreviewSpy = vi
+      .spyOn(pagesApi, "canvasPreview")
+      .mockResolvedValue({
+        ok: true,
+        status: "updated",
+        sceneKey: SCENE_KEY,
+        previewKey: NEW_PREVIEW_KEY
+      })
 
     render(
       <ReadView html={NO_PREVIEW_CANVAS_HTML} pageId={88} canWrite={true} />
@@ -632,7 +644,9 @@ describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
       return new Response("Not found", { status: 404 })
     })
 
-    vi.spyOn(api, "upload").mockRejectedValue(new Error("Network upload failure"))
+    vi.spyOn(api, "upload").mockRejectedValue(
+      new Error("Network upload failure")
+    )
     const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview")
 
     render(
@@ -651,9 +665,7 @@ describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
       new Response("Not Found", { status: 404, statusText: "Not Found" })
     )
 
-    render(
-      <ReadView html={NO_PREVIEW_CANVAS_HTML} canWrite={false} />
-    )
+    render(<ReadView html={NO_PREVIEW_CANVAS_HTML} canWrite={false} />)
 
     // 应展示失败文字或 extractedText
     const fallback = await screen.findByText(EXTRACTED_TEXT)
@@ -665,9 +677,7 @@ describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
     const uploadSpy = vi.spyOn(api, "upload")
     const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview")
 
-    render(
-      <ReadView html={CANVAS_HTML} pageId={88} canWrite={true} />
-    )
+    render(<ReadView html={CANVAS_HTML} pageId={88} canWrite={true} />)
 
     const img = await screen.findByRole("img", { name: EXTRACTED_TEXT })
     expect(img).toBeInTheDocument()

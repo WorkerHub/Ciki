@@ -1071,10 +1071,7 @@ export const pagesApi = {
   /**
    * 画布预览回填：对缺失 previewKey 的画布块回填预览图，零版本增长。
    */
-  canvasPreview: (
-    id: number,
-    data: { sceneKey: string; previewKey: string }
-  ) =>
+  canvasPreview: (id: number, data: { sceneKey: string; previewKey: string }) =>
     api.post<{
       ok: true
       status: "updated" | "already_filled"
