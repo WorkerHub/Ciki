@@ -72,6 +72,7 @@ function toMemberDto(row: SpaceMemberViewRow) {
     username: row.username,
     email: row.email,
     role: row.role,
+    avatarUrl: row.avatar_key ? `/api/files/${row.avatar_key}` : null,
     isAgent,
     ownerName: isAgent ? (row.owner_name ?? null) : null,
     createdAt: row.created_at
@@ -371,6 +372,7 @@ spaceRoutes.post("/:id/members", async (c) => {
       username: user.username,
       email: user.email,
       role: body.role,
+      avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null,
       isAgent,
       ownerName,
       createdAt: now
@@ -438,6 +440,7 @@ spaceRoutes.put("/:id/members/:userId", async (c) => {
     username: user?.username ?? "",
     email: user?.email ?? "",
     role: body.role,
+    avatarUrl: user?.avatar_key ? `/api/files/${user.avatar_key}` : null,
     isAgent,
     ownerName,
     createdAt: member.created_at

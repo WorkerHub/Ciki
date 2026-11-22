@@ -44,6 +44,7 @@ export interface SpaceMemberViewRow {
   role: SpaceRole
   kind: UserKind
   owner_name: string | null
+  avatar_key: string | null
   created_at: string
 }
 
@@ -262,7 +263,7 @@ export async function listSpaceMembers(
   const rows = await db
     .prepare(
       `SELECT m.user_id, m.role, m.created_at,
-              u.username, u.email, u.kind,
+              u.username, u.email, u.kind, u.avatar_key,
               CASE WHEN u.kind = 'agent' THEN o.username ELSE NULL END AS owner_name
          FROM ${spaceMembersTable(prefix)} m
          JOIN ${usersTable(prefix)} u ON u.id = m.user_id

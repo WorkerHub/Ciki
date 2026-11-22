@@ -1212,7 +1212,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```text
 Space        = { id, slug, name, description, myRole: "admin"|"editor"|"viewer",
                  isDefault, createdAt, updatedAt }
-SpaceMember  = { userId, username, email, role, isAgent, ownerName, createdAt }
+SpaceMember  = { userId, username, email, role, avatarUrl, isAgent, ownerName, createdAt }
 SpaceCandidate = { userId, username, email, isAgent, ownerName }
 ```
 
@@ -1264,6 +1264,8 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
 #### GET /api/spaces/:id/members
 
 仅空间 `admin` / 站点管理员，返回 `SpaceMember[]`（按 admin → editor → viewer、再按显示名排序）。成员非管理员 403，非成员 404。
+
+- 包含 `avatarUrl: string | null`，口径与 `GET /api/me` 一致（`avatar_key ? "/api/files/" + avatar_key : null`，无头像为 `null`）。
 
 #### POST /api/spaces/:id/members
 
