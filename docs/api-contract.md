@@ -1037,6 +1037,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
     "kind": "human",
     "ownerUserId": null,
     "owner": null,
+    "ownerName": null,
     "createdAt": "…"
   },
   {
@@ -1053,6 +1054,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
       "id": 1,
       "username": "alice"
     },
+    "ownerName": "alice",
     "createdAt": "…"
   }
 ]
@@ -1061,6 +1063,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 - `id` 是整数（管理接口的 `:id` 路径参数同样是整数）；响应不含 `publicId`（已删除），`username` 是唯一对外身份。
 - 包含 `isAgent: boolean`（`kind === 'agent'`）与 `kind: "human" | "agent"`。
 - 包含 `ownerUserId: number | null` 与 `owner: { id: number, username: string } | null`（当且仅当该用户为 Agent 且其所有者存在时展开，人类用户均为 `null`）。
+- 包含 `ownerName: string | null`（作者为 Agent 时为 owner 当前显示名，真人恒为 `null`；owner 账号已注销或不存在时返回 `null`）。
 
 #### POST /api/admin/users
 
@@ -1209,8 +1212,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```text
 Space        = { id, slug, name, description, myRole: "admin"|"editor"|"viewer",
                  isDefault, createdAt, updatedAt }
-SpaceMember  = { userId, username, email, role, isAgent, createdAt }
-SpaceCandidate = { userId, username, email, isAgent }
+SpaceMember  = { userId, username, email, role, isAgent, ownerName, createdAt }
+SpaceCandidate = { userId, username, email, isAgent, ownerName }
 ```
 
 站点管理员对每个空间的有效 `myRole` 都是 `admin`（不要求是成员）。
@@ -1287,7 +1290,15 @@ SpaceCandidate = { userId, username, email, isAgent }
 仅空间 `admin` / 站点管理员。候选用户（已激活、已批准、尚未加入该空间），按显示名/邮箱模糊匹配，最多 20 条：
 
 ```json
-[{ "userId": 3, "username": "alice", "email": "…", "isAgent": false }]
+[
+  {
+    "userId": 3,
+    "username": "alice",
+    "email": "…",
+    "isAgent": false,
+    "ownerName": null
+  }
+]
 ```
 
 ### 页面
@@ -1344,19 +1355,21 @@ SpaceCandidate = { userId, username, email, isAgent }
   "createdByName": "张三",
   "createdByAvatarUrl": "/api/files/avatars/….png",
   "createdByIsAgent": false,
+  "createdByOwnerName": null,
   "updatedBy": 1,
   "updatedByName": "张三",
   "updatedByAvatarUrl": "/api/files/avatars/….png",
   "updatedByIsAgent": false,
+  "updatedByOwnerName": null,
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
 
-- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`createdByIsAgent`、`updatedByName`、`updatedByAvatarUrl`、`updatedByIsAgent` 等字段，保留原数字 `createdBy` 与 `updatedBy`。
-  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`，`isAgent` 为 `false`；
-  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`，`isAgent` 为 `false`；
-  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`，`isAgent` 为布尔值（`user.kind === 'agent'`）。
+- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`createdByIsAgent`、`createdByOwnerName`、`updatedByName`、`updatedByAvatarUrl`、`updatedByIsAgent`、`updatedByOwnerName` 等字段，保留原数字 `createdBy` 与 `updatedBy`。
+  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
+  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
+  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`，`isAgent` 为布尔值（`user.kind === 'agent'`），`ownerName` 为其 owner 当前显示名（仅当 `isAgent` 为 true 且 owner 账号存在时非空，真人与 owner 注销/不存在时恒为 `null`）。
 
 **阅读热路径不读 R2**：详情默认**不含** `contentJson`，`contentHtml` / `contentText` / `contentMd` 都是 D1 里的派生列（`contentMd` 是库里的值，空正文页为空串，绝不会是 `null`）。
 
@@ -1533,6 +1546,8 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
       "authorId": 1,
       "authorName": "张三",
       "authorAvatarUrl": "/api/files/avatars/….png",
+      "isAgent": false,
+      "ownerName": null,
       "bodyMd": "## Markdown 原文",
       "html": "<h2>Markdown 原文</h2>",
       "createdAt": "…",
@@ -1549,7 +1564,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 - `replies` 里每条字段与顶层同形（不含 `replies`），`parentId` 恒为所属顶层评论 id（回复只一级，按 `createdAt` 正序平铺）。顶层按 `createdAt` 正序。
 - `total` = 未删除的顶层 + 未删除的回复条数（评论区标题的条数就用它；为 0 时前端只显示标题）。
 - 软删呈现：无存活回复的评论（顶层或回复）整条不返回；**有存活回复的顶层评论保留占位**——`deletedAt` 非空、`bodyMd` / `html` 为空串、`canEdit` / `canDelete` 为 `false`，其回复照常返回，串结构不断。
-- `authorName` / `authorAvatarUrl` 与 `GET /api/me` 同口径（`username`、`avatar_key` → `/api/files/<key>`，无头像为 `null`）；作者已被彻底删除时 `authorName` 回落「已注销用户」。
+- `authorName` / `authorAvatarUrl` 与 `GET /api/me` 同口径（`username`、`avatar_key` → `/api/files/<key>`，无头像为 `null`）；包含 `isAgent: boolean` 与 `ownerName: string | null`（作者为 Agent 时为 owner 当前显示名，真人恒为 `null`；owner 账号已注销或不存在时返回 `null`）；作者已被彻底删除时 `authorName` 回落「已注销用户」，`isAgent` 为 `false`，`ownerName` 为 `null`。
 - `canEdit` = 当前用户是作者且未删除；`canDelete` = 未删除且（作者本人、该页所属空间 `admin`、站点管理员）。前端直接用这两位移操作入口，不自行重算。
 
 #### POST /api/pages/:id/comments

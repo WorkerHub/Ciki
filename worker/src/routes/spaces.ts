@@ -66,22 +66,26 @@ function toSpaceDto(space: SpaceRow, role: SpaceRole) {
 }
 
 function toMemberDto(row: SpaceMemberViewRow) {
+  const isAgent = row.kind === "agent"
   return {
     userId: row.user_id,
     username: row.username,
     email: row.email,
     role: row.role,
-    isAgent: row.kind === "agent",
+    isAgent,
+    ownerName: isAgent ? (row.owner_name ?? null) : null,
     createdAt: row.created_at
   }
 }
 
 function toCandidateDto(row: MemberCandidateRow) {
+  const isAgent = row.kind === "agent"
   return {
     userId: row.user_id,
     username: row.username,
     email: row.email,
-    isAgent: row.kind === "agent"
+    isAgent,
+    ownerName: isAgent ? (row.owner_name ?? null) : null
   }
 }
 
@@ -354,13 +358,21 @@ spaceRoutes.post("/:id/members", async (c) => {
     created_at: now
   }).run()
 
+  const isAgent = user.kind === "agent"
+  let ownerName: string | null = null
+  if (isAgent && user.owner_user_id) {
+    const owner = await findUserById(c.env.DB, prefix, user.owner_user_id)
+    ownerName = owner?.username ?? null
+  }
+
   return c.json(
     {
       userId: user.id,
       username: user.username,
       email: user.email,
       role: body.role,
-      isAgent: user.kind === "agent",
+      isAgent,
+      ownerName,
       createdAt: now
     },
     201
@@ -415,12 +427,19 @@ spaceRoutes.put("/:id/members/:userId", async (c) => {
     body.role
   )
   const user = await findUserById(c.env.DB, prefix, userId)
+  const isAgent = user?.kind === "agent"
+  let ownerName: string | null = null
+  if (isAgent && user?.owner_user_id) {
+    const owner = await findUserById(c.env.DB, prefix, user.owner_user_id)
+    ownerName = owner?.username ?? null
+  }
   return c.json({
     userId,
     username: user?.username ?? "",
     email: user?.email ?? "",
     role: body.role,
-    isAgent: user?.kind === "agent",
+    isAgent,
+    ownerName,
     createdAt: member.created_at
   })
 })

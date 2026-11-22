@@ -17,7 +17,8 @@ import {
 import { insertPasskey } from "../src/db/queries/passkeys"
 import { findSession } from "../src/core/session"
 import { sha256Hex } from "../src/core/auth"
-import { sessionsTable } from "../src/lib/tables"
+import { sessionsTable, usersTable } from "../src/lib/tables"
+import { insertComment } from "../src/db/queries/comments"
 import { runSetup } from "../src/lib/setup"
 
 describe("Agent 身份模型与 users 表 schema_v10 迁移", () => {
@@ -341,6 +342,7 @@ describe("Admin 用户管理接口对 Agent 的保护与约束", () => {
       isAgent: boolean
       ownerUserId: number | null
       owner: { id: number; username: string } | null
+      ownerName: string | null
     }>
 
     const agentDto = users.find((u) => u.id === agentId)
@@ -352,6 +354,7 @@ describe("Admin 用户管理接口对 Agent 的保护与约束", () => {
       id: owner!.id,
       username: owner!.username
     })
+    expect(agentDto?.ownerName).toBe(owner!.username)
 
     const humanDto = users.find((u) => u.id === owner!.id)
     expect(humanDto).toBeDefined()
@@ -359,6 +362,7 @@ describe("Admin 用户管理接口对 Agent 的保护与约束", () => {
     expect(humanDto?.kind).toBe("human")
     expect(humanDto?.ownerUserId).toBeNull()
     expect(humanDto?.owner).toBeNull()
+    expect(humanDto?.ownerName).toBeNull()
   })
 
   it("禁止将 Agent 角色提升为 admin", async () => {
@@ -437,7 +441,7 @@ describe("Admin 用户管理接口对 Agent 的保护与约束", () => {
 })
 
 describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner 信息", () => {
-  it("空间成员列表与候选 DTO 包含正确的 isAgent 标记（human false / agent true）", async () => {
+  it("空间成员列表与候选 DTO 包含正确的 isAgent 与 ownerName 标记（human false / agent true）", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const owner = await userSession(env, admin, "space-owner@example.com")
@@ -493,15 +497,18 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
       username: string
       email: string
       isAgent: boolean
+      ownerName: string | null
     }>
 
     const humanCandidate = candidates.find((c) => c.userId === outsiderRow!.id)
     expect(humanCandidate).toBeDefined()
     expect(humanCandidate?.isAgent).toBe(false)
+    expect(humanCandidate?.ownerName).toBeNull()
 
     const agentCandidate = candidates.find((c) => c.userId === agentDto.id)
     expect(agentCandidate).toBeDefined()
     expect(agentCandidate?.isAgent).toBe(true)
+    expect(agentCandidate?.ownerName).toBe(ownerRow!.username)
 
     // 2. 添加 agent 到空间：POST /api/spaces/:id/members
     const addAgentRes = await jsonRequest(
@@ -516,10 +523,12 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
       userId: number
       role: string
       isAgent: boolean
+      ownerName: string | null
     }
     expect(addAgentBody.userId).toBe(agentDto.id)
     expect(addAgentBody.role).toBe("editor")
     expect(addAgentBody.isAgent).toBe(true)
+    expect(addAgentBody.ownerName).toBe(ownerRow!.username)
 
     // 3. 修改 agent 成员角色：PUT /api/spaces/:id/members/:userId
     const putAgentRes = await jsonRequest(
@@ -534,10 +543,12 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
       userId: number
       role: string
       isAgent: boolean
+      ownerName: string | null
     }
     expect(putAgentBody.userId).toBe(agentDto.id)
     expect(putAgentBody.role).toBe("admin")
     expect(putAgentBody.isAgent).toBe(true)
+    expect(putAgentBody.ownerName).toBe(ownerRow!.username)
 
     // 4. 添加人类成员到空间：POST /api/spaces/:id/members
     const addHumanRes = await jsonRequest(
@@ -551,9 +562,11 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
     const addHumanBody = (await addHumanRes.json()) as {
       userId: number
       isAgent: boolean
+      ownerName: string | null
     }
     expect(addHumanBody.userId).toBe(outsiderRow!.id)
     expect(addHumanBody.isAgent).toBe(false)
+    expect(addHumanBody.ownerName).toBeNull()
 
     // 5. 获取空间成员列表：GET /api/spaces/:id/members
     const membersRes = await jsonRequest(
@@ -569,22 +582,26 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
       username: string
       role: string
       isAgent: boolean
+      ownerName: string | null
     }>
 
     const ownerMember = members.find((m) => m.userId === ownerRow!.id)
     expect(ownerMember).toBeDefined()
     expect(ownerMember?.isAgent).toBe(false)
+    expect(ownerMember?.ownerName).toBeNull()
 
     const humanMember = members.find((m) => m.userId === outsiderRow!.id)
     expect(humanMember).toBeDefined()
     expect(humanMember?.isAgent).toBe(false)
+    expect(humanMember?.ownerName).toBeNull()
 
     const memberAgent = members.find((m) => m.userId === agentDto.id)
     expect(memberAgent).toBeDefined()
     expect(memberAgent?.isAgent).toBe(true)
+    expect(memberAgent?.ownerName).toBe(ownerRow!.username)
   })
 
-  it("页面详情署名字段 createdByIsAgent / updatedByIsAgent 取值正确", async () => {
+  it("页面详情署名字段 createdByIsAgent / updatedByIsAgent 与 createdByOwnerName / updatedByOwnerName 取值正确", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const owner = await userSession(env, admin, "page-author@example.com")
@@ -656,16 +673,20 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
       createdBy: number
       createdByName: string
       createdByIsAgent: boolean
+      createdByOwnerName: string | null
       updatedBy: number
       updatedByName: string
       updatedByIsAgent: boolean
+      updatedByOwnerName: string | null
     }
     expect(createdPage.createdBy).toBe(ownerRow!.id)
     expect(createdPage.createdByName).toBe(ownerRow!.username)
     expect(createdPage.createdByIsAgent).toBe(false)
+    expect(createdPage.createdByOwnerName).toBeNull()
     expect(createdPage.updatedBy).toBe(ownerRow!.id)
     expect(createdPage.updatedByName).toBe(ownerRow!.username)
     expect(createdPage.updatedByIsAgent).toBe(false)
+    expect(createdPage.updatedByOwnerName).toBeNull()
 
     // GET /api/pages/:id 查看
     const getPageRes = await jsonRequest(
@@ -678,7 +699,9 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
     expect(getPageRes.status).toBe(200)
     const pageDetail = (await getPageRes.json()) as typeof createdPage
     expect(pageDetail.createdByIsAgent).toBe(false)
+    expect(pageDetail.createdByOwnerName).toBeNull()
     expect(pageDetail.updatedByIsAgent).toBe(false)
+    expect(pageDetail.updatedByOwnerName).toBeNull()
 
     const docContent = {
       type: "doc",
@@ -708,7 +731,7 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
     )
     expect(agentUpdateRes.status).toBe(200)
 
-    // 再次查页面详情：createdBy 为人类 (isAgent=false)，updatedBy 为 Agent (isAgent=true)
+    // 再次查页面详情：createdBy 为人类 (isAgent=false, ownerName=null)，updatedBy 为 Agent (isAgent=true, ownerName=owner.username)
     const afterUpdateRes = await jsonRequest(
       env,
       "GET",
@@ -721,9 +744,11 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
     expect(afterUpdate.createdBy).toBe(ownerRow!.id)
     expect(afterUpdate.createdByName).toBe(ownerRow!.username)
     expect(afterUpdate.createdByIsAgent).toBe(false)
+    expect(afterUpdate.createdByOwnerName).toBeNull()
     expect(afterUpdate.updatedBy).toBe(agent.id)
     expect(afterUpdate.updatedByName).toBe(agent.username)
     expect(afterUpdate.updatedByIsAgent).toBe(true)
+    expect(afterUpdate.updatedByOwnerName).toBe(ownerRow!.username)
 
     // 4. 由 Agent 代管令牌创建新页面
     const agentCreatePageRes = await request(env, "/api/write/pages", {
@@ -754,8 +779,357 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
     expect(agentPageDetail.createdBy).toBe(agent.id)
     expect(agentPageDetail.createdByName).toBe(agent.username)
     expect(agentPageDetail.createdByIsAgent).toBe(true)
+    expect(agentPageDetail.createdByOwnerName).toBe(ownerRow!.username)
     expect(agentPageDetail.updatedBy).toBe(agent.id)
     expect(agentPageDetail.updatedByName).toBe(agent.username)
     expect(agentPageDetail.updatedByIsAgent).toBe(true)
+    expect(agentPageDetail.updatedByOwnerName).toBe(ownerRow!.username)
+  })
+
+  it("评论 DTO 包含 isAgent 与 ownerName，且作者为人类/Agent 时取值正确", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const owner = await userSession(env, admin, "comment-owner@example.com")
+    const prefix = "ciki_"
+
+    const ownerRow = await findUserByEmail(
+      env.DB,
+      prefix,
+      "comment-owner@example.com"
+    )
+    expect(ownerRow).not.toBeNull()
+
+    // 1. 创建空间、页面与 agent
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "评论测试空间", description: "" },
+      owner
+    )
+    const space = (await spaceRes.json()) as { id: number }
+
+    const agentRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/me/agents",
+      { username: "comment-bot" },
+      owner
+    )
+    const agent = (await agentRes.json()) as { id: number; username: string }
+
+    const pageRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        spaceId: space.id,
+        title: "评论测试页面",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>正文</p>",
+        contentText: "正文"
+      },
+      owner
+    )
+    const page = (await pageRes.json()) as { id: string }
+
+    // 2. 人类发表主评论：POST /api/pages/:id/comments
+    const postHumanCommentRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      { bodyMd: "人类发表的评论" },
+      owner
+    )
+    expect(postHumanCommentRes.status).toBe(201)
+    const humanCommentDto = (await postHumanCommentRes.json()) as {
+      id: number
+      authorName: string
+      isAgent: boolean
+      ownerName: string | null
+    }
+    expect(humanCommentDto.isAgent).toBe(false)
+    expect(humanCommentDto.ownerName).toBeNull()
+
+    // 3. Agent 发表回复
+    const agentCommentId = await insertComment(env.DB, prefix, {
+      pageId: Number(page.id),
+      parentId: humanCommentDto.id,
+      authorId: agent.id,
+      bodyMd: "Agent 回复的评论",
+      createdAt: new Date().toISOString()
+    })
+    expect(agentCommentId).toBeGreaterThan(0)
+
+    // 4. 查询评论列表：GET /api/pages/:id/comments
+    const listRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}/comments`,
+      undefined,
+      owner
+    )
+    expect(listRes.status).toBe(200)
+    const listBody = (await listRes.json()) as {
+      total: number
+      threads: Array<{
+        id: number
+        authorName: string
+        isAgent: boolean
+        ownerName: string | null
+        replies: Array<{
+          id: number
+          authorName: string
+          isAgent: boolean
+          ownerName: string | null
+        }>
+      }>
+    }
+    expect(listBody.total).toBe(2)
+    const topThread = listBody.threads[0]
+    expect(topThread.id).toBe(humanCommentDto.id)
+    expect(topThread.isAgent).toBe(false)
+    expect(topThread.ownerName).toBeNull()
+
+    expect(topThread.replies).toHaveLength(1)
+    const reply = topThread.replies[0]
+    expect(reply.id).toBe(agentCommentId)
+    expect(reply.authorName).toBe(agent.username)
+    expect(reply.isAgent).toBe(true)
+    expect(reply.ownerName).toBe(ownerRow!.username)
+  })
+
+  it("当 Agent 的 Owner 被删除或不存在时，各处 ownerName 均安全回落为 null", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const owner = await userSession(env, admin, "orphan-owner@example.com")
+    const prefix = "ciki_"
+
+    const ownerRow = await findUserByEmail(
+      env.DB,
+      prefix,
+      "orphan-owner@example.com"
+    )
+    expect(ownerRow).not.toBeNull()
+
+    // 1. 创建空间与 agent
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "孤儿测试空间", description: "" },
+      owner
+    )
+    const space = (await spaceRes.json()) as { id: number }
+
+    const agentRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/me/agents",
+      { username: "orphan-bot" },
+      owner
+    )
+    const agent = (await agentRes.json()) as { id: number; username: string }
+
+    // 将 agent 加入空间为 editor
+    await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space.id}/members`,
+      { userId: agent.id, role: "editor" },
+      owner
+    )
+
+    // 创建页面并由 agent 成为 author
+    const pageRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        spaceId: space.id,
+        title: "孤儿 Agent 页面",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>正文</p>",
+        contentText: "正文"
+      },
+      owner
+    )
+    const page = (await pageRes.json()) as { id: string }
+
+    // 将页面的 created_by 和 updated_by 改为 agent
+    await env.DB.prepare(
+      `UPDATE ${prefix}pages SET created_by = ?, updated_by = ? WHERE id = ?`
+    )
+      .bind(agent.id, agent.id, Number(page.id))
+      .run()
+
+    // 插入 agent 评论
+    await insertComment(env.DB, prefix, {
+      pageId: Number(page.id),
+      parentId: null,
+      authorId: agent.id,
+      bodyMd: "孤儿 Agent 的评论",
+      createdAt: new Date().toISOString()
+    })
+
+    // 2. 彻底硬删除 owner 用户行
+    await env.DB.prepare(`DELETE FROM ${usersTable(prefix)} WHERE id = ?`)
+      .bind(ownerRow!.id)
+      .run()
+
+    // 3. 验证页面详情：createdByIsAgent 为 true，但 createdByOwnerName 回落为 null
+    const getPageRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}`,
+      undefined,
+      admin
+    )
+    expect(getPageRes.status).toBe(200)
+    const pageDetail = (await getPageRes.json()) as {
+      createdByIsAgent: boolean
+      createdByOwnerName: string | null
+      updatedByIsAgent: boolean
+      updatedByOwnerName: string | null
+    }
+    expect(pageDetail.createdByIsAgent).toBe(true)
+    expect(pageDetail.createdByOwnerName).toBeNull()
+    expect(pageDetail.updatedByIsAgent).toBe(true)
+    expect(pageDetail.updatedByOwnerName).toBeNull()
+
+    // 4. 验证评论列表：isAgent 为 true，但 ownerName 回落为 null
+    const commentsRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}/comments`,
+      undefined,
+      admin
+    )
+    expect(commentsRes.status).toBe(200)
+    const commentsBody = (await commentsRes.json()) as {
+      threads: Array<{
+        isAgent: boolean
+        ownerName: string | null
+      }>
+    }
+    expect(commentsBody.threads).toHaveLength(1)
+    expect(commentsBody.threads[0].isAgent).toBe(true)
+    expect(commentsBody.threads[0].ownerName).toBeNull()
+
+    // 5. 验证空间成员列表：isAgent 为 true，但 ownerName 回落为 null
+    const membersRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/spaces/${space.id}/members`,
+      undefined,
+      admin
+    )
+    expect(membersRes.status).toBe(200)
+    const members = (await membersRes.json()) as Array<{
+      userId: number
+      isAgent: boolean
+      ownerName: string | null
+    }>
+    const agentMember = members.find((m) => m.userId === agent.id)
+    expect(agentMember).toBeDefined()
+    expect(agentMember?.isAgent).toBe(true)
+    expect(agentMember?.ownerName).toBeNull()
+
+    // 6. 验证系统管理用户列表：isAgent 为 true，但 ownerName 回落为 null
+    const adminUsersRes = await jsonRequest(
+      env,
+      "GET",
+      "/api/admin/users",
+      undefined,
+      admin
+    )
+    expect(adminUsersRes.status).toBe(200)
+    const adminUsers = (await adminUsersRes.json()) as Array<{
+      id: number
+      isAgent: boolean
+      owner: unknown
+      ownerName: string | null
+    }>
+    const adminAgent = adminUsers.find((u) => u.id === agent.id)
+    expect(adminAgent).toBeDefined()
+    expect(adminAgent?.isAgent).toBe(true)
+    expect(adminAgent?.owner).toBeNull()
+    expect(adminAgent?.ownerName).toBeNull()
+  })
+
+  it("当评论作者被彻底删除时，isAgent 为 false，ownerName 为 null，authorName 回落为已注销用户", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin, "deleted-author@example.com")
+    const prefix = "ciki_"
+
+    const userRow = await findUserByEmail(
+      env.DB,
+      prefix,
+      "deleted-author@example.com"
+    )
+    expect(userRow).not.toBeNull()
+
+    // 创建空间与页面
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "已注销作者测试空间", description: "" },
+      user
+    )
+    const space = (await spaceRes.json()) as { id: number }
+
+    const pageRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        spaceId: space.id,
+        title: "已注销作者测试页面",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>正文</p>",
+        contentText: "正文"
+      },
+      user
+    )
+    const page = (await pageRes.json()) as { id: string }
+
+    // 发表评论
+    const commentId = await insertComment(env.DB, prefix, {
+      pageId: Number(page.id),
+      parentId: null,
+      authorId: userRow!.id,
+      bodyMd: "已注销用户的评论",
+      createdAt: new Date().toISOString()
+    })
+
+    // 彻底删除作者用户
+    await env.DB.prepare(`DELETE FROM ${usersTable(prefix)} WHERE id = ?`)
+      .bind(userRow!.id)
+      .run()
+
+    // 查询评论列表
+    const commentsRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}/comments`,
+      undefined,
+      admin
+    )
+    expect(commentsRes.status).toBe(200)
+    const commentsBody = (await commentsRes.json()) as {
+      threads: Array<{
+        id: number
+        authorName: string
+        isAgent: boolean
+        ownerName: string | null
+      }>
+    }
+    expect(commentsBody.threads).toHaveLength(1)
+    expect(commentsBody.threads[0].id).toBe(commentId)
+    expect(commentsBody.threads[0].authorName).toBe("已注销用户")
+    expect(commentsBody.threads[0].isAgent).toBe(false)
+    expect(commentsBody.threads[0].ownerName).toBeNull()
   })
 })

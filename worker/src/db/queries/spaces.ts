@@ -43,6 +43,7 @@ export interface SpaceMemberViewRow {
   email: string
   role: SpaceRole
   kind: UserKind
+  owner_name: string | null
   created_at: string
 }
 
@@ -51,6 +52,7 @@ export interface MemberCandidateRow {
   username: string
   email: string
   kind: UserKind
+  owner_name: string | null
 }
 
 export interface SpaceOverviewRow extends SpaceRow {
@@ -260,9 +262,11 @@ export async function listSpaceMembers(
   const rows = await db
     .prepare(
       `SELECT m.user_id, m.role, m.created_at,
-              u.username, u.email, u.kind
+              u.username, u.email, u.kind,
+              CASE WHEN u.kind = 'agent' THEN o.username ELSE NULL END AS owner_name
          FROM ${spaceMembersTable(prefix)} m
          JOIN ${usersTable(prefix)} u ON u.id = m.user_id
+         LEFT JOIN ${usersTable(prefix)} o ON o.id = u.owner_user_id
         WHERE m.space_id = ?
         ORDER BY CASE m.role
                    WHEN 'admin' THEN 0
@@ -371,8 +375,10 @@ export async function listMemberCandidates(
       ? "1 = 1"
       : `(u.username LIKE ? ESCAPE '\\'
           OR u.email LIKE ? ESCAPE '\\')`
-  const sql = `SELECT u.id AS user_id, u.username, u.email, u.kind
+  const sql = `SELECT u.id AS user_id, u.username, u.email, u.kind,
+              CASE WHEN u.kind = 'agent' THEN o.username ELSE NULL END AS owner_name
      FROM ${usersTable(prefix)} u
+     LEFT JOIN ${usersTable(prefix)} o ON o.id = u.owner_user_id
     WHERE u.is_active = 1 AND u.approval_status = 'approved'
       AND NOT EXISTS (
         SELECT 1 FROM ${spaceMembersTable(prefix)} m
