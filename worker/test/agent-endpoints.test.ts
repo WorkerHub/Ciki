@@ -336,7 +336,7 @@ describe("/api/me/agents 严格 Owner 隔离边界（404 防探测）", () => {
     expect(intruderListRes.status).toBe(200)
     expect(await intruderListRes.json()).toEqual([])
 
-    // 2. 他人尝试 PATCH / DELETE 该 Agent -> 404
+    // 2. 他人尝试 PATCH / DELETE 该 Agent -> 404（含畸形 body 依然 404 先于参数校验）
     const intruderPatch = await jsonRequest(
       env,
       "PATCH",
@@ -346,6 +346,18 @@ describe("/api/me/agents 严格 Owner 隔离边界（404 防探测）", () => {
     )
     expect(intruderPatch.status).toBe(404)
     expect(await intruderPatch.json()).toEqual({ error: "Agent not found" })
+
+    const intruderMalformedPatch = await jsonRequest(
+      env,
+      "PATCH",
+      `/api/me/agents/${bot.id}`,
+      { isActive: "not-a-bool" },
+      intruder
+    )
+    expect(intruderMalformedPatch.status).toBe(404)
+    expect(await intruderMalformedPatch.json()).toEqual({
+      error: "Agent not found"
+    })
 
     const intruderDelete = await jsonRequest(
       env,
@@ -704,5 +716,202 @@ describe("Agent 令牌调用与停用/删除即时失效", () => {
       headers: { authorization: `Bearer ${issued.token}` }
     })
     expect(readResDeleted.status).toBe(401)
+  })
+})
+
+describe("Agent 令牌空间范围端到端生效模型（双重约束：成员关系 ∩ 令牌范围）", () => {
+  it("口径验证：代管签发限 owner 可见空间；实际生效以「Agent 空间成员 ∩ 范围」为准", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const owner = await userSession(env, admin, "scope-owner@example.com")
+
+    // 1. Owner 拥有两个空间 spaceA 与 spaceB，并在各空间内建一页
+    const spaceA = (
+      (await (
+        await jsonRequest(
+          env,
+          "POST",
+          "/api/spaces",
+          { name: "空间甲", description: "" },
+          owner
+        )
+      ).json()) as { id: number }
+    ).id
+
+    const spaceB = (
+      (await (
+        await jsonRequest(
+          env,
+          "POST",
+          "/api/spaces",
+          { name: "空间乙", description: "" },
+          owner
+        )
+      ).json()) as { id: number }
+    ).id
+
+    // 在空间 A 建一页
+    const pageA = (
+      (await (
+        await jsonRequest(
+          env,
+          "POST",
+          "/api/pages",
+          {
+            title: "空间甲文章",
+            parentId: null,
+            spaceId: String(spaceA),
+            contentJson: JSON.stringify({
+              type: "doc",
+              content: [
+                { type: "paragraph", content: [{ type: "text", text: "甲" }] }
+              ]
+            }),
+            contentHtml: "<p>甲</p>",
+            contentText: "甲"
+          },
+          owner
+        )
+      ).json()) as { id: string }
+    ).id
+
+    // 在空间 B 建一页
+    const pageB = (
+      (await (
+        await jsonRequest(
+          env,
+          "POST",
+          "/api/pages",
+          {
+            title: "空间乙文章",
+            parentId: null,
+            spaceId: String(spaceB),
+            contentJson: JSON.stringify({
+              type: "doc",
+              content: [
+                { type: "paragraph", content: [{ type: "text", text: "乙" }] }
+              ]
+            }),
+            contentHtml: "<p>乙</p>",
+            contentText: "乙"
+          },
+          owner
+        )
+      ).json()) as { id: string }
+    ).id
+
+    // 2. Owner 创建 Agent，为 Agent 签发仅限定空间 A 的只读令牌
+    const botRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/me/agents",
+      { username: "scoped-agent" },
+      owner
+    )
+    const bot = (await botRes.json()) as AgentSummary
+
+    const tokenRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/me/agents/${bot.id}/tokens`,
+      { kind: "read", spaceIds: [spaceA] },
+      owner
+    )
+    const token = (await tokenRes.json()) as IssuedToken
+
+    // 3. 【断言 1】：此时 Agent 尚未加入空间 A（不是空间成员）
+    // 即使令牌 scope 包含了 spaceA，拿着令牌读树和读空间列表，也绝对读不到任何内容（返回空）
+    const spacesBeforeJoin = await request(env, "/api/read/spaces", {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(spacesBeforeJoin.status).toBe(200)
+    expect((await spacesBeforeJoin.json()) as { spaces: unknown[] }).toEqual({
+      spaces: []
+    })
+
+    const treeBeforeJoin = await request(env, "/api/read/tree", {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(treeBeforeJoin.status).toBe(200)
+    expect((await treeBeforeJoin.json()) as unknown[]).toEqual([])
+
+    // 读空间 A 的文章亦返回 404（非成员按不存在处理）
+    const pageBeforeJoin = await request(env, `/api/read/pages/${pageA}`, {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(pageBeforeJoin.status).toBe(404)
+
+    // 4. 将 Agent 添加为空间 A 的成员（viewer）
+    const addMemberRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${spaceA}/members`,
+      { userId: bot.id, role: "viewer" },
+      owner
+    )
+    expect(addMemberRes.status).toBe(201)
+
+    // 5. 【断言 2】：Agent 加入空间 A 后，令牌针对空间 A 的读能力正式生效！
+    const spacesAfterJoin = await request(env, "/api/read/spaces", {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(spacesAfterJoin.status).toBe(200)
+    const spacesList = (await spacesAfterJoin.json()) as {
+      spaces: Array<{ id: number }>
+    }
+    expect(spacesList.spaces.map((s) => s.id)).toEqual([spaceA])
+
+    const treeAfterJoin = await request(env, "/api/read/tree", {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(treeAfterJoin.status).toBe(200)
+    const treeList = (await treeAfterJoin.json()) as Array<{ id: string }>
+    expect(treeList.map((p) => p.id)).toEqual([pageA])
+
+    const pageAfterJoin = await request(env, `/api/read/pages/${pageA}`, {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(pageAfterJoin.status).toBe(200)
+
+    // 6. 【断言 3】：将 Agent 也加入空间 B（viewer）
+    // 但因为该令牌的 scope 只有 [spaceA]，所以空间 B 依然被范围过滤掉，不会出现在令牌的读取结果中！
+    const addMemberB = await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${spaceB}/members`,
+      { userId: bot.id, role: "viewer" },
+      owner
+    )
+    expect(addMemberB.status).toBe(201)
+
+    const spacesWithB = await request(env, "/api/read/spaces", {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    const spacesListWithB = (await spacesWithB.json()) as {
+      spaces: Array<{ id: number }>
+    }
+    expect(spacesListWithB.spaces.map((s) => s.id)).toEqual([spaceA]) // 仍然只有 A，B 被 scope 过滤
+
+    const pageBRes = await request(env, `/api/read/pages/${pageB}`, {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(pageBRes.status).toBe(404) // 空间 B 在 scope 之外，404 不泄露
+
+    // 7. 【断言 4】：从空间 A 移除 Agent 成员，令牌在空间 A 的访问立刻失效
+    const removeMemberA = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/spaces/${spaceA}/members/${bot.id}`,
+      undefined,
+      owner
+    )
+    expect(removeMemberA.status).toBe(200)
+
+    const spacesAfterRemove = await request(env, "/api/read/spaces", {
+      headers: { authorization: `Bearer ${token.token}` }
+    })
+    expect(
+      ((await spacesAfterRemove.json()) as { spaces: unknown[] }).spaces
+    ).toEqual([])
   })
 })

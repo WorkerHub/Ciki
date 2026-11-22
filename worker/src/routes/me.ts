@@ -646,23 +646,13 @@ meRoutes.post("/agents", async (c) => {
     const agent = await findUserById(c.env.DB, prefix, agentId)
     if (!agent) return c.json(AGENT_NOT_FOUND, 404)
     return c.json(agentDto(agent), 201)
-  } catch (err) {
-    return c.json(
-      { error: err instanceof Error ? err.message : "Failed to create agent" },
-      400
-    )
+  } catch {
+    return c.json({ error: "Failed to create agent" }, 500)
   }
 })
 
-/** 启停 Agent 账号：`isActive` 必须为布尔值。 */
+/** 启停 Agent 账号：`isActive` 必须为布尔值。先判 owner 归属（非 owner 一律 404），再判 body。 */
 meRoutes.patch("/agents/:id", async (c) => {
-  const body = await readJsonObject(c)
-  if (!body.ok) return body.response
-
-  if (typeof body.body.isActive !== "boolean") {
-    return c.json({ error: "isActive must be a boolean" }, 400)
-  }
-
   const agentId = parseId(c.req.param("id"))
   if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
 
@@ -674,6 +664,13 @@ meRoutes.patch("/agents/:id", async (c) => {
     agentId
   )
   if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const body = await readJsonObject(c)
+  if (!body.ok) return body.response
+
+  if (typeof body.body.isActive !== "boolean") {
+    return c.json({ error: "isActive must be a boolean" }, 400)
+  }
 
   const nextActive = body.body.isActive ? 1 : 0
   await updateUser(c.env.DB, prefix, agent.id, {
@@ -732,7 +729,10 @@ meRoutes.get("/agents/:id/tokens", async (c) => {
  * 代管为 Agent 签发接口令牌：
  * - 只有 owner 本人可签发（管理员亦不可代管他人名下 agent）；
  * - kind 必填（read 或 write），name 可选（缺省用默认名）；
- * - spaceIds 可选：缺省/null 为不限，数组限制为空间范围（必须在 owner 当前可见范围内）；
+ * - spaceIds 校验口径：必须在 owner 当前可见空间范围内（防止越权代签 owner 不可见的空间）；
+ * - 生效模型：端到端读写生效范围遵循「Agent 自身空间成员 ∩ 令牌 scope」，即 Agent
+ *   必须先被添加为对应空间的成员（并拥有对应角色），该令牌在对应空间的操作才会生效；
+ *   若 Agent 尚未加入该空间，即使 scope 包含该空间，读接口亦不可见（返回空）、写接口亦报 404；
  * - 令牌所属用户为该 Agent，明文只在此响应出现一次。
  */
 meRoutes.post("/agents/:id/tokens", async (c) => {
