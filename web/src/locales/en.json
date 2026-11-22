@@ -708,6 +708,44 @@
         "copied": "Copied",
         "saved": "I saved it"
       }
+    },
+    "agents": {
+      "title": "My Agent Accounts",
+      "new": "New Agent",
+      "empty": "No agent accounts yet",
+      "usernameLabel": "Username",
+      "usernamePlaceholder": "1–40 characters",
+      "create": "Create",
+      "creating": "Creating…",
+      "created": "Agent account created.",
+      "deleted": "Agent account deleted.",
+      "statusUpdated": "Agent status updated.",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "statusToggle": "{{name}} active status",
+      "delete": "Delete",
+      "deleteTitle": "Delete agent account?",
+      "deleteDescription": "Deleting \"{{name}}\" will also clean up all its tokens and space memberships, and cannot be undone.",
+      "deleteConfirm": "Delete account",
+      "tokens": {
+        "title": "Delegated Tokens",
+        "new": "Issue token",
+        "empty": "No tokens for this agent yet",
+        "collapse": "Collapse",
+        "expand": "Manage tokens",
+        "issue": "Issue",
+        "issuing": "Issuing…",
+        "issued": "Token issued.",
+        "kindLabel": "Kind",
+        "nameLabel": "Name",
+        "nameAutoHint": "Leave blank to name it {{name}}",
+        "revoke": "Revoke",
+        "revokeTitle": "Revoke this token?",
+        "revokeDescription": "Agent operations using \"{{name}}\" will stop immediately and cannot be restored.",
+        "revokeConfirm": "Revoke token",
+        "revoked": "Token revoked. Agent operations using it stop immediately.",
+        "missing": "The token no longer exists; the list has been refreshed."
+      }
     }
   },
   "profile": {

@@ -702,6 +702,44 @@
         "copied": "已复制",
         "saved": "我已保存"
       }
+    },
+    "agents": {
+      "title": "我的 Agent 账号",
+      "new": "新建 Agent",
+      "empty": "还没有 Agent 账号",
+      "usernameLabel": "用户名",
+      "usernamePlaceholder": "1–40 个字符",
+      "create": "创建",
+      "creating": "创建中…",
+      "created": "Agent 账号已创建。",
+      "deleted": "Agent 账号已删除。",
+      "statusUpdated": "Agent 状态已更新。",
+      "statusActive": "已启用",
+      "statusInactive": "已停用",
+      "statusToggle": "{{name}} 启用状态",
+      "delete": "删除",
+      "deleteTitle": "删除 Agent 账号？",
+      "deleteDescription": "删除「{{name}}」将一并清理其持有的全部 Token 与空间成员关系，且不能恢复。",
+      "deleteConfirm": "删除账号",
+      "tokens": {
+        "title": "代管 Token",
+        "new": "签发 Token",
+        "empty": "该 Agent 还没有 Token",
+        "collapse": "收起",
+        "expand": "管理 Token",
+        "issue": "签发",
+        "issuing": "签发中…",
+        "issued": "Token 已签发。",
+        "kindLabel": "类型",
+        "nameLabel": "名称",
+        "nameAutoHint": "留空将自动命名：{{name}}",
+        "revoke": "吊销",
+        "revokeTitle": "吊销这个 Token？",
+        "revokeDescription": "吊销后使用「{{name}}」的 Agent 操作立即失效，且不能恢复。",
+        "revokeConfirm": "吊销 Token",
+        "revoked": "Token 已吊销，使用它的 Agent 操作立即失效。",
+        "missing": "Token 已不存在，列表已刷新。"
+      }
     }
   },
   "profile": {

@@ -207,6 +207,8 @@ export const api = {
       ...(body === undefined ? { method: "POST" } : json(body))
     }),
   put: <T>(path: string, body?: unknown) => request<T>(path, json(body, "PUT")),
+  patch: <T>(path: string, body?: unknown) =>
+    request<T>(path, json(body, "PATCH")),
   del: <T>(path: string, body?: unknown) =>
     request<T>(
       path,
@@ -429,6 +431,27 @@ export interface ApiTokenCreated {
   token: string
 }
 
+export interface AgentAccount {
+  id: number
+  username: string
+  isActive: boolean
+  createdAt: string
+}
+
+export interface CreateAgentInput {
+  username: string
+}
+
+export interface UpdateAgentInput {
+  isActive: boolean
+}
+
+export interface CreateAgentTokenInput {
+  kind: ApiTokenKind
+  name?: string
+  spaceIds?: TokenSpaceIds
+}
+
 /** `PUT /me/tokens/:id/spaces` 的回执：写入后的范围。 */
 export interface ApiTokenSpaces {
   spaceIds: TokenSpaceIds
@@ -487,8 +510,10 @@ export interface PageDetail {
   updatedAt: string
   createdByName: string | null
   createdByAvatarUrl: string | null
+  createdByIsAgent?: boolean
   updatedByName: string | null
   updatedByAvatarUrl: string | null
+  updatedByIsAgent?: boolean
 }
 
 /**
@@ -602,6 +627,10 @@ export interface AdminUser extends User {
   isActive: boolean
   approvalStatus: ApprovalStatus
   createdAt: string
+  isAgent?: boolean
+  kind?: "human" | "agent"
+  ownerUserId?: number | null
+  owner?: { id: number; username: string } | null
 }
 
 export type EmailProvider = "none" | "smtp" | "resend"
@@ -733,12 +762,14 @@ export interface SpaceMember {
   email: string
   role: SpaceRole
   createdAt: string
+  isAgent?: boolean
 }
 
 export interface SpaceCandidate {
   userId: number
   username: string
   email: string
+  isAgent?: boolean
 }
 
 /**
@@ -1003,7 +1034,20 @@ export const meApi = {
   createImportToken: (name?: string) =>
     api.post<ImportTokenCreated>("/me/import-tokens", name ? { name } : {}),
   revokeImportToken: (id: number) =>
-    api.del<{ success: true }>(`/me/import-tokens/${id}`)
+    api.del<{ success: true }>(`/me/import-tokens/${id}`),
+  agents: {
+    list: () => api.get<AgentAccount[]>("/me/agents"),
+    create: (input: CreateAgentInput) =>
+      api.post<AgentAccount>("/me/agents", input),
+    update: (id: number, input: UpdateAgentInput) =>
+      api.patch<AgentAccount>(`/me/agents/${id}`, input),
+    delete: (id: number) => api.del<{ success: true }>(`/me/agents/${id}`),
+    tokens: (id: number) => api.get<ApiTokenList>(`/me/agents/${id}/tokens`),
+    issueToken: (id: number, input: CreateAgentTokenInput) =>
+      api.post<ApiTokenCreated>(`/me/agents/${id}/tokens`, input),
+    revokeToken: (id: number, tokenId: number) =>
+      api.del<{ success: true }>(`/me/agents/${id}/tokens/${tokenId}`)
+  }
 }
 
 /**

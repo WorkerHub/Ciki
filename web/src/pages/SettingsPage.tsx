@@ -10,6 +10,7 @@ import {
 import QRCode from "qrcode"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { AgentAccountsCard } from "@/components/AgentAccountsCard"
 import { ApiTokensCard } from "@/components/ApiTokensCard"
 import { ImportTokensCard } from "@/components/ImportTokensCard"
 import { LanguageSegmented } from "@/components/LanguageToggle"
@@ -799,6 +800,8 @@ export function SettingsPage() {
       <ApiTokensCard />
 
       <ImportTokensCard />
+
+      <AgentAccountsCard />
 
       <Card>
         <CardHeader>

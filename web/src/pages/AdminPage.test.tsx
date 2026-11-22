@@ -162,6 +162,27 @@ describe("系统管理 · 真实路由子导航", () => {
     expect(screen.getByText("还没有用户。")).toBeInTheDocument()
   })
 
+  it("用户列表中正确展示 Agent 徽标", async () => {
+    vi.mocked(adminApi.users).mockResolvedValue([
+      {
+        id: 2,
+        email: "agent-bot@internal",
+        role: "user",
+        isActive: true,
+        approvalStatus: "approved",
+        isAgent: true,
+        kind: "agent",
+        ownerUserId: 1,
+        owner: { id: 1, username: "管理员" },
+        createdAt: "2026-11-08T00:00:00.000Z"
+      }
+    ])
+    renderAdmin("/admin/users")
+
+    expect(await screen.findByText("agent-bot@internal")).toBeInTheDocument()
+    expect(screen.getByText("Agent")).toBeInTheDocument()
+  })
+
   it("渲染全部六个分区子导航链接并指向对应绝对路径", () => {
     renderAdmin("/admin/users")
 
