@@ -56,6 +56,13 @@ const memberUser: Me = {
   }
 }
 
+const adminUser: Me = {
+  ...memberUser,
+  id: 99,
+  username: "站长",
+  role: "admin"
+}
+
 const space: Space = {
   id: 1,
   slug: "pay-team",
@@ -95,19 +102,22 @@ function page(id: number, children: PageNode[] = []): PageNode {
   }
 }
 
-function renderSettings() {
+function renderSettings(initialEntry = "/s/pay-team/settings") {
   const router = createMemoryRouter(
     [
       { path: "/s/:slug/settings", element: <SpaceSettingsPage /> },
+      { path: "/admin/spaces", element: <div>空间总览占位</div> },
+      { path: "/s/:slug", element: <div>空间首页占位</div> },
       { path: "/", element: <div>首页占位</div> }
     ],
-    { initialEntries: ["/s/pay-team/settings"] }
+    { initialEntries: [initialEntry] }
   )
   return render(<RouterProvider router={router} />)
 }
 
 describe("空间设置与成员管理", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
     useAuthStore.setState({
       user: memberUser,
       status: "ready",
@@ -306,6 +316,41 @@ describe("空间设置与成员管理", () => {
     expect(
       await screen.findByText("仅空间管理员可以打开空间设置")
     ).toBeInTheDocument()
+    const backBtn = screen.getByRole("link", { name: "回到页面" })
+    expect(backBtn).toHaveAttribute("href", "/")
+  })
+
+  it("非站长空间管理员：返回链接文案为「返回空间首页」且点击落 /s/:slug", async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    const backLink = await screen.findByRole("link", { name: "返回空间首页" })
+    expect(backLink).toBeInTheDocument()
+    expect(backLink).toHaveAttribute("href", "/s/pay-team")
+    expect(screen.queryByRole("link", { name: "返回空间总览" })).toBeNull()
+    expect(screen.queryByRole("link", { name: "回到页面" })).toBeNull()
+
+    await user.click(backLink)
+    expect(await screen.findByText("空间首页占位")).toBeInTheDocument()
+  })
+
+  it("站长视角：返回链接文案为「返回空间总览」且点击落 /admin/spaces", async () => {
+    useAuthStore.setState({
+      user: adminUser,
+      status: "ready",
+      restricted: false
+    })
+    const user = userEvent.setup()
+    renderSettings()
+
+    const backLink = await screen.findByRole("link", { name: "返回空间总览" })
+    expect(backLink).toBeInTheDocument()
+    expect(backLink).toHaveAttribute("href", "/admin/spaces")
+    expect(screen.queryByRole("link", { name: "返回空间首页" })).toBeNull()
+    expect(screen.queryByRole("link", { name: "回到页面" })).toBeNull()
+
+    await user.click(backLink)
+    expect(await screen.findByText("空间总览占位")).toBeInTheDocument()
   })
 })
 
@@ -338,5 +383,32 @@ describe("空间设置 · 英文界面", () => {
     expect(
       screen.getByRole("button", { name: "Delete space" })
     ).toBeInTheDocument()
+  })
+
+  it("英文界面下非站长返回文案为 Back to space home", async () => {
+    await i18n.changeLanguage("en")
+    renderSettings()
+
+    const backLink = await screen.findByRole("link", {
+      name: "Back to space home"
+    })
+    expect(backLink).toBeInTheDocument()
+    expect(backLink).toHaveAttribute("href", "/s/pay-team")
+  })
+
+  it("英文界面下站长返回文案为 Back to space overview", async () => {
+    await i18n.changeLanguage("en")
+    useAuthStore.setState({
+      user: adminUser,
+      status: "ready",
+      restricted: false
+    })
+    renderSettings()
+
+    const backLink = await screen.findByRole("link", {
+      name: "Back to space overview"
+    })
+    expect(backLink).toBeInTheDocument()
+    expect(backLink).toHaveAttribute("href", "/admin/spaces")
   })
 })

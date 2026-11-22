@@ -98,6 +98,13 @@ function isSystemPath(pathname: string): boolean {
   )
 }
 
+function isSpaceSettingsPath(pathname: string): boolean {
+  const segments = pathname.split("/").filter(Boolean)
+  return (
+    segments.length === 3 && segments[0] === "s" && segments[2] === "settings"
+  )
+}
+
 /**
  * 文章页（阅读 /p/:id 与编辑 /p/:id/edit）：正文宽度交给 PageCanvas，
  * 壳层不再套 1140px 上限，否则正文到不了 1600px 封顶。
@@ -362,6 +369,7 @@ export function AppShell() {
   const location = useLocation()
   const reduceMotion = useReducedMotion()
   const isSystemRoute = isSystemPath(location.pathname)
+  const isSpaceSettingsRoute = isSpaceSettingsPath(location.pathname)
   const isArticleRoute = isArticlePath(location.pathname)
   const layout = useDefaultLayout({
     id: "ciki-shell",
@@ -472,7 +480,7 @@ export function AppShell() {
         width: "min(1400px, calc(100% - 2 * max(16px, 3.7vw)))"
       }}
     >
-      <div className="mb-4">{backToDocButton}</div>
+      {!isSpaceSettingsRoute && <div className="mb-4">{backToDocButton}</div>}
       {content}
     </div>
   ) : (
