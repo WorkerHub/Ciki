@@ -208,6 +208,36 @@ export function updatePageContent(
 }
 
 /**
+ * 画布预览回填：CAS 条件更新 content_hash、content_html、content_md。
+ * 零版本增长：不修改 versionNo、page_revisions、updated_by、updated_at、FTS。
+ */
+export function updatePageCanvasPreview(
+  db: D1Database,
+  prefix: string,
+  params: {
+    id: number
+    oldHash: string
+    newHash: string
+    contentHtml: string
+    contentMd: string
+  }
+): D1PreparedStatement {
+  return db
+    .prepare(
+      `UPDATE ${pagesTable(prefix)}
+          SET content_hash = ?, content_html = ?, content_md = ?
+        WHERE id = ? AND content_hash = ? AND deleted_at IS NULL`
+    )
+    .bind(
+      params.newHash,
+      params.contentHtml,
+      params.contentMd,
+      params.id,
+      params.oldHash
+    )
+}
+
+/**
  * 只改标题（页级元数据，不参与版本增长）：正文列与 `content_hash` 一律不动。
  */
 export function updatePageTitle(

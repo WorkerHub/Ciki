@@ -91,8 +91,8 @@ describe("Excalidraw 画布块 Markdown 派生", () => {
         {
           type: "excalidraw",
           attrs: {
-            previewKey: "pages/canvas-multiline.png",
-            sceneKey: "pages/canvas-multiline.json",
+            previewKey: "pages/11111111-2222-3333-4444-555555555555.png",
+            sceneKey: "pages/11111111-2222-3333-4444-555555555555.json",
             extractedText: "模块A：网关\n\n模块B：存储\r\n模块C：计算[核心]"
           }
         }
@@ -100,7 +100,7 @@ describe("Excalidraw 画布块 Markdown 派生", () => {
     }
     const md = serializeTiptapMarkdown(doc)
     expect(md).toBe(
-      "![模块A：网关 模块B：存储 模块C：计算\\[核心\\]](https://ciki.oneboy.app/api/files/pages/canvas-multiline.png)"
+      "![模块A：网关 模块B：存储 模块C：计算\\[核心\\]](https://ciki.oneboy.app/api/files/pages/11111111-2222-3333-4444-555555555555.png)"
     )
     expect(md).not.toContain("\n")
   })

@@ -26,6 +26,7 @@ import {
   permanentDeleteSubtree,
   restoreSubtree,
   softDeleteSubtree,
+  updatePageCanvasPreview,
   type PageRow,
   type PageSummaryRow
 } from "../db/queries/pages"
@@ -43,9 +44,25 @@ import {
   resolveSpaceRole,
   type SpaceRole
 } from "../core/space-access"
-import { readContent } from "../core/content-store"
+import {
+  hashContent,
+  putContentHashed,
+  readContent
+} from "../core/content-store"
 import { indexPageStatements } from "../lib/fts"
 import { parseId, readJsonBody, readParentId, readSpaceId } from "../lib/http"
+import {
+  PREVIEW_KEY_RE,
+  SCENE_KEY_RE,
+  sanitizePageHtml,
+  toPlainText
+} from "../lib/sanitize"
+import {
+  docToPlainText,
+  parseTiptapDoc,
+  renderTiptapDoc
+} from "../lib/tiptap-html"
+import { derivePageMarkdown } from "../lib/tiptap-markdown"
 import {
   cleanPageFilename,
   contentDisposition,
@@ -443,6 +460,163 @@ pageRoutes.put("/:id", async (c) => {
     now: new Date().toISOString()
   })
   return c.json(toDetail(saved))
+})
+
+interface TipTapNodeLike {
+  type?: unknown
+  attrs?: Record<string, unknown>
+  content?: unknown
+  [key: string]: unknown
+}
+
+function findExcalidrawNodes(
+  node: unknown,
+  sceneKey: string
+): Array<Record<string, unknown>> {
+  const matches: Array<Record<string, unknown>> = []
+  function traverse(curr: unknown) {
+    if (!curr || typeof curr !== "object") return
+    if (Array.isArray(curr)) {
+      for (const item of curr) traverse(item)
+      return
+    }
+    const n = curr as TipTapNodeLike
+    if (n.type === "excalidraw" && n.attrs?.sceneKey === sceneKey) {
+      if (!n.attrs || typeof n.attrs !== "object") {
+        n.attrs = { sceneKey }
+      }
+      matches.push(n.attrs)
+    }
+    if (Array.isArray(n.content)) {
+      for (const child of n.content) {
+        traverse(child)
+      }
+    }
+  }
+  traverse(node)
+  return matches
+}
+
+pageRoutes.post("/:id/canvas-preview", async (c) => {
+  const body = await readJsonBody<{
+    sceneKey?: unknown
+    previewKey?: unknown
+  }>(c)
+  if (!body || typeof body !== "object") {
+    return c.json(
+      { error: "Invalid request body", code: "INVALID_REQUEST_BODY" },
+      400
+    )
+  }
+  const { sceneKey, previewKey } = body
+  if (typeof sceneKey !== "string" || !SCENE_KEY_RE.test(sceneKey)) {
+    return c.json({ error: "Invalid sceneKey", code: "INVALID_SCENE_KEY" }, 400)
+  }
+  if (typeof previewKey !== "string" || !PREVIEW_KEY_RE.test(previewKey)) {
+    return c.json(
+      { error: "Invalid previewKey", code: "INVALID_PREVIEW_KEY" },
+      400
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const db = c.env.DB
+  const id = parseId(c.req.param("id"))
+  if (id === null) return pageNotFound(c)
+
+  const existing = await getPageRow(db, prefix, id)
+  if (!existing || existing.deleted_at) return pageNotFound(c)
+
+  const role = await pageSpaceRole(c, existing)
+  if (!role) return pageNotFound(c)
+  if (!canEditPages(role)) return forbidden(c)
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const page = attempt === 0 ? existing : await getPageRow(db, prefix, id)
+    if (!page || page.deleted_at) return pageNotFound(c)
+
+    let contentJsonStr: string
+    try {
+      contentJsonStr = await readContent(c.env, page.content_hash)
+    } catch {
+      return contentUnavailable(c)
+    }
+
+    let doc: unknown
+    try {
+      doc = JSON.parse(contentJsonStr)
+    } catch {
+      return contentUnavailable(c)
+    }
+
+    const matches = findExcalidrawNodes(doc, sceneKey)
+    if (matches.length === 0) {
+      return c.json(
+        { error: "Canvas block not found in page", code: "CANVAS_NOT_FOUND" },
+        404
+      )
+    }
+
+    const allFilled = matches.every(
+      (attrs) =>
+        typeof attrs.previewKey === "string" && attrs.previewKey.length > 0
+    )
+    if (allFilled) {
+      return c.json({
+        ok: true,
+        status: "already_filled",
+        sceneKey,
+        previewKey: String(matches[0].previewKey)
+      })
+    }
+
+    for (const attrs of matches) {
+      attrs.previewKey = previewKey
+    }
+
+    const newJson = JSON.stringify(doc)
+    let safeHtml: string
+    let newMd: string
+    try {
+      const parsedDoc = parseTiptapDoc(doc)
+      safeHtml = sanitizePageHtml(renderTiptapDoc(parsedDoc))
+      const plainText = toPlainText(docToPlainText(parsedDoc))
+      newMd = derivePageMarkdown(newJson, plainText)
+    } catch (err) {
+      return c.json(
+        {
+          error: `Content cannot be rendered: ${err instanceof Error ? err.message : String(err)}`,
+          code: "INVALID_CONTENT_JSON"
+        },
+        400
+      )
+    }
+
+    const newHash = await hashContent(newJson)
+    await putContentHashed(c.env, newHash, newJson)
+
+    const updateRes = await updatePageCanvasPreview(db, prefix, {
+      id: page.id,
+      oldHash: page.content_hash,
+      newHash,
+      contentHtml: safeHtml,
+      contentMd: newMd
+    }).run()
+
+    if (updateRes.meta.changes > 0) {
+      return c.json({
+        ok: true,
+        status: "updated",
+        sceneKey,
+        previewKey
+      })
+    }
+  }
+
+  return c.json(
+    { error: "Concurrent update collision", code: "CONCURRENT_COLLISION" },
+    409
+  )
 })
 
 pageRoutes.post("/:id/move", async (c) => {

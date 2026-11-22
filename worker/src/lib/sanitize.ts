@@ -34,9 +34,9 @@ const SAFE_ORIGINAL_SRC =
  * 不再写「未转存」占位属性——http/data 地址并不代表可补传，留着属性只是噪音。
  */
 const HTTPS_SRC = /^https:\/\//i
-const SCENE_KEY_RE =
+export const SCENE_KEY_RE =
   /^pages\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$/
-const PREVIEW_KEY_RE =
+export const PREVIEW_KEY_RE =
   /^pages\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$/
 const COL_STYLE = /^(width|min-width):\s*\d+(\.\d+)?(px|%)\s*;?$/i
 const TABLE_STYLE = /^min-width:\s*\d+(\.\d+)?px\s*;?$/i

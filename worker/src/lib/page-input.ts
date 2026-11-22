@@ -137,10 +137,24 @@ export function normalizePageInput(
   ) {
     return { ok: false, error: "contentJson/contentHtml/contentText required" }
   }
+  let parsedJson: unknown
   try {
-    JSON.parse(contentJson)
+    parsedJson = JSON.parse(contentJson)
   } catch {
     return { ok: false, error: "contentJson must be valid JSON" }
+  }
+
+  try {
+    parseTiptapDoc(parsedJson)
+  } catch (err) {
+    if (err instanceof TiptapRenderError) {
+      return {
+        ok: false,
+        error: `contentJson cannot be rendered: ${err.message}`,
+        code: "INVALID_CONTENT_JSON"
+      }
+    }
+    throw err
   }
 
   // 原始体积的粗筛只用于挡住明显超限的请求；最终以消毒/规范化后的体积为准。
