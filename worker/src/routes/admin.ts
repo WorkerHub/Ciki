@@ -97,6 +97,8 @@ function userDto(user: UserRow) {
     role: user.role,
     isActive: Boolean(user.is_active),
     approvalStatus: user.approval_status,
+    kind: user.kind,
+    ownerUserId: user.owner_user_id,
     createdAt: user.created_at
   }
 }
@@ -232,6 +234,9 @@ adminRoutes.put("/users/:id", async (c) => {
       !["admin", "user"].includes(body.role)
     ) {
       return c.json({ error: "Invalid role" }, 400)
+    }
+    if (user.kind === "agent" && body.role === "admin") {
+      return c.json({ error: "Agent cannot be granted admin role" }, 400)
     }
     updates.role = body.role
   }
