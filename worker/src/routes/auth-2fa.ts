@@ -139,7 +139,7 @@ async function loadActiveUser(
 ): Promise<UserRow | null> {
   const prefix = getTablePrefix(c.env)
   const user = await findUserById(c.env.DB, prefix, userId)
-  if (!user?.is_active || user.approval_status !== "approved") {
+  if (!user?.is_active || user.approval_status !== "approved" || user.kind !== "human") {
     return null
   }
   return user
@@ -344,7 +344,7 @@ auth2faRoutes.post("/email-otp/send-login", async (c) => {
   }
 
   const user = await findUserById(db, prefix, login.userId)
-  if (!user) {
+  if (user?.kind !== "human") {
     return c.json({ error: "Invalid or expired 2FA session" }, 401)
   }
   if (!user.is_active || user.approval_status !== "approved") {
@@ -397,6 +397,11 @@ auth2faRoutes.post("/passkey/authenticate/options", async (c) => {
     await challengeKeyForToken(tempToken)
   )
   if (login?.purpose !== "2fa_login") {
+    return c.json({ error: "Invalid or expired 2FA session" }, 401)
+  }
+
+  const user = await findUserById(c.env.DB, prefix, login.userId)
+  if (user?.kind !== "human") {
     return c.json({ error: "Invalid or expired 2FA session" }, 401)
   }
 
