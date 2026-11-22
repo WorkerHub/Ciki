@@ -139,7 +139,11 @@ async function loadActiveUser(
 ): Promise<UserRow | null> {
   const prefix = getTablePrefix(c.env)
   const user = await findUserById(c.env.DB, prefix, userId)
-  if (!user?.is_active || user.approval_status !== "approved" || user.kind !== "human") {
+  if (
+    !user?.is_active ||
+    user.approval_status !== "approved" ||
+    user.kind !== "human"
+  ) {
     return null
   }
   return user

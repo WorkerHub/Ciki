@@ -23,9 +23,7 @@ const MIGRATION_NAMES = getMigrations("ciki_").map(
 )
 
 /** 账本查询返回的迁移名（主键索引按 name 升序排序）。 */
-const SORTED_LEDGER_ROWS = [...MIGRATION_NAMES]
-  .sort()
-  .map((name) => ({ name }))
+const SORTED_LEDGER_ROWS = [...MIGRATION_NAMES].sort().map((name) => ({ name }))
 
 /** 「全部 applied / 全部 skipped」的账本回显。 */
 function migrationList(status: "applied" | "skipped") {

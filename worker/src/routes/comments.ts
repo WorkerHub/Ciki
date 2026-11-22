@@ -39,7 +39,7 @@ import type { HonoEnv } from "../types"
 export const commentRoutes = new Hono<HonoEnv>()
 
 /** 作者被管理员彻底删除后评论仍在：名字回落到兜底文案（不级联删评论）。 */
-const DELETED_AUTHOR_NAME = "已注销用户"
+export const DELETED_AUTHOR_NAME = "已注销用户"
 
 interface CommentDto {
   id: number

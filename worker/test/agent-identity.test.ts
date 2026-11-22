@@ -24,7 +24,9 @@ describe("Agent 身份模型与 users 表 schema_v10 迁移", () => {
     const prefix = "ciki_"
 
     // PRAGMA 检查字段存在
-    const rawColumns = db.db.prepare("PRAGMA table_info(ciki_users)").all() as Array<{
+    const rawColumns = db.db
+      .prepare("PRAGMA table_info(ciki_users)")
+      .all() as Array<{
       name: string
       dflt_value: string | null
     }>
@@ -144,9 +146,7 @@ describe("createAgentUser 工具函数", () => {
       password_hash: "hash",
       role: "user"
     })
-    await env.DB.prepare(
-      `UPDATE ${prefix}users SET is_active = 0 WHERE id = ?`
-    )
+    await env.DB.prepare(`UPDATE ${prefix}users SET is_active = 0 WHERE id = ?`)
       .bind(inactiveOwnerId)
       .run()
 

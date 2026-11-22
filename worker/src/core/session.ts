@@ -91,7 +91,12 @@ export async function findSession(
       kind: string
     }>()
   if (!row) return null
-  if (!row.isActive || row.approvalStatus !== "approved" || row.kind !== "human") return null
+  if (
+    !row.isActive ||
+    row.approvalStatus !== "approved" ||
+    row.kind !== "human"
+  )
+    return null
   return {
     sessionId: row.sessionId,
     userId: row.userId,
