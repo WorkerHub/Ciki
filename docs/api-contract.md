@@ -98,8 +98,8 @@
 - **身份定位**：Agent 是系统内受人类用户（owner）代管的一等公民账号，有独立 `id`、`username`、`kind = 'agent'` 及自身在各空间的成员角色。
 - **不能登录**：无法通过密码登录（`/api/auth/login` 一律 401 `Invalid credentials`）、找回密码（`/api/auth/password/forgot` 静默返回受理但不发信）、Passkey 等方式建立交互式会话；`findSession` 对 `kind = 'agent'` 账号一律返回 `null`（即使 `sessions` 表强行插入亦会被过滤阻断），对外不泄露账号类型。
 - **不能成为站点管理员**：`role` 锁定为 `user`；管理员通过 `PUT /api/admin/users/:id` 尝试提升其为 `admin` 时将被 400 拒绝（`Agent cannot be granted admin role`）。
-- **生而有效**：由 owner 创建后立即生效（`is_active = 1`、`approval_status = 'approved'`、`email_verified = 1`），无需管理员审批或邮箱验证；密码哈希为不可比对的专用占位串（`$agent$disabled_login$...`）。
-- **所有者关系**：Agent 必须由有效的 active 人类用户拥有（`owner_user_id` 指向其 owner；Agent 自身不能拥有 Agent）；owner 停用或删除时，其名下 Agent 的 API 令牌在校验时连带失效。
+- **生而有效**：由 owner 创建后立即生效（`is_active = 1`、`approval_status = 'approved'`、`email_verified = 1`），无需管理员审批或邮箱验证；密码哈希为不可比对的专用占位串（`!agent-unusable-hash`）。
+- **所有者关系**：Agent 必须由有效的人类用户创建并归属其名下（`owner_user_id` 指向其 owner；Agent 自身不能拥有 Agent）。
 - **管理操作**：站点管理员可对 Agent 账号执行停用、启用或彻底删除操作。
 
 ### user_2fa（TOTP + 邮箱验证码开关）
@@ -1027,12 +1027,12 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```json
 [
   {
-    "id": 2,
+    "id": 1,
     "email": "…",
     "username": "alice",
-    "role": "user",
-    "isActive": false,
-    "approvalStatus": "pending",
+    "role": "admin",
+    "isActive": true,
+    "approvalStatus": "approved",
     "isAgent": false,
     "kind": "human",
     "ownerUserId": null,
@@ -1040,7 +1040,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
     "createdAt": "…"
   },
   {
-    "id": 3,
+    "id": 2,
     "email": "agent-xxx@internal",
     "username": "doc-bot",
     "role": "user",
