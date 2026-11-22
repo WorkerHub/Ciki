@@ -14,6 +14,10 @@ import TableCell from "@tiptap/extension-table-cell"
 import TableHeader from "@tiptap/extension-table-header"
 import { TextStyle } from "@tiptap/extension-text-style"
 import { normalizeColor } from "@/lib/color"
+import {
+  adaptBackgroundColorForDark,
+  adaptTextColorForDark
+} from "@/lib/color-adapt"
 import { normalizeFontSize } from "@/lib/font-size"
 
 /**
@@ -70,7 +74,11 @@ export const WikiColor = Color.extend({
             renderHTML: (attributes: Attributes) => {
               const color = attributes.color as string | null
               if (!color) return {}
-              return { "data-text-color": color, style: `color: ${color}` }
+              const darkColor = adaptTextColorForDark(color) ?? color
+              return {
+                "data-text-color": color,
+                style: `color: ${color}; --dark-text-color: ${darkColor};`
+              }
             }
           }
         }
@@ -93,7 +101,16 @@ export const WikiHighlight = Highlight.extend({
         ...parent.color,
         parseHTML: (element: HTMLElement) =>
           normalizeColor(element.getAttribute("data-color")) ??
-          normalizeColor(element.style.backgroundColor)
+          normalizeColor(element.style.backgroundColor),
+        renderHTML: (attributes: Attributes) => {
+          const color = attributes.color as string | null
+          if (!color) return {}
+          const darkBg = adaptBackgroundColorForDark(color) ?? color
+          return {
+            "data-color": color,
+            style: `background-color: ${color}; color: inherit; --dark-bg-color: ${darkBg};`
+          }
+        }
       }
     }
   }
@@ -110,9 +127,10 @@ function backgroundColorAttribute() {
       renderHTML: (attributes: Attributes) => {
         const color = attributes.backgroundColor as string | null
         if (!color) return {}
+        const darkBg = adaptBackgroundColorForDark(color) ?? color
         return {
           "data-cell-bg": color,
-          style: `background-color: ${color}`
+          style: `background-color: ${color}; --dark-bg-color: ${darkBg};`
         }
       }
     }

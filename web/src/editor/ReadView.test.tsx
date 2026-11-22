@@ -184,6 +184,45 @@ describe("阅读态颜色（入库形态 → 渲染）", () => {
     )
   })
 
+  it("夜间模式自适应 CSS 变量渲染（过暗提亮 + 背景对称压暗 + 达标不变）", async () => {
+    const htmlWithCompliant = [
+      '<p><span data-text-color="#de350b">红字</span><span data-text-color="#d97008">橙字</span></p>',
+      '<p><mark data-color="#ffe58f">高亮</mark></p>',
+      '<table><tbody><tr><td data-cell-bg="#fffae6">单元格</td></tr></tbody></table>'
+    ].join("")
+    const { container } = render(<ReadView html={htmlWithCompliant} />)
+    await screen.findByText("红字")
+
+    const redSpan = container.querySelector(
+      'span[data-text-color="#de350b"]'
+    ) as HTMLElement
+    const orangeSpan = container.querySelector(
+      'span[data-text-color="#d97008"]'
+    ) as HTMLElement
+    const mark = container.querySelector(
+      'mark[data-color="#ffe58f"]'
+    ) as HTMLElement
+    const cell = container.querySelector(
+      'td[data-cell-bg="#fffae6"]'
+    ) as HTMLElement
+
+    // 浅色内联样式不变
+    expect(redSpan.style.color).toBe("rgb(222, 53, 11)")
+    expect(orangeSpan.style.color).toBe("rgb(217, 112, 8)")
+    expect(mark.style.backgroundColor).toBe("rgb(255, 229, 143)")
+    expect(cell.style.backgroundColor).toBe("rgb(255, 250, 230)")
+
+    // 暗黑模式兜底 CSS 变量：过暗红字提亮至达标 #f44e24
+    expect(redSpan.style.getPropertyValue("--dark-text-color")).toBe("#f44e24")
+    // 暗黑模式兜底 CSS 变量：原本达标的橙字保持不变
+    expect(orangeSpan.style.getPropertyValue("--dark-text-color")).toBe(
+      "#d97008"
+    )
+    // 暗黑模式兜底 CSS 变量：高亮与表格背景对称压暗
+    expect(mark.style.getPropertyValue("--dark-bg-color")).toBe("#705600")
+    expect(cell.style.getPropertyValue("--dark-bg-color")).toBe("#191400")
+  })
+
   it("没有颜色载具的内容不产生任何颜色样式", async () => {
     const { container } = render(<ReadView html={"<p>纯文字</p>"} />)
     await screen.findByText("纯文字")

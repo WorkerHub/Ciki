@@ -103,6 +103,7 @@ describe("颜色命令（编辑器模型）", () => {
     ])
     expect(currentTextColor(editor)).toBe("#0052cc")
     expect(editor.getHTML()).toContain('data-text-color="#0052cc"')
+    expect(editor.getHTML()).toContain("--dark-text-color: #3385ff")
 
     setTextColor(editor, null)
     expect(jsonText(editor)?.marks ?? []).toEqual([])
@@ -118,6 +119,8 @@ describe("颜色命令（编辑器模型）", () => {
       { type: "highlight", attrs: { color: "#ffe58f" } }
     ])
     expect(currentHighlight(editor)).toBe("#ffe58f")
+    expect(editor.getHTML()).toContain('data-color="#ffe58f"')
+    expect(editor.getHTML()).toContain("--dark-bg-color: #705600")
 
     setHighlight(editor, null)
     expect(jsonText(editor)?.marks ?? []).toEqual([])
@@ -152,6 +155,8 @@ describe("颜色命令（编辑器模型）", () => {
       ["#fffae6", null]
     ])
     expect(currentCellBackground(editor)).toBe("#fffae6")
+    expect(editor.getHTML()).toContain('data-cell-bg="#fffae6"')
+    expect(editor.getHTML()).toContain("--dark-bg-color: #191400")
 
     // 整表选中：表头与数据格一起写
     editor.commands.selectAll()

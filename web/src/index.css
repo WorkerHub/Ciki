@@ -546,6 +546,28 @@
   color: inherit;
 }
 
+/*
+ * 暗黑模式正文内联颜色兜底：
+ * - 针对过暗的内联文字颜色，在深色背景下按 WCAG AA 相对对比度 (>= 4.5:1) 提升亮度；
+ * - 针对高亮背景与单元格底色，在暗黑模式下对称压暗以保证浅色正文的可读性；
+ * - 仅在暗黑模式且元素声明了自适应 CSS 变量时覆盖，浅色模式保持原始原色完全不变。
+ */
+.dark .wiki-content [data-text-color][style*="--dark-text-color"] {
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖元素内联 style 必须使用 !important */
+  color: var(--dark-text-color) !important;
+}
+
+.dark .wiki-content mark[data-color][style*="--dark-bg-color"] {
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖元素内联 style 必须使用 !important */
+  background-color: var(--dark-bg-color) !important;
+}
+
+.dark .wiki-content td[data-cell-bg][style*="--dark-bg-color"],
+.dark .wiki-content th[data-cell-bg][style*="--dark-bg-color"] {
+  /* biome-ignore lint/complexity/noImportantStyles: 覆盖元素内联 style 必须使用 !important */
+  background-color: var(--dark-bg-color) !important;
+}
+
 .wiki-content th > p,
 .wiki-content td > p {
   margin: 0;
