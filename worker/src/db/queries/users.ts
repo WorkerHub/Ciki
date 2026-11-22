@@ -140,6 +140,33 @@ export async function findUserById(
     .first<UserRow>()
 }
 
+export interface UserAuthorSummary {
+  id: number
+  username: string
+  avatar_key: string
+}
+
+export async function findUsersByIds(
+  db: D1Database,
+  prefix: string,
+  ids: number[]
+): Promise<Map<number, UserAuthorSummary>> {
+  const uniqueIds = Array.from(new Set(ids.filter((id) => id > 0)))
+  if (uniqueIds.length === 0) return new Map()
+  const placeholders = uniqueIds.map(() => "?").join(", ")
+  const rows = await db
+    .prepare(
+      `SELECT id, username, avatar_key FROM ${usersTable(prefix)} WHERE id IN (${placeholders})`
+    )
+    .bind(...uniqueIds)
+    .all<UserAuthorSummary>()
+  const map = new Map<number, UserAuthorSummary>()
+  for (const row of rows.results) {
+    map.set(row.id, row)
+  }
+  return map
+}
+
 /**
  * 用户名是否已被别人占用：大小写不敏感（与唯一索引的 COLLATE NOCASE 同口径），
  * 空串不参与唯一约束。`excludeUserId` 用于改名——改成自己当前的名字（含只改

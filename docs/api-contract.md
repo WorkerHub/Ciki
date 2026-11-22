@@ -1203,11 +1203,20 @@ SpaceCandidate = { userId, username, email }
   "contentText": "…",
   "contentMd": "## 小节\n\n正文",
   "createdBy": 1,
+  "createdByName": "张三",
+  "createdByAvatarUrl": "/api/files/avatars/….png",
   "updatedBy": 1,
+  "updatedByName": "张三",
+  "updatedByAvatarUrl": "/api/files/avatars/….png",
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
+
+- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`updatedByName`、`updatedByAvatarUrl` 四个字段，保留原数字 `createdBy` 与 `updatedBy`。
+  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`；
+  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`；
+  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`。
 
 **阅读热路径不读 R2**：详情默认**不含** `contentJson`，`contentHtml` / `contentText` / `contentMd` 都是 D1 里的派生列（`contentMd` 是库里的值，空正文页为空串，绝不会是 `null`）。
 

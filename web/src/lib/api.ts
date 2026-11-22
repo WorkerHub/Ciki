@@ -482,7 +482,11 @@ export interface PageDetail {
   /** 服务端派生的 Markdown（只读展示/导出用，空页为空串）；前端从不回写。 */
   contentMd: string
   createdBy: number
+  createdByName?: string | null
+  createdByAvatarUrl?: string | null
   updatedBy: number
+  updatedByName?: string | null
+  updatedByAvatarUrl?: string | null
   createdAt: string
   updatedAt: string
 }

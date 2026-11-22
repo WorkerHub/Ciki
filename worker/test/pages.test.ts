@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { DELETED_AUTHOR_NAME } from "../src/routes/comments"
 import {
   adminSession,
   initializedContext,
@@ -22,8 +23,12 @@ interface PageDetail {
   contentHtml: string
   contentJson: string
   contentText: string
-  createdBy: string
-  updatedBy: string
+  createdBy: number
+  createdByName: string | null
+  createdByAvatarUrl: string | null
+  updatedBy: number
+  updatedByName: string | null
+  updatedByAvatarUrl: string | null
   updatedAt: string
 }
 
@@ -825,5 +830,298 @@ describe("页面：新建失败不留半成品", () => {
     expect(count("SELECT COUNT(*) AS count FROM ciki_pages")).toBe(0)
     expect(count("SELECT COUNT(*) AS count FROM ciki_page_revisions")).toBe(0)
     expect(count("SELECT COUNT(*) AS count FROM ciki_pages_fts")).toBe(0)
+  })
+})
+
+describe("页面：作者信息解析与回退", () => {
+  async function meId(
+    env: Parameters<typeof adminSession>[0],
+    cookie: string
+  ): Promise<number> {
+    const res = await jsonRequest(env, "GET", "/api/me", undefined, cookie)
+    const me = (await res.json()) as { id: number }
+    return me.id
+  }
+
+  it("正常用户（有头像与无头像）：POST /、GET /:id、GET /:id?format=json、PUT /:id", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const aliceId = await meId(env, admin)
+    // 设置 alice 的头像
+    db.db
+      .prepare("UPDATE ciki_users SET avatar_key = ? WHERE id = ?")
+      .run("avatars/alice.png", aliceId)
+
+    const bob = await userSession(env, admin, "bob@example.com")
+    const bobId = await meId(env, bob)
+    // bob 没有头像，给 bob 赋予默认空间的 editor 角色
+    await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces/1/members",
+      { userId: bobId, role: "editor" },
+      admin
+    )
+
+    // 1. POST /api/pages 创建
+    const createRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/pages",
+      {
+        title: "作者解析测试页",
+        parentId: null,
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>初版内容</p>",
+        contentText: "初版内容"
+      },
+      admin
+    )
+    expect(createRes.status).toBe(201)
+    const created = (await createRes.json()) as PageDetail
+    expect(created.createdBy).toBe(aliceId)
+    expect(created.createdByName).toBe("alice")
+    expect(created.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
+    expect(created.updatedBy).toBe(aliceId)
+    expect(created.updatedByName).toBe("alice")
+    expect(created.updatedByAvatarUrl).toBe("/api/files/avatars/alice.png")
+
+    // 2. GET /api/pages/:id
+    const getRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${created.id}`,
+      undefined,
+      admin
+    )
+    expect(getRes.status).toBe(200)
+    const detail = (await getRes.json()) as PageDetail
+    expect(detail.createdBy).toBe(aliceId)
+    expect(detail.createdByName).toBe("alice")
+    expect(detail.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
+    expect(detail.updatedBy).toBe(aliceId)
+    expect(detail.updatedByName).toBe("alice")
+    expect(detail.updatedByAvatarUrl).toBe("/api/files/avatars/alice.png")
+
+    // 3. GET /api/pages/:id?format=json
+    const jsonRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${created.id}?format=json`,
+      undefined,
+      admin
+    )
+    expect(jsonRes.status).toBe(200)
+    const jsonDetail = (await jsonRes.json()) as PageDetail & {
+      contentJson: string
+    }
+    expect(jsonDetail.contentJson).toBe(JSON.stringify({ type: "doc" }))
+    expect(jsonDetail.createdBy).toBe(aliceId)
+    expect(jsonDetail.createdByName).toBe("alice")
+    expect(jsonDetail.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
+    expect(jsonDetail.updatedBy).toBe(aliceId)
+    expect(jsonDetail.updatedByName).toBe("alice")
+    expect(jsonDetail.updatedByAvatarUrl).toBe("/api/files/avatars/alice.png")
+
+    // 4. PUT /api/pages/:id 由 bob 更新
+    const updateRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${created.id}`,
+      {
+        title: "作者解析测试页-二版",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>二版内容</p>",
+        contentText: "二版内容"
+      },
+      bob
+    )
+    expect(updateRes.status).toBe(200)
+    const updated = (await updateRes.json()) as PageDetail
+    expect(updated.createdBy).toBe(aliceId)
+    expect(updated.createdByName).toBe("alice")
+    expect(updated.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
+    expect(updated.updatedBy).toBe(bobId)
+    expect(updated.updatedByName).toBe("bob")
+    expect(updated.updatedByAvatarUrl).toBeNull()
+
+    // 再次 GET 验证保持一致
+    const afterUpdate = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${created.id}`,
+        undefined,
+        admin
+      )
+    ).json()) as PageDetail
+    expect(afterUpdate.createdByName).toBe("alice")
+    expect(afterUpdate.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
+    expect(afterUpdate.updatedByName).toBe("bob")
+    expect(afterUpdate.updatedByAvatarUrl).toBeNull()
+  })
+
+  it("播种页面（created_by / updated_by = 0）：名字与头像皆为 null，更新后 updater 正确解析", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const aliceId = await meId(env, admin)
+    const page = await createPage(env, admin, {
+      title: "播种页面",
+      contentHtml: "<p>播种正文</p>",
+      contentText: "播种正文"
+    })
+
+    // 模拟存量播种页面：created_by 与 updated_by 均为 0
+    db.db
+      .prepare(
+        "UPDATE ciki_pages SET created_by = 0, updated_by = 0 WHERE id = ?"
+      )
+      .run(page.id)
+
+    const seededDetail = (await (
+      await jsonRequest(env, "GET", `/api/pages/${page.id}`, undefined, admin)
+    ).json()) as PageDetail
+    expect(seededDetail.createdBy).toBe(0)
+    expect(seededDetail.createdByName).toBeNull()
+    expect(seededDetail.createdByAvatarUrl).toBeNull()
+    expect(seededDetail.updatedBy).toBe(0)
+    expect(seededDetail.updatedByName).toBeNull()
+    expect(seededDetail.updatedByAvatarUrl).toBeNull()
+
+    // alice 更新播种页面：createdBy 保持 0 与 null，updatedBy 解析为 alice
+    const updatedRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}`,
+      {
+        title: "播种页面-更新后",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>新内容</p>",
+        contentText: "新内容"
+      },
+      admin
+    )
+    expect(updatedRes.status).toBe(200)
+    const updatedDetail = (await updatedRes.json()) as PageDetail
+    expect(updatedDetail.createdBy).toBe(0)
+    expect(updatedDetail.createdByName).toBeNull()
+    expect(updatedDetail.createdByAvatarUrl).toBeNull()
+    expect(updatedDetail.updatedBy).toBe(aliceId)
+    expect(updatedDetail.updatedByName).toBe("alice")
+    expect(updatedDetail.updatedByAvatarUrl).toBeNull()
+  })
+
+  it("已注销用户：回退到「已注销用户」，头像为 null", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const charlie = await userSession(env, admin, "charlie@example.com")
+    const charlieId = await meId(env, charlie)
+    await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces/1/members",
+      { userId: charlieId, role: "editor" },
+      admin
+    )
+
+    const charliePage = await createPage(env, charlie, {
+      title: "查理的页面",
+      contentHtml: "<p>查理写的正文</p>",
+      contentText: "查理写的正文"
+    })
+
+    // 管理员彻底删除 charlie
+    db.db.prepare("DELETE FROM ciki_users WHERE id = ?").run(charlieId)
+
+    const detail = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${charliePage.id}`,
+        undefined,
+        admin
+      )
+    ).json()) as PageDetail
+    expect(detail.createdBy).toBe(charlieId)
+    expect(detail.createdByName).toBe(DELETED_AUTHOR_NAME)
+    expect(detail.createdByAvatarUrl).toBeNull()
+    expect(detail.updatedBy).toBe(charlieId)
+    expect(detail.updatedByName).toBe(DELETED_AUTHOR_NAME)
+    expect(detail.updatedByAvatarUrl).toBeNull()
+  })
+
+  it("版本回滚（restore）：响应详情与 GET /api/pages/:id 严格对齐，updatedBy 指向回滚执行者", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env, "alice@example.com")
+    const aliceId = await meId(env, admin)
+    db.db
+      .prepare("UPDATE ciki_users SET avatar_key = ? WHERE id = ?")
+      .run("avatars/alice.png", aliceId)
+
+    const bob = await userSession(env, admin, "bob@example.com")
+    const bobId = await meId(env, bob)
+    await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces/1/members",
+      { userId: bobId, role: "editor" },
+      admin
+    )
+
+    // Alice 创建版本 1
+    const page = await createPage(env, admin, {
+      title: "回滚对齐页",
+      contentHtml: "<p>初版</p>",
+      contentText: "初版"
+    })
+
+    // Bob 更新为版本 2
+    await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}`,
+      {
+        title: "回滚对齐页-二版",
+        contentJson: JSON.stringify({ type: "doc" }),
+        contentHtml: "<p>二版</p>",
+        contentText: "二版"
+      },
+      bob
+    )
+
+    const revisions = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/pages/${page.id}/revisions`,
+        undefined,
+        admin
+      )
+    ).json()) as Array<{ versionNo: number }>
+    const oldest = revisions[revisions.length - 1]
+
+    // Alice 执行版本回滚
+    const restoreRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/revisions/${oldest.versionNo}/restore`,
+      undefined,
+      admin
+    )
+    expect(restoreRes.status).toBe(200)
+    const restored = (await restoreRes.json()) as PageDetail
+
+    expect(restored.createdBy).toBe(aliceId)
+    expect(restored.createdByName).toBe("alice")
+    expect(restored.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
+    expect(restored.updatedBy).toBe(aliceId)
+    expect(restored.updatedByName).toBe("alice")
+    expect(restored.updatedByAvatarUrl).toBe("/api/files/avatars/alice.png")
+
+    // 回滚返回的详情与最新 GET /api/pages/:id 完全一致（字段与数值同形）
+    const freshGet = (await (
+      await jsonRequest(env, "GET", `/api/pages/${page.id}`, undefined, admin)
+    ).json()) as PageDetail
+    expect(restored).toEqual(freshGet)
   })
 })
