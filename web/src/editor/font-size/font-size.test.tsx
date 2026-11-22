@@ -208,6 +208,14 @@ describe("行内字号命令与编辑器模型", () => {
     ed4.commands.selectAll()
     expect(selectionFontSize(ed4)).toEqual({ size: null, isMixed: true })
     expect(currentFontSize(ed4)).toBeNull()
+
+    // 5. 跨段落全选混排（含不同刻度与默认无字号）
+    const ed5 = makeEditor(
+      '<p>段落一默认</p><p><span data-font-size="16px">段落二字号</span></p><p><span data-font-size="24px">段落三不同字号</span></p>'
+    )
+    ed5.commands.selectAll()
+    expect(selectionFontSize(ed5)).toEqual({ size: null, isMixed: true })
+    expect(currentFontSize(ed5)).toBeNull()
   })
 
   it("沿刻度阶梯逐档步进（stepFontSize & canStepFontSize）", () => {

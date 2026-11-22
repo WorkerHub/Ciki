@@ -16,14 +16,6 @@ import {
 } from "@/editor/font-size/commands"
 import { ALLOWED_FONT_SIZES, type AllowedFontSize } from "@/lib/font-size"
 
-export const FONT_SIZE_OPTIONS = [
-  { value: "default", labelKey: "editor.fontSize.default" },
-  ...ALLOWED_FONT_SIZES.map((size) => ({
-    value: size,
-    label: size.replace("px", "")
-  }))
-] as const
-
 /**
  * 行内字号控件（紧凑步进数字框 + 刻度下拉）：
  * - 两侧 − / + 沿固定刻度逐档增减，顺序 默认 ↔ 12 ↔ 14 ↔ 16 ↔ 18 ↔ 20 ↔ 24 ↔ 32；

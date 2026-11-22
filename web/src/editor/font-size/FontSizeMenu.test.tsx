@@ -3,10 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { createExtensions } from "@/editor/extensions"
-import {
-  FONT_SIZE_OPTIONS,
-  FontSizeMenu
-} from "@/editor/font-size/FontSizeMenu"
+import { FontSizeMenu } from "@/editor/font-size/FontSizeMenu"
 import { currentFontSize, setFontSize } from "@/editor/font-size/commands"
 import { i18n } from "@/i18n"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
@@ -42,19 +39,6 @@ describe("字号步进数字框组件（FontSizeMenu）", () => {
   afterEach(async () => {
     await i18n.changeLanguage("zh")
     while (editors.length) editors.pop()?.destroy()
-  })
-
-  it("选项包含默认项与 7 档固定刻度", () => {
-    expect(FONT_SIZE_OPTIONS.map((opt) => opt.value)).toEqual([
-      "default",
-      "12px",
-      "14px",
-      "16px",
-      "18px",
-      "20px",
-      "24px",
-      "32px"
-    ])
   })
 
   it("双语国际化：文案跟随语言切换（中文：默认/字号，英文：Default/Font size）", async () => {
