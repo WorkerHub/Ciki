@@ -43,3 +43,38 @@ export function spaceSearchPath(slug: string, query?: string): string {
 export function spaceSettingsPath(slug: string): string {
   return `${spacePath(slug)}/settings`
 }
+
+/** 系统管理首页（默认重定向到用户管理）`/admin`。 */
+export function adminPath(): string {
+  return "/admin"
+}
+
+/** 系统管理 · 用户管理 `/admin/users`。 */
+export function adminUsersPath(): string {
+  return "/admin/users"
+}
+
+/** 系统管理 · 空间总览 `/admin/spaces`。 */
+export function adminSpacesPath(): string {
+  return "/admin/spaces"
+}
+
+/** 系统管理 · 应用设置 `/admin/site`。 */
+export function adminSitePath(): string {
+  return "/admin/site"
+}
+
+/** 系统管理 · 访问与安全 `/admin/security`。 */
+export function adminSecurityPath(): string {
+  return "/admin/security"
+}
+
+/** 系统管理 · 邮件配置 `/admin/email`。 */
+export function adminEmailPath(): string {
+  return "/admin/email"
+}
+
+/** 系统管理 · 其他 `/admin/others`。 */
+export function adminOthersPath(): string {
+  return "/admin/others"
+}
