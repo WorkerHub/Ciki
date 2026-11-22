@@ -438,4 +438,130 @@ describe("空间：删除守卫与管理面总览", () => {
     )
     expect(denied.status).toBe(403)
   })
+
+  it("SpaceMember DTO 携带 avatarUrl 字段：无头像返回 null，有头像返回 /api/files/:key", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env, "owner@example.com")
+    const ownerId = await meId(env, admin)
+    // 为 owner 设置头像
+    await env.DB.prepare("UPDATE ciki_users SET avatar_key = ? WHERE id = ?")
+      .bind("avatars/owner.png", ownerId)
+      .run()
+
+    // 创建普通用户 userWithAvatar 并设置头像
+    const userWithAvatar = await userSession(
+      env,
+      admin,
+      "with-avatar@example.com"
+    )
+    const withAvatarId = await meId(env, userWithAvatar)
+    await env.DB.prepare("UPDATE ciki_users SET avatar_key = ? WHERE id = ?")
+      .bind("avatars/custom.png", withAvatarId)
+      .run()
+
+    // 创建普通用户 userWithoutAvatar 不设头像（默认为空串）
+    const userWithoutAvatar = await userSession(
+      env,
+      admin,
+      "no-avatar@example.com"
+    )
+    const noAvatarId = await meId(env, userWithoutAvatar)
+
+    const space = await createSpace(env, admin, "头像测试空间")
+
+    // 1. POST /api/spaces/:id/members 添加有头像的用户
+    const addWithAvatarRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space.id}/members`,
+      { userId: withAvatarId, role: "editor" },
+      admin
+    )
+    expect(addWithAvatarRes.status).toBe(201)
+    const addWithAvatarBody = (await addWithAvatarRes.json()) as {
+      userId: number
+      avatarUrl: string | null
+      role: string
+    }
+    expect(addWithAvatarBody.userId).toBe(withAvatarId)
+    expect(addWithAvatarBody.avatarUrl).toBe("/api/files/avatars/custom.png")
+
+    // 2. POST /api/spaces/:id/members 添加无头像的用户
+    const addNoAvatarRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space.id}/members`,
+      { userId: noAvatarId, role: "viewer" },
+      admin
+    )
+    expect(addNoAvatarRes.status).toBe(201)
+    const addNoAvatarBody = (await addNoAvatarRes.json()) as {
+      userId: number
+      avatarUrl: string | null
+      role: string
+    }
+    expect(addNoAvatarBody.userId).toBe(noAvatarId)
+    expect(addNoAvatarBody.avatarUrl).toBeNull()
+
+    // 3. PUT /api/spaces/:id/members/:userId 更新角色，检查 avatarUrl 保持
+    const putWithAvatarRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/spaces/${space.id}/members/${withAvatarId}`,
+      { role: "viewer" },
+      admin
+    )
+    expect(putWithAvatarRes.status).toBe(200)
+    const putWithAvatarBody = (await putWithAvatarRes.json()) as {
+      userId: number
+      avatarUrl: string | null
+      role: string
+    }
+    expect(putWithAvatarBody.avatarUrl).toBe("/api/files/avatars/custom.png")
+    expect(putWithAvatarBody.role).toBe("viewer")
+
+    const putNoAvatarRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/spaces/${space.id}/members/${noAvatarId}`,
+      { role: "editor" },
+      admin
+    )
+    expect(putNoAvatarRes.status).toBe(200)
+    const putNoAvatarBody = (await putNoAvatarRes.json()) as {
+      userId: number
+      avatarUrl: string | null
+      role: string
+    }
+    expect(putNoAvatarBody.avatarUrl).toBeNull()
+    expect(putNoAvatarBody.role).toBe("editor")
+
+    // 4. GET /api/spaces/:id/members 列表接口
+    const listRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/spaces/${space.id}/members`,
+      undefined,
+      admin
+    )
+    expect(listRes.status).toBe(200)
+    const members = (await listRes.json()) as Array<{
+      userId: number
+      email: string
+      avatarUrl: string | null
+      role: string
+    }>
+
+    const ownerMember = members.find((m) => m.userId === ownerId)
+    expect(ownerMember).toBeDefined()
+    expect(ownerMember?.avatarUrl).toBe("/api/files/avatars/owner.png")
+
+    const withAvatarMember = members.find((m) => m.userId === withAvatarId)
+    expect(withAvatarMember).toBeDefined()
+    expect(withAvatarMember?.avatarUrl).toBe("/api/files/avatars/custom.png")
+
+    const noAvatarMember = members.find((m) => m.userId === noAvatarId)
+    expect(noAvatarMember).toBeDefined()
+    expect(noAvatarMember?.avatarUrl).toBeNull()
+  })
 })
