@@ -10,7 +10,7 @@ import {
 import type { FormEvent } from "react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate } from "react-router"
+import { Link, useNavigate, useParams } from "react-router"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,6 +60,7 @@ import {
   spacesApi
 } from "@/lib/api"
 import { formatDate } from "@/lib/format"
+import { adminSpacesPath, spacePath } from "@/lib/routes"
 import { canManage, effectiveRole } from "@/lib/space"
 import { countNodes } from "@/lib/tree"
 import { useAuthStore } from "@/stores/auth"
@@ -73,6 +74,7 @@ const ROLE_OPTIONS: SpaceRole[] = ["admin", "editor", "viewer"]
  * 页面数量由前端用页面树 + 回收站现算（Space DTO 不含统计字段）。
  */
 export function SpaceSettingsPage() {
+  const { slug = "" } = useParams()
   // 路由是 /s/:slug/settings：SpaceRoute 已把当前空间切到 slug 对应的那个，
   // 这里直接用当前空间 id 取数（slug 只在路由层解析一次）。
   const spaceId = useSpacesStore((state) => state.currentId)
@@ -359,9 +361,13 @@ export function SpaceSettingsPage() {
           variant="ghost"
           className="text-muted-foreground"
         >
-          <Link to="/">
+          <Link to={isSiteAdmin ? adminSpacesPath() : spacePath(slug)}>
             <ArrowLeft aria-hidden="true" />
-            {t("space.settings.back")}
+            {t(
+              isSiteAdmin
+                ? "space.settings.backToOverview"
+                : "space.settings.backToSpace"
+            )}
           </Link>
         </Button>
         <div className="flex flex-wrap items-center gap-2">

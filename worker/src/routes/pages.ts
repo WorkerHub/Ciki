@@ -30,6 +30,7 @@ import {
   type PageRow,
   type PageSummaryRow
 } from "../db/queries/pages"
+import { findUsersByIds } from "../db/queries/users"
 import { findDefaultSpace } from "../db/queries/spaces"
 import {
   deleteRevision,
@@ -76,6 +77,7 @@ import { normalizePageInput, type PageContentResult } from "../lib/page-input"
 import { zipStream } from "../lib/zip-stream"
 import { createPage, savePageContent } from "../core/page-write"
 import { applyPageMove } from "../core/page-move"
+import { DELETED_AUTHOR_NAME } from "./comments"
 import {
   revisionContent,
   type RevisionContentResult
@@ -94,13 +96,35 @@ function toSummary(row: PageSummaryRow) {
   }
 }
 
+function resolveAuthor(
+  userId: number,
+  userMap: Map<number, { username: string; avatar_key: string }>
+): { name: string | null; avatarUrl: string | null } {
+  if (userId === 0) {
+    return { name: null, avatarUrl: null }
+  }
+  const user = userMap.get(userId)
+  if (!user) {
+    return { name: DELETED_AUTHOR_NAME, avatarUrl: null }
+  }
+  return {
+    name: user.username,
+    avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null
+  }
+}
+
 /**
  * 页面详情。
  *
  * **不含正文 JSON**：阅读页只吃 HTML / 纯文本 / MD（派生物，D1 里就有），
  * 打开编辑器或要原文时加 `?format=json` 走 R2。
  */
-function toDetail(row: PageRow) {
+async function toDetail(db: D1Database, prefix: string, row: PageRow) {
+  const userIds = [row.created_by, row.updated_by].filter((id) => id > 0)
+  const userMap = await findUsersByIds(db, prefix, userIds)
+  const createdAuthor = resolveAuthor(row.created_by, userMap)
+  const updatedAuthor = resolveAuthor(row.updated_by, userMap)
+
   return {
     ...toSummary(row),
     spaceId: row.space_id,
@@ -108,7 +132,11 @@ function toDetail(row: PageRow) {
     contentText: row.content_text,
     contentMd: row.content_md,
     createdBy: row.created_by,
+    createdByName: createdAuthor.name,
+    createdByAvatarUrl: createdAuthor.avatarUrl,
     updatedBy: row.updated_by,
+    updatedByName: updatedAuthor.name,
+    updatedByAvatarUrl: updatedAuthor.avatarUrl,
     createdAt: row.created_at
   }
 }
@@ -357,9 +385,10 @@ pageRoutes.get("/:id", async (c) => {
     } catch {
       return contentUnavailable(c)
     }
-    return c.json({ ...toDetail(row), contentJson })
+    const detail = await toDetail(db, prefix, row)
+    return c.json({ ...detail, contentJson })
   }
-  return c.json(toDetail(row))
+  return c.json(await toDetail(db, prefix, row))
 })
 
 // ── 写入 ────────────────────────────────────────────────────────────────────
@@ -432,7 +461,7 @@ pageRoutes.post("/", async (c) => {
     now: new Date().toISOString()
   })
 
-  return c.json(toDetail(row), 201)
+  return c.json(await toDetail(db, prefix, row), 201)
 })
 
 pageRoutes.put("/:id", async (c) => {
@@ -459,7 +488,7 @@ pageRoutes.put("/:id", async (c) => {
     userId: c.get("userId"),
     now: new Date().toISOString()
   })
-  return c.json(toDetail(saved))
+  return c.json(await toDetail(db, prefix, saved))
 })
 
 interface TipTapNodeLike {
@@ -870,7 +899,7 @@ pageRoutes.post("/:id/revisions/:versionNo/restore", async (c) => {
     userId: c.get("userId"),
     now: new Date().toISOString()
   })
-  return c.json(toDetail(saved))
+  return c.json(await toDetail(db, prefix, saved))
 })
 
 /**

@@ -292,6 +292,7 @@
     "loading": "页面加载中",
     "loadFailed": "页面加载失败",
     "backHome": "回到首页",
+    "backToTop": "回到顶部",
     "toc": {
       "label": "本页索引"
     },
@@ -978,6 +979,8 @@
         "description": "它可能已被删除，或者成员资格被移除。"
       },
       "back": "回到页面",
+      "backToOverview": "返回空间总览",
+      "backToSpace": "返回空间首页",
       "loadFailed": "空间设置加载失败",
       "reload": "重新加载",
       "forbidden": {

@@ -135,11 +135,15 @@ async function recordLoginFailure(
 }
 
 /**
- * 找回密码只对「能登录的账号」生效：仍激活且已批准。
- * 未知、已停用、未批准/已拒绝一律按同一路径静默处理，不暴露账号状态。
+ * 找回密码只对「能登录的账号」生效：人类账号、仍激活且已批准。
+ * 未知、Agent 账号、已停用、未批准/已拒绝一律按同一路径静默处理，不暴露账号状态。
  */
 function canResetPassword(user: UserRow): boolean {
-  return user.is_active === 1 && user.approval_status === "approved"
+  return (
+    user.kind === "human" &&
+    user.is_active === 1 &&
+    user.approval_status === "approved"
+  )
 }
 
 export const authRoutes = new Hono<HonoEnv>()
@@ -361,14 +365,14 @@ authRoutes.post("/login", async (c) => {
 
   const user = await findUserByEmail(db, prefix, email)
   let valid = false
-  if (user) {
+  if (user && user.kind !== "agent") {
     valid = await verifyPassword(password, user.password_hash)
   } else {
     // 与真实校验同成本，避免用响应时间探测邮箱是否存在。
     await verifyPassword(password, DUMMY_HASH)
   }
 
-  if (!user || !valid) {
+  if (!user || !valid || user.kind === "agent") {
     const failures = await consumeCounter(db, prefix, {
       action: "login_fail",
       account: email,
@@ -642,7 +646,7 @@ authRoutes.post("/passkey/login/verify", async (c) => {
   }
 
   const user = await findUserById(db, prefix, credential.user_id)
-  if (!user) {
+  if (!user || user.kind === "agent") {
     return c.json({ error: "Invalid credentials" }, 401)
   }
 
@@ -985,6 +989,7 @@ authRoutes.post("/password/reset", async (c) => {
  * 只对已批准的账号生效——否则刚注册的人永远验证不了自己。
  */
 function canReceiveVerification(user: UserRow): boolean {
+  if (user.kind !== "human") return false
   if (user.email_verified !== 0) return false
   if (user.approval_status === "rejected") return false
   return user.approval_status !== "approved" || user.is_active === 1

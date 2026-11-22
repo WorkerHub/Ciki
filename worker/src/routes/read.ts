@@ -31,6 +31,7 @@ import { toPlainText } from "../lib/sanitize"
 import { pagesFtsTable, pagesTable, spaceMembersTable } from "../lib/tables"
 import { getTablePrefix } from "../lib/table-prefix"
 import { readTokenMiddleware } from "../middleware/read-token"
+import { UPLOAD_KEY_RE } from "../lib/upload"
 import type { HonoEnv } from "../types"
 
 export const readRoutes = new Hono<HonoEnv>()
@@ -253,4 +254,43 @@ readRoutes.get("/pages/:id", async (c) => {
     }
   }
   return c.json({ ...base, markdown: row.content_md })
+})
+
+/**
+ * GET /api/read/files/:key：接口令牌文件读回端点。
+ *
+ * 供外部连接器（如 Agent 自验落盘内容）读回本人上传的文件字节。
+ *
+ * - 鉴权已由中间件覆盖：只认 Authorization: Bearer，kind 为 read 或 write 均可；
+ *   会话 Cookie 与导入令牌拒 401（带 Cache-Control: no-store）。
+ * - key 形状严格校验：沿用 UPLOAD_KEY_RE 同口径，形状不符回 404。
+ * - 归属校验：比对 R2 对象的 customMetadata.uploaderId 与令牌主人 userId；
+ *   不相等、无此元数据或对象不存在一律 404，不泄露存在性。
+ * - 成功：200 返回文件字节，响应头与会话端点一致（Content-Type + Content-Length + ETag + Cache-Control）。
+ */
+readRoutes.get("/files/:key{.+}", async (c) => {
+  const key = c.req.param("key")
+  if (!UPLOAD_KEY_RE.test(key)) {
+    return c.json({ error: "File not found" }, 404)
+  }
+
+  const object = await c.env.R2.get(key)
+  if (!object) {
+    return c.json({ error: "File not found" }, 404)
+  }
+
+  const uploaderId = object.customMetadata?.uploaderId
+  if (!uploaderId || uploaderId !== String(c.get("userId"))) {
+    return c.json({ error: "File not found" }, 404)
+  }
+
+  const headers = new Headers()
+  headers.set(
+    "Content-Type",
+    object.httpMetadata?.contentType ?? "application/octet-stream"
+  )
+  headers.set("Content-Length", String(object.size))
+  if (object.httpEtag) headers.set("ETag", object.httpEtag)
+  headers.set("Cache-Control", "private, max-age=3600")
+  return new Response(object.body, { headers })
 })

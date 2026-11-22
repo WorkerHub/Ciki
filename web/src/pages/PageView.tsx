@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
 import { ArticleToc } from "@/components/ArticleToc"
+import { BackToTop } from "@/components/BackToTop"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { CommentSection } from "@/components/comments/CommentSection"
 import { MovePageDialog } from "@/components/MovePageDialog"
@@ -590,6 +591,8 @@ export function PageView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BackToTop contentRoot={contentRoot} />
     </article>
   )
 }

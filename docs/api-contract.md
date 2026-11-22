@@ -315,7 +315,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | content_html           | TEXT NOT NULL DEFAULT ''   | 服务端消毒后的 HTML（阅读页直读，不碰 R2）                                              |
 | content_text           | TEXT NOT NULL DEFAULT ''   | 供搜索/摘要                                                                             |
 | content_md             | TEXT NOT NULL DEFAULT ''   | 从正文派生的 Markdown（导出/机读用，**永不反写正文**）                                  |
-| created_by, updated_by | INTEGER NOT NULL           | 用户 id（0 = 用户已彻底删除）                                                           |
+| created_by, updated_by | INTEGER NOT NULL           | 用户 id（0 = 播种时无用户；用户删除后保留原 id，不置 0）                                |
 | created_at, updated_at | TEXT NOT NULL              | ISO 时间                                                                                |
 | deleted_at             | TEXT NULL                  | 软删时间                                                                                |
 
@@ -1203,11 +1203,20 @@ SpaceCandidate = { userId, username, email }
   "contentText": "…",
   "contentMd": "## 小节\n\n正文",
   "createdBy": 1,
+  "createdByName": "张三",
+  "createdByAvatarUrl": "/api/files/avatars/….png",
   "updatedBy": 1,
+  "updatedByName": "张三",
+  "updatedByAvatarUrl": "/api/files/avatars/….png",
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
+
+- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`updatedByName`、`updatedByAvatarUrl` 四个字段，保留原数字 `createdBy` 与 `updatedBy`。
+  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`；
+  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`；
+  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`。
 
 **阅读热路径不读 R2**：详情默认**不含** `contentJson`，`contentHtml` / `contentText` / `contentMd` 都是 D1 里的派生列（`contentMd` 是库里的值，空正文页为空串，绝不会是 `null`）。
 
@@ -1774,6 +1783,17 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 带 `?format=json` 时改回真源：`{…, "content_json": "{\"type\":\"doc\",…}"}`（不再返回 `markdown`），正文从内容桶按 `pages.content_hash` 取回；`content_json` 的 snake_case 字段名与内容都是冻结契约的一部分，**不随内容上 R2 改变**。
 - 页面不存在或已软删 → 404 `{"error":"Page not found"}`；所属空间非令牌用户可见也同样 404（不泄露存在性）。
 
+#### GET /api/read/files/:key
+
+接口令牌文件读回端点（数据面新增，供外部连接器自验上传的文件或画布场景 JSON 原文）。
+
+- 鉴权：只认 `Authorization: Bearer <接口令牌>`，`kind = read` 与 `kind = write` 均可；无令牌、无效、已吊销、主人停用或未批准 → 401 `{"error":"Unauthorized"}`，响应头带 `Cache-Control: no-store`；会话 Cookie、导入令牌不认（401）。
+- key 形状：沿用现有 `UPLOAD_KEY_RE` 同口径（`^(?:(?:avatars|pages|imports)/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp|json)$`），形状不符 → 404 `{"error":"File not found"}`。
+- 归属校验：读 R2 `customMetadata.uploaderId`（十进制字符串），与令牌主人 user id 相等才放行；不相等、无此元数据的存量对象、对象不存在 → 一律 404 `{"error":"File not found"}`，不泄露存在性。
+- 成功：200 返回文件原始字节，`Content-Type` 为上传时类型、`Content-Length` 为文件大小，带 `ETag`（若有）与 `Cache-Control: private, max-age=3600`，与会话端点成功响应一致。
+- 刷新：每次成功调用刷新令牌的 `lastUsedAt`。
+- 限流：计入读接口现有令牌限流桶（`read` 3000 次 / 5 分钟，认证失败计入 `read_auth_fail` 20 次 / 5 分钟），不新开桶。
+
 #### Markdown 派生规则（`content_md` / `markdown` / `contentMd` 三者同一口径）
 
 派生方向只有一个：`content_json` → Markdown。**任何路径不得以 MD 反写正文**；MD 有损，只作导出/机读视图。
@@ -1865,7 +1885,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - **上传没有空间维度**：不受令牌空间范围限制（文件本身不属于任何空间）；把 `url` 或 `key` 引用进页面时仍走页面级范围与角色校验——范围外空间建页/改页照样 404。
 - 调用计入现有 `write` 限流桶（600 次 / 5 分钟），不新开桶。
 - 400 非支持类型 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`。
-- 文件的读取仍走 `GET /api/files/:key`（需会话 Cookie）：接口令牌读不到文件字节，已登录的页面读者正常渲染。
+- 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回本人上传的文件字节（严格校验上传者归属，跨账号一律 404，不泄露存在性）。
 
 ### 服务端消毒规则（content_html）
 

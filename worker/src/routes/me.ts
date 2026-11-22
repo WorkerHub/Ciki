@@ -10,11 +10,19 @@ import { Hono } from "hono"
 import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import {
+  createAgentUser,
+  deleteUser,
+  findAgentByOwner,
   findUserById,
+  listAgentsByOwner,
   updateUser,
   usernameTaken,
   type UserRow
 } from "../db/queries/users"
+import { deleteUserPasskeys } from "../db/queries/passkeys"
+import { deleteTotp } from "../db/queries/totp"
+import { deleteUserEmailCodes } from "../db/queries/email-codes"
+import { deleteSpaceMembershipsForUser } from "../db/queries/spaces"
 import { twofaSummary } from "./auth-2fa"
 import { isUsernameConflict, normalizeUsername } from "../core/identity"
 import { isLanguage, normalizeLanguage, type Language } from "../core/language"
@@ -574,5 +582,226 @@ meRoutes.delete("/import-tokens/:id", async (c) => {
     tokenId
   )
   if (!revoked) return c.json(IMPORT_TOKEN_NOT_FOUND, 404)
+  return c.json({ success: true })
+})
+
+// ── Agent 账号管理与令牌代管（Task #75） ──────────────────────────────
+//
+// 挂会话 Cookie，严格限定 owner 本人：
+// - GET /api/me/agents：名下 agent 账号列表（id, username, isActive, createdAt）
+// - POST /api/me/agents：创建 {username}，返回新账号
+// - PATCH /api/me/agents/:id：启停 {isActive}
+// - DELETE /api/me/agents/:id：彻底删除 agent 账号（走与 admin 一致的彻底删除口径）
+// - GET /api/me/agents/:id/tokens：代管查询其全部有效令牌
+// - POST /api/me/agents/:id/tokens：代管为其签发令牌（复用 issueApiToken 与空间范围校验，选 kind 与 spaceIds）
+// - DELETE /api/me/agents/:id/tokens/:tokenId：代管吊销单枚令牌
+//
+// 越权与隔离边界：
+// 非 owner（访问他人 agent、目标不存在、或目标不是 agent）一律返回 404，不泄露存在性。
+// 站点管理员亦不可跨账号代签/代管他人名下 agent。
+
+const AGENT_NOT_FOUND = { error: "Agent not found" } as const
+
+function agentDto(row: UserRow) {
+  return {
+    id: row.id,
+    username: row.username ?? "",
+    isActive: row.is_active === 1,
+    createdAt: row.created_at
+  }
+}
+
+/** 本人名下的全部 Agent 账号，按创建时间升序。 */
+meRoutes.get("/agents", async (c) => {
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const rows = await listAgentsByOwner(c.env.DB, prefix, userId)
+  return c.json(rows.map(agentDto))
+})
+
+/** 创建 Agent 账号：`username` 必填（1–40 字符、去控制字符），返回新账号 DTO。 */
+meRoutes.post("/agents", async (c) => {
+  const body = await readJsonObject(c)
+  if (!body.ok) return body.response
+
+  const normalized = normalizeUsername(body.body.username)
+  if (!normalized) {
+    return c.json({ error: "Invalid username", code: "INVALID_USERNAME" }, 400)
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const ownerId = c.get("userId")
+  if (await usernameTaken(c.env.DB, prefix, normalized)) {
+    return c.json(
+      { error: "Username already taken", code: "USERNAME_TAKEN" },
+      409
+    )
+  }
+
+  try {
+    const agentId = await createAgentUser(c.env.DB, prefix, {
+      owner_user_id: ownerId,
+      username: normalized
+    })
+    const agent = await findUserById(c.env.DB, prefix, agentId)
+    if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+    return c.json(agentDto(agent), 201)
+  } catch {
+    return c.json({ error: "Failed to create agent" }, 500)
+  }
+})
+
+/** 启停 Agent 账号：`isActive` 必须为布尔值。先判 owner 归属（非 owner 一律 404），再判 body。 */
+meRoutes.patch("/agents/:id", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const agent = await findAgentByOwner(
+    c.env.DB,
+    prefix,
+    c.get("userId"),
+    agentId
+  )
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const body = await readJsonObject(c)
+  if (!body.ok) return body.response
+
+  if (typeof body.body.isActive !== "boolean") {
+    return c.json({ error: "isActive must be a boolean" }, 400)
+  }
+
+  const nextActive = body.body.isActive ? 1 : 0
+  await updateUser(c.env.DB, prefix, agent.id, {
+    is_active: nextActive
+  })
+
+  return c.json(agentDto({ ...agent, is_active: nextActive }))
+})
+
+/** 删除 Agent 账号：彻底清理会话、Passkey、TOTP、验证码、空间成员关系与用户行。 */
+meRoutes.delete("/agents/:id", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const agent = await findAgentByOwner(
+    c.env.DB,
+    prefix,
+    c.get("userId"),
+    agentId
+  )
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  await deleteUserSessions(c.env.DB, prefix, agent.id)
+  await deleteUserPasskeys(c.env.DB, prefix, agent.id)
+  await deleteTotp(c.env.DB, prefix, agent.id)
+  await deleteUserEmailCodes(c.env.DB, prefix, agent.id)
+  await deleteSpaceMembershipsForUser(c.env.DB, prefix, agent.id)
+  await deleteUser(c.env.DB, prefix, agent.id)
+
+  return c.json({ success: true })
+})
+
+/** 代管查询 Agent 名下的全部有效令牌，按创建时间升序。 */
+meRoutes.get("/agents/:id/tokens", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const agent = await findAgentByOwner(
+    c.env.DB,
+    prefix,
+    c.get("userId"),
+    agentId
+  )
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const rows = await listActiveTokens(c.env.DB, prefix, agent.id)
+  const scopes = await listUserTokenScopes(c.env.DB, prefix, agent.id)
+  return c.json({
+    tokens: rows.map((row) => tokenSummary(row, scopes.get(row.id) ?? null))
+  })
+})
+
+/**
+ * 代管为 Agent 签发接口令牌：
+ * - 只有 owner 本人可签发（管理员亦不可代管他人名下 agent）；
+ * - kind 必填（read 或 write），name 可选（缺省用默认名）；
+ * - spaceIds 校验口径：必须在 owner 当前可见空间范围内（防止越权代签 owner 不可见的空间）；
+ * - 生效模型：端到端读写生效范围遵循「Agent 自身空间成员 ∩ 令牌 scope」，即 Agent
+ *   必须先被添加为对应空间的成员（并拥有对应角色），该令牌在对应空间的操作才会生效；
+ *   若 Agent 尚未加入该空间，即使 scope 包含该空间，读接口亦不可见（返回空）、写接口亦报 404；
+ * - 令牌所属用户为该 Agent，明文只在此响应出现一次。
+ */
+meRoutes.post("/agents/:id/tokens", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const ownerId = c.get("userId")
+  const agent = await findAgentByOwner(c.env.DB, prefix, ownerId, agentId)
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const body = await readJsonObject(c)
+  if (!body.ok) return body.response
+
+  const kind = body.body.kind
+  if (kind !== "read" && kind !== "write") {
+    return c.json({ error: "kind must be read or write" }, 400)
+  }
+  const name = parseTokenName(body.body.name, kind)
+  if (!name.ok) return c.json(INVALID_TOKEN_NAME, 400)
+
+  const scope = await parseScopeRequest(c, body.body, { required: false })
+  if (!scope.ok) return c.json(scope.payload, scope.status)
+  const nextScope: TokenScope = scope.action === "set" ? scope.scope : null
+
+  const limit = await consumeCounter(c.env.DB, prefix, {
+    action: kind === "read" ? "read_token" : "write_token",
+    account: String(ownerId),
+    windowSeconds: 300
+  })
+  if (limit.count > 10) {
+    return c.json({ error: "Too many requests", code: "RATE_LIMITED" }, 429)
+  }
+
+  const issued = await issueApiToken(c.env.DB, prefix, agent.id, {
+    kind,
+    name: name.name,
+    scope: nextScope
+  })
+  return c.json(
+    {
+      id: issued.id,
+      name: name.name,
+      kind,
+      spaceIds: nextScope,
+      token: issued.token
+    },
+    201
+  )
+})
+
+/** 代管吊销 Agent 名下单枚接口令牌。 */
+meRoutes.delete("/agents/:id/tokens/:tokenId", async (c) => {
+  const agentId = parseId(c.req.param("id"))
+  if (agentId === null) return c.json(AGENT_NOT_FOUND, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const agent = await findAgentByOwner(
+    c.env.DB,
+    prefix,
+    c.get("userId"),
+    agentId
+  )
+  if (!agent) return c.json(AGENT_NOT_FOUND, 404)
+
+  const tokenId = parseId(c.req.param("tokenId"))
+  if (tokenId === null) return c.json(TOKEN_NOT_FOUND, 404)
+
+  const revoked = await revokeTokenById(c.env.DB, prefix, agent.id, tokenId)
+  if (!revoked) return c.json(TOKEN_NOT_FOUND, 404)
   return c.json({ success: true })
 })

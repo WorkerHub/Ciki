@@ -1,5 +1,12 @@
+import {
+  cleanUsername,
+  isUsernameConflict,
+  usernameWithSuffix
+} from "../../core/identity"
 import { DEFAULT_LANGUAGE, type Language } from "../../core/language"
 import { usersTable } from "../../lib/tables"
+
+export type UserKind = "human" | "agent"
 
 export interface UserRow {
   /** 整数自增主键；对外身份是 `username`，内部引用一律用这个数字。 */
@@ -13,6 +20,8 @@ export interface UserRow {
   approval_status: "pending" | "approved" | "rejected"
   email_verified: number
   language: string
+  kind: UserKind
+  owner_user_id: number | null
   created_at: string
   updated_at: string
 }
@@ -96,6 +105,84 @@ export async function createApprovedUser(
   return result.meta.last_row_id
 }
 
+/** Agent 账号专用的无法比对成功的密码哈希标记。 */
+export const AGENT_UNVERIFIABLE_PASSWORD_HASH = "!agent-unusable-hash"
+
+/**
+ * 创建 Agent 身份（Task #74）：
+ * - kind 固定为 'agent'，role 固定为 'user'（禁止设为 admin）；
+ * - owner_user_id 必须指向一个激活的人类用户（人类账号，is_active=1）；
+ * - 账号默认处于激活（is_active=1）且已批准（approved）状态，邮箱已验证（email_verified=1）；
+ * - 分配唯一的内部占位邮箱（如 agent-<uuid>@internal）与不可逆的密码哈希；
+ * - 自动分配或使用提供的唯一用户名。
+ */
+export async function createAgentUser(
+  db: D1Database,
+  prefix: string,
+  data: {
+    owner_user_id: number
+    username?: string
+    email?: string
+    avatar_key?: string
+  }
+): Promise<number> {
+  const owner = await findUserById(db, prefix, data.owner_user_id)
+  if (!owner) {
+    throw new Error("Owner user not found")
+  }
+  if (owner.kind !== "human") {
+    throw new Error("Owner must be a human user")
+  }
+  if (owner.is_active !== 1) {
+    throw new Error("Owner must be an active user")
+  }
+
+  if (data.email) {
+    const existing = await findUserByEmail(db, prefix, data.email)
+    if (existing) {
+      throw new Error("Email already taken")
+    }
+  }
+
+  const uuid = crypto.randomUUID()
+  const email = data.email ?? `agent-${uuid}@internal`
+  const baseUsername = data.username?.trim()
+    ? cleanUsername(data.username)
+    : `agent-${uuid.slice(0, 8)}`
+  const passwordHash = AGENT_UNVERIFIABLE_PASSWORD_HASH
+  const now = new Date().toISOString()
+
+  for (let attempt = 1; attempt <= 50; attempt += 1) {
+    const candidate = usernameWithSuffix(baseUsername, attempt)
+    if (await usernameTaken(db, prefix, candidate)) continue
+    try {
+      const result = await db
+        .prepare(
+          `INSERT INTO ${usersTable(prefix)}
+            (email, username, password_hash, role, is_active, approval_status,
+             email_verified, language, kind, owner_user_id, avatar_key, created_at, updated_at)
+           VALUES (?, ?, ?, 'user', 1, 'approved', 1, ?, 'agent', ?, ?, ?, ?)`
+        )
+        .bind(
+          email,
+          candidate,
+          passwordHash,
+          owner.language ?? DEFAULT_LANGUAGE,
+          owner.id,
+          data.avatar_key ?? "",
+          now,
+          now
+        )
+        .run()
+      return result.meta.last_row_id
+    } catch (err) {
+      if (isUsernameConflict(err)) continue
+      throw err
+    }
+  }
+  throw new Error("Could not allocate a unique username for agent")
+}
+
 /**
  * 注册邮箱验证成功：只置位、只在「还没验证」时生效（重复提交不会改写 updated_at）。
  * 返回是否真的改到了行。
@@ -138,6 +225,33 @@ export async function findUserById(
     .prepare(`SELECT * FROM ${usersTable(prefix)} WHERE id = ?`)
     .bind(id)
     .first<UserRow>()
+}
+
+export interface UserAuthorSummary {
+  id: number
+  username: string
+  avatar_key: string
+}
+
+export async function findUsersByIds(
+  db: D1Database,
+  prefix: string,
+  ids: number[]
+): Promise<Map<number, UserAuthorSummary>> {
+  const uniqueIds = Array.from(new Set(ids.filter((id) => id > 0)))
+  if (uniqueIds.length === 0) return new Map()
+  const placeholders = uniqueIds.map(() => "?").join(", ")
+  const rows = await db
+    .prepare(
+      `SELECT id, username, avatar_key FROM ${usersTable(prefix)} WHERE id IN (${placeholders})`
+    )
+    .bind(...uniqueIds)
+    .all<UserAuthorSummary>()
+  const map = new Map<number, UserAuthorSummary>()
+  for (const row of rows.results) {
+    map.set(row.id, row)
+  }
+  return map
 }
 
 /**
@@ -220,4 +334,35 @@ export async function deleteUser(
     .prepare(`DELETE FROM ${usersTable(prefix)} WHERE id = ?`)
     .bind(id)
     .run()
+}
+
+export async function listAgentsByOwner(
+  db: D1Database,
+  prefix: string,
+  ownerUserId: number
+): Promise<UserRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT * FROM ${usersTable(prefix)}
+        WHERE kind = 'agent' AND owner_user_id = ?
+        ORDER BY created_at ASC, id ASC`
+    )
+    .bind(ownerUserId)
+    .all<UserRow>()
+  return rows.results
+}
+
+export async function findAgentByOwner(
+  db: D1Database,
+  prefix: string,
+  ownerUserId: number,
+  agentId: number
+): Promise<UserRow | null> {
+  return db
+    .prepare(
+      `SELECT * FROM ${usersTable(prefix)}
+        WHERE id = ? AND kind = 'agent' AND owner_user_id = ?`
+    )
+    .bind(agentId, ownerUserId)
+    .first<UserRow>()
 }

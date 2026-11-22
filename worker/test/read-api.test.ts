@@ -27,6 +27,33 @@ const TREE_KEYS = [
 ]
 const SEARCH_KEYS = ["id", "snippet", "title", "updated_at"]
 
+const PNG = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49,
+  0x48, 0x44, 0x52
+])
+
+function formWith(
+  bytes: Uint8Array,
+  type: string,
+  filename = "upload.bin"
+): FormData {
+  const form = new FormData()
+  form.append("file", new File([bytes], filename, { type }))
+  return form
+}
+
+function uploadFile(
+  env: Env,
+  token: string,
+  form: FormData
+): Promise<Response> {
+  return request(env, "/api/write/files", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` },
+    body: form
+  })
+}
+
 async function readToken(env: Env, cookie: string): Promise<string> {
   return (await createApiToken(env, cookie, "read")).token
 }
@@ -396,7 +423,8 @@ describe("双向令牌隔离（服务端校验，不靠前端）", () => {
       "/api/read/spaces",
       "/api/read/tree",
       "/api/read/search?q=x",
-      "/api/read/pages/whatever"
+      "/api/read/pages/whatever",
+      "/api/read/files/pages/0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b.png"
     ]) {
       const res = await request(env, path, {
         headers: { authorization: `Bearer ${importToken.token}` }
@@ -427,5 +455,280 @@ describe("双向令牌隔离（服务端校验，不靠前端）", () => {
       })
     })
     expect(write.status).toBe(401)
+  })
+})
+
+describe("只读接口：GET /api/read/files/:key", () => {
+  it("本人可用 read 令牌与 write 令牌读回文件（200 + 字节一致 + 响应头一致 + 刷新 last_used_at）", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const writeTokenObj = await createApiToken(env, admin, "write")
+    const readTokenObj = await createApiToken(env, admin, "read")
+
+    // 1. 上传图片（PNG）
+    const uploadRes = await uploadFile(
+      env,
+      writeTokenObj.token,
+      formWith(PNG, "image/png", "sample.png")
+    )
+    expect(uploadRes.status).toBe(201)
+    const image = (await uploadRes.json()) as { key: string; url: string }
+
+    // 用 read 令牌读回
+    const readRes = await readGet(
+      env,
+      readTokenObj.token,
+      `/api/read/files/${image.key}`
+    )
+    expect(readRes.status).toBe(200)
+    expect(readRes.headers.get("content-type")).toBe("image/png")
+    expect(readRes.headers.get("content-length")).toBe(String(PNG.length))
+    expect(readRes.headers.get("cache-control")).toContain("private")
+    expect(readRes.headers.get("etag")).toBeTruthy()
+    const readBytes = new Uint8Array(await readRes.arrayBuffer())
+    expect(readBytes).toEqual(PNG)
+
+    // 验证 read 令牌 last_used_at 已刷新
+    const readRow = db.db
+      .prepare("SELECT last_used_at FROM ciki_api_tokens WHERE id = ?")
+      .get(readTokenObj.id) as { last_used_at: string | null }
+    expect(readRow.last_used_at).not.toBeNull()
+
+    // 用 write 令牌读回
+    const writeRes = await readGet(
+      env,
+      writeTokenObj.token,
+      `/api/read/files/${image.key}`
+    )
+    expect(writeRes.status).toBe(200)
+    const writeBytes = new Uint8Array(await writeRes.arrayBuffer())
+    expect(writeBytes).toEqual(PNG)
+
+    // 2. 上传 Excalidraw 场景 JSON
+    const sceneJson = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "https://excalidraw.com",
+      elements: [],
+      appState: { viewBackgroundColor: "#ffffff" },
+      files: {}
+    })
+    const jsonUploadRes = await uploadFile(
+      env,
+      writeTokenObj.token,
+      formWith(
+        new TextEncoder().encode(sceneJson),
+        "application/json",
+        "scene.json"
+      )
+    )
+    expect(jsonUploadRes.status).toBe(201)
+    const sceneImage = (await jsonUploadRes.json()) as {
+      key: string
+      url: string
+    }
+
+    const sceneReadRes = await readGet(
+      env,
+      readTokenObj.token,
+      `/api/read/files/${sceneImage.key}`
+    )
+    expect(sceneReadRes.status).toBe(200)
+    expect(sceneReadRes.headers.get("content-type")).toBe("application/json")
+    const sceneText = await sceneReadRes.text()
+    expect(JSON.parse(sceneText)).toMatchObject({
+      type: "excalidraw",
+      version: 2
+    })
+  })
+
+  it("跨账号归属校验：读他人上传的文件一律 404（不泄露存在性）", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin, "other@example.com")
+
+    const adminWriteToken = await createApiToken(env, admin, "write")
+    const userReadToken = await createApiToken(env, user, "read")
+    const userWriteToken = await createApiToken(env, user, "write")
+
+    // Admin 上传文件
+    const uploadRes = await uploadFile(
+      env,
+      adminWriteToken.token,
+      formWith(PNG, "image/png", "admin.png")
+    )
+    expect(uploadRes.status).toBe(201)
+    const image = (await uploadRes.json()) as { key: string }
+
+    // Other user 尝试用 read 令牌和 write 令牌读取 Admin 的文件
+    const userRead = await readGet(
+      env,
+      userReadToken.token,
+      `/api/read/files/${image.key}`
+    )
+    expect(userRead.status).toBe(404)
+    expect(await userRead.json()).toEqual({ error: "File not found" })
+
+    const userWrite = await readGet(
+      env,
+      userWriteToken.token,
+      `/api/read/files/${image.key}`
+    )
+    expect(userWrite.status).toBe(404)
+    expect(await userWrite.json()).toEqual({ error: "File not found" })
+  })
+
+  it("无元数据存量对象、对象不存在、key 形状非法一律 404", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    const token = await readToken(env, admin)
+    const id = "0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b"
+
+    // 存量对象无 customMetadata 或无 uploaderId
+    await r2.put(`pages/${id}.png`, PNG, {
+      httpMetadata: { contentType: "image/png" }
+    })
+    const noMeta = await readGet(env, token, `/api/read/files/pages/${id}.png`)
+    expect(noMeta.status).toBe(404)
+    expect(await noMeta.json()).toEqual({ error: "File not found" })
+
+    // 对象不存在
+    const missing = await readGet(
+      env,
+      token,
+      `/api/read/files/pages/11111111-2222-3333-4444-555555555555.png`
+    )
+    expect(missing.status).toBe(404)
+    expect(await missing.json()).toEqual({ error: "File not found" })
+
+    // key 形状非法
+    for (const badKey of [
+      `misc/${id}.png`,
+      `pages/sub/${id}.png`,
+      `pages/${id}.svg`,
+      `pages/${id.toUpperCase()}.png`,
+      "invalid-key"
+    ]) {
+      const bad = await readGet(env, token, `/api/read/files/${badKey}`)
+      expect(bad.status).toBe(404)
+      expect(await bad.json()).toEqual({ error: "File not found" })
+    }
+  })
+
+  it("鉴权分支：无令牌、会话 Cookie、导入令牌、无效令牌、已吊销、被停用/未批准用户全 401（且带 no-store）", async () => {
+    const { env, db } = await initializedContext()
+    const admin = await adminSession(env)
+    const adminToken = await createApiToken(env, admin, "write")
+
+    // 上传一个文件
+    const uploadRes = await uploadFile(
+      env,
+      adminToken.token,
+      formWith(PNG, "image/png")
+    )
+    const { key } = (await uploadRes.json()) as { key: string }
+
+    // 1. 无令牌
+    const anon = await request(env, `/api/read/files/${key}`)
+    expect(anon.status).toBe(401)
+    expect(anon.headers.get("cache-control")).toContain("no-store")
+
+    // 2. 只有会话 Cookie
+    const cookieOnly = await request(env, `/api/read/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(cookieOnly.status).toBe(401)
+    expect(cookieOnly.headers.get("cache-control")).toContain("no-store")
+
+    // 3. 导入令牌
+    const importToken = await createImportToken(env, admin)
+    const importRes = await request(env, `/api/read/files/${key}`, {
+      headers: { authorization: `Bearer ${importToken.token}` }
+    })
+    expect(importRes.status).toBe(401)
+    expect(importRes.headers.get("cache-control")).toContain("no-store")
+
+    // 4. 无效令牌
+    const invalidRes = await request(env, `/api/read/files/${key}`, {
+      headers: { authorization: "Bearer invalid-token-string" }
+    })
+    expect(invalidRes.status).toBe(401)
+    expect(invalidRes.headers.get("cache-control")).toContain("no-store")
+
+    // 5. 已吊销令牌
+    const doomedToken = await createApiToken(env, admin, "read")
+    await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/tokens/${doomedToken.id}`,
+      undefined,
+      admin
+    )
+    const revokedRes = await request(env, `/api/read/files/${key}`, {
+      headers: { authorization: `Bearer ${doomedToken.token}` }
+    })
+    expect(revokedRes.status).toBe(401)
+    expect(revokedRes.headers.get("cache-control")).toContain("no-store")
+
+    // 6. 用户被停用
+    const userCookie = await userSession(env, admin, "deactivated@example.com")
+    const userToken = await createApiToken(env, userCookie, "read")
+    db.db
+      .prepare("UPDATE ciki_users SET is_active = 0 WHERE email = ?")
+      .run("deactivated@example.com")
+    const deactivatedRes = await request(env, `/api/read/files/${key}`, {
+      headers: { authorization: `Bearer ${userToken.token}` }
+    })
+    expect(deactivatedRes.status).toBe(401)
+    expect(deactivatedRes.headers.get("cache-control")).toContain("no-store")
+
+    // 7. 用户未批准（置回 rejected）
+    const unapprovedCookie = await userSession(
+      env,
+      admin,
+      "unapproved@example.com"
+    )
+    const unapprovedToken = await createApiToken(env, unapprovedCookie, "read")
+    db.db
+      .prepare(
+        "UPDATE ciki_users SET approval_status = 'rejected' WHERE email = ?"
+      )
+      .run("unapproved@example.com")
+    const unapprovedRes = await request(env, `/api/read/files/${key}`, {
+      headers: { authorization: `Bearer ${unapprovedToken.token}` }
+    })
+    expect(unapprovedRes.status).toBe(401)
+    expect(unapprovedRes.headers.get("cache-control")).toContain("no-store")
+  })
+
+  it("会话端点 GET /api/files/:key 回归正常：保持无归属校验且需会话", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin, "user2@example.com")
+    const adminToken = await createApiToken(env, admin, "write")
+
+    // Admin 上传
+    const uploadRes = await uploadFile(
+      env,
+      adminToken.token,
+      formWith(PNG, "image/png")
+    )
+    const { key } = (await uploadRes.json()) as { key: string }
+
+    // Admin 会话可读
+    const adminSessionRead = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(adminSessionRead.status).toBe(200)
+
+    // User 会话也可读（会话端点供页面展示，不设归属拦截）
+    const userSessionRead = await request(env, `/api/files/${key}`, {
+      headers: { cookie: user }
+    })
+    expect(userSessionRead.status).toBe(200)
+
+    // 匿名请求会话端点回 401
+    const anon = await request(env, `/api/files/${key}`)
+    expect(anon.status).toBe(401)
   })
 })
