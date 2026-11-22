@@ -161,7 +161,12 @@ export function ExcalidrawModal({
           exportBackground: true
         },
         files,
-        mimeType: "image/png"
+        mimeType: "image/png",
+        getDimensions: (width: number, height: number) => ({
+          width: width * 2,
+          height: height * 2,
+          scale: 2
+        })
       })
       const pngFile = new File([pngBlob], "preview.png", {
         type: "image/png"

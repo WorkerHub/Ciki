@@ -11,7 +11,7 @@ export interface RenderSceneOptions {
 }
 
 /**
- * 懒加载 Excalidraw 浏览器端导出能力，按 2x（exportScale: 2, exportBackground: true）渲染出 PNG Blob。
+ * 懒加载 Excalidraw 浏览器端导出能力，按 2x（exportScale: 2, exportBackground: true, getDimensions 真实尺寸）渲染出 PNG Blob。
  * 仅当画布缺少 previewKey 时动态触发加载，不污染普通正文首屏体积。
  */
 export async function exportSceneToBlob(
@@ -26,6 +26,11 @@ export async function exportSceneToBlob(
       exportBackground: true
     },
     files: (scene.files as any) || null,
-    mimeType: "image/png"
+    mimeType: "image/png",
+    getDimensions: (width: number, height: number) => ({
+      width: width * 2,
+      height: height * 2,
+      scale: 2
+    })
   })
 }
