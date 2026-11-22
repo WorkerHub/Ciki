@@ -6,7 +6,7 @@ import { DefaultSidebar, Excalidraw } from "@excalidraw/excalidraw"
 import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
-import { afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import {
   MIN_EXCALIDRAW_PREVIEW_HEIGHT,
@@ -16,6 +16,8 @@ import {
 import { createExtensions, type EditorMode } from "@/editor/extensions"
 import { MIN_IMAGE_WIDTH } from "@/editor/image-attributes"
 import { ReadView } from "@/editor/ReadView"
+import { api, pagesApi } from "@/lib/api"
+import { exportSceneToBlob } from "./export"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 const SCENE_KEY = "pages/1b3e5a7d-890f-4e3b-b21c-4f8a9e0d1c2b.json"
@@ -396,5 +398,206 @@ describe("Excalidraw 弹窗 Portal 挂载与节点选区交互", () => {
     expect(img.style.width).toBe(`${MIN_IMAGE_WIDTH}px`)
     expect(img.style.minWidth).toBe("")
     expect(img.style.minHeight).toBe("")
+  })
+
+  it("exportSceneToBlob 能够执行", async () => {
+    const blob = await exportSceneToBlob({
+      elements: [
+        {
+          id: "rect-1",
+          type: "rectangle",
+          x: 10,
+          y: 10,
+          width: 100,
+          height: 100
+        }
+      ]
+    })
+    expect(blob).toBeInstanceOf(Blob)
+    const url = URL.createObjectURL(blob)
+    expect(url).toMatch(/^blob:/)
+    URL.revokeObjectURL(url)
+  })
+})
+
+describe("画布阅读态现场渲染与回填触发 (Todo #61)", () => {
+  const MOCK_SCENE_DATA = {
+    elements: [
+      {
+        id: "rect-1",
+        type: "rectangle",
+        x: 10,
+        y: 10,
+        width: 120,
+        height: 80,
+        strokeColor: "#1e1e1e",
+        backgroundColor: "#e03131",
+        fillStyle: "solid",
+        strokeWidth: 2
+      }
+    ],
+    appState: {
+      viewBackgroundColor: "#ffffff"
+    }
+  }
+
+  const NO_PREVIEW_CANVAS_HTML = `<img data-type="excalidraw" data-scene-key="${SCENE_KEY}" alt="${EXTRACTED_TEXT}" width="640">`
+
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("1. 缺失 previewKey 时阅读态先展示 Loading，拉取场景后现场渲染出 2x 预览并以 Object URL 展示", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any) => {
+      const url = String(input)
+      if (url.includes(SCENE_KEY)) {
+        return new Response(JSON.stringify(MOCK_SCENE_DATA), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      }
+      return new Response("Not found", { status: 404 })
+    })
+
+    const uploadSpy = vi.spyOn(api, "upload")
+    const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview")
+
+    const { container } = render(
+      <ReadView html={NO_PREVIEW_CANVAS_HTML} canWrite={false} />
+    )
+
+    // 应先进入 loading 态
+    expect(container.querySelector("[data-canvas-loading]")).toBeInTheDocument()
+
+    // 现场渲染完成，出现 <img>
+    const img = await screen.findByRole("img", { name: EXTRACTED_TEXT })
+    expect(img).toBeInTheDocument()
+    expect(img.getAttribute("src")).toMatch(/^blob:/)
+    expect(img).toHaveAttribute("data-type", "excalidraw")
+    expect(img).toHaveAttribute("data-scene-key", SCENE_KEY)
+    expect(img).toHaveAttribute("width", "640")
+
+    // 验证场景请求触发且携带会话 cookie 凭据
+    expect(fetchSpy).toHaveBeenCalledWith(
+      `/api/files/${SCENE_KEY}`,
+      expect.objectContaining({ credentials: "include" })
+    )
+
+    // 无写权限时：仅内存现场渲染，绝不触发上传或回填 API
+    expect(uploadSpy).not.toHaveBeenCalled()
+    expect(canvasPreviewSpy).not.toHaveBeenCalled()
+  })
+
+  it("2. 有编辑权限 (canWrite=true, pageId 存在) 时，现场渲染后自动上传 PNG 并调用 canvasPreview 回填，切为静态预览图", async () => {
+    const NEW_PREVIEW_KEY = "pages/newly-rendered-preview-key.png"
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any) => {
+      const url = String(input)
+      if (url.includes(SCENE_KEY)) {
+        return new Response(JSON.stringify(MOCK_SCENE_DATA), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      }
+      return new Response("Not found", { status: 404 })
+    })
+
+    const uploadSpy = vi.spyOn(api, "upload").mockResolvedValue({
+      key: NEW_PREVIEW_KEY,
+      url: `/api/files/${NEW_PREVIEW_KEY}`,
+      contentType: "image/png",
+      size: 2048
+    })
+
+    const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview").mockResolvedValue({
+      success: true,
+      status: "updated"
+    })
+
+    render(
+      <ReadView html={NO_PREVIEW_CANVAS_HTML} pageId={88} canWrite={true} />
+    )
+
+    // 等待回填完成并切换为静态预览图
+    await waitFor(() => {
+      const img = screen.getByRole("img", { name: EXTRACTED_TEXT })
+      expect(img).toHaveAttribute("src", `/api/files/${NEW_PREVIEW_KEY}`)
+      expect(img).toHaveAttribute("data-preview-key", NEW_PREVIEW_KEY)
+    })
+
+    // 验证上传参数
+    expect(uploadSpy).toHaveBeenCalledTimes(1)
+    const uploadedFile = uploadSpy.mock.calls[0][0]
+    expect(uploadedFile).toBeInstanceOf(File)
+    expect(uploadedFile.name).toBe("preview.png")
+    expect(uploadedFile.type).toBe("image/png")
+
+    // 验证调用回填端点
+    expect(canvasPreviewSpy).toHaveBeenCalledWith(88, {
+      sceneKey: SCENE_KEY,
+      previewKey: NEW_PREVIEW_KEY
+    })
+  })
+
+  it("3. 回填 API 异常时不阻断现场渲染的图片展示（优雅降级）", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input: any) => {
+      const url = String(input)
+      if (url.includes(SCENE_KEY)) {
+        return new Response(JSON.stringify(MOCK_SCENE_DATA), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        })
+      }
+      return new Response("Not found", { status: 404 })
+    })
+
+    vi.spyOn(api, "upload").mockRejectedValue(new Error("Network upload failure"))
+    const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview")
+
+    render(
+      <ReadView html={NO_PREVIEW_CANVAS_HTML} pageId={88} canWrite={true} />
+    )
+
+    const img = await screen.findByRole("img", { name: EXTRACTED_TEXT })
+    expect(img).toBeInTheDocument()
+    // 上传失败后，内存渲染图依然正常展示为 Object URL
+    expect(img.getAttribute("src")).toMatch(/^blob:/)
+    expect(canvasPreviewSpy).not.toHaveBeenCalled()
+  })
+
+  it("4. 场景数据拉取失败时展示降级提示，不引发未捕获异常", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("Not Found", { status: 404, statusText: "Not Found" })
+    )
+
+    render(
+      <ReadView html={NO_PREVIEW_CANVAS_HTML} canWrite={false} />
+    )
+
+    // 应展示失败文字或 extractedText
+    const fallback = await screen.findByText(EXTRACTED_TEXT)
+    expect(fallback).toBeInTheDocument()
+  })
+
+  it("5. 已有 previewKey 的老画布块直接走静态图，不发场景拉取请求也不触发回填", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+    const uploadSpy = vi.spyOn(api, "upload")
+    const canvasPreviewSpy = vi.spyOn(pagesApi, "canvasPreview")
+
+    render(
+      <ReadView html={CANVAS_HTML} pageId={88} canWrite={true} />
+    )
+
+    const img = await screen.findByRole("img", { name: EXTRACTED_TEXT })
+    expect(img).toBeInTheDocument()
+    expect(img).toHaveAttribute("src", `/api/files/${PREVIEW_KEY}`)
+
+    // 绝不对已有 previewKey 的画布拉取 scene 或触发回填
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(uploadSpy).not.toHaveBeenCalled()
+    expect(canvasPreviewSpy).not.toHaveBeenCalled()
   })
 })
