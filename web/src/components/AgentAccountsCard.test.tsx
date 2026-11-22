@@ -216,4 +216,20 @@ describe("AgentAccountsCard", () => {
       expect(screen.getByText(/Token 已吊销/)).toBeInTheDocument()
     })
   })
+
+  it("指定空间一个没勾时不能签发令牌（契约里空数组整个 400）", async () => {
+    const user = userEvent.setup()
+    render(<AgentAccountsCard />)
+
+    await screen.findByText("ci-agent")
+    const manageButtons = screen.getAllByRole("button", { name: "管理 Token" })
+    await user.click(manageButtons[0])
+
+    await user.click(screen.getByRole("button", { name: "签发 Token" }))
+    await user.click(screen.getByRole("radio", { name: "指定空间" }))
+
+    expect(screen.getByRole("button", { name: "签发" })).toBeDisabled()
+    await user.click(screen.getByRole("checkbox", { name: "默认空间" }))
+    expect(screen.getByRole("button", { name: "签发" })).toBeEnabled()
+  })
 })

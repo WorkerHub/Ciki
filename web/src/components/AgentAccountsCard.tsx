@@ -214,9 +214,11 @@ export function AgentAccountsCard() {
 
   const trimmedTokenName = tokenName.trim()
   const tokenNameTooLong = nameLength(trimmedTokenName) > NAME_MAX
+  const draftEmpty = draftScope !== null && draftScope.length === 0
+  const issueDisabled = busy || tokenNameTooLong || draftEmpty
 
   const issueToken = async (agentId: number) => {
-    if (busy || tokenNameTooLong) return
+    if (issueDisabled) return
     setIssueError("")
     setNoticeKey("")
     setCopiedToken(false)
@@ -666,7 +668,7 @@ export function AgentAccountsCard() {
                             <Button
                               type="button"
                               size="sm"
-                              disabled={busy || tokenNameTooLong}
+                              disabled={issueDisabled}
                               onClick={() => void issueToken(agent.id)}
                             >
                               {t("settings.agents.tokens.issue")}
