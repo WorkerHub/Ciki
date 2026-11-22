@@ -977,4 +977,80 @@ describe("阅读页回到顶部按钮集成", () => {
       behavior: "smooth"
     })
   })
+
+  it("滚到底部时回到顶部按钮淡出让位，发表评论不被劫持，离开底部恢复显示", async () => {
+    vi.mocked(commentsApi.create).mockResolvedValue({
+      id: 101,
+      parentId: null,
+      authorId: 1,
+      authorName: "小明",
+      authorAvatarUrl: null,
+      bodyMd: "测试评论内容",
+      html: "<p>测试评论内容</p>",
+      createdAt: "2026-11-22T08:00:00.000Z",
+      editedAt: null,
+      deletedAt: null,
+      canEdit: true,
+      canDelete: true
+    })
+
+    const { container } = renderViewInScroller()
+    const scroller = container.querySelector<HTMLElement>(
+      '[data-testid="scroller"]'
+    )!
+
+    Object.defineProperty(scroller, "clientHeight", {
+      value: 600,
+      configurable: true
+    })
+    Object.defineProperty(scroller, "scrollHeight", {
+      value: 2400,
+      configurable: true
+    })
+    scroller.scrollTo = vi.fn()
+
+    // 1. 中间位置（scrollTop = 800，距离底部 2400 - 600 - 800 = 1000 > 96）：回到顶部按钮显现
+    scroller.scrollTop = 800
+    scroller.dispatchEvent(new Event("scroll"))
+    expect(
+      await screen.findByRole("button", { name: "回到顶部" })
+    ).toBeInTheDocument()
+
+    // 2. 滚到底部（scrollTop = 1800，距离底部 0 <= 96）：回到顶部按钮淡出消失让位
+    scroller.scrollTop = 1800
+    scroller.dispatchEvent(new Event("scroll"))
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "回到顶部" })
+      ).not.toBeInTheDocument()
+    })
+
+    // 3. 此时输入评论并点击发表：点击直接落在「发表」按钮上，未被回顶劫持
+    const textarea = await screen.findByLabelText("发表评论")
+    await userEvent.type(textarea, "测试评论内容")
+
+    const postButton = screen.getByRole("button", { name: "发表" })
+    expect(postButton).toBeEnabled()
+
+    await userEvent.click(postButton)
+
+    // 验证：回顶函数 scrollTo 从未被触发（未被劫持）
+    expect(scroller.scrollTo).not.toHaveBeenCalled()
+    // 验证：发表评论接口被正确调用
+    expect(commentsApi.create).toHaveBeenCalledWith(1, {
+      bodyMd: "测试评论内容",
+      parentId: null
+    })
+
+    // 4. 离开底部（向上滚到 scrollTop = 1200，距离底部 600 > 96）：回到顶部按钮恢复显示
+    scroller.scrollTop = 1200
+    scroller.dispatchEvent(new Event("scroll"))
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "回到顶部" })
+      ).toBeInTheDocument()
+    })
+  })
 })

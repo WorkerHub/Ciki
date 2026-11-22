@@ -16,6 +16,12 @@ export interface BackToTopProps {
    */
   scrollContainer?: HTMLElement | null
   className?: string
+  /**
+   * 接近底部时的淡出让位阈值（px）。当距离容器底部小于等于此阈值时淡出让位，
+   * 确保滚到底部时页尾操作（如评论区「发表」按钮）完全可点且不被遮挡。
+   * 默认 96px（适配移动端 safe-area 及桌面端右下角布局）。
+   */
+  bottomThreshold?: number
 }
 
 function resolveScrollContainer(
@@ -45,7 +51,8 @@ function resolveScrollContainer(
 export function BackToTop({
   contentRoot,
   scrollContainer,
-  className
+  className,
+  bottomThreshold = 96
 }: BackToTopProps) {
   const { t } = useTranslation()
   const reduceMotion = useReducedMotion()
@@ -77,8 +84,14 @@ export function BackToTop({
       }
       const { scrollTop, clientHeight, scrollHeight } = root
       // 短文无滚动：scrollHeight <= clientHeight 永不出现
-      // 长页面：下滑超过一屏（scrollTop > clientHeight）淡入；回到阈值内（scrollTop <= clientHeight）淡出
-      const shouldShow = scrollHeight > clientHeight && scrollTop > clientHeight
+      // 触发阈值：长页面下滑超过一屏（scrollTop > clientHeight）淡入；回到阈值内淡出
+      // 接近底部让位：距离底部 <= bottomThreshold 时淡出让位，确保页尾评论区「发表」按钮等交互不被遮挡；离开底部恢复显示
+      const isLongPage = scrollHeight > clientHeight
+      const isPastThreshold = scrollTop > clientHeight
+      const distanceFromBottom = scrollHeight - clientHeight - scrollTop
+      const isNearBottom = distanceFromBottom <= bottomThreshold
+
+      const shouldShow = isLongPage && isPastThreshold && !isNearBottom
       setVisible(shouldShow)
     }
 
@@ -124,7 +137,7 @@ export function BackToTop({
         window.cancelAnimationFrame(frame)
       }
     }
-  }, [contentRoot, scrollContainer])
+  }, [contentRoot, scrollContainer, bottomThreshold])
 
   const scrollToTop = () => {
     const root = scrollRootRef.current
@@ -154,7 +167,11 @@ export function BackToTop({
             onClick={scrollToTop}
             initial={reduceMotion ? false : { opacity: 0, scale: 0.85 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0, scale: 0.85 }}
+            exit={
+              reduceMotion
+                ? undefined
+                : { opacity: 0, scale: 0.85, pointerEvents: "none" }
+            }
             transition={{ duration: 0.18, ease: "easeOut" }}
             className={cn(
               "fixed z-30 flex size-10 items-center justify-center rounded-full",

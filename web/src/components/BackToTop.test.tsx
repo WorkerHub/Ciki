@@ -266,6 +266,79 @@ describe("BackToTop 回到顶部组件", () => {
     }
   })
 
+  it("滚动容器接近底部时淡出让位，离开底部恢复显示", async () => {
+    // clientHeight: 600, scrollHeight: 2000
+    // 阈值 default = 96
+    // 居中位置 scrollTop = 1000（距离底部 2000 - 600 - 1000 = 400 > 96）: 按钮显示
+    scroller = createScroller({
+      clientHeight: 600,
+      scrollHeight: 2000,
+      scrollTop: 1000
+    })
+    document.body.appendChild(scroller)
+
+    render(<BackToTop scrollContainer={scroller} />)
+
+    expect(
+      await screen.findByRole("button", { name: "回到顶部" })
+    ).toBeInTheDocument()
+
+    // 滚到底部附近（scrollTop = 1350，距离底部 2000 - 600 - 1350 = 50 <= 96）
+    scroller.scrollTop = 1350
+    scroller.dispatchEvent(new Event("scroll"))
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "回到顶部" })
+      ).not.toBeInTheDocument()
+    })
+
+    // 滚到底部（scrollTop = 1400，距离底部 0 <= 96）依然隐藏
+    scroller.scrollTop = 1400
+    scroller.dispatchEvent(new Event("scroll"))
+
+    expect(
+      screen.queryByRole("button", { name: "回到顶部" })
+    ).not.toBeInTheDocument()
+
+    // 离开底部（向上滚回 scrollTop = 1100，距离底部 300 > 96）恢复显示
+    scroller.scrollTop = 1100
+    scroller.dispatchEvent(new Event("scroll"))
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "回到顶部" })
+      ).toBeInTheDocument()
+    })
+  })
+
+  it("支持自定义 bottomThreshold 阈值", async () => {
+    // 自定义 bottomThreshold = 150
+    scroller = createScroller({
+      clientHeight: 600,
+      scrollHeight: 2000,
+      scrollTop: 1200
+    })
+    document.body.appendChild(scroller)
+
+    render(<BackToTop scrollContainer={scroller} bottomThreshold={150} />)
+
+    // scrollTop = 1200, 距离底部 2000 - 600 - 1200 = 200 > 150
+    expect(
+      await screen.findByRole("button", { name: "回到顶部" })
+    ).toBeInTheDocument()
+
+    // 滚到距离底部 120 <= 150 (scrollTop = 1280)
+    scroller.scrollTop = 1280
+    scroller.dispatchEvent(new Event("scroll"))
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: "回到顶部" })
+      ).not.toBeInTheDocument()
+    })
+  })
+
   it("样式包含 safe-area-inset 和尺寸类名", async () => {
     scroller = createScroller({
       clientHeight: 600,
