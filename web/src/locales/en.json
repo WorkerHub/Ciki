@@ -303,6 +303,8 @@
       },
       "home": "Home",
       "updatedAt": "Updated {{time}}",
+      "createdAt": "Created {{time}}",
+      "lastEditedAt": "Last edited {{time}}",
       "readOnlyMember": "Read-only member",
       "refresh": "Refresh",
       "edit": "Edit",

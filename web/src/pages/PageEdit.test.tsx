@@ -50,7 +50,11 @@ const page: PageContentDetail = {
   createdBy: 1,
   updatedBy: 1,
   createdAt: "2026-11-07T00:00:00.000Z",
-  updatedAt: "2026-11-07T00:00:00.000Z"
+  updatedAt: "2026-11-07T00:00:00.000Z",
+  createdByName: "张三",
+  createdByAvatarUrl: null,
+  updatedByName: "张三",
+  updatedByAvatarUrl: null
 }
 
 const space = {
