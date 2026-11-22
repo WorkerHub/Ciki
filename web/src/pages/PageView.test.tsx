@@ -907,3 +907,74 @@ describe("阅读页：英文界面", () => {
     ).toBeInTheDocument()
   })
 })
+
+describe("阅读页回到顶部按钮集成", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
+    window.matchMedia = ((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false
+    })) as unknown as typeof window.matchMedia
+    useAuthStore.setState({
+      user: memberUser,
+      status: "ready",
+      restricted: false
+    })
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space({ myRole: "editor" })],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(pagesApi.get).mockResolvedValue(longPage())
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.download).mockReset()
+  })
+
+  it("长页面下滑超过一屏时回到顶部按钮出现，点击平滑回顶", async () => {
+    const { container } = renderViewInScroller()
+    const scroller = container.querySelector<HTMLElement>(
+      '[data-testid="scroller"]'
+    )!
+
+    Object.defineProperty(scroller, "clientHeight", {
+      value: 600,
+      configurable: true
+    })
+    Object.defineProperty(scroller, "scrollHeight", {
+      value: 2400,
+      configurable: true
+    })
+    scroller.scrollTo = vi.fn()
+
+    expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "回到顶部" })
+    ).not.toBeInTheDocument()
+
+    scroller.scrollTop = 700
+    scroller.dispatchEvent(new Event("scroll"))
+
+    const button = await screen.findByRole("button", { name: "回到顶部" })
+    expect(button).toBeInTheDocument()
+
+    await userEvent.click(button)
+    expect(scroller.scrollTo).toHaveBeenCalledWith({
+      top: 0,
+      behavior: "smooth"
+    })
+  })
+})

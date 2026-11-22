@@ -292,6 +292,7 @@
     "loading": "页面加载中",
     "loadFailed": "页面加载失败",
     "backHome": "回到首页",
+    "backToTop": "回到顶部",
     "toc": {
       "label": "本页索引"
     },
