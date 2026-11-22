@@ -106,11 +106,11 @@ describe("工具条随选区实时更新", () => {
     )
     render(<EditorToolbar editor={editor} />)
 
-    const trigger = screen.getByRole("combobox", { name: "字号" })
+    const trigger = screen.getByRole("button", { name: "字号" })
     expect(trigger).toHaveTextContent(/^默认$/)
 
     act(() => putCursorAt(editor, "大字号"))
-    expect(trigger).toHaveTextContent(/^20px$/)
+    expect(trigger).toHaveTextContent(/^20$/)
 
     act(() => putCursorAt(editor, "默认字号"))
     expect(trigger).toHaveTextContent(/^默认$/)
