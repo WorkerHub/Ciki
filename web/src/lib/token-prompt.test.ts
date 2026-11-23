@@ -162,4 +162,32 @@ describe("buildIntegrationPrompt", () => {
     })
     expect(enPrompt).toContain("- Space Scope: Selected spaces (0 total): none")
   })
+
+  it("支持 Agent 与 Owner 身份声明（中文与英文）", () => {
+    const zhPrompt = buildIntegrationPrompt({
+      lang: "zh",
+      origin: "https://wiki.example.com",
+      kind: "read",
+      spaceIds: null,
+      spaces: SPACES,
+      agentName: "deploy-bot",
+      ownerName: "Alice"
+    })
+    expect(zhPrompt).toContain(
+      "- 身份声明：以 Agent「deploy-bot」的身份工作，所属 Owner 为「Alice」。"
+    )
+
+    const enPrompt = buildIntegrationPrompt({
+      lang: "en",
+      origin: "https://wiki.example.com",
+      kind: "read",
+      spaceIds: null,
+      spaces: SPACES,
+      agentName: "deploy-bot",
+      ownerName: "Alice"
+    })
+    expect(enPrompt).toContain(
+      '- Identity: Working as Agent "deploy-bot", owned by "Alice".'
+    )
+  })
 })

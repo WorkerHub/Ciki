@@ -717,6 +717,37 @@
       "statusActive": "已启用",
       "statusInactive": "已停用",
       "statusToggle": "{{name}} 启用状态",
+      "avatar": {
+        "upload": "上传头像",
+        "change": "更换头像",
+        "delete": "删除头像",
+        "uploaded": "Agent 头像已更新。",
+        "deleted": "Agent 头像已删除。",
+        "selectFor": "为 {{name}} 选择头像"
+      },
+      "spaces": {
+        "manage": "管理空间",
+        "title": "管理 Agent「{{name}}」的空间权限",
+        "description": "为 Agent 分配或移除你所管理的空间。可多选空间批量设置角色，也可单个移出。",
+        "empty": "你当前没有可管理的空间。",
+        "columnSpace": "空间",
+        "columnRole": "当前角色",
+        "columnActions": "操作",
+        "notJoined": "未加入",
+        "remove": "移出",
+        "removeSuccess": "已将 Agent 移出空间「{{name}}」。",
+        "selectedCount": "已选 {{count}} 个空间",
+        "applyRole": "批量设置角色",
+        "applying": "设置中…",
+        "batchSuccess": "批量授权成功（已更新 {{count}} 个空间）。",
+        "batchPartialError": "部分空间操作失败：",
+        "errors": {
+          "lastAdmin": "空间必须保留至少一名管理员",
+          "forbidden": "无权操作该空间",
+          "notFound": "空间不存在",
+          "notEligible": "Agent 账号处于禁用或未审批状态"
+        }
+      },
       "delete": "删除",
       "deleteTitle": "删除 Agent 账号？",
       "deleteDescription": "删除「{{name}}」将一并清理其持有的全部 Token 与空间成员关系，且不能恢复。",

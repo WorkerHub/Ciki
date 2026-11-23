@@ -1075,7 +1075,8 @@ export const meApi = {
       uploadTo<AgentAccount>(`/me/agents/${id}/avatar`, file),
     deleteAvatar: (id: number) =>
       api.del<AgentAccount>(`/me/agents/${id}/avatar`),
-    spaces: (id: number) => api.get<AgentSpaceItem[]>(`/me/agents/${id}/spaces`),
+    spaces: (id: number) =>
+      api.get<AgentSpaceItem[]>(`/me/agents/${id}/spaces`),
     setSpaces: (id: number, input: { spaceIds: number[]; role?: SpaceRole }) =>
       api.put<AgentSpaceBatchResult>(`/me/agents/${id}/spaces`, input),
     removeSpace: (id: number, spaceId: number) =>

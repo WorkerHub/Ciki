@@ -723,6 +723,37 @@
       "statusActive": "Active",
       "statusInactive": "Inactive",
       "statusToggle": "{{name}} active status",
+      "avatar": {
+        "upload": "Upload avatar",
+        "change": "Change avatar",
+        "delete": "Delete avatar",
+        "uploaded": "Agent avatar updated.",
+        "deleted": "Agent avatar removed.",
+        "selectFor": "Select avatar for {{name}}"
+      },
+      "spaces": {
+        "manage": "Manage spaces",
+        "title": "Manage space permissions for Agent \"{{name}}\"",
+        "description": "Assign or remove spaces you manage for this Agent. Select spaces to set roles in batch, or remove individually.",
+        "empty": "You do not manage any spaces.",
+        "columnSpace": "Space",
+        "columnRole": "Current role",
+        "columnActions": "Actions",
+        "notJoined": "Not joined",
+        "remove": "Remove",
+        "removeSuccess": "Agent removed from space \"{{name}}\".",
+        "selectedCount": "{{count}} spaces selected",
+        "applyRole": "Apply role to selected",
+        "applying": "Applying…",
+        "batchSuccess": "Batch authorization succeeded ({{count}} spaces updated).",
+        "batchPartialError": "Some spaces failed to update:",
+        "errors": {
+          "lastAdmin": "A space must keep at least one admin",
+          "forbidden": "No permission to manage this space",
+          "notFound": "Space not found",
+          "notEligible": "Agent account is disabled or pending approval"
+        }
+      },
       "delete": "Delete",
       "deleteTitle": "Delete agent account?",
       "deleteDescription": "Deleting \"{{name}}\" will also clean up all its tokens and space memberships, and cannot be undone.",

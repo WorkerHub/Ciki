@@ -6,6 +6,8 @@ export interface BuildIntegrationPromptOptions {
   kind: ApiTokenKind
   spaceIds: TokenSpaceIds
   spaces?: Array<{ id: number; name: string }>
+  agentName?: string
+  ownerName?: string
 }
 
 /**
@@ -22,7 +24,9 @@ export function buildIntegrationPrompt({
   origin,
   kind,
   spaceIds,
-  spaces = []
+  spaces = [],
+  agentName,
+  ownerName
 }: BuildIntegrationPromptOptions): string {
   const isZh = (lang ?? "").toLowerCase().startsWith("zh")
   const resolvedOrigin =
@@ -43,6 +47,12 @@ export function buildIntegrationPrompt({
       }
     }
 
+    const identityLine = agentName
+      ? ownerName
+        ? `\n- 身份声明：以 Agent「${agentName}」的身份工作，所属 Owner 为「${ownerName}」。`
+        : `\n- 身份声明：以 Agent「${agentName}」的身份工作。`
+      : ""
+
     const writeSections =
       kind === "write"
         ? `\n#### 写入接口：
@@ -59,7 +69,7 @@ export function buildIntegrationPrompt({
     return `你正在接入 Ciki 知识库服务。请遵循以下配置和规范进行接口调用：
 
 ### 1. 实例信息与认证
-- 实例地址：${resolvedOrigin}
+- 实例地址：${resolvedOrigin}${identityLine}
 - 认证方式：HTTP Header \`Authorization: Bearer {{CIKI_API_TOKEN}}\`
 - 说明：Token 我随后单独发给你。收到后请替换占位符 \`{{CIKI_API_TOKEN}}\`，切勿将 Token 硬编码进公开文件、代码仓库或对外回复中。
 
@@ -97,6 +107,12 @@ ${writeSections}
     }
   }
 
+  const enIdentityLine = agentName
+    ? ownerName
+      ? `\n- Identity: Working as Agent "${agentName}", owned by "${ownerName}".`
+      : `\n- Identity: Working as Agent "${agentName}".`
+    : ""
+
   const writeSections =
     kind === "write"
       ? `\n#### Write APIs:
@@ -113,7 +129,7 @@ ${writeSections}
   return `You are integrating with the Ciki knowledge base service. Please follow the configuration and specifications below:
 
 ### 1. Instance & Authentication
-- Instance URL: ${resolvedOrigin}
+- Instance URL: ${resolvedOrigin}${enIdentityLine}
 - Authentication: HTTP Header \`Authorization: Bearer {{CIKI_API_TOKEN}}\`
 - Note: The Token will be provided separately in a moment. Replace the placeholder \`{{CIKI_API_TOKEN}}\` once received. Never hardcode the token in public files, code repositories, or external responses.
 
