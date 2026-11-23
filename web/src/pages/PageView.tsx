@@ -18,7 +18,7 @@ import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { CommentSection } from "@/components/comments/CommentSection"
 import { MovePageDialog } from "@/components/MovePageDialog"
 import { UserAvatar } from "@/components/UserAvatar"
-import { formatAgentAuthor } from "@/lib/agent-display"
+import { formatAgentOwnerTooltip } from "@/lib/agent-display"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,6 +73,52 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 切回标签页自动刷新的节流窗口：短时间内反复切回不重复打接口。 */
 const AUTO_REFRESH_THROTTLE_MS = 10_000
+
+function BylineAuthorAvatar({
+  username,
+  avatarUrl,
+  isAgent,
+  ownerName
+}: {
+  username: string
+  avatarUrl: string | null
+  isAgent?: boolean
+  ownerName?: string | null
+}) {
+  const avatar = (
+    <UserAvatar
+      user={{
+        username,
+        email: "",
+        avatarUrl
+      }}
+      className="size-4 text-[9px]"
+    />
+  )
+
+  if (!isAgent) {
+    return avatar
+  }
+
+  const tooltipText = formatAgentOwnerTooltip(ownerName)
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label={username}
+            className="inline-flex rounded-full border-0 bg-transparent p-0 cursor-default focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          >
+            {avatar}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{tooltipText}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
 
 export function PageView() {
   const { t } = useTranslation()
@@ -304,16 +350,6 @@ export function PageView() {
   const showEdited = Boolean(page.updatedByName) && !isNeverEdited
   const hasByline = showCreated || showEdited
   const showMetaRow = hasByline || role === "viewer"
-  const createdAuthor = formatAgentAuthor({
-    name: page.createdByName ?? "",
-    isAgent: page.createdByIsAgent,
-    ownerName: page.createdByOwnerName
-  })
-  const updatedAuthor = formatAgentAuthor({
-    name: page.updatedByName ?? "",
-    isAgent: page.updatedByIsAgent,
-    ownerName: page.updatedByOwnerName
-  })
 
   return (
     <article className="space-y-4">
@@ -356,16 +392,14 @@ export function PageView() {
               <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground tabular-nums">
                 {showCreated ? (
                   <span className="inline-flex items-center gap-1">
-                    <UserAvatar
-                      user={{
-                        username: page.createdByName ?? "",
-                        email: "",
-                        avatarUrl: page.createdByAvatarUrl
-                      }}
-                      className="size-4 text-[9px]"
+                    <BylineAuthorAvatar
+                      username={page.createdByName ?? ""}
+                      avatarUrl={page.createdByAvatarUrl}
+                      isAgent={page.createdByIsAgent}
+                      ownerName={page.createdByOwnerName}
                     />
-                    <span>{createdAuthor.displayName}</span>
-                    {createdAuthor.showAgentBadge ? (
+                    <span>{page.createdByName}</span>
+                    {page.createdByIsAgent ? (
                       <Badge variant="secondary" className="text-[10px]">
                         Agent
                       </Badge>
@@ -382,16 +416,14 @@ export function PageView() {
                 ) : null}
                 {showEdited ? (
                   <span className="inline-flex items-center gap-1">
-                    <UserAvatar
-                      user={{
-                        username: page.updatedByName ?? "",
-                        email: "",
-                        avatarUrl: page.updatedByAvatarUrl
-                      }}
-                      className="size-4 text-[9px]"
+                    <BylineAuthorAvatar
+                      username={page.updatedByName ?? ""}
+                      avatarUrl={page.updatedByAvatarUrl}
+                      isAgent={page.updatedByIsAgent}
+                      ownerName={page.updatedByOwnerName}
                     />
-                    <span>{updatedAuthor.displayName}</span>
-                    {updatedAuthor.showAgentBadge ? (
+                    <span>{page.updatedByName}</span>
+                    {page.updatedByIsAgent ? (
                       <Badge variant="secondary" className="text-[10px]">
                         Agent
                       </Badge>

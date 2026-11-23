@@ -40,3 +40,18 @@ export function formatAgentAuthor({
     showAgentBadge: Boolean(isAgent)
   }
 }
+
+/**
+ * 规格：文档阅读页署名行 Agent 头像悬停提示
+ * - 鼠标悬停在该 agent 的头像上时，显示「{ownerName} 的 Agent」
+ * - owner 为 null / 空时，回落为「已注销用户的 Agent」
+ * - 英文环境下回落为「{ownerName}'s Agent」/「Deleted User's Agent」
+ */
+export function formatAgentOwnerTooltip(ownerName?: string | null): string {
+  const trimmedOwner = ownerName?.trim()
+  if (!trimmedOwner) {
+    return "已注销用户的 Agent"
+  }
+  const isEn = (i18n.language ?? "").toLowerCase().startsWith("en")
+  return isEn ? `${trimmedOwner}'s Agent` : `${trimmedOwner} 的 Agent`
+}
