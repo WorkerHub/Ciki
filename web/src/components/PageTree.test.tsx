@@ -48,6 +48,27 @@ const renderTreeWithRoute = (initialPath = "/") =>
     </MemoryRouter>
   )
 
+function TestNavApp({
+  targetPath,
+  label
+}: {
+  targetPath: string
+  label: string
+}) {
+  const navigate = useNavigate()
+  return (
+    <div>
+      <button type="button" onClick={() => navigate(targetPath)}>
+        {label}
+      </button>
+      <Routes>
+        <Route path="/p/:pageId" element={<PageTree />} />
+        <Route path="*" element={<PageTree />} />
+      </Routes>
+    </div>
+  )
+}
+
 describe("页面树空状态", () => {
   beforeEach(() => {
     usePagesStore.setState({
@@ -466,24 +487,9 @@ describe("目录树自动展开到当前文档与滚动可见", () => {
       expanded: []
     })
 
-    function TestApp() {
-      const navigate = useNavigate()
-      return (
-        <div>
-          <button type="button" onClick={() => navigate("/p/5")}>
-            跳转到子文档5
-          </button>
-          <Routes>
-            <Route path="/p/:pageId" element={<PageTree />} />
-            <Route path="*" element={<PageTree />} />
-          </Routes>
-        </div>
-      )
-    }
-
     render(
       <MemoryRouter initialEntries={["/p/3"]}>
-        <TestApp />
+        <TestNavApp targetPath="/p/5" label="跳转到子文档5" />
       </MemoryRouter>
     )
 
