@@ -332,7 +332,7 @@ describe("/api/admin/users/:id/spaces 参数校验", () => {
 })
 
 describe("/api/admin/users/:id/spaces 校验同源与限制", () => {
-  it("未激活或未批准用户拒绝批量加入空间（409 USER_NOT_ELIGIBLE），移出与列表不拦", async () => {
+  it("未激活或未批准用户：加入新空间逐项拒绝（USER_NOT_ELIGIBLE），已是成员改角色不拦，移出与列表不拦", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const userCookie = await userSession(
@@ -342,6 +342,7 @@ describe("/api/admin/users/:id/spaces 校验同源与限制", () => {
     )
     const targetUserId = await meId(env, userCookie)
     const spaceA = await createSpace(env, admin, "space-inact-a")
+    const spaceB = await createSpace(env, admin, "space-inact-b")
 
     // 先正常加入 spaceA
     let putRes = await jsonRequest(
@@ -363,7 +364,7 @@ describe("/api/admin/users/:id/spaces 校验同源与限制", () => {
     )
     expect(disableRes.status).toBe(200)
 
-    // 停用后尝试 PUT 批量授权 -> 409 USER_NOT_ELIGIBLE
+    // 1. 停用后已是成员的改角色不被拦截（与 PUT /api/spaces/:id/members/:userId 保持同源）
     putRes = await jsonRequest(
       env,
       "PUT",
@@ -371,15 +372,56 @@ describe("/api/admin/users/:id/spaces 校验同源与限制", () => {
       { spaceIds: [spaceA], role: "viewer" },
       admin
     )
-    expect(putRes.status).toBe(409)
+    expect(putRes.status).toBe(200)
     expect(await putRes.json()).toEqual({
-      error: "User cannot join a space",
-      code: "USER_NOT_ELIGIBLE"
+      results: [{ spaceId: spaceA, ok: true, role: "viewer" }]
     })
 
-    // 停用后列表不受阻
+    // 2. 停用后尝试加入尚未加入的新空间（spaceB）被逐项拒绝
+    putRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/admin/users/${targetUserId}/spaces`,
+      { spaceIds: [spaceB], role: "editor" },
+      admin
+    )
+    expect(putRes.status).toBe(200)
+    expect(await putRes.json()).toEqual({
+      results: [
+        {
+          spaceId: spaceB,
+          ok: false,
+          error: "User cannot join a space",
+          code: "USER_NOT_ELIGIBLE"
+        }
+      ]
+    })
+
+    // 3. 组合批量：同时改已入成员角色与尝试加入新空间，部分成功且逐项点名
+    putRes = await jsonRequest(
+      env,
+      "PUT",
+      `/api/admin/users/${targetUserId}/spaces`,
+      { spaceIds: [spaceA, spaceB], role: "admin" },
+      admin
+    )
+    expect(putRes.status).toBe(200)
+    expect(await putRes.json()).toEqual({
+      results: [
+        { spaceId: spaceA, ok: true, role: "admin" },
+        {
+          spaceId: spaceB,
+          ok: false,
+          error: "User cannot join a space",
+          code: "USER_NOT_ELIGIBLE"
+        }
+      ]
+    })
+
+    // 停用后列表不受阻：spaceA 为 admin，spaceB 仍未加入 (null)
     const entries = await listUserSpaces(env, admin, targetUserId)
-    expect(entries.find((e) => e.spaceId === spaceA)?.role).toBe("editor")
+    expect(entries.find((e) => e.spaceId === spaceA)?.role).toBe("admin")
+    expect(entries.find((e) => e.spaceId === spaceB)?.role).toBeNull()
 
     // 停用后 DELETE 移出不受阻
     const delRes = await jsonRequest(

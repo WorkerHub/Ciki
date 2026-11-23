@@ -425,7 +425,7 @@ adminRoutes.get("/users/:id/spaces", async (c) => {
 /**
  * 批量加入 / 改角色：
  * - 仅限真人用户，Agent 账号或用户不存在一律 404（不泄露存在性）；
- * - 用户停用或未批准一律 409 USER_NOT_ELIGIBLE（与空间成员管理同源）；
+ * - 用户停用或未批准仅在加入新空间时拦截（逐项回 USER_NOT_ELIGIBLE），已是成员改角色不拦（与空间成员管理 PUT /api/spaces/:id/members/:userId 同源）；
  * - `spaceIds` 必填、非空正整数数组（去重升序）；
  * - `role` 可选，默认 `editor`（普通成员档），限 admin/editor/viewer；
  * - 每个空间独立解析与校验，逐项回报，部分失败点名失败空间与原因；
@@ -439,9 +439,6 @@ adminRoutes.put("/users/:id/spaces", async (c) => {
   const user = await findUserById(c.env.DB, prefix, uid)
   if (!user || user.kind === "agent") {
     return c.json({ error: "User not found" }, 404)
-  }
-  if (!user.is_active || user.approval_status !== "approved") {
-    return c.json(USER_NOT_ELIGIBLE, 409)
   }
 
   const body = await readJsonBody<Record<string, unknown>>(c)
@@ -496,6 +493,15 @@ adminRoutes.put("/users/:id/spaces", async (c) => {
 
     const member = await findSpaceMember(c.env.DB, prefix, spaceId, user.id)
     if (!member) {
+      if (!user.is_active || user.approval_status !== "approved") {
+        results.push({
+          spaceId,
+          ok: false,
+          error: USER_NOT_ELIGIBLE.error,
+          code: USER_NOT_ELIGIBLE.code
+        })
+        continue
+      }
       await insertSpaceMember(c.env.DB, prefix, {
         space_id: spaceId,
         user_id: user.id,

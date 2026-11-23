@@ -1220,7 +1220,6 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 站点管理员鉴权（非管理员 403 `{"error":"Forbidden"}`）。
 - 仅允许对真人用户操作；目标用户不存在或为 Agent 账号一律 404 `{"error":"User not found"}`（不泄露存在性）。
-- 目标用户未激活 / 未批准一律 409 `{"error":"User cannot join a space","code":"USER_NOT_ELIGIBLE"}`（与既有 POST /api/spaces/:id/members 对齐）。
 - `spaceIds` 必填：正整数数组（去重、升序），为空 / 非数组 / 含非法项回 400 `code:"INVALID_SPACE_SCOPE"`。
 - `role` 可选，默认 `editor`（普通成员档）；取值仅 `admin` / `editor` / `viewer`，非法回 400 `code:"INVALID_ROLE"`。
 - 每个空间独立校验与写入，部分失败不影响其余空间，逐项回报：
@@ -1244,6 +1243,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   - `code:"SPACE_NOT_FOUND"`：空间不存在。
   - `code:"SPACE_FORBIDDEN"`：操作者无管理权。
   - `code:"LAST_SPACE_ADMIN"`：把该空间最后一名 `admin` 降级。
+  - `code:"USER_NOT_ELIGIBLE"`：目标用户未激活 / 未批准，无法加入新空间（仅加入新空间时校验，已是成员改角色不加此限制；与空间成员管理 `POST /api/spaces/:id/members` 同源）。
 
 #### DELETE /api/admin/users/:id/spaces/:spaceId
 
