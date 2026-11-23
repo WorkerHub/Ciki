@@ -794,7 +794,8 @@
     "info": {
       "title": "Displayed information",
       "username": "Username",
-      "email": "Email"
+      "email": "Email",
+      "edit": "Edit"
     },
     "saving": "Saving…"
   },

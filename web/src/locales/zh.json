@@ -788,7 +788,8 @@
     "info": {
       "title": "显示信息",
       "username": "用户名",
-      "email": "邮箱"
+      "email": "邮箱",
+      "edit": "修改"
     },
     "saving": "保存中…"
   },
