@@ -69,33 +69,51 @@ if (typeof window !== "undefined") {
     })) as unknown as typeof window.matchMedia
   }
   if (typeof HTMLCanvasElement !== "undefined") {
-    HTMLCanvasElement.prototype.getContext = (() => ({
-      filter: "none",
-      fillRect: () => {},
-      clearRect: () => {},
-      getImageData: () => ({ data: new Array(4) }),
-      putImageData: () => {},
-      createImageData: () => ({ data: new Array(4) }),
-      setTransform: () => {},
-      drawImage: () => {},
-      save: () => {},
-      fillText: () => {},
-      restore: () => {},
-      beginPath: () => {},
-      moveTo: () => {},
-      lineTo: () => {},
-      closePath: () => {},
-      stroke: () => {},
-      translate: () => {},
-      scale: () => {},
-      rotate: () => {},
-      arc: () => {},
-      fill: () => {},
-      measureText: () => ({ width: 0 }),
-      transform: () => {},
-      rect: () => {},
-      clip: () => {}
-    })) as unknown as typeof HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      _contextId?: string,
+      _options?: unknown
+    ) {
+      let lineDash: number[] = []
+      return {
+        canvas: this,
+        filter: "none",
+        fillRect: () => {},
+        clearRect: () => {},
+        strokeRect: () => {},
+        getImageData: () => ({ data: new Array(4) }),
+        putImageData: () => {},
+        createImageData: () => ({ data: new Array(4) }),
+        setTransform: () => {},
+        drawImage: () => {},
+        save: () => {},
+        fillText: () => {},
+        restore: () => {},
+        beginPath: () => {},
+        moveTo: () => {},
+        lineTo: () => {},
+        bezierCurveTo: () => {},
+        quadraticCurveTo: () => {},
+        arc: () => {},
+        arcTo: () => {},
+        ellipse: () => {},
+        rect: () => {},
+        roundRect: () => {},
+        closePath: () => {},
+        stroke: () => {},
+        fill: () => {},
+        clip: () => {},
+        translate: () => {},
+        scale: () => {},
+        rotate: () => {},
+        measureText: () => ({ width: 0 }),
+        transform: () => {},
+        setLineDash: (segments: number[]) => {
+          lineDash = Array.isArray(segments) ? [...segments] : []
+        },
+        getLineDash: () => [...lineDash]
+      }
+    } as unknown as typeof HTMLCanvasElement.prototype.getContext
     HTMLCanvasElement.prototype.toBlob = (callback, type = "image/png") => {
       const blob = new Blob(["mock-image-bytes"], { type })
       callback(blob)
@@ -113,6 +131,7 @@ if (typeof window !== "undefined") {
       arcTo() {}
       ellipse() {}
       rect() {}
+      roundRect() {}
     }
     ;(globalThis as unknown as { Path2D: unknown }).Path2D = Path2DStub
     if (typeof window !== "undefined") {

@@ -362,6 +362,7 @@ describe("Excalidraw 画布挂载沙箱约束", () => {
 
     await waitFor(() => {
       expect(container.querySelector(".LoadingMessage")).toBeNull()
+      expect(container.querySelector(".default-sidebar")).toBeInTheDocument()
     })
 
     const sidebar = container.querySelector(".default-sidebar")
