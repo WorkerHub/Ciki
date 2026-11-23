@@ -56,11 +56,7 @@
       "heading-9": 393.65625,
       "heading-10": 717.28125
     },
-    "bottomHits": [
-      "p",
-      "div.tiptap.ProseMirror",
-      "div"
-    ],
+    "bottomHits": ["p", "div.tiptap.ProseMirror", "div"],
     "backToTopVisible": true
   }
 }

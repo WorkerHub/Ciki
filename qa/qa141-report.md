@@ -9,30 +9,30 @@
 
 ## 一、基线复现（f55419f，:8894）——bug 确认，4/4
 
-| # | 场景 | 结果 | 关键量测 | 证据 |
-|---|------|------|---------|------|
-| R1 | 点靠下目录条目（第十章 结论） | **复现** | 外壳 flexCol.scrollTop **0→380**、顶栏 rectTop=**-380**（搜索框整条移出视口）、底部 **380px 白色空白**（contentBottom=520/900）、URL 被写 `#heading-10` | base/02-repro-after-bottom-entry.png |
-| R2 | 跳转后点「回到顶部」 | **复现** | 先滚轮上滚 400px 使回顶按钮出现（贴近底部时按钮让位隐藏）→ 点击：内容容器 scrollTop→0 但 **flexCol 仍 380、headerTop 仍 -380**——外壳位移残留，「回不到真顶部」 | base/03-repro-after-back-to-top.png |
-| R3 | 带锚点直达 `/p/1#heading-6` | **复现** | flexCol=**48**（恰一个 header 高度）、headerTop=-48、底部空白 48px（852/900） | base/04-repro-hash-direct.png |
-| R4 | 正文内锚点链接 `#heading-8` | **复现** | 渲染为 `target="_blank"`；点击开新标签页，popup 走 hash 恢复路径，外壳同样位移 48px（flexCol=48、headerTop=-48） | base/05、base/06、base/repro-popup.json |
+| #   | 场景                          | 结果     | 关键量测                                                                                                                                                       | 证据                                    |
+| --- | ----------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| R1  | 点靠下目录条目（第十章 结论） | **复现** | 外壳 flexCol.scrollTop **0→380**、顶栏 rectTop=**-380**（搜索框整条移出视口）、底部 **380px 白色空白**（contentBottom=520/900）、URL 被写 `#heading-10`        | base/02-repro-after-bottom-entry.png    |
+| R2  | 跳转后点「回到顶部」          | **复现** | 先滚轮上滚 400px 使回顶按钮出现（贴近底部时按钮让位隐藏）→ 点击：内容容器 scrollTop→0 但 **flexCol 仍 380、headerTop 仍 -380**——外壳位移残留，「回不到真顶部」 | base/03-repro-after-back-to-top.png     |
+| R3  | 带锚点直达 `/p/1#heading-6`   | **复现** | flexCol=**48**（恰一个 header 高度）、headerTop=-48、底部空白 48px（852/900）                                                                                  | base/04-repro-hash-direct.png           |
+| R4  | 正文内锚点链接 `#heading-8`   | **复现** | 渲染为 `target="_blank"`；点击开新标签页，popup 走 hash 恢复路径，外壳同样位移 48px（flexCol=48、headerTop=-48）                                               | base/05、base/06、base/repro-popup.json |
 
 > 机制注记（与 #140 评审一致）：目标章靠底时正文容器滚到封顶仍到不了判定线，原生锚点导航把差额连带滚进外层外壳（R1 偷走 380px）；`html`/`body` scrollTop 恒 0。R2 证明回顶只滚内容容器、外壳位移不回收。
 
 ## 二、修复验收（42af32c，:8895）——13/13 通过，两轮一致
 
-| # | 判定标准 | 测法 | 结果 | 关键证据 |
-|---|---------|------|------|---------|
-| T1 | 靠下条目（最后一章）：顶栏与搜索框在原位、外壳零位移、底部无白色空白、URL 不写 hash、正文滚动到位且目标完整可见 | 真点目录末条「第十章 结论」，量 html/flexCol scrollTop、header/搜索框 rect、contentBottom/innerH、URL | **通过** | headerTop=0、searchTop=7.5、flexCol=0、html=0、contentBottom=900/900、URL 无 hash、contentScrollTop=2746=max、目标 top=404.28 完整可见；判定线 Δ=+332px（观察 A，几何封顶） | 
-| T2 | 靠上条目：自页面下部点击后目标到判定线（±2px）、外壳零位移、顶栏/搜索框在位、底部无空白 | 从第八章位置点「第二章 研究背景」 | **通过** | 判定线 Δ=**-0.47px**、headerTop=0、flexCol=0、contentBottom=900/900 |
-| T2b | 靠下且可到线条目：目标到判定线（±2px）、外壳零位移、回顶按钮可见 | 点「第八章 讨论与反思」（距底>96px） | **通过** | Δ=**+0.03px**、backToTop=true、flexCol=0、headerTop=0 |
-| T3 | 跳转后点「回到顶部」：正文容器回 0（真顶部）、顶栏/搜索框回原位、外壳零位移 | 第八章位置点回顶按钮 | **通过** | contentScrollTop=0、headerTop=0、flexCol=0、active=heading-1 |
-| T4 | 滚动时目录高亮跟随判定线：aria-current 恒等于判定线上方最近标题（无在上方时默认首项） | 顶部/滚轮 1200px/再 1200px/点目录首条回顶，四位置对比应用自身口径 | **通过** | 四位置全对：#heading-1 / #heading-4(1200) / #heading-7(2400) / #heading-1(192) |
-| T5 | 带锚点直达 `/p/1#heading-6`：外壳零位移、顶栏/搜索框在位、底部无空白、目标到判定线（±4px，见观察 B） | 新上下文冷打开带 hash URL | **通过** | 两轮 Δ=-0.22px / -3.22px（均在容差内）、headerTop=0、flexCol=0、html=0、contentBottom=900/900 |
-| T6 | 短文（无目录）回归：索引轨不渲染、无回顶按钮、顶栏在位、外壳零位移、无 console 错误 | 打开 /p/2 量测 + console 监听 | **通过** | tocPresent=false、backToTop=false、headerTop=0、console 0 错误 |
-| T7a | 移动视口（390×844）初始态：外壳零位移、无 TOC（<1280px）、无横向溢出 | 移动模拟打开长文 | **通过** | html.scrollTop=0、docScrollWidth=390、tocPresent=false、header 0–48px 在位 |
-| T7b | 移动滚动后外壳稳定：顶栏在原位、html/flexCol 零滚动、回顶按钮出现 | JS 滚动内容 900px 后量测 | **通过** | headerTop=0、flexCol=0、contentScrollTop=900、backToTop=true |
-| T7c | 移动 hash 直达：外壳零位移、顶栏在位、目标到判定线（±4px） | 新移动页冷打开 `/p/1#heading-6` | **通过** | 两轮 Δ=+0.03px / -2.97px（容差内）、headerTop=0、flexCol=0 |
-| T7d | 移动回到顶部：内容容器回 0、外壳无位移 | 滚动后点回顶按钮 | **通过** | contentScrollTop=0、flexCol=0、headerTop=0 |
+| #   | 判定标准                                                                                                        | 测法                                                                                                  | 结果     | 关键证据                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T1  | 靠下条目（最后一章）：顶栏与搜索框在原位、外壳零位移、底部无白色空白、URL 不写 hash、正文滚动到位且目标完整可见 | 真点目录末条「第十章 结论」，量 html/flexCol scrollTop、header/搜索框 rect、contentBottom/innerH、URL | **通过** | headerTop=0、searchTop=7.5、flexCol=0、html=0、contentBottom=900/900、URL 无 hash、contentScrollTop=2746=max、目标 top=404.28 完整可见；判定线 Δ=+332px（观察 A，几何封顶） |
+| T2  | 靠上条目：自页面下部点击后目标到判定线（±2px）、外壳零位移、顶栏/搜索框在位、底部无空白                         | 从第八章位置点「第二章 研究背景」                                                                     | **通过** | 判定线 Δ=**-0.47px**、headerTop=0、flexCol=0、contentBottom=900/900                                                                                                         |
+| T2b | 靠下且可到线条目：目标到判定线（±2px）、外壳零位移、回顶按钮可见                                                | 点「第八章 讨论与反思」（距底>96px）                                                                  | **通过** | Δ=**+0.03px**、backToTop=true、flexCol=0、headerTop=0                                                                                                                       |
+| T3  | 跳转后点「回到顶部」：正文容器回 0（真顶部）、顶栏/搜索框回原位、外壳零位移                                     | 第八章位置点回顶按钮                                                                                  | **通过** | contentScrollTop=0、headerTop=0、flexCol=0、active=heading-1                                                                                                                |
+| T4  | 滚动时目录高亮跟随判定线：aria-current 恒等于判定线上方最近标题（无在上方时默认首项）                           | 顶部/滚轮 1200px/再 1200px/点目录首条回顶，四位置对比应用自身口径                                     | **通过** | 四位置全对：#heading-1 / #heading-4(1200) / #heading-7(2400) / #heading-1(192)                                                                                              |
+| T5  | 带锚点直达 `/p/1#heading-6`：外壳零位移、顶栏/搜索框在位、底部无空白、目标到判定线（±4px，见观察 B）            | 新上下文冷打开带 hash URL                                                                             | **通过** | 两轮 Δ=-0.22px / -3.22px（均在容差内）、headerTop=0、flexCol=0、html=0、contentBottom=900/900                                                                               |
+| T6  | 短文（无目录）回归：索引轨不渲染、无回顶按钮、顶栏在位、外壳零位移、无 console 错误                             | 打开 /p/2 量测 + console 监听                                                                         | **通过** | tocPresent=false、backToTop=false、headerTop=0、console 0 错误                                                                                                              |
+| T7a | 移动视口（390×844）初始态：外壳零位移、无 TOC（<1280px）、无横向溢出                                            | 移动模拟打开长文                                                                                      | **通过** | html.scrollTop=0、docScrollWidth=390、tocPresent=false、header 0–48px 在位                                                                                                  |
+| T7b | 移动滚动后外壳稳定：顶栏在原位、html/flexCol 零滚动、回顶按钮出现                                               | JS 滚动内容 900px 后量测                                                                              | **通过** | headerTop=0、flexCol=0、contentScrollTop=900、backToTop=true                                                                                                                |
+| T7c | 移动 hash 直达：外壳零位移、顶栏在位、目标到判定线（±4px）                                                      | 新移动页冷打开 `/p/1#heading-6`                                                                       | **通过** | 两轮 Δ=+0.03px / -2.97px（容差内）、headerTop=0、flexCol=0                                                                                                                  |
+| T7d | 移动回到顶部：内容容器回 0、外壳无位移                                                                          | 滚动后点回顶按钮                                                                                      | **通过** | contentScrollTop=0、flexCol=0、headerTop=0                                                                                                                                  |
 
 ## 三、追加排查 T5b：正文内同页锚点链接（#140 非阻断观察，非阻断签收）
 
