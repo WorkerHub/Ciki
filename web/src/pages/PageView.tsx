@@ -2,6 +2,7 @@ import { Empty } from "@cloudflare/kumo/components/empty"
 import {
   ArrowRightLeft,
   Download,
+  Ellipsis,
   History,
   Pencil,
   Plus,
@@ -39,6 +40,13 @@ import {
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import {
   Tooltip,
@@ -491,51 +499,55 @@ export function PageView() {
                   <Plus aria-hidden="true" />
                   {t("page.view.newChild")}
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setMoveOpen(true)}
-                >
-                  <ArrowRightLeft aria-hidden="true" />
-                  {t("page.view.move")}
-                </Button>
               </>
             ) : null}
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                // 内容与文件名都由服务端决定（含站内图时是 zip），这里只触发一次下载
-                void downloadPageMarkdown(page).catch((downloadError) => {
-                  toast.error(describeApiError(downloadError))
-                })
-              }}
-            >
-              <Download aria-hidden="true" />
-              {t("page.view.download")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setHistoryOpen(true)}
-            >
-              <History aria-hidden="true" />
-              {t("page.view.history")}
-            </Button>
-            {canWrite ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="destructive"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 aria-hidden="true" />
-                {t("page.view.delete")}
-              </Button>
-            ) : null}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="outline"
+                  aria-label={t("page.view.more")}
+                >
+                  <Ellipsis aria-hidden="true" className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                {canWrite ? (
+                  <DropdownMenuItem onSelect={() => setMoveOpen(true)}>
+                    <ArrowRightLeft aria-hidden="true" />
+                    {t("page.view.move")}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem
+                  onSelect={() => {
+                    // 内容与文件名都由服务端决定（含站内图时是 zip），这里只触发一次下载
+                    void downloadPageMarkdown(page).catch((downloadError) => {
+                      toast.error(describeApiError(downloadError))
+                    })
+                  }}
+                >
+                  <Download aria-hidden="true" />
+                  {t("page.view.download")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setHistoryOpen(true)}>
+                  <History aria-hidden="true" />
+                  {t("page.view.history")}
+                </DropdownMenuItem>
+                {canWrite ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      onSelect={() => setDeleteOpen(true)}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      {t("page.view.delete")}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         <Separator />
