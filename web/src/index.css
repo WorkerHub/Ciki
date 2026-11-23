@@ -325,8 +325,9 @@
   word-break: break-word;
 }
 
-/* 代码块：容器（头部 + pre）由 CodeBlockView 渲染；浅色主题在明暗两态都保留，
-   因为 GitHub 浅色配色的高亮色是定版效果，深色底会让关键字对比度崩掉。 */
+/* 代码块：容器（头部 + pre）由 CodeBlockView 渲染。
+   浅色模式保持 GitHub 浅色配色（定版效果）；
+   夜间模式通过 .dark 覆盖为 GitHub Dark 深色配色，与夜间页面底色协调。 */
 .wiki-content .code-block {
   margin: 1em 0;
   border: 1px solid var(--border);
@@ -374,7 +375,7 @@
 
 /* 评论正文的代码围栏：服务端下发的是裸 <pre><code class="language-*">，没有
    CodeBlockView 的 .code-block 壳，上面那套匹配不上，这里按同一套视觉补上
-   （浅色底在明暗两态都保留，与正文代码块同口径；语言标注留在 code 的 class 上）。 */
+   （浅色底保留 GitHub 配色；夜间模式由 .dark 覆盖为 GitHub Dark 配色；语言标注留在 code 的 class 上）。 */
 .wiki-content.comment-body pre {
   margin: 0.875em 0;
   padding: 0.875rem 1rem;
@@ -477,6 +478,122 @@
 .wiki-content .hljs-deletion {
   color: #b31d28;
   background: #ffeef0;
+}
+
+/* ------------------------------------------------------------------ *
+ * 代码块夜间模式覆盖：GitHub Dark 配色
+ * - 正文代码块容器、pre、评论裸 pre 换深色背景与浅色正文；
+ * - CodeBlockView 头部（折叠栏与展开头部）同底色衔接，避免上下明暗拼接；
+ * - highlight.js token 完整映射深色值，所有主 token 满足对比度 >= 4.5:1。
+ * ------------------------------------------------------------------ */
+.dark .wiki-content .code-block {
+  background: #161b22;
+  border-color: var(--border);
+}
+
+.dark .wiki-content .code-block > pre {
+  background: #161b22;
+  color: #e6edf3;
+}
+
+.dark .wiki-content .code-block > button,
+.dark .wiki-content .code-block [data-code-header] {
+  background: #161b22;
+  color: #8b949e;
+}
+
+.dark .wiki-content .code-block > button span,
+.dark .wiki-content .code-block [data-code-header] button,
+.dark .wiki-content .code-block [data-code-header] span,
+.dark .wiki-content .code-block [data-code-header] [data-code-language] {
+  color: #8b949e;
+}
+
+.dark .wiki-content .code-block > button:hover,
+.dark .wiki-content .code-block [data-code-header] button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e6edf3;
+}
+
+.dark .wiki-content.comment-body pre {
+  background: #161b22;
+  color: #e6edf3;
+  border-color: var(--border);
+}
+
+/* highlight.js —— GitHub 深色配色（夜间模式覆盖） */
+.dark .wiki-content .hljs-comment,
+.dark .wiki-content .hljs-punctuation {
+  color: #8b949e;
+}
+
+.dark .wiki-content .hljs-comment {
+  font-style: italic;
+}
+
+.dark .wiki-content .hljs-keyword,
+.dark .wiki-content .hljs-tag,
+.dark .wiki-content .hljs-selector-tag,
+.dark .wiki-content .hljs-doctag,
+.dark .wiki-content .hljs-template-tag {
+  color: #ff7b72;
+}
+
+.dark .wiki-content .hljs-string,
+.dark .wiki-content .hljs-regexp,
+.dark .wiki-content .hljs-meta .hljs-string {
+  color: #a5d6ff;
+}
+
+.dark .wiki-content .hljs-number,
+.dark .wiki-content .hljs-literal {
+  color: #79c0ff;
+}
+
+.dark .wiki-content .hljs-title,
+.dark .wiki-content .hljs-title.function_,
+.dark .wiki-content .hljs-section {
+  color: #d2a8ff;
+}
+
+.dark .wiki-content .hljs-title.class_,
+.dark .wiki-content .hljs-type,
+.dark .wiki-content .hljs-built_in,
+.dark .wiki-content .hljs-builtin-name {
+  color: #ffa657;
+}
+
+.dark .wiki-content .hljs-attr,
+.dark .wiki-content .hljs-attribute,
+.dark .wiki-content .hljs-variable,
+.dark .wiki-content .hljs-template-variable,
+.dark .wiki-content .hljs-selector-id,
+.dark .wiki-content .hljs-name {
+  color: #79c0ff;
+}
+
+.dark .wiki-content .hljs-symbol,
+.dark .wiki-content .hljs-bullet,
+.dark .wiki-content .hljs-link {
+  color: #7ee787;
+}
+
+.dark .wiki-content .hljs-emphasis {
+  font-style: italic;
+}
+
+.dark .wiki-content .hljs-strong {
+  font-weight: 700;
+}
+
+.dark .wiki-content .hljs-addition {
+  color: #7ee787;
+  background: #033a16;
+}
+
+.dark .wiki-content .hljs-deletion {
+  color: #ffa198;
+  background: #490202;
 }
 
 /* 表格：按内容定宽 + 保留源列宽比例 + 超宽横向滚动 */
