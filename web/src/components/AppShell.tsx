@@ -566,9 +566,9 @@ export function AppShell() {
     ) : null
 
   return (
-    <div className="flex h-svh flex-col bg-background">
+    <div className="flex h-svh flex-col overflow-hidden bg-background">
       {isMobile || isSystemRoute ? (
-        <>
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
           <header className="relative flex h-12 shrink-0 items-center border-b border-border">
             {/* 系统页：顶栏全宽、logo 左上角顶头，右侧主题/头像不变（丙方案定版） */}
             {isSystemRoute ? (
@@ -585,7 +585,7 @@ export function AppShell() {
             )}
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto">{animatedMain}</div>
-        </>
+        </div>
       ) : (
         // 桌面普通页：顶栏按两栏拆开——站点名落在侧栏那一栏，搜索框落在正文那一栏、
         // 左缘与正文左缘同一条基线（贴着分割线 24px）。顶栏跟着可拖拽的栏宽走，

@@ -640,4 +640,42 @@ describe("应用外壳：英文界面", () => {
     const sidebarWrapper = sidebarPanel?.firstElementChild as HTMLElement | null
     expect(sidebarWrapper?.style.overflow).toBe("hidden")
   })
+
+  it("移动端与系统页外壳容器显式设置 overflow-hidden 与 relative，杜绝高度外溢到 html 导致整屏空白", () => {
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false
+    })) as unknown as typeof window.matchMedia
+    try {
+      const { container } = renderShell("/p/abc")
+
+      // 顶层根容器显式包含 overflow-hidden，防止应用根节点被整体推移
+      const rootShell = container.querySelector(".h-svh")
+      expect(rootShell).toHaveClass("overflow-hidden")
+
+      // 移动端主内容包裹层包含 relative 与 overflow-hidden，为内部绝对定位节点建立包含块并限制滚动外溢
+      const header = container.querySelector("header")
+      const mobileWrapper = header?.parentElement
+      expect(mobileWrapper).toHaveClass(
+        "relative",
+        "flex",
+        "min-h-0",
+        "flex-1",
+        "flex-col",
+        "overflow-hidden"
+      )
+
+      const scroller = mobileWrapper?.querySelector(".overflow-y-auto")
+      expect(scroller).toBeInTheDocument()
+    } finally {
+      window.matchMedia = original
+    }
+  })
 })
