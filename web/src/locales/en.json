@@ -49,6 +49,10 @@
       "unsupported": "Only PNG / JPG / GIF / WebP images are supported (no SVG)",
       "tooLarge": "The image is over 10MB; compress it and upload again"
     },
+    "embed": {
+      "unsupported": "Only .html files are supported",
+      "tooLarge": "HTML embed file size cannot exceed 1MB"
+    },
     "loading": "Loading…",
     "close": "Close",
     "userFallback": "User",
@@ -439,6 +443,7 @@
       "link": "Insert link",
       "image": "Upload image",
       "excalidraw": "Insert canvas",
+      "htmlEmbed": "Insert HTML embed",
       "undo": {
         "label": "Undo",
         "hint": "Undo (Ctrl/⌘ + Z)"
@@ -528,6 +533,19 @@
       "blankCanvas": "Blank canvas",
       "clickToEdit": "Click to open fullscreen canvas editor",
       "loadFailed": "Failed to load canvas preview"
+    },
+    "htmlEmbed": {
+      "title": "HTML Embed",
+      "height": "Height",
+      "replace": "Replace file",
+      "replaceSuccess": "File replaced",
+      "delete": "Delete",
+      "upload": "Upload HTML",
+      "unnamed": "Untitled embed",
+      "noFile": "No file uploaded",
+      "loadFailed": "Failed to load HTML embed",
+      "loadFailedDesc": "File not found or failed to load",
+      "fileNotFound": "File not found or has been deleted"
     }
   },
   "settings": {

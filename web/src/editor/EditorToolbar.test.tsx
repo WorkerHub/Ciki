@@ -115,4 +115,16 @@ describe("工具条随选区实时更新", () => {
     act(() => putCursorAt(editor, "默认字号"))
     expect(trigger).toHaveTextContent(/^默认$/)
   })
+
+  it("工具栏包含 HTML 动画插入按钮与文件选择输入", () => {
+    const editor = makeEditor("<p>正文内容</p>")
+    const { container } = render(<EditorToolbar editor={editor} />)
+
+    const button = screen.getByRole("button", { name: "插入 HTML 动画" })
+    expect(button).toBeInTheDocument()
+    const fileInput = container.querySelector(
+      'input[type="file"][accept=".html,text/html"]'
+    )
+    expect(fileInput).not.toBeNull()
+  })
 })

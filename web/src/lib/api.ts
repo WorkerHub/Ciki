@@ -215,7 +215,9 @@ export const api = {
       body === undefined ? { method: "DELETE" } : json(body, "DELETE")
     ),
   upload: (file: File): Promise<UploadedFile> =>
-    uploadTo<UploadedFile>("/files", file)
+    uploadTo<UploadedFile>("/files", file),
+  uploadEmbed: (file: File): Promise<UploadedFile> =>
+    uploadTo<UploadedFile>("/files/embeds", file)
 }
 
 /* ------------------------------------------------------------------ *

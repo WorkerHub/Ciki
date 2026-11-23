@@ -399,4 +399,26 @@ describe("标题锚点（索引轨用）", () => {
     expect(span).not.toBeNull()
     expect(span).toHaveStyle({ fontSize: "24px" })
   })
+
+  it("htmlEmbed 节点在阅读态渲染为带 allow-scripts 沙箱的 iframe", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+    const { container } = render(
+      <ReadView
+        html={
+          '<div data-type="html-embed" data-key="embeds/test-uuid.html" data-height="500" data-name="anim.html"></div>'
+        }
+      />
+    )
+    const iframe = await waitFor(() => {
+      const el = container.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+    expect(iframe.getAttribute("sandbox")).toBe("allow-scripts")
+    expect(iframe.getAttribute("referrerpolicy")).toBe("no-referrer")
+    expect(iframe.src).toContain("/api/files/embeds/test-uuid.html")
+    expect(iframe.style.height).toBe("500px")
+  })
 })
