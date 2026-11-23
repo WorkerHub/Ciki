@@ -3,8 +3,10 @@ import { useTranslation } from "react-i18next"
 import { CommentBody } from "@/components/comments/CommentBody"
 import { CommentComposer } from "@/components/comments/CommentComposer"
 import { UserAvatar } from "@/components/UserAvatar"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { CommentDto } from "@/lib/api"
+import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDateTime, formatRelative } from "@/lib/format"
 
 interface CommentItemProps {
@@ -43,6 +45,11 @@ export function CommentItem({
 }: CommentItemProps) {
   const { t } = useTranslation()
   const deleted = Boolean(comment.deletedAt)
+  const author = formatAgentAuthor({
+    name: comment.authorName,
+    isAgent: comment.isAgent,
+    ownerName: comment.ownerName
+  })
   return (
     <div data-comment-id={comment.id} className="flex gap-3">
       <UserAvatar
@@ -56,8 +63,13 @@ export function CommentItem({
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-sm font-medium break-words">
-            {comment.authorName}
+            {author.displayName}
           </span>
+          {author.showAgentBadge ? (
+            <Badge variant="secondary" className="text-[10px]">
+              Agent
+            </Badge>
+          ) : null}
           <time
             dateTime={comment.createdAt}
             title={formatDateTime(comment.createdAt)}

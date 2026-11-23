@@ -1,6 +1,7 @@
 import { Bot, Check, ChevronDown, ChevronUp, Copy, Plus } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { AgentSpacesDialog } from "@/components/AgentSpacesDialog"
 import { TokenSpaceScope } from "@/components/TokenSpaceScope"
 import {
   AlertDialog,
@@ -12,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -19,6 +21,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { displayUsername } from "@/components/UserAvatar"
 import {
   type AgentAccount,
   type ApiTokenCreated,
@@ -30,6 +33,8 @@ import {
 } from "@/lib/api"
 import { formatDate, formatDateTime } from "@/lib/format"
 import { buildIntegrationPrompt } from "@/lib/token-prompt"
+import { ACCEPT_IMAGE_ATTR, validateImageFile } from "@/lib/upload"
+import { useAuthStore } from "@/stores/auth"
 import { useSpacesStore } from "@/stores/spaces"
 
 const NAME_MAX = 40
@@ -55,12 +60,18 @@ interface IssuedAgentToken extends ApiTokenCreated {
 export function AgentAccountsCard() {
   const { t, i18n } = useTranslation()
   const spaces = useSpacesStore((s) => s.spaces)
+  const currentUser = useAuthStore((s) => s.user)
+  const avatarInputRefs = useRef<Record<number, HTMLInputElement | null>>({})
 
   const [agents, setAgents] = useState<AgentAccount[] | null>(null)
   const [loadingError, setLoadingError] = useState("")
   const [error, setError] = useState("")
   const [noticeKey, setNoticeKey] = useState("")
   const [busy, setBusy] = useState(false)
+
+  // 空间管理弹窗
+  const [managingSpacesAgent, setManagingSpacesAgent] =
+    useState<AgentAccount | null>(null)
 
   // 新建 Agent
   const [creating, setCreating] = useState(false)
@@ -92,6 +103,7 @@ export function AgentAccountsCard() {
   const [issuedToken, setIssuedToken] = useState<IssuedAgentToken | null>(null)
   const [copiedToken, setCopiedToken] = useState(false)
   const [copiedPrompt, setCopiedPrompt] = useState(false)
+  const [copiedTokenRowId, setCopiedTokenRowId] = useState<number | null>(null)
 
   // 吊销代管 Token
   const [revokingToken, setRevokingToken] = useState<{
@@ -206,6 +218,52 @@ export function AgentAccountsCard() {
     }
   }
 
+  const handleAvatarChange = async (
+    agentId: number,
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const next = event.target.files?.[0] ?? null
+    event.target.value = ""
+    if (!next) return
+    const invalid = validateImageFile(next)
+    if (invalid) {
+      setError(invalid)
+      return
+    }
+    setError("")
+    setNoticeKey("")
+    setBusy(true)
+    try {
+      const updated = await meApi.agents.uploadAvatar(agentId, next)
+      setAgents((prev) =>
+        prev ? prev.map((a) => (a.id === agentId ? updated : a)) : prev
+      )
+      setNoticeKey("settings.agents.avatar.uploaded")
+    } catch (avatarError) {
+      setError(describeApiError(avatarError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDeleteAvatar = async (agentId: number) => {
+    if (busy) return
+    setError("")
+    setNoticeKey("")
+    setBusy(true)
+    try {
+      const updated = await meApi.agents.deleteAvatar(agentId)
+      setAgents((prev) =>
+        prev ? prev.map((a) => (a.id === agentId ? updated : a)) : prev
+      )
+      setNoticeKey("settings.agents.avatar.deleted")
+    } catch (delError) {
+      setError(describeApiError(delError))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const trimmedTokenName = tokenName.trim()
   const tokenNameTooLong = nameLength(trimmedTokenName) > NAME_MAX
   const draftEmpty = draftScope !== null && draftScope.length === 0
@@ -265,12 +323,34 @@ export function AgentAccountsCard() {
     }
   }
 
-  const copyText = async (text: string, type: "token" | "prompt") => {
+  const copyToken = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      if (type === "token") {
-        setCopiedToken(true)
-        window.setTimeout(() => setCopiedToken(false), 1600)
+      setCopiedToken(true)
+      window.setTimeout(() => setCopiedToken(false), 1600)
+    } catch {
+      setError(t("settings.tokens.common.copyFailed"))
+    }
+  }
+
+  const copyIntegrationPrompt = async (
+    tokenInfo: { kind: ApiTokenKind; spaceIds: TokenSpaceIds },
+    agent: AgentAccount,
+    rowTokenId?: number
+  ) => {
+    const prompt = buildIntegrationPrompt({
+      lang: i18n.language,
+      kind: tokenInfo.kind,
+      spaceIds: tokenInfo.spaceIds,
+      spaces,
+      agentName: agent.username,
+      ownerName: currentUser ? displayUsername(currentUser) : undefined
+    })
+    try {
+      await navigator.clipboard.writeText(prompt)
+      if (rowTokenId !== undefined) {
+        setCopiedTokenRowId(rowTokenId)
+        window.setTimeout(() => setCopiedTokenRowId(null), 1600)
       } else {
         setCopiedPrompt(true)
         window.setTimeout(() => setCopiedPrompt(false), 1600)
@@ -278,16 +358,6 @@ export function AgentAccountsCard() {
     } catch {
       setError(t("settings.tokens.common.copyFailed"))
     }
-  }
-
-  const copyIntegrationPrompt = async (tokenInfo: IssuedAgentToken) => {
-    const prompt = buildIntegrationPrompt({
-      lang: i18n.language,
-      kind: tokenInfo.kind,
-      spaceIds: tokenInfo.spaceIds,
-      spaces
-    })
-    await copyText(prompt, "prompt")
   }
 
   return (
@@ -421,10 +491,18 @@ export function AgentAccountsCard() {
               return (
                 <li key={agent.id} className="space-y-3 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                        <Bot className="size-4" aria-hidden="true" />
-                      </div>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="size-10 shrink-0">
+                        {agent.avatarUrl ? (
+                          <AvatarImage
+                            src={agent.avatarUrl}
+                            alt={agent.username}
+                          />
+                        ) : null}
+                        <AvatarFallback className="bg-muted text-muted-foreground">
+                          <Bot className="size-5" aria-hidden="true" />
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="space-y-0.5">
                         <div className="flex items-center gap-1.5">
                           <span className="font-medium text-sm">
@@ -434,13 +512,71 @@ export function AgentAccountsCard() {
                             Agent
                           </Badge>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
-                          {formatDate(agent.createdAt)}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span className="text-[11px]">
+                            {formatDate(agent.createdAt)}
+                          </span>
+                          <span
+                            aria-hidden="true"
+                            className="text-muted-foreground/60"
+                          >
+                            ·
+                          </span>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            className="h-5 px-1 text-xs text-primary hover:underline hover:bg-transparent"
+                            disabled={busy}
+                            onClick={() =>
+                              avatarInputRefs.current[agent.id]?.click()
+                            }
+                          >
+                            {agent.avatarUrl
+                              ? t("settings.agents.avatar.change")
+                              : t("settings.agents.avatar.upload")}
+                          </Button>
+                          <input
+                            ref={(el) => {
+                              avatarInputRefs.current[agent.id] = el
+                            }}
+                            type="file"
+                            accept={ACCEPT_IMAGE_ATTR}
+                            aria-label={t("settings.agents.avatar.selectFor", {
+                              name: agent.username
+                            })}
+                            className="sr-only"
+                            onChange={(e) =>
+                              void handleAvatarChange(agent.id, e)
+                            }
+                          />
+                          {agent.avatarUrl ? (
+                            <>
+                              <span
+                                aria-hidden="true"
+                                className="text-muted-foreground/60"
+                              >
+                                ·
+                              </span>
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant="ghost"
+                                className="h-5 px-1 text-xs text-destructive hover:underline hover:bg-transparent"
+                                disabled={busy}
+                                onClick={() =>
+                                  void handleDeleteAvatar(agent.id)
+                                }
+                              >
+                                {t("settings.agents.avatar.delete")}
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                       <div className="flex items-center gap-2">
                         <Switch
                           size="sm"
@@ -459,6 +595,16 @@ export function AgentAccountsCard() {
                             : t("settings.agents.statusInactive")}
                         </span>
                       </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => setManagingSpacesAgent(agent)}
+                      >
+                        {t("settings.agents.spaces.manage")}
+                      </Button>
 
                       <Button
                         type="button"
@@ -543,7 +689,7 @@ export function AgentAccountsCard() {
                                     : t("settings.tokens.common.copyLabel")
                                 }
                                 onClick={() =>
-                                  void copyText(issuedToken.token, "token")
+                                  void copyToken(issuedToken.token)
                                 }
                               >
                                 {copiedToken ? (
@@ -571,7 +717,7 @@ export function AgentAccountsCard() {
                                     : t("settings.tokens.api.copyPromptLabel")
                                 }
                                 onClick={() =>
-                                  void copyIntegrationPrompt(issuedToken)
+                                  void copyIntegrationPrompt(issuedToken, agent)
                                 }
                               >
                                 {copiedPrompt ? (
@@ -764,21 +910,56 @@ export function AgentAccountsCard() {
                                   </span>
                                 </p>
                               </div>
-                              <Button
-                                type="button"
-                                size="xs"
-                                variant="ghost"
-                                className="text-destructive hover:text-destructive"
-                                disabled={busy}
-                                onClick={() =>
-                                  setRevokingToken({
-                                    agentId: agent.id,
-                                    token
-                                  })
-                                }
-                              >
-                                {t("settings.agents.tokens.revoke")}
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="outline"
+                                  aria-label={
+                                    copiedTokenRowId === token.id
+                                      ? t("settings.tokens.common.copied")
+                                      : t("settings.tokens.api.copyPromptLabel")
+                                  }
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void copyIntegrationPrompt(
+                                      token,
+                                      agent,
+                                      token.id
+                                    )
+                                  }
+                                >
+                                  {copiedTokenRowId === token.id ? (
+                                    <Check
+                                      className="size-3"
+                                      aria-hidden="true"
+                                    />
+                                  ) : (
+                                    <Copy
+                                      className="size-3"
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                  {copiedTokenRowId === token.id
+                                    ? t("settings.tokens.common.copied")
+                                    : t("settings.tokens.api.copyPrompt")}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="xs"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    setRevokingToken({
+                                      agentId: agent.id,
+                                      token
+                                    })
+                                  }
+                                >
+                                  {t("settings.agents.tokens.revoke")}
+                                </Button>
+                              </div>
                             </li>
                           ))}
                         </ul>
@@ -868,6 +1049,13 @@ export function AgentAccountsCard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <AgentSpacesDialog
+        agent={managingSpacesAgent}
+        open={managingSpacesAgent !== null}
+        onOpenChange={(open) => {
+          if (!open) setManagingSpacesAgent(null)
+        }}
+      />
     </Card>
   )
 }
