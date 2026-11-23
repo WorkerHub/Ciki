@@ -461,8 +461,10 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
       'window.parent.postMessage({ type: "ciki-embed-height", height: h }, "*")'
     )
     expect(html).toContain(
-      "Math.max(de ? de.scrollHeight : 0, b ? b.scrollHeight : 0)"
+      "Math.max(de ? de.offsetHeight : 0, b ? b.offsetHeight : 0, b ? b.scrollHeight : 0)"
     )
+    // 视口项彻底剔除：不得含 de.scrollHeight（避免将 iframe 当前视口高误报为内容高）
+    expect(html).not.toContain("de.scrollHeight")
     expect(html).toContain("new ResizeObserver")
     expect(html).toContain('addEventListener("DOMContentLoaded"')
     expect(html).toContain('addEventListener("load"')
