@@ -27,6 +27,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...actual.pagesApi,
       getForEditor: vi.fn(),
       update: vi.fn(),
+      canvasPreview: vi.fn(),
       tree: vi.fn()
     }
   }
@@ -556,6 +557,288 @@ describe("编辑页：英文界面", () => {
     ).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Discard changes" })
+    ).toBeInTheDocument()
+  })
+})
+
+describe("文档编辑页预览功能", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.update).mockReset()
+    vi.mocked(pagesApi.canvasPreview).mockReset()
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(page)
+  })
+
+  it("编辑态顶栏在取消与保存之外增加「预览」按钮", async () => {
+    renderEdit()
+    const toolbar = await screen.findByRole("toolbar")
+    const previewBtn = within(toolbar).getByRole("button", { name: "预览" })
+    expect(previewBtn).toBeInTheDocument()
+    expect(
+      within(toolbar).getByRole("button", { name: "取消" })
+    ).toBeInTheDocument()
+    expect(
+      within(toolbar).getByRole("button", { name: "保存" })
+    ).toBeInTheDocument()
+  })
+
+  it("点击「预览」进入预览态，渲染当前编辑中的内容，且不调用保存接口", async () => {
+    const user = userEvent.setup()
+    renderEdit()
+    const titleInput = await screen.findByLabelText("页面标题")
+    await user.type(titleInput, "（未保存修订）")
+
+    const toolbar = screen.getByRole("toolbar")
+    await user.click(within(toolbar).getByRole("button", { name: "预览" }))
+
+    // 预览模式容器出现
+    const previewContainer = document.querySelector("[data-page-preview]")
+    expect(previewContainer).toBeInTheDocument()
+
+    // 标题反映当前最新编辑中的内容
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "支付服务部署手册（未保存修订）"
+    )
+
+    // 预览态顶栏提供「返回编辑」与「保存」
+    const previewToolbar = screen.getByRole("toolbar", { name: "预览工具条" })
+    expect(
+      within(previewToolbar).getByRole("button", { name: "返回编辑" })
+    ).toBeInTheDocument()
+    expect(
+      within(previewToolbar).getByRole("button", { name: "保存" })
+    ).toBeInTheDocument()
+
+    // 状态口径原样保留
+    expect(
+      within(previewToolbar).getByText("有未保存的更改")
+    ).toBeInTheDocument()
+
+    // 绝无保存接口调用
+    expect(pagesApi.update).not.toHaveBeenCalled()
+  })
+
+  it("在预览态点「返回编辑」回到编辑态且内容、未保存状态原样保留，不调保存接口", async () => {
+    const user = userEvent.setup()
+    renderEdit()
+    const titleInput = await screen.findByLabelText("页面标题")
+    await user.type(titleInput, "修改版")
+
+    const toolbar = screen.getByRole("toolbar")
+    await user.click(within(toolbar).getByRole("button", { name: "预览" }))
+
+    const previewToolbar = await screen.findByRole("toolbar", {
+      name: "预览工具条"
+    })
+    await user.click(
+      within(previewToolbar).getByRole("button", { name: "返回编辑" })
+    )
+
+    // 回到编辑态
+    expect(document.querySelector("[data-page-preview]")).toBeNull()
+    const restoredTitle = screen.getByLabelText("页面标题")
+    expect(restoredTitle).toBeInTheDocument()
+    expect(restoredTitle).toHaveValue("支付服务部署手册修改版")
+
+    // 未保存状态仍保留
+    const editToolbar = screen.getByRole("toolbar")
+    expect(within(editToolbar).getByText("有未保存的更改")).toBeInTheDocument()
+    expect(pagesApi.update).not.toHaveBeenCalled()
+  })
+
+  it("在预览态点「保存」走同一保存路径，保存成功后返回阅读页", async () => {
+    const user = userEvent.setup()
+    renderEdit()
+    const titleInput = await screen.findByLabelText("页面标题")
+    await user.type(titleInput, "最终稿")
+
+    const toolbar = screen.getByRole("toolbar")
+    await user.click(within(toolbar).getByRole("button", { name: "预览" }))
+
+    const previewToolbar = await screen.findByRole("toolbar", {
+      name: "预览工具条"
+    })
+    vi.mocked(pagesApi.update).mockResolvedValueOnce({
+      ...page,
+      title: "支付服务部署手册最终稿",
+      updatedAt: "2026-11-23T12:00:00.000Z"
+    })
+
+    await user.click(
+      within(previewToolbar).getByRole("button", { name: "保存" })
+    )
+
+    await waitFor(() => expect(pagesApi.update).toHaveBeenCalledTimes(1))
+    expect(pagesApi.update).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        title: "支付服务部署手册最终稿"
+      })
+    )
+    // 成功保存后回阅读页
+    expect(await screen.findByText("阅读页占位")).toBeInTheDocument()
+  })
+
+  it("在预览态点「保存」若失败，留在预览态并显示报错，不跳回阅读页", async () => {
+    const user = userEvent.setup()
+    renderEdit()
+    const titleInput = await screen.findByLabelText("页面标题")
+    await user.type(titleInput, "测试失败")
+
+    const toolbar = screen.getByRole("toolbar")
+    await user.click(within(toolbar).getByRole("button", { name: "预览" }))
+
+    const previewToolbar = await screen.findByRole("toolbar", {
+      name: "预览工具条"
+    })
+    vi.mocked(pagesApi.update).mockRejectedValueOnce(
+      new ApiError(500, "数据库写入超时")
+    )
+
+    await user.click(
+      within(previewToolbar).getByRole("button", { name: "保存" })
+    )
+
+    await waitFor(() => expect(pagesApi.update).toHaveBeenCalledTimes(1))
+    // 报错信息渲染在预览态
+    expect(await screen.findByRole("alert")).toHaveTextContent("数据库写入超时")
+    // 依然在预览态，未跳回阅读页
+    expect(screen.queryByText("阅读页占位")).toBeNull()
+    expect(
+      screen.getByRole("toolbar", { name: "预览工具条" })
+    ).toBeInTheDocument()
+  })
+
+  it("在预览态按 Ctrl/⌘+S 保存成功后停留在当前页当作存档点，保存状态更新为已保存", async () => {
+    const user = userEvent.setup()
+    renderEdit()
+    const titleInput = await screen.findByLabelText("页面标题")
+    await user.type(titleInput, "阶段存档")
+
+    const toolbar = screen.getByRole("toolbar")
+    await user.click(within(toolbar).getByRole("button", { name: "预览" }))
+
+    const previewToolbar = await screen.findByRole("toolbar", {
+      name: "预览工具条"
+    })
+    expect(
+      within(previewToolbar).getByText("有未保存的更改")
+    ).toBeInTheDocument()
+
+    vi.mocked(pagesApi.update).mockResolvedValueOnce({
+      ...page,
+      title: "支付服务部署手册阶段存档",
+      updatedAt: "2026-11-23T12:00:00.000Z"
+    })
+
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true })
+    )
+
+    await waitFor(() => expect(pagesApi.update).toHaveBeenCalledTimes(1))
+    // 不跳回阅读页
+    expect(screen.queryByText("阅读页占位")).toBeNull()
+    // 状态更新为已保存
+    await waitFor(() =>
+      expect(within(previewToolbar).queryByText("有未保存的更改")).toBeNull()
+    )
+    expect(within(previewToolbar).getByText(/^已保存 /)).toBeInTheDocument()
+  })
+
+  it("预览态下复用阅读管线渲染块级内容（图片、Excalidraw、Embed），不触发回填保存", async () => {
+    const blockPage: PageContentDetail = {
+      ...page,
+      contentJson: JSON.stringify({
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "测试段落" }]
+          },
+          {
+            type: "image",
+            attrs: {
+              src: "/api/files/test-img-key",
+              width: 300
+            }
+          },
+          {
+            type: "excalidraw",
+            attrs: {
+              sceneKey: "scene-key-123",
+              previewKey: "preview-key-123",
+              extractedText: "架构流程图",
+              width: 400
+            }
+          },
+          {
+            type: "htmlEmbed",
+            attrs: {
+              key: "embed-key-123",
+              name: "嵌入式组件.html",
+              height: 480
+            }
+          }
+        ]
+      }),
+      contentHtml:
+        '<p>测试段落</p><img src="/api/files/test-img-key" width="300" /><img data-type="excalidraw" data-scene-key="scene-key-123" data-preview-key="preview-key-123" alt="架构流程图" width="400" /><div data-type="html-embed" data-key="embed-key-123" data-name="嵌入式组件.html" data-height="480"></div>',
+      contentText: "测试段落\n架构流程图\n[HTML Embed: 嵌入式组件.html]"
+    }
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue(blockPage)
+    const user = userEvent.setup()
+    renderEdit()
+
+    const toolbar = await screen.findByRole("toolbar")
+    await user.click(within(toolbar).getByRole("button", { name: "预览" }))
+
+    // 预览态正确使用阅读管线渲染
+    const previewContainer = document.querySelector("[data-page-preview]")
+    expect(previewContainer).toBeInTheDocument()
+    expect(previewContainer).toHaveTextContent("测试段落")
+
+    // 验证进出预览没有触发任何 save 相关的调用
+    expect(pagesApi.update).not.toHaveBeenCalled()
+    expect(pagesApi.canvasPreview).not.toHaveBeenCalled()
+  })
+
+  it("英文环境下预览相关文案（按钮、工具条、状态）全部按英文展示", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    renderEdit()
+
+    const toolbar = await screen.findByRole("toolbar")
+    const previewBtn = within(toolbar).getByRole("button", { name: "Preview" })
+    expect(previewBtn).toBeInTheDocument()
+
+    await user.click(previewBtn)
+
+    const previewToolbar = screen.getByRole("toolbar", {
+      name: "Preview toolbar"
+    })
+    expect(
+      within(previewToolbar).getByRole("button", { name: "Back to edit" })
+    ).toBeInTheDocument()
+    expect(
+      within(previewToolbar).getByRole("button", { name: "Save" })
     ).toBeInTheDocument()
   })
 })
