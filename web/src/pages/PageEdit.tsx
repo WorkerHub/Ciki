@@ -35,7 +35,6 @@ import { pagePath, parseIdParam } from "@/lib/routes"
 import { readScrollAnchor, restoreScrollAnchor } from "@/lib/scroll-anchor"
 import { canEdit } from "@/lib/space"
 import { extractToc } from "@/lib/toc"
-import { cn } from "@/lib/utils"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -336,10 +335,7 @@ export function PageEdit() {
   return (
     <div className="space-y-3">
       {/* 编辑态顶栏与编辑器 */}
-      <div
-        className={cn("space-y-3", isPreview && "hidden")}
-        hidden={isPreview}
-      >
+      <div className="space-y-3" hidden={isPreview}>
         <header className="space-y-2">
           <Button
             type="button"
