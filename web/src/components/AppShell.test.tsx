@@ -274,6 +274,47 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
     }
   })
 
+  it("移动端抽屉头部为关闭按钮预留空间且桌面端侧栏无多余留白", async () => {
+    const { unmount } = renderShell("/p/a")
+    const desktopSwitcher = screen.getByRole("button", { name: "切换空间" })
+    const desktopHeader = desktopSwitcher.closest(".border-b")
+    expect(desktopHeader).not.toHaveClass("pr-10")
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull()
+    unmount()
+
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false
+    })) as unknown as typeof window.matchMedia
+    try {
+      const mobile = renderShell("/p/a")
+      const openDrawerBtn = screen.getByRole("button", { name: "打开页面树" })
+      fireEvent.click(openDrawerBtn)
+
+      const closeButtons = screen.getAllByRole("button", { name: "Close" })
+      expect(closeButtons).toHaveLength(1)
+
+      const mobileSwitcher = screen.getByRole("button", { name: "切换空间" })
+      const mobileHeader = mobileSwitcher.closest(".border-b")
+      expect(mobileHeader).toHaveClass("pr-10")
+
+      fireEvent.click(closeButtons[0])
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).toBeNull()
+      })
+      mobile.unmount()
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
   it("分类页容器不居中：左缘与文章页正文对齐，系统页正文列流式居中", () => {
     const search = renderShell("/s/default/search")
     // 壳层容器是 Suspense 之外的第一个 div（Suspense 不产 DOM）
