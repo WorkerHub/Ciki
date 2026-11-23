@@ -17,7 +17,7 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable"
 import { FilePlus2, GripVertical } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router"
 import { CreatePageDialog } from "@/components/CreatePageDialog"
@@ -49,6 +49,7 @@ import { describeApiError } from "@/lib/api"
 import { pageEditPath, pagePath, parseIdParam } from "@/lib/routes"
 import { canEdit } from "@/lib/space"
 import {
+  findNode,
   dropFromDragEnd,
   dropPreview,
   type DropPreview,
@@ -98,6 +99,39 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   const [actionError, setActionError] = useState("")
   /** 移动成功后要提示的目标空间名；存名字而不是拼好的句子，切语言时提示跟着变。 */
   const [movedTo, setMovedTo] = useState<string | null>(null)
+  const treeRef = useRef<HTMLDivElement>(null)
+  const scrollTargetRef = useRef<number | null>(null)
+
+  // 当前空间页面树加载完成时、以及当前文档（路由 pageId）变化时，
+  // 对当前文档调用现行 expandTo 展开全部祖先；手动收起时不重新弹回。
+  useEffect(() => {
+    if (loading || activePageId === null) return
+    if (!findNode(tree, activePageId)) return
+
+    expandTo(activePageId)
+
+    const immediateEl = treeRef.current?.querySelector<HTMLElement>(
+      `[data-tree-row="${activePageId}"]`
+    )
+    if (immediateEl) {
+      immediateEl.scrollIntoView({ block: "nearest" })
+      scrollTargetRef.current = null
+    } else {
+      scrollTargetRef.current = activePageId
+    }
+  }, [activePageId, tree, loading, expandTo])
+
+  useEffect(() => {
+    if (scrollTargetRef.current === null) return
+    const id = scrollTargetRef.current
+    const rowEl = treeRef.current?.querySelector<HTMLElement>(
+      `[data-tree-row="${id}"]`
+    )
+    if (rowEl) {
+      rowEl.scrollIntoView({ block: "nearest" })
+      scrollTargetRef.current = null
+    }
+  })
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -244,7 +278,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   ) : null
 
   return (
-    <div className="flex min-h-0 flex-col gap-1">
+    <div ref={treeRef} className="flex min-h-0 flex-col gap-1">
       {actionError ? (
         <p
           role="alert"

@@ -1,6 +1,6 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter } from "react-router"
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PageTree } from "@/components/PageTree"
 import type { Space } from "@/lib/api"
@@ -34,6 +34,17 @@ const renderTree = () =>
   render(
     <MemoryRouter>
       <PageTree />
+    </MemoryRouter>
+  )
+
+const renderTreeWithRoute = (initialPath = "/") =>
+  render(
+    <MemoryRouter initialEntries={[initialPath]}>
+      <Routes>
+        <Route path="/p/:pageId" element={<PageTree />} />
+        <Route path="/p/:pageId/edit" element={<PageTree />} />
+        <Route path="*" element={<PageTree />} />
+      </Routes>
     </MemoryRouter>
   )
 
@@ -260,5 +271,229 @@ describe("页面树空状态", () => {
     )
     expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
     expect(screen.queryByText(/还没有页面/)).toBeNull()
+  })
+})
+
+describe("目录树自动展开到当前文档与滚动可见", () => {
+  const nestedTree = [
+    {
+      id: 1,
+      parentId: null,
+      title: "顶级文档",
+      sortOrder: 0,
+      updatedAt: "2026-11-08T00:00:00.000Z",
+      children: [
+        {
+          id: 2,
+          parentId: 1,
+          title: "中间目录",
+          sortOrder: 0,
+          updatedAt: "2026-11-08T00:00:00.000Z",
+          children: [
+            {
+              id: 3,
+              parentId: 2,
+              title: "嵌套文档",
+              sortOrder: 0,
+              updatedAt: "2026-11-08T00:00:00.000Z",
+              children: []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      id: 4,
+      parentId: null,
+      title: "另一个目录",
+      sortOrder: 1,
+      updatedAt: "2026-11-08T00:00:00.000Z",
+      children: [
+        {
+          id: 5,
+          parentId: 4,
+          title: "另一个子文档",
+          sortOrder: 0,
+          updatedAt: "2026-11-08T00:00:00.000Z",
+          children: []
+        }
+      ]
+    }
+  ]
+
+  beforeEach(() => {
+    useSpacesStore.setState({
+      spaces: [space("editor")],
+      status: "ready",
+      currentId: 1
+    })
+  })
+
+  it("深层嵌套文档刷新后祖先链全展开、当前行可见且高亮并调用 scrollIntoView", () => {
+    const scrollSpy = vi.spyOn(Element.prototype, "scrollIntoView")
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/3")
+
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+    expect(screen.getByText("顶级文档")).toBeInTheDocument()
+    expect(screen.getByText("中间目录")).toBeInTheDocument()
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+
+    const activeRow = screen.getByText("嵌套文档").closest("li")
+    expect(activeRow).toHaveAttribute("data-tree-row", "3")
+    expect(activeRow?.querySelector(".bg-accent")).toBeInTheDocument()
+    expect(scrollSpy).toHaveBeenCalledWith({ block: "nearest" })
+    scrollSpy.mockRestore()
+  })
+
+  it("树就绪前（loading: true）不触发，加载完成后才自动展开", () => {
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: true,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/3")
+    expect(usePagesStore.getState().expanded).toEqual([])
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+
+    act(() => {
+      usePagesStore.setState({
+        tree: nestedTree,
+        loading: false
+      })
+    })
+
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+  })
+
+  it("顶层文档（无祖先）加载时不展开多余目录，仅当前行高亮与滚动可见", () => {
+    const scrollSpy = vi.spyOn(Element.prototype, "scrollIntoView")
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/1")
+
+    expect(usePagesStore.getState().expanded).toEqual([])
+    expect(screen.getByText("顶级文档")).toBeInTheDocument()
+    expect(screen.queryByText("中间目录")).toBeNull()
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+
+    const activeRow = screen.getByText("顶级文档").closest("li")
+    expect(activeRow).toHaveAttribute("data-tree-row", "1")
+    expect(activeRow?.querySelector(".bg-accent")).toBeInTheDocument()
+    expect(scrollSpy).toHaveBeenCalledWith({ block: "nearest" })
+    scrollSpy.mockRestore()
+  })
+
+  it("停留在同一文档期间手动收起祖先目录，保持收起、不自动弹回", async () => {
+    const user = userEvent.setup()
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/3")
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+
+    // 点击中间目录的收起图标（中间目录对应 data-tree-row="2"）
+    const middleRow = screen.getByText("中间目录").closest("li")
+    const collapseButton = middleRow?.querySelector(
+      'button[aria-expanded="true"]'
+    ) as HTMLButtonElement
+    expect(collapseButton).toBeTruthy()
+    await user.click(collapseButton!)
+
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+  })
+
+  it("编辑路由 /p/:pageId/edit 同样支持自动展开", () => {
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/3/edit")
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+  })
+
+  it("当前文档不在当前空间树内时静默无操作", () => {
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/999")
+    expect(usePagesStore.getState().expanded).toEqual([])
+  })
+
+  it("路由变化落到另一深层文档时，自动展开新文档的祖先链", async () => {
+    const user = userEvent.setup()
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    function TestApp() {
+      const navigate = useNavigate()
+      return (
+        <div>
+          <button type="button" onClick={() => navigate("/p/5")}>
+            跳转到子文档5
+          </button>
+          <Routes>
+            <Route path="/p/:pageId" element={<PageTree />} />
+            <Route path="*" element={<PageTree />} />
+          </Routes>
+        </div>
+      )
+    }
+
+    render(
+      <MemoryRouter initialEntries={["/p/3"]}>
+        <TestApp />
+      </MemoryRouter>
+    )
+
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "跳转到子文档5" }))
+
+    expect(usePagesStore.getState().expanded).toContain(4)
+    expect(screen.getByText("另一个子文档")).toBeInTheDocument()
   })
 })
