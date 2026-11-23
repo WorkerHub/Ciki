@@ -446,7 +446,7 @@ export function PageView() {
               </p>
             ) : null}
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 [&_[data-slot]]:!min-h-0 [&_[data-slot]]:!min-w-0">
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
