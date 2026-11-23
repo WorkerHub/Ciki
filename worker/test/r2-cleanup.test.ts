@@ -1123,4 +1123,26 @@ describe("运行态：GET 的 running", () => {
     )
     expect(jsonKeys).toContain("pages/11111111-2222-4333-8444-555555555555.png")
   })
+
+  it("extractFileKeys 能够提取 Embed 内容块引用：HTML data-key、JSON key 与 /api/files/embeds/ 链接", () => {
+    const embedKey1 = "embeds/550e8400-e29b-41d4-a716-446655440000.html"
+    const embedKey2 = "embeds/660e8400-e29b-41d4-a716-446655440000.html"
+    const embedKey3 = "embeds/770e8400-e29b-41d4-a716-446655440000.html"
+
+    const html = `<div data-type="html-embed" data-key="${embedKey1}" data-height="480" data-name="test.html"></div>`
+    const md = `[HTML 动画：test.html](https://ciki.oneboy.app/api/files/${embedKey2})`
+    const json = JSON.stringify({
+      type: "doc",
+      content: [
+        {
+          type: "htmlEmbed",
+          attrs: { key: embedKey3, height: 480, name: "test3.html" }
+        }
+      ]
+    })
+
+    expect(extractFileKeys(html)).toContain(embedKey1)
+    expect(extractFileKeys(md)).toContain(embedKey2)
+    expect(extractFileKeys(json)).toContain(embedKey3)
+  })
 })

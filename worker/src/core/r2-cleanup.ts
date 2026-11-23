@@ -52,11 +52,13 @@ export const R2_CLEANUP_JOB_NAME = "monthly-r2-orphan-cleanup"
 
 /**
  * 正文里的资产引用：`/api/files/<key>`，或 Excalidraw 画布块的
- * `data-scene-key="<key>"` / `data-preview-key="<key>"` / JSON 中的 `sceneKey`。
- * key 的字符集按上传 key 的可能形状取，前缀 key（`pages/…`）与存量平铺 key 同一套匹配、不做区分。
+ * `data-scene-key="<key>"` / `data-preview-key="<key>"` / JSON 中的 `sceneKey`，
+ * 或 Embed 内容块的 `data-key="<key>"` / JSON 中的 `key`（`embeds/<uuid>.html`）。
+ * key 的字符集按上传 key 的可能形状取，前缀 key（`pages/…`、`embeds/…`）与存量平铺
+ * key 同一套匹配、不做区分。
  */
 const FILE_REF_RE =
-  /(?:\/api\/files\/|data-(?:scene|preview)-key="|"(?:sceneKey|previewKey)":\s*")([A-Za-z0-9._%/-]+)/g
+  /(?:\/api\/files\/|data-(?:scene-key|preview-key|key)="|"(?:sceneKey|previewKey|key)":\s*")([A-Za-z0-9._%/-]+)/g
 
 /** 从一段正文（HTML / Markdown / JSON）里取出所有被引用的图片 key。 */
 export function extractFileKeys(text: string): string[] {

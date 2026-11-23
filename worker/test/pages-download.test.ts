@@ -67,6 +67,10 @@ function imageBlock(src: string, alt: string) {
   return { type: "image", attrs: { src, alt } }
 }
 
+function embedBlock(key: string, name: string, height = 480) {
+  return { type: "htmlEmbed", attrs: { key, name, height } }
+}
+
 function docWith(blocks: unknown[]): string {
   return JSON.stringify({ type: "doc", content: blocks })
 }
@@ -718,4 +722,58 @@ describe("24 图量级：流式组装（验收 §4）", () => {
     const markdown = strFromU8(entries["24 图页.md"])
     expect(markdown.match(/images\/[^)]+/g)).toHaveLength(24)
   }, 30_000)
+})
+
+describe("htmlEmbed 内容块导出组装（规格 §8）", () => {
+  it("含 htmlEmbed 页面导出为 zip：放 embeds/ 目录、文件名清洗与冲突加序号、MD 改写相对链接", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const embedKey1 = "embeds/11111111-2222-4333-8444-555555555555.html"
+    const embedKey2 = "embeds/22222222-3333-4444-8555-666666666666.html"
+    const embedKeyMissing = "embeds/33333333-4444-4555-8666-777777777777.html"
+
+    const htmlBytes1 = new TextEncoder().encode("<h1>Animation 1</h1>")
+    const htmlBytes2 = new TextEncoder().encode("<h1>Animation 2</h1>")
+
+    await r2.put(embedKey1, htmlBytes1)
+    await r2.put(embedKey2, htmlBytes2)
+
+    const page = await createPage(
+      env,
+      admin,
+      "含动画页面",
+      docWith([
+        textBlock("正文介绍："),
+        embedBlock(embedKey1, "chart:demo.html"), // 包含非法字符冒号
+        embedBlock(embedKey2, "chart:demo.html"), // 同名冲突
+        embedBlock(embedKeyMissing, "missing.html") // R2 缺失
+      ])
+    )
+
+    const res = await download(env, page.id, admin)
+    expect(res.status).toBe(200)
+    expect(res.headers.get("content-type")).toBe("application/zip")
+
+    const { entries, names } = await unzip(res)
+    expect(names).toContain("含动画页面.md")
+    // 非法字符 : 转为 -，同名冲突加 -2.html
+    expect(names).toContain("embeds/chart-demo.html")
+    expect(names).toContain("embeds/chart-demo-2.html")
+    expect(names).not.toContain("embeds/missing.html")
+
+    expect(entries["embeds/chart-demo.html"]).toEqual(htmlBytes1)
+    expect(entries["embeds/chart-demo-2.html"]).toEqual(htmlBytes2)
+
+    const md = strFromU8(entries["含动画页面.md"])
+    // 改写存在的两个为相对链接
+    expect(md).toContain("[HTML 动画：chart:demo.html](embeds/chart-demo.html)")
+    expect(md).toContain(
+      "[HTML 动画：chart:demo.html](embeds/chart-demo-2.html)"
+    )
+    // 缺失的保留绝对地址
+    expect(md).toContain(
+      `[HTML 动画：missing.html](https://ciki.oneboy.app/api/files/${embedKeyMissing})`
+    )
+  })
 })

@@ -27,6 +27,12 @@ import { parseTiptapDoc } from "./tiptap-html"
  */
 export const CIKI_MD_ORIGIN = "https://ciki.oneboy.app"
 
+/**
+ * embed 块的 MD 链接文案前缀（规格「Embed 内容块」§8）：`[HTML 动画：<name>](…)`。
+ * 导出 zip 的改写（lib/markdown-download.ts）按同一前缀锚定链接，两边共用常量防分叉。
+ */
+export const EMBED_LINK_LABEL = "HTML 动画："
+
 /** 列表每层缩进（GFM 里 2 空格即可，且不会被误当成代码块）。 */
 const INDENT = "  "
 
@@ -133,6 +139,22 @@ function renderExcalidraw(node: ProseMirrorNode): string {
   return `![${label}](${excalidrawSrc(node)})`
 }
 
+function htmlEmbedSrc(node: ProseMirrorNode): string {
+  const key = typeof node.attrs.key === "string" ? node.attrs.key.trim() : ""
+  if (!key) return ""
+  if (key.startsWith("http://") || key.startsWith("https://")) return key
+  const path = key.startsWith("/") ? key : `/api/files/${key}`
+  return `${CIKI_MD_ORIGIN}${path}`
+}
+
+function renderHtmlEmbed(node: ProseMirrorNode): string {
+  const name = typeof node.attrs.name === "string" ? node.attrs.name : ""
+  // name 里的换行归一，[ ] 转义，避免 Markdown 链接断裂
+  const normalizedName = name.replace(/[\r\n]+/g, " ")
+  const label = normalizedName.replace(/[[\]]/g, (char) => `\\${char}`)
+  return `[${EMBED_LINK_LABEL}${label}](${htmlEmbedSrc(node)})`
+}
+
 /** 行内内容（paragraph / heading / 表格单元格里的文字）拍平成一行。 */
 function renderInline(node: ProseMirrorNode): string {
   let out = ""
@@ -151,6 +173,10 @@ function renderInline(node: ProseMirrorNode): string {
     }
     if (child.type.name === "excalidraw") {
       out += renderExcalidraw(child)
+      return
+    }
+    if (child.type.name === "htmlEmbed") {
+      out += renderHtmlEmbed(child)
       return
     }
     // 其余行内节点（理论上没有）按「收文字」处理。
@@ -328,6 +354,8 @@ function renderBlock(node: ProseMirrorNode, depth: number): string | null {
       return renderImage(node)
     case "excalidraw":
       return renderExcalidraw(node)
+    case "htmlEmbed":
+      return renderHtmlEmbed(node)
     case "table":
       return renderTable(node)
     case "bulletList":

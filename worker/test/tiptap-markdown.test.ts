@@ -105,3 +105,25 @@ describe("Excalidraw 画布块 Markdown 派生", () => {
     expect(md).not.toContain("\n")
   })
 })
+
+describe("htmlEmbed 内容块 Markdown 派生", () => {
+  it("name 转义方括号、归一换行，链接带前缀 [HTML 动画：<name>]", () => {
+    const doc = {
+      type: "doc",
+      content: [
+        {
+          type: "htmlEmbed",
+          attrs: {
+            key: "embeds/550e8400-e29b-41d4-a716-446655440000.html",
+            height: 480,
+            name: "物理引擎 [DEMO]\r\n分步动画"
+          }
+        }
+      ]
+    }
+    const md = serializeTiptapMarkdown(doc)
+    expect(md).toBe(
+      "[HTML 动画：物理引擎 \\[DEMO\\] 分步动画](https://ciki.oneboy.app/api/files/embeds/550e8400-e29b-41d4-a716-446655440000.html)"
+    )
+  })
+})

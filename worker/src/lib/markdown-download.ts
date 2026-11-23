@@ -14,8 +14,8 @@
  * - 除站内图链接外，zip 内 MD 与 `.md` 产物**逐字一致**（规格 §3）；
  * - 站外图（非 `/api/files/` 或 key 形状不合规）一律原样保留，不抓取入包（规格 §5）。
  */
-import { CIKI_MD_ORIGIN } from "./tiptap-markdown"
-import { UPLOAD_KEY_RE } from "./upload"
+import { CIKI_MD_ORIGIN, EMBED_LINK_LABEL } from "./tiptap-markdown"
+import { EMBED_KEY_RE, UPLOAD_KEY_RE } from "./upload"
 
 /** 标题清不出可用名字时的兜底（与一期前端同一口径）。 */
 const UNTITLED_PAGE = "未命名页面"
@@ -28,6 +28,9 @@ const ILLEGAL_FILENAME = /[\\/:*?"<>|]/g
 
 /** zip 内图片目录名（规格 §3）。 */
 const IMAGE_DIR = "images"
+
+/** zip 内 embed 目录名（规格「Embed 内容块」§8）。 */
+const EMBED_DIR = "embeds"
 
 /** 站内图 URL 的固定前缀：常量 origin + `/api/files/`，与 MD 派生同一口径。 */
 const SITE_FILE_PREFIX = `${CIKI_MD_ORIGIN}/api/files/`
@@ -45,6 +48,18 @@ function escapeRegExp(value: string): string {
  */
 const SITE_IMAGE_RE = new RegExp(
   `(!\\[(?:\\\\.|[^\\]\\\\])*\\]\\()${escapeRegExp(SITE_FILE_PREFIX)}([^)\\s]+)\\)`,
+  "g"
+)
+
+/**
+ * MD 里的站内 **embed** 引用：`[HTML 动画：<name>](https://ciki.oneboy.app/api/files/<key>)`。
+ *
+ * 锚在固定文案前缀 `[HTML 动画：` 上而不是裸 URL：正文里别处出现的 `/api/files/` 地址
+ * 不该被改写。name 允许转义方括号（派生器会把 name 里的 `[`/`]` 转义），key 到 `)` 或
+ * 空白为止。
+ */
+const EMBED_LINK_RE = new RegExp(
+  `(\\[${escapeRegExp(EMBED_LINK_LABEL)}(?:\\\\.|[^\\]\\\\])*\\]\\()${escapeRegExp(SITE_FILE_PREFIX)}([^)\\s]+)\\)`,
   "g"
 )
 
@@ -204,6 +219,125 @@ export function rewriteSiteImageLinks(
       if (!UPLOAD_KEY_RE.test(rawKey)) return match
       const name = resolve(rawKey)
       return name === null ? match : `${head}${imageLink(name)})`
+    }
+  )
+}
+
+/**
+ * 从内容 JSON 里取出每个 htmlEmbed 节点的 key → 原始文件名映射。
+ *
+ * embed 在 zip 里的文件名来自 `attrs.name`（原始文件名），不是 key 的 basename
+ * （key 是 `embeds/<uuid>.html`，uuid 对人不可读），所以不能像图片那样直接用 key。
+ * JSON 解析失败或形状不对时返回空映射，由调用方按缺 name 兜底。
+ */
+export function embedNames(contentJson: string): Map<string, string> {
+  const names = new Map<string, string>()
+  let doc: unknown
+  try {
+    doc = JSON.parse(contentJson)
+  } catch {
+    return names
+  }
+
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item)
+      return
+    }
+    const record = node as Record<string, unknown>
+    const attrs = record.attrs
+    if (
+      record.type === "htmlEmbed" &&
+      attrs &&
+      typeof attrs === "object" &&
+      !Array.isArray(attrs)
+    ) {
+      const key = (attrs as Record<string, unknown>).key
+      if (typeof key === "string" && key.length > 0) {
+        const name = (attrs as Record<string, unknown>).name
+        names.set(key, typeof name === "string" && name.length > 0 ? name : key)
+      }
+    }
+    const content = record.content
+    if (Array.isArray(content)) {
+      for (const child of content) walk(child)
+    }
+  }
+  walk(doc)
+  return names
+}
+
+/** embed 文件名：丢控制字符 → 非法字符换 `-` → 去首尾；清空则兜底 `embed.html`；补齐扩展名。 */
+function cleanEmbedFilename(name: string): string {
+  let cleaned = tidyFilename(
+    stripControlChars(name).replace(ILLEGAL_FILENAME, "-")
+  )
+  if (!cleaned) return "embed.html"
+  if (!/\.html?$/i.test(cleaned)) {
+    cleaned = `${cleaned}.html`
+  }
+  return cleaned
+}
+
+/**
+ * MD 里引用到的站内 embed key（按首次出现顺序去重）。
+ *
+ * 判据：地址是常量 origin + `/api/files/`，key 形状过 `EMBED_KEY_RE`
+ * （`embeds/<uuid>.html`）。形状不合规的与站外链接同等对待：不计入分流依据、不改写。
+ */
+export function siteEmbedKeys(markdown: string): string[] {
+  const keys: string[] = []
+  for (const match of markdown.matchAll(EMBED_LINK_RE)) {
+    const key = match[2]
+    if (!EMBED_KEY_RE.test(key) || keys.includes(key)) continue
+    keys.push(key)
+  }
+  return keys
+}
+
+/**
+ * 每个 embed 在包内的文件名（key → `embeds/` 下的名字）。
+ *
+ * 名字取自 attrs.name（经 `embedNames` 从内容 JSON 取出），清洗后作为文件名；
+ * 同名冲突按规格 §4 加序号（`<stem>-2.html`），绝不覆盖。缺 name 时退回 key 的
+ * basename（`<uuid>.html`）。
+ */
+export function embedEntryNames(
+  keys: string[],
+  names: Map<string, string>
+): Map<string, string> {
+  const used = new Set<string>()
+  const entries = new Map<string, string>()
+  for (const key of keys) {
+    const raw = names.get(key) ?? basename(key)
+    const unique = uniquify(cleanEmbedFilename(raw), used)
+    used.add(unique)
+    entries.set(key, unique)
+  }
+  return entries
+}
+
+/** embed 在 MD 里的相对链接（规格 §8：`embeds/<filename>`）。 */
+export function embedLink(name: string): string {
+  return `${EMBED_DIR}/${name}`
+}
+
+/**
+ * 改写站内 embed 链接：`resolve(key)` 给出包内文件名就换成 `embeds/<name>`，给 null
+ * （R2 里已经没有了）就原样留着——绝对地址至少不比现状更差（与图片同一口径）。
+ * 链接文案、其余正文一字不动。
+ */
+export function rewriteSiteEmbedLinks(
+  markdown: string,
+  resolve: (key: string) => string | null
+): string {
+  return markdown.replace(
+    EMBED_LINK_RE,
+    (match: string, head: string, rawKey: string) => {
+      if (!EMBED_KEY_RE.test(rawKey)) return match
+      const name = resolve(rawKey)
+      return name === null ? match : `${head}${embedLink(name)})`
     }
   )
 }

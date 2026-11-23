@@ -35,7 +35,7 @@ import {
 } from "../lib/page-input"
 import { toPlainText } from "../lib/sanitize"
 import { parseId, readJsonBody, readParentId, readSpaceId } from "../lib/http"
-import { handleImageUpload } from "../lib/upload"
+import { handleEmbedUpload, handleImageUpload } from "../lib/upload"
 import { getTablePrefix } from "../lib/table-prefix"
 import { writeTokenMiddleware } from "../middleware/write-token"
 import type { HonoEnv } from "../types"
@@ -135,6 +135,18 @@ async function loadWritablePage(
 writeRoutes.post("/files", (c) =>
   handleImageUpload(c, c.get("userId"), "pages")
 )
+
+/**
+ * POST /api/write/files/embeds：写接口的 embed 上传。
+ *
+ * - 校验与 R2 落盘复用 `lib/upload.ts` 的 `handleEmbedUpload`（与会话路径
+ *   `/api/files/embeds` 同一份实现、同一响应形状），落 `embeds/` 目录；
+ *   `.html` ≤1MB、UUID key，不做消毒——安全在「下发 + 渲染隔离」两层。
+ * - 上传没有空间维度，不查令牌范围（引用它的页面写入仍走页面级范围与角色校验）。
+ * - 鉴权与限流零改动：整段已挂 `writeTokenMiddleware`，只认 `kind = write` 的令牌，
+ *   调用计入现有 `write` 桶；read 令牌、无编辑角色照旧被中间件拒之门外。
+ */
+writeRoutes.post("/files/embeds", (c) => handleEmbedUpload(c, c.get("userId")))
 
 /**
  * POST /api/write/pages：建页。

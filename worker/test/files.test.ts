@@ -319,4 +319,100 @@ describe("图片：类型校验、大小上限、会话读取", () => {
     })
     expect(res.status).toBe(400)
   })
+
+  it("Embed 上传：仅收 .html、≤1MB、UUID key、完整 CSP 下发头与会话隔离", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const htmlContent =
+      "<!DOCTYPE html><html><head><style>body{margin:0}</style></head><body><script>console.log(1)</script></body></html>"
+    const htmlBytes = new TextEncoder().encode(htmlContent)
+
+    const form = new FormData()
+    form.append(
+      "file",
+      new File([htmlBytes], "my-animation.html", { type: "text/html" })
+    )
+
+    // 1. 上传成功 201
+    const uploadRes = await request(env, "/api/files/embeds", {
+      method: "POST",
+      headers: { cookie: admin },
+      body: form
+    })
+    expect(uploadRes.status).toBe(201)
+    const body = (await uploadRes.json()) as {
+      key: string
+      url: string
+      contentType: string
+      size: number
+    }
+    expect(body.url).toBe(`/api/files/${body.key}`)
+    expect(body.key).toMatch(/^embeds\/[0-9a-f-]{36}\.html$/)
+    expect(body.contentType).toBe("text/html; charset=utf-8")
+    expect(body.size).toBe(htmlBytes.length)
+    expect(r2.store.has(body.key)).toBe(true)
+
+    // 2. 检查 customMetadata
+    const r2Obj = await r2.get(body.key)
+    expect(r2Obj?.customMetadata?.category).toBe("embeds")
+    expect(r2Obj?.customMetadata?.uploaderId).toBeTruthy()
+
+    // 3. 带会话下发：全套安全头
+    const readRes = await request(env, `/api/files/${body.key}`, {
+      headers: { cookie: admin }
+    })
+    expect(readRes.status).toBe(200)
+    expect(readRes.headers.get("content-type")).toBe("text/html; charset=utf-8")
+    expect(readRes.headers.get("x-content-type-options")).toBe("nosniff")
+    expect(readRes.headers.get("content-security-policy")).toBe(
+      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+    )
+    expect(readRes.headers.get("cache-control")).toContain("private")
+    expect(new Uint8Array(await readRes.arrayBuffer())).toEqual(htmlBytes)
+
+    // 4. 未登录下发拒 401
+    const anonRead = await request(env, `/api/files/${body.key}`)
+    expect(anonRead.status).toBe(401)
+
+    // 5. 非 .html 拒绝 400
+    const notHtmlForm = new FormData()
+    notHtmlForm.append(
+      "file",
+      new File([htmlBytes], "animation.js", { type: "text/javascript" })
+    )
+    const badExtRes = await request(env, "/api/files/embeds", {
+      method: "POST",
+      headers: { cookie: admin },
+      body: notHtmlForm
+    })
+    expect(badExtRes.status).toBe(400)
+    expect((await badExtRes.json()) as { error: string }).toMatchObject({
+      error: "Only .html files are accepted"
+    })
+
+    // 6. >1MB 拒绝 413
+    const tooLargeBytes = new Uint8Array(1024 * 1024 + 1)
+    const tooLargeForm = new FormData()
+    tooLargeForm.append(
+      "file",
+      new File([tooLargeBytes], "large.html", { type: "text/html" })
+    )
+    const tooLargeRes = await request(env, "/api/files/embeds", {
+      method: "POST",
+      headers: { cookie: admin },
+      body: tooLargeForm
+    })
+    expect(tooLargeRes.status).toBe(413)
+    expect((await tooLargeRes.json()) as { code: string }).toMatchObject({
+      code: "FILE_TOO_LARGE"
+    })
+
+    // 7. 未登录上传拒 401
+    const anonUpload = await request(env, "/api/files/embeds", {
+      method: "POST",
+      body: form
+    })
+    expect(anonUpload.status).toBe(401)
+  })
 })

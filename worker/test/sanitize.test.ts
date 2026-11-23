@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   ALLOWED_FONT_SIZES,
   isAllowedImageSrc,
+  sanitizeCommentHtml,
   sanitizePageHtml,
   toPlainText
 } from "../src/lib/sanitize"
@@ -312,5 +313,78 @@ describe("Excalidraw 画布块 HTML 载具属性消毒", () => {
       expect(html).not.toContain("data-preview-key=")
       expect(html).toContain('data-type="excalidraw"')
     }
+  })
+
+  describe("Embed 内容块（htmlEmbed）HTML 载具属性消毒", () => {
+    const embedKey = "embeds/550e8400-e29b-41d4-a716-446655440000.html"
+
+    it("合法 htmlEmbed 属性原样放行", () => {
+      const html = sanitizePageHtml(
+        `<div data-type="html-embed" data-key="${embedKey}" data-height="600" data-name="animation.html"></div>`
+      )
+      expect(html).toContain('data-type="html-embed"')
+      expect(html).toContain(`data-key="${embedKey}"`)
+      expect(html).toContain('data-height="600"')
+      expect(html).toContain('data-name="animation.html"')
+    })
+
+    it("data-type 仅放行 html-embed，其余被剥除", () => {
+      for (const invalid of ["embed", "custom", "javascript:alert(1)", ""]) {
+        const html = sanitizePageHtml(
+          `<div data-type="${invalid}" data-key="${embedKey}" data-height="480" data-name="test.html"></div>`
+        )
+        expect(html).not.toContain("data-type=")
+      }
+    })
+
+    it("data-key 必须匹配 embeds/<uuid>.html，非法值被剥除", () => {
+      const invalidKeys = [
+        "pages/550e8400-e29b-41d4-a716-446655440000.html",
+        "embeds/../etc/passwd",
+        "embeds/550e8400-e29b-41d4-a716-446655440000.png",
+        "embeds/not-uuid.html",
+        "550e8400-e29b-41d4-a716-446655440000.html"
+      ]
+      for (const key of invalidKeys) {
+        const html = sanitizePageHtml(
+          `<div data-type="html-embed" data-key="${key}" data-height="480" data-name="test.html"></div>`
+        )
+        expect(html).not.toContain("data-key=")
+      }
+    })
+
+    it("data-height 仅收 200–2000 整数，其余值被剥除", () => {
+      for (const invalid of [
+        "100",
+        "199",
+        "2001",
+        "3000",
+        "480px",
+        "abc",
+        "-500"
+      ]) {
+        const html = sanitizePageHtml(
+          `<div data-type="html-embed" data-key="${embedKey}" data-height="${invalid}" data-name="test.html"></div>`
+        )
+        expect(html).not.toContain("data-height=")
+      }
+      for (const valid of ["200", "480", "1200", "2000"]) {
+        const html = sanitizePageHtml(
+          `<div data-type="html-embed" data-key="${embedKey}" data-height="${valid}" data-name="test.html"></div>`
+        )
+        expect(html).toContain(`data-height="${valid}"`)
+      }
+    })
+
+    it("评论消毒剥除全部 embed 属性（仅页面正文，不进评论）", () => {
+      const html = sanitizeCommentHtml(
+        `<div data-type="html-embed" data-key="${embedKey}" data-height="480" data-name="test.html">评论内容</div>`
+      )
+      expect(html).not.toContain("data-type=")
+      expect(html).not.toContain("data-key=")
+      expect(html).not.toContain("data-height=")
+      expect(html).not.toContain("data-name=")
+      expect(html).toContain("评论内容")
+    })
   })
 })
