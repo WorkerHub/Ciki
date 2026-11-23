@@ -1,8 +1,7 @@
-import { Editor } from "@tiptap/core"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
-import { EditorToolbar } from "@/editor/EditorToolbar"
 import {
   currentCellBackground,
   currentHighlight,
@@ -16,11 +15,12 @@ import {
   HIGHLIGHT_COLORS,
   TEXT_COLORS
 } from "@/editor/colors/palette"
+import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
 import { i18n } from "@/i18n"
 import { normalizeColor } from "@/lib/color"
-import { docJson } from "@/test/tiptap-json"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
+import { docJson } from "@/test/tiptap-json"
 
 /**
  * 颜色能力的 Web 侧证据：模型形态（contract 冻结的 textStyle.color / highlight.color /
@@ -103,6 +103,7 @@ describe("颜色命令（编辑器模型）", () => {
     ])
     expect(currentTextColor(editor)).toBe("#0052cc")
     expect(editor.getHTML()).toContain('data-text-color="#0052cc"')
+    expect(editor.getHTML()).toContain("--dark-text-color: #3385ff")
 
     setTextColor(editor, null)
     expect(jsonText(editor)?.marks ?? []).toEqual([])
@@ -118,6 +119,8 @@ describe("颜色命令（编辑器模型）", () => {
       { type: "highlight", attrs: { color: "#ffe58f" } }
     ])
     expect(currentHighlight(editor)).toBe("#ffe58f")
+    expect(editor.getHTML()).toContain('data-color="#ffe58f"')
+    expect(editor.getHTML()).toContain("--dark-bg-color: #705600")
 
     setHighlight(editor, null)
     expect(jsonText(editor)?.marks ?? []).toEqual([])
@@ -133,6 +136,42 @@ describe("颜色命令（编辑器模型）", () => {
       { type: "textStyle", attrs: { color: "#de350b", fontSize: null } },
       { type: "highlight", attrs: { color: "#fffae6" } }
     ])
+  })
+
+  it("决策 B：Confluence 亮红 (#de350b) 豁免夜间提亮，保持原色", () => {
+    const editor = makeEditor("<p>亮红测试</p>")
+    editor.commands.selectAll()
+    setTextColor(editor, "#de350b")
+
+    // HTML 输出与 DOM 均严格保持 #de350b
+    expect(editor.getHTML()).toContain('data-text-color="#de350b"')
+    expect(editor.getHTML()).toContain("--dark-text-color: #de350b")
+
+    const span = editor.view.dom.querySelector(
+      'span[data-text-color="#de350b"]'
+    ) as HTMLElement
+    expect(span.style.getPropertyValue("--dark-text-color")).toBe("#de350b")
+  })
+
+  it("决策 A：编辑态下文字与高亮/单元格底色联合自适应", () => {
+    const editor = makeEditor("<p>前缀高亮后缀</p>")
+    // 选中“高亮”两字（offset 3 到 5）并设置深黑字色 + 黄色高亮
+    editor.commands.setTextSelection({ from: 3, to: 5 })
+    setTextColor(editor, "#172b4d")
+    setHighlight(editor, "#ffe58f")
+
+    const mark = editor.view.dom.querySelector(
+      'mark[data-color="#ffe58f"]'
+    ) as HTMLElement
+    expect(mark).toBeTruthy()
+    // 联合背景自适应：生成带 --dark-text-color 的 Decoration 行内装饰器，避免直接写 DOM 引发自激死循环
+    const jointSpan = editor.view.dom.querySelector(
+      ".wiki-joint-text"
+    ) as HTMLElement
+    expect(jointSpan).toBeTruthy()
+    expect(jointSpan.style.getPropertyValue("--dark-text-color")).toBe(
+      "#c1d1ec"
+    )
   })
 
   it("单元格底色：光标所在格与整表选区都能设，清除后属性回到 null", () => {
@@ -152,6 +191,8 @@ describe("颜色命令（编辑器模型）", () => {
       ["#fffae6", null]
     ])
     expect(currentCellBackground(editor)).toBe("#fffae6")
+    expect(editor.getHTML()).toContain('data-cell-bg="#fffae6"')
+    expect(editor.getHTML()).toContain("--dark-bg-color: #191400")
 
     // 整表选中：表头与数据格一起写
     editor.commands.selectAll()
@@ -348,5 +389,82 @@ describe("工具条：英文界面", () => {
       screen.getByRole("menuitem", { name: "Clear color" })
     ).toBeInTheDocument()
     expect(screen.queryByRole("menuitem", { name: "蓝色" })).toBeNull()
+  })
+})
+
+describe("编辑态死循环回归（ProseMirror DOMObserver 防自激）", () => {
+  beforeAll(() => {
+    installTiptapJsdomShims()
+  })
+
+  afterEach(() => {
+    while (editors.length) editors.pop()?.destroy()
+  })
+
+  it("触发矩阵 1：≥2 个「高亮+彩字」联合结构在编辑态正常渲染，零自激死循环", () => {
+    const content = [
+      '<p><mark data-color="#ffe58f"><span data-text-color="#172b4d">高亮一深黑字</span></mark></p>',
+      '<p><mark data-color="#ffd7a8"><span data-text-color="#0052cc">高亮二蓝字</span></mark></p>',
+      '<p><mark data-color="#baf5c0"><span data-text-color="#de350b">高亮三豁免红字</span></mark></p>'
+    ].join("")
+
+    const editor = makeEditor(content)
+    expect(editor.isDestroyed).toBe(false)
+
+    // 检查 Decoration 装饰器正常生效
+    const jointSpans = Array.from(
+      editor.view.dom.querySelectorAll<HTMLElement>(".wiki-joint-text")
+    )
+    expect(jointSpans).toHaveLength(3)
+    // 第一项深黑字以黄色压暗底 (#705600) 为基准
+    expect(jointSpans[0].style.getPropertyValue("--dark-text-color")).toBe(
+      "#c1d1ec"
+    )
+    // 第二项蓝字以橙色压暗底为基准
+    expect(
+      jointSpans[1].style.getPropertyValue("--dark-text-color")
+    ).toBeTruthy()
+    // 第三项亮红字 #de350b 严格保持原色豁免
+    expect(jointSpans[2].style.getPropertyValue("--dark-text-color")).toBe(
+      "#de350b"
+    )
+
+    // 编辑操作（键入 / 修改选区）幂等且不引发循环重绘
+    editor.commands.setTextSelection({ from: 1, to: 2 })
+    editor.commands.insertContent("新输入")
+    expect(editor.getText()).toContain("新输入")
+  })
+
+  it("触发矩阵 2：td+彩字 ≥3 与 th+彩字 ≥2 在编辑态正常渲染，零自激死循环", () => {
+    const tableContent = [
+      "<table>",
+      "  <thead>",
+      "    <tr>",
+      '      <th data-cell-bg="#f4f5f7"><p><span data-text-color="#172b4d">表头1</span></p></th>',
+      '      <th data-cell-bg="#deebff"><p><span data-text-color="#0052cc">表头2</span></p></th>',
+      "    </tr>",
+      "  </thead>",
+      "  <tbody>",
+      "    <tr>",
+      '      <td data-cell-bg="#fffae6"><p><span data-text-color="#172b4d">单元格1</span></p></td>',
+      '      <td data-cell-bg="#ffebe6"><p><span data-text-color="#d97008">单元格2</span></p></td>',
+      '      <td data-cell-bg="#e3fcef"><p><span data-text-color="#1f845a">单元格3</span></p></td>',
+      "    </tr>",
+      "  </tbody>",
+      "</table>"
+    ].join("")
+
+    const editor = makeEditor(tableContent)
+    const jointSpans = Array.from(
+      editor.view.dom.querySelectorAll<HTMLElement>(".wiki-joint-text")
+    )
+    expect(jointSpans).toHaveLength(5)
+    for (const span of jointSpans) {
+      expect(span.style.getPropertyValue("--dark-text-color")).toBeTruthy()
+    }
+
+    // 存储契约零改动：Decoration 不侵入 getHTML 与 getJSON 存储
+    expect(editor.getHTML()).not.toContain("wiki-joint-text")
+    expect(JSON.stringify(docJson(editor))).not.toContain("wiki-joint-text")
   })
 })
