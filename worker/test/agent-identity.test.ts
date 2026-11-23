@@ -89,7 +89,7 @@ describe("createAgentUser 工具函数", () => {
     expect(agent?.email_verified).toBe(1)
     expect(agent?.password_hash).toBe(AGENT_UNVERIFIABLE_PASSWORD_HASH)
     expect(agent?.username).toBe("my-agent")
-    expect(agent?.email).toMatch(/^agent-[a-f0-9-]+@internal$/)
+    expect(agent?.email).toBe(`${agent?.username}@internal`)
   })
 
   it("支持自定义合规邮箱与头像，自动处理用户名冲突后缀", async () => {
@@ -123,6 +123,7 @@ describe("createAgentUser 工具函数", () => {
     expect(agent1?.avatar_key).toBe("avatars/bot.png")
 
     expect(agent2?.username).toBe("agent-bot-2")
+    expect(agent2?.email).toBe(`${agent2?.username}@internal`)
 
     // 自定义邮箱与已有用户冲突时抛错
     await expect(
@@ -172,6 +173,62 @@ describe("createAgentUser 工具函数", () => {
     await expect(
       createAgentUser(env.DB, prefix, { owner_user_id: firstAgentId })
     ).rejects.toThrow("Owner must be a human user")
+  })
+
+  it("未显式传 email 时，占位邮箱推导自最终分配的 username（含自动短用户名与冲突重试）", async () => {
+    const { env } = await initializedContext()
+    const prefix = "ciki_"
+
+    const ownerId = await createApprovedUser(env.DB, prefix, {
+      email: "owner-derive@example.com",
+      username: "owner-derive",
+      password_hash: "hash",
+      role: "user"
+    })
+
+    // 1. 未传 username、未传 email：自动分配短用户名 agent-<8位十六进制>，邮箱为 <username>@internal
+    const autoAgentId = await createAgentUser(env.DB, prefix, {
+      owner_user_id: ownerId
+    })
+    const autoAgent = await findUserById(env.DB, prefix, autoAgentId)
+    expect(autoAgent).not.toBeNull()
+    expect(autoAgent?.username).toMatch(/^agent-[a-f0-9]{8}$/)
+    expect(autoAgent?.email).toBe(`${autoAgent?.username}@internal`)
+
+    // 2. 指定 username、未传 email：邮箱推导为 <username>@internal
+    const namedAgentId = await createAgentUser(env.DB, prefix, {
+      owner_user_id: ownerId,
+      username: "worker-bee"
+    })
+    const namedAgent = await findUserById(env.DB, prefix, namedAgentId)
+    expect(namedAgent).not.toBeNull()
+    expect(namedAgent?.username).toBe("worker-bee")
+    expect(namedAgent?.email).toBe("worker-bee@internal")
+
+    // 3. 用户名重试：相同 username、未传 email，推导邮箱跟随最终 candidate
+    const retryAgentId = await createAgentUser(env.DB, prefix, {
+      owner_user_id: ownerId,
+      username: "worker-bee"
+    })
+    const retryAgent = await findUserById(env.DB, prefix, retryAgentId)
+    expect(retryAgent).not.toBeNull()
+    expect(retryAgent?.username).toBe("worker-bee-2")
+    expect(retryAgent?.email).toBe("worker-bee-2@internal")
+
+    // 4. 显式传 email：即便发生用户名重试，邮箱仍原样落库不被重写
+    const explicitEmailAgentId = await createAgentUser(env.DB, prefix, {
+      owner_user_id: ownerId,
+      username: "worker-bee",
+      email: "custom-explicit@internal"
+    })
+    const explicitEmailAgent = await findUserById(
+      env.DB,
+      prefix,
+      explicitEmailAgentId
+    )
+    expect(explicitEmailAgent).not.toBeNull()
+    expect(explicitEmailAgent?.username).toBe("worker-bee-3")
+    expect(explicitEmailAgent?.email).toBe("custom-explicit@internal")
   })
 })
 
