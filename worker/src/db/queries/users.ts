@@ -1,5 +1,6 @@
 import {
   cleanUsername,
+  isEmailConflict,
   isUsernameConflict,
   usernameWithSuffix
 } from "../../core/identity"
@@ -113,7 +114,7 @@ export const AGENT_UNVERIFIABLE_PASSWORD_HASH = "!agent-unusable-hash"
  * - kind 固定为 'agent'，role 固定为 'user'（禁止设为 admin）；
  * - owner_user_id 必须指向一个激活的人类用户（人类账号，is_active=1）；
  * - 账号默认处于激活（is_active=1）且已批准（approved）状态，邮箱已验证（email_verified=1）；
- * - 分配唯一的内部占位邮箱（如 agent-<uuid>@internal）与不可逆的密码哈希；
+ * - 分配内部占位邮箱（未显式提供时推导自最终分配的 username，如 <username>@internal）与不可逆的密码哈希；
  * - 自动分配或使用提供的唯一用户名。
  */
 export async function createAgentUser(
@@ -145,7 +146,6 @@ export async function createAgentUser(
   }
 
   const uuid = crypto.randomUUID()
-  const email = data.email ?? `agent-${uuid}@internal`
   const baseUsername = data.username?.trim()
     ? cleanUsername(data.username)
     : `agent-${uuid.slice(0, 8)}`
@@ -155,6 +155,7 @@ export async function createAgentUser(
   for (let attempt = 1; attempt <= 50; attempt += 1) {
     const candidate = usernameWithSuffix(baseUsername, attempt)
     if (await usernameTaken(db, prefix, candidate)) continue
+    const email = data.email ?? `${candidate}@internal`
     try {
       const result = await db
         .prepare(
@@ -177,6 +178,7 @@ export async function createAgentUser(
       return result.meta.last_row_id
     } catch (err) {
       if (isUsernameConflict(err)) continue
+      if (!data.email && isEmailConflict(err)) continue
       throw err
     }
   }
