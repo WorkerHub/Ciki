@@ -31,6 +31,81 @@ export const EMBED_KEY_RE =
 export const EMBED_CONTENT_SECURITY_POLICY =
   "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 
+/**
+ * embed 下发注入的高度上报脚本。
+ *
+ * 协议约定（规格 §1/§2/§5）：
+ * 1. 独立作用域（IIFE）+ 异常自吞，绝不影响原文件自身脚本执行；
+ * 2. 在沙箱内量取内容实际高度（Math.max(documentElement.scrollHeight, body.scrollHeight)）；
+ * 3. 页面就绪后（立即执行 + DOMContentLoaded / load）上报一次；
+ * 4. 用 ResizeObserver 持续监听 documentElement 与 body 的尺寸变化持续上报；
+ * 5. 经 window.parent.postMessage 发给父页，消息体形如 `{ type: "ciki-embed-height", height: <number> }`；
+ * 6. 走既有 CSP（script-src 'unsafe-inline'），不新增任何权限。
+ */
+export const EMBED_HEIGHT_REPORTER_SCRIPT = `<script>
+(function() {
+  try {
+    var send = function() {
+      try {
+        var de = document.documentElement;
+        var b = document.body;
+        var h = Math.max(de ? de.scrollHeight : 0, b ? b.scrollHeight : 0);
+        if (window.parent) {
+          window.parent.postMessage({ type: "ciki-embed-height", height: h }, "*");
+        }
+      } catch (_) {}
+    };
+    send();
+    var ro = null;
+    if (typeof ResizeObserver === "function") {
+      ro = new ResizeObserver(function() {
+        send();
+      });
+      if (document.documentElement) ro.observe(document.documentElement);
+      if (document.body) ro.observe(document.body);
+    }
+    var onReady = function() {
+      send();
+      if (ro && document.body) {
+        try {
+          ro.observe(document.body);
+        } catch (_) {}
+      }
+    };
+    window.addEventListener("DOMContentLoaded", onReady);
+    window.addEventListener("load", onReady);
+  } catch (_) {}
+})();
+</script>`
+
+/**
+ * 在 embed HTML 响应内容中注入高度上报脚本：
+ * - 优先在最后一个 \`</body>\` 前注入（在原字符串上使用大小写不敏感正则匹配，避免 toLowerCase() 改变 Unicode 码元长度导致索引错位）；
+ * - 无 body 标签时追加在文件末尾；
+ * - 注入只发生在下发响应里，R2 存储的原文件不改，导出 zip 仍保持原文件逐字字节。
+ * - 已知限制（规格定版口径）：字符串层级匹配最后一个 \`</body>\` 标签，若原文件内联 JS 字符串或注释中包含 \`</body>\`，注入将落在该字符串前。
+ */
+export function injectEmbedHeightScript(html: string): string {
+  if (
+    html.includes('type: "ciki-embed-height"') ||
+    html.includes('type:"ciki-embed-height"')
+  ) {
+    return html
+  }
+  let lastIndex = -1
+  for (const match of html.matchAll(/<\/body>/gi)) {
+    lastIndex = match.index
+  }
+  if (lastIndex !== -1) {
+    return (
+      html.slice(0, lastIndex) +
+      EMBED_HEIGHT_REPORTER_SCRIPT +
+      html.slice(lastIndex)
+    )
+  }
+  return html + EMBED_HEIGHT_REPORTER_SCRIPT
+}
+
 /** 新上传 key 的来源类别（规格 §1）：只决定 key 的前缀目录。 */
 export type UploadCategory = "avatars" | "pages" | "imports"
 

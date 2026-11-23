@@ -11,7 +11,8 @@ import {
   EMBED_KEY_RE,
   UPLOAD_KEY_RE,
   handleEmbedUpload,
-  handleImageUpload
+  handleImageUpload,
+  injectEmbedHeightScript
 } from "../lib/upload"
 import type { HonoEnv } from "../types"
 
@@ -40,9 +41,19 @@ fileRoutes.get("/:key{.+}", async (c) => {
   if (isEmbed) {
     // embed 下发（规格 §3 安全硬要求）：CSP sandbox 逼成 opaque origin，
     // nosniff 防止 MIME 嗅探，Content-Type 带字符集逐字下发。
+    // 高度自适应（规格 §1/§2）：仅在下发响应末尾（</body> 前，无 body 时追加到末尾）
+    // 注入高度上报脚本，R2 存储的原文件不改，导出 zip 仍保持原文件逐字字节。
     headers.set("Content-Type", EMBED_CONTENT_TYPE)
     headers.set("X-Content-Type-Options", "nosniff")
     headers.set("Content-Security-Policy", EMBED_CONTENT_SECURITY_POLICY)
+    const rawHtml = await object.text()
+    const injectedHtml = injectEmbedHeightScript(rawHtml)
+    const encoded = new TextEncoder().encode(injectedHtml)
+    headers.set("Content-Length", String(encoded.byteLength))
+    // embed 下发内容已被动态注入脚本，与 R2 底层原文件字节不再一致；
+    // 不透传原文件的 httpEtag，避免客户端以原文件标识缓存动态注入内容。
+    headers.set("Cache-Control", "private, max-age=3600")
+    return new Response(encoded, { headers })
   } else {
     headers.set(
       "Content-Type",
