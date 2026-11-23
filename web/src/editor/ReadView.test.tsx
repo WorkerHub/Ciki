@@ -421,4 +421,34 @@ describe("标题锚点（索引轨用）", () => {
     expect(iframe.src).toContain("/api/files/embeds/test-uuid.html")
     expect(iframe.style.height).toBe("500px")
   })
+
+  it("htmlEmbed 节点在未填高度时为自动模式，接收 ciki-embed-height 自动贴合高度", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+    const { container } = render(
+      <ReadView
+        html={
+          '<div data-type="html-embed" data-key="embeds/test-uuid.html" data-name="anim.html"></div>'
+        }
+      />
+    )
+    const iframe = await waitFor(() => {
+      const el = container.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+    expect(iframe.style.height).toBe("480px")
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        source: iframe.contentWindow,
+        data: { type: "ciki-embed-height", height: 720 }
+      })
+    )
+
+    await waitFor(() => {
+      expect(iframe.style.height).toBe("720px")
+    })
+  })
 })

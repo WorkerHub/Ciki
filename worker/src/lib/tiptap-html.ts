@@ -225,18 +225,18 @@ const ImportHtmlEmbed = Node.create({
         }
       },
       height: {
-        default: 480,
+        default: null,
         parseHTML: (element) => {
           const raw = element.getAttribute("data-height")?.trim() ?? ""
-          return /^\d+$/.test(raw) ? Number(raw) : 480
+          return /^\d+$/.test(raw) ? Number(raw) : null
         },
         renderHTML: (attributes) => {
           const height =
             typeof attributes.height === "number" &&
             Number.isFinite(attributes.height)
               ? Math.round(attributes.height)
-              : 480
-          return { "data-height": String(height) }
+              : null
+          return height !== null ? { "data-height": String(height) } : {}
         }
       },
       name: {

@@ -534,6 +534,7 @@
     "htmlEmbed": {
       "title": "HTML 动画",
       "height": "高度",
+      "auto": "自动",
       "replace": "更换文件",
       "replaceSuccess": "文件已更换",
       "delete": "删除",

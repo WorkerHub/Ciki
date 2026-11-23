@@ -369,7 +369,19 @@ describe("图片：类型校验、大小上限、会话读取", () => {
       "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
     )
     expect(readRes.headers.get("cache-control")).toContain("private")
-    expect(new Uint8Array(await readRes.arrayBuffer())).toEqual(htmlBytes)
+    const deliveredText = await readRes.text()
+    expect(deliveredText).toContain('type: "ciki-embed-height"')
+    expect(deliveredText).toContain("ResizeObserver")
+    expect(deliveredText).toContain("</body>")
+    expect(deliveredText.indexOf('type: "ciki-embed-height"')).toBeLessThan(
+      deliveredText.lastIndexOf("</body>")
+    )
+    expect(readRes.headers.get("content-length")).toBe(
+      String(new TextEncoder().encode(deliveredText).byteLength)
+    )
+    // R2 中存储的原文件字节保持不变
+    const r2Raw = await r2.get(body.key)
+    expect(new Uint8Array(await r2Raw!.arrayBuffer())).toEqual(htmlBytes)
 
     // 4. 未登录下发拒 401
     const anonRead = await request(env, `/api/files/${body.key}`)
@@ -414,5 +426,171 @@ describe("图片：类型校验、大小上限、会话读取", () => {
       body: form
     })
     expect(anonUpload.status).toBe(401)
+  })
+})
+
+describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5）", () => {
+  it("标准 HTML（含 </body>）：精准注入在 </body> 前，R2 原文件字节不变", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml =
+      "<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Hello</h1></body></html>"
+    const rawBytes = new TextEncoder().encode(rawHtml)
+    const key = "embeds/11111111-2222-3333-4444-555555555555.html"
+    await r2.put(key, rawBytes, {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const html = await res.text()
+
+    // 1. 注入发生且位于 </body> 之前
+    const scriptPos = html.indexOf('type: "ciki-embed-height"')
+    const bodyPos = html.lastIndexOf("</body>")
+    expect(scriptPos).toBeGreaterThan(0)
+    expect(bodyPos).toBeGreaterThan(scriptPos)
+    expect(html.endsWith("</body></html>")).toBe(true)
+
+    // 2. 协议消息体与上报要素逐字对齐
+    expect(html).toContain(
+      'window.parent.postMessage({ type: "ciki-embed-height", height: h }, "*")'
+    )
+    expect(html).toContain(
+      "Math.max(de ? de.scrollHeight : 0, b ? b.scrollHeight : 0)"
+    )
+    expect(html).toContain("new ResizeObserver")
+    expect(html).toContain('addEventListener("DOMContentLoaded"')
+    expect(html).toContain('addEventListener("load"')
+
+    // 3. 独立作用域（IIFE）与异常自吞
+    expect(html).toMatch(/<script>\s*\(function\(\)\s*\{/i)
+    expect(html).toContain("catch (_)")
+
+    // 4. Content-Length 与实际下发字节完全一致
+    expect(res.headers.get("content-length")).toBe(
+      String(new TextEncoder().encode(html).byteLength)
+    )
+
+    // 5. R2 存储原文件逐字节不变
+    const r2Obj = await r2.get(key)
+    expect(new Uint8Array(await r2Obj!.arrayBuffer())).toEqual(rawBytes)
+  })
+
+  it("大写 </BODY> 标签：精准注入在大写 </BODY> 前", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml =
+      "<!DOCTYPE html><html><body><h1>UPPERCASE</h1></BODY></html>"
+    const rawBytes = new TextEncoder().encode(rawHtml)
+    const key = "embeds/22222222-3333-4444-5555-666666666666.html"
+    await r2.put(key, rawBytes, {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const html = await res.text()
+
+    const scriptPos = html.indexOf('type: "ciki-embed-height"')
+    const bodyPos = html.lastIndexOf("</BODY>")
+    expect(scriptPos).toBeGreaterThan(0)
+    expect(bodyPos).toBeGreaterThan(scriptPos)
+    expect(html.endsWith("</BODY></html>")).toBe(true)
+  })
+
+  it("无 <body> 标签的 HTML 片段：追加到文件末尾", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml = '<div class="embed-box">Plain Fragment</div>'
+    const rawBytes = new TextEncoder().encode(rawHtml)
+    const key = "embeds/33333333-4444-5555-6666-777777777777.html"
+    await r2.put(key, rawBytes, {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const html = await res.text()
+
+    expect(html.startsWith(rawHtml)).toBe(true)
+    expect(html.indexOf('type: "ciki-embed-height"')).toBeGreaterThan(
+      rawHtml.length
+    )
+  })
+
+  it("安全边界不变：走现行 CSP，不包含任何外部资源链接或新增权限", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml = "<html><body><p>Safe</p></body></html>"
+    const key = "embeds/44444444-5555-6666-7777-888888888888.html"
+    await r2.put(key, new TextEncoder().encode(rawHtml), {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.headers.get("content-security-policy")).toBe(
+      "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+    )
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff")
+  })
+
+  it("Unicode 字符（如 'İ'）：在原串正则匹配，避免 toLowerCase 码元长度变化导致切片错位", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 'İ'（U+0130）若经 toLowerCase() 会变成 'i\u0307'（2 个码元），产生长度漂移
+    const rawHtml = "<!DOCTYPE html><html><body>İçerik</body></html>"
+    const rawBytes = new TextEncoder().encode(rawHtml)
+    const key = "embeds/55555555-6666-7777-8888-999999999999.html"
+    await r2.put(key, rawBytes, {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const html = await res.text()
+
+    // 验证闭合标签未被破坏、注入脚本完整在 </body> 之前
+    expect(html).toContain("İçerik<script>")
+    expect(html).toContain("</script></body></html>")
+    expect(html).not.toContain("<<script>")
+  })
+
+  it("Embed 下发不透传原文件的 ETag（内容已被动态注入脚本）", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml = "<html><body><p>No ETag</p></body></html>"
+    const key = "embeds/66666666-7777-8888-9999-000000000000.html"
+    await r2.put(key, new TextEncoder().encode(rawHtml), {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get("etag")).toBeNull()
   })
 })
