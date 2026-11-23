@@ -32,7 +32,9 @@ export function HtmlEmbedBlockView({
   const fixedHeight = clampManualHtmlEmbedHeight(height)
   const isAuto = fixedHeight === null
 
-  const [autoHeight, setAutoHeight] = useState<number>(DEFAULT_HTML_EMBED_HEIGHT)
+  const [autoHeight, setAutoHeight] = useState<number>(
+    DEFAULT_HTML_EMBED_HEIGHT
+  )
   const [heightInput, setHeightInput] = useState(() => {
     return fixedHeight !== null ? String(fixedHeight) : ""
   })
@@ -82,7 +84,7 @@ export function HtmlEmbedBlockView({
     const handleMessage = (event: MessageEvent) => {
       // 1. 只接受 event.source 等于本 iframe contentWindow 的消息（沙箱 origin 为 opaque，不验 origin 验 source）
       const iframe = iframeRef.current
-      if (!iframe || !iframe.contentWindow || event.source !== iframe.contentWindow) {
+      if (!iframe?.contentWindow || event.source !== iframe.contentWindow) {
         return
       }
 
@@ -114,7 +116,7 @@ export function HtmlEmbedBlockView({
     return () => {
       window.removeEventListener("message", handleMessage)
     }
-  }, [editor.isEditable, attrs.height])
+  }, [editor.isEditable, fixedHeight])
 
   const commitHeight = (val: string) => {
     const trimmed = val.trim()

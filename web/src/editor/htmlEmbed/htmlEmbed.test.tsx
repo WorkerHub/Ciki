@@ -13,10 +13,8 @@ import { MAX_EMBED_BYTES, validateEmbedFile } from "@/lib/upload"
 import {
   DEFAULT_HTML_EMBED_HEIGHT,
   MAX_HTML_EMBED_AUTO_HEIGHT,
-  MAX_HTML_EMBED_HEIGHT,
   MAX_HTML_EMBED_MANUAL_HEIGHT,
   MIN_HTML_EMBED_AUTO_HEIGHT,
-  MIN_HTML_EMBED_HEIGHT,
   MIN_HTML_EMBED_MANUAL_HEIGHT,
   clampAutoHtmlEmbedHeight,
   clampHtmlEmbedHeight,

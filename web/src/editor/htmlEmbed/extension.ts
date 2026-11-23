@@ -18,8 +18,7 @@ export const MAX_HTML_EMBED_HEIGHT = MAX_HTML_EMBED_MANUAL_HEIGHT
  */
 export function clampManualHtmlEmbedHeight(raw: unknown): number | null {
   if (raw == null) return null
-  if (typeof raw === "string" && raw.trim() === "")
-    return null
+  if (typeof raw === "string" && raw.trim() === "") return null
   const num = Number(raw)
   if (!Number.isFinite(num)) return null
   return Math.min(
