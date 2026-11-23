@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useMediaQuery } from "@/hooks/useMediaQuery"
-import { ACTIVE_LINE, findScrollParent } from "@/lib/scroll-anchor"
+import {
+  ACTIVE_LINE,
+  findScrollParent,
+  scrollToHeading
+} from "@/lib/scroll-anchor"
 import { TOC_MIN_ITEMS, type TocItem } from "@/lib/toc"
 import { cn } from "@/lib/utils"
 
@@ -121,7 +125,27 @@ export function ArticleToc({ items, contentRoot }: ArticleTocProps) {
                   href={`#${item.id}`}
                   title={item.text}
                   aria-current={active ? "location" : undefined}
-                  onClick={() => setActiveId(item.id)}
+                  onClick={(event) => {
+                    // 保留辅助功能与新标签页打开能力（Cmd/Ctrl/中键不拦截）
+                    if (
+                      event.button !== 0 ||
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.altKey ||
+                      event.shiftKey
+                    ) {
+                      return
+                    }
+                    // 拦截原生锚点跳转：不改写 URL hash，避免祖先滚动容器连带位移
+                    event.preventDefault()
+                    setActiveId(item.id)
+                    const target =
+                      contentRoot?.querySelector<HTMLElement>(`#${item.id}`) ??
+                      document.getElementById(item.id)
+                    if (target) {
+                      scrollToHeading(target)
+                    }
+                  }}
                   style={{
                     paddingInlineStart: `${8 + (item.level - baseLevel) * 12}px`
                   }}

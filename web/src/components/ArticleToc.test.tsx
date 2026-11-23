@@ -211,6 +211,62 @@ describe("阅读页右侧索引轨", () => {
 
     expect(nav.scrollTop).toBe(180)
   })
+
+  it("点击目录项拦截原生跳转、不写 hash、立即高亮并滚动到目标标题", () => {
+    const root = makeContent([-200, 100, 400])
+    const scroller = document.createElement("div")
+    scroller.style.overflowY = "auto"
+    scroller.getBoundingClientRect = () => rect(48, 700)
+    scroller.appendChild(root)
+    document.body.appendChild(scroller)
+
+    render(<ArticleToc items={items} contentRoot={root} />)
+    const targetLink = screen.getByRole("link", { name: "配置表" })
+
+    window.location.hash = ""
+    const clickEvent = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      button: 0
+    })
+    let prevented = false
+    act(() => {
+      prevented = !targetLink.dispatchEvent(clickEvent)
+    })
+
+    // 原生跳转被 preventDefault 拦截
+    expect(prevented).toBe(true)
+    // URL hash 保持不变
+    expect(window.location.hash).toBe("")
+    // 目录立即高亮该项
+    expect(targetLink).toHaveAttribute("aria-current", "location")
+    // 容器产生了滚动位移，标题对齐判定线 (48 + 24 = 72)
+    // heading-2 top was 100, parent top 48 + ACTIVE_LINE 24 = 72, offset = 100 - 72 = 28
+    expect(scroller.scrollTop).toBe(28)
+  })
+
+  it("中键或带修饰键点击不拦截，保留浏览器新标签页打开能力", () => {
+    const root = makeContent([-200, 100, 400])
+    render(<ArticleToc items={items} contentRoot={root} />)
+    const link = screen.getByRole("link", { name: "配置表" })
+
+    // Cmd/Meta 点击
+    const metaClick = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      button: 0,
+      metaKey: true
+    })
+    expect(!link.dispatchEvent(metaClick)).toBe(false)
+
+    // 中键点击 (button: 1)
+    const middleClick = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      button: 1
+    })
+    expect(!link.dispatchEvent(middleClick)).toBe(false)
+  })
 })
 
 /** 英文界面：导航的无障碍名走 locale，标题本身（用户内容）不动。 */
