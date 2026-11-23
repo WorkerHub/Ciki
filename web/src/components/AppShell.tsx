@@ -115,10 +115,12 @@ function isArticlePath(pathname: string): boolean {
 
 function SidebarContent({
   onNavigate,
-  onCollapse
+  onCollapse,
+  inDrawer = false
 }: {
   onNavigate?: () => void
   onCollapse?: () => void
+  inDrawer?: boolean
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -130,7 +132,12 @@ function SidebarContent({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="border-b border-sidebar-border pt-2">
+      <div
+        className={cn(
+          "border-b border-sidebar-border pt-2",
+          inDrawer && "pr-10"
+        )}
+      >
         <SpaceSwitcher onNavigate={onNavigate} />
       </div>
       <div className="flex items-center justify-between gap-2 px-3 py-2">
@@ -560,7 +567,7 @@ export function AppShell() {
         </SheetTrigger>
         <SheetContent side="left" className="w-[85vw] max-w-xs p-0">
           <SheetTitle className="sr-only">{t("shell.pageTree")}</SheetTitle>
-          <SidebarContent onNavigate={() => setSheetOpen(false)} />
+          <SidebarContent onNavigate={() => setSheetOpen(false)} inDrawer />
         </SheetContent>
       </Sheet>
     ) : null
