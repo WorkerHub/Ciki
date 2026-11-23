@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 import i18n from "@/i18n"
-import { formatAgentAuthor } from "@/lib/agent-display"
+import { formatAgentAuthor, formatAgentOwnerTooltip } from "@/lib/agent-display"
 
 describe("formatAgentAuthor", () => {
   beforeEach(async () => {
@@ -56,5 +56,33 @@ describe("formatAgentAuthor", () => {
     })
     expect(res.displayName).toBe("deploy-bot (Alice's Agent)")
     expect(res.showAgentBadge).toBe(false)
+  })
+})
+
+describe("formatAgentOwnerTooltip", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh-CN")
+  })
+
+  it("中文环境下，ownerName 存在时返回「{owner} 的 Agent」", () => {
+    expect(formatAgentOwnerTooltip("Alice")).toBe("Alice 的 Agent")
+  })
+
+  it("中文环境下，ownerName 为 null / undefined / 空白时回落为「已注销用户的 Agent」", () => {
+    expect(formatAgentOwnerTooltip(null)).toBe("已注销用户的 Agent")
+    expect(formatAgentOwnerTooltip(undefined)).toBe("已注销用户的 Agent")
+    expect(formatAgentOwnerTooltip("")).toBe("已注销用户的 Agent")
+    expect(formatAgentOwnerTooltip("   ")).toBe("已注销用户的 Agent")
+  })
+
+  it("英文环境下，ownerName 存在时返回「{owner}'s Agent」", async () => {
+    await i18n.changeLanguage("en")
+    expect(formatAgentOwnerTooltip("Alice")).toBe("Alice's Agent")
+  })
+
+  it("英文环境下，ownerName 为 null / 空白时回落为「Deleted User's Agent」", async () => {
+    await i18n.changeLanguage("en")
+    expect(formatAgentOwnerTooltip(null)).toBe("Deleted User's Agent")
+    expect(formatAgentOwnerTooltip("   ")).toBe("Deleted User's Agent")
   })
 })

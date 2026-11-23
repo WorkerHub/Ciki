@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { toast } from "sonner"
@@ -1060,7 +1060,7 @@ describe("阅读页标题下署名行", () => {
     expect(badges).toHaveLength(2)
   })
 
-  it("当创建者是带 ownerName 的 Agent 时，呈现「{agent}（{owner} 的 Agent）」且不叠加 Agent 徽标", async () => {
+  it("当创建者是带 ownerName 的 Agent 时，署名行只留名字与 Agent 小标记（去括号后缀），悬停/聚焦头像展示「{ownerName} 的 Agent」", async () => {
     vi.mocked(pagesApi.get).mockResolvedValue({
       ...page,
       createdByName: "deploy-bot",
@@ -1073,10 +1073,53 @@ describe("阅读页标题下署名行", () => {
     })
     renderView()
 
-    expect(
-      await screen.findByText("deploy-bot（Alice 的 Agent）")
-    ).toBeInTheDocument()
+    expect(await screen.findByText("deploy-bot")).toBeInTheDocument()
+    expect(screen.queryByText(/（Alice 的 Agent）/)).toBeNull()
+    expect(screen.queryByText(/(Alice's Agent)/)).toBeNull()
+    expect(screen.getByText("Agent")).toBeInTheDocument()
+
+    const trigger = screen.getByRole("button", { name: "Alice 的 Agent" })
+    fireEvent.focus(trigger)
+    expect(await screen.findByText("Alice 的 Agent")).toBeInTheDocument()
+  })
+
+  it("当创建者是 Agent 但 owner 已注销（ownerName 为 null）时，悬停/聚焦头像回落为「已注销用户的 Agent」", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "deploy-bot",
+      createdByAvatarUrl: null,
+      createdByIsAgent: true,
+      createdByOwnerName: null,
+      updatedByName: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("deploy-bot")).toBeInTheDocument()
+    expect(screen.getByText("Agent")).toBeInTheDocument()
+
+    const trigger = screen.getByRole("button", { name: "已注销用户的 Agent" })
+    fireEvent.focus(trigger)
+    expect(await screen.findByText("已注销用户的 Agent")).toBeInTheDocument()
+  })
+
+  it("当创建者为真人作者时，不显示 Agent 标记，头像无 Tooltip 悬停提示", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "张三",
+      createdByAvatarUrl: null,
+      createdByIsAgent: false,
+      createdByOwnerName: "Alice",
+      updatedByName: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("张三")).toBeInTheDocument()
     expect(screen.queryByText("Agent")).toBeNull()
+    expect(screen.queryByRole("button", { name: /Agent/ })).toBeNull()
   })
 
   it("英文环境下展示 Created 与 Last edited", async () => {
@@ -1100,6 +1143,37 @@ describe("阅读页标题下署名行", () => {
     expect(screen.getByText(/^Last edited /)).toBeInTheDocument()
     expect(screen.queryByText(/创建于/)).toBeNull()
     expect(screen.queryByText(/最后编辑于/)).toBeNull()
+  })
+
+  it("英文环境下 Agent 作者头像提示展示「{owner}'s Agent」，注销回落为「Deleted User's Agent」", async () => {
+    await i18n.changeLanguage("en")
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "deploy-bot",
+      createdByAvatarUrl: null,
+      createdByIsAgent: true,
+      createdByOwnerName: "Alice",
+      updatedByName: "sync-agent",
+      updatedByAvatarUrl: null,
+      updatedByIsAgent: true,
+      updatedByOwnerName: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-09T03:00:00.000Z"
+    })
+    renderView()
+
+    expect(await screen.findByText("deploy-bot")).toBeInTheDocument()
+    expect(screen.getByText("sync-agent")).toBeInTheDocument()
+
+    const createdTrigger = screen.getByRole("button", { name: "Alice's Agent" })
+    fireEvent.focus(createdTrigger)
+    expect(await screen.findByText("Alice's Agent")).toBeInTheDocument()
+
+    const updatedTrigger = screen.getByRole("button", {
+      name: "Deleted User's Agent"
+    })
+    fireEvent.focus(updatedTrigger)
+    expect(await screen.findByText("Deleted User's Agent")).toBeInTheDocument()
   })
 })
 
