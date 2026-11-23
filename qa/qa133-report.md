@@ -1,0 +1,64 @@
+# QA 验收报告（签收表）：#133 运行时真跑——阅读页更多菜单 + 编辑页预览
+
+- **被测对象**：Ciki `main` HEAD `7464e1b`（含 #227 阅读页更多菜单、#228 编辑页预览两提交）；本地构建 `v1.0.0-235-7464e1b`（wrangler dev :8893 真跑）
+- **生产自证**：验收开始时 `GET https://ciki.oneboy.app/api/public` → `v1.0.0-235-7464e1b` 与本地同 commit；验收完成时生产已滚动至 `v1.0.0-236-4c9e538`，经 `git diff 7464e1b..4c9e538` 核对仅改 `excalidraw.test.tsx` 与 `test/setup.ts` 两个测试设施文件，**零运行时代码改动**，本结论对生产现状适用
+- **验收方式**：Playwright 真浏览器实测（本地可写实例，管理员会话 storageState 注入），逐项监听 `/api/` 请求 + 截图留证；**非代码推断**。测试页 id=1「验收·更多菜单与预览（真跑）」每轮跑前经 API 幂等重置（fresh 嵌入 + PUT 原文 + 历史裁剪到 1 版）；生产匿名全 401，未写生产任何数据
+- **总判定**：**19/19 项通过，0 项不通过，建议签收**（连跑两轮一致）
+
+## 签收表
+
+证据文件位于 `/tmp/ciki-acc-230/evidence/`（下表只列文件名）；网络量测见同目录 `network.json`，逐项明细见 `results.json`。
+
+### A 场景：阅读页更多菜单（1440×900）
+
+| # | 判定标准 | 测法 | 结果 | 证据 |
+|---|---|---|---|---|
+| A1 | 菜单展开，四项齐全且顺序=移动/下载 .md/历史/删除，删除项红色危险样式 | 点省略号触发钮（aria-label「页面…操作」），读 `[role=menu]` 内 menuitem 顺序与删除项 class | **通过**：items=`["移动","下载 .md","历史","删除"]`，删除项含 `text-destructive` | 01-read-toolbar-default.png, 02-menu-open.png |
+| A2 | 点击菜单外区域菜单关闭 | 开菜单前取标题坐标，开后按坐标 mouse.click 点外，断言菜单消失 | **通过**：closedByOutside=true | 03-menu-closed-outside.png |
+| A3 | 菜单展开时按 Esc 菜单关闭 | 键盘 Esc 后断言 `[role=menu]` 消失 | **通过**：closedByEsc=true | 04-menu-closed-esc.png |
+| A4 | 「移动」菜单项打开原移动对话框，取消后不移动 | 点菜单项→断言对话框标题→点「取消」→统计 PUT `/api/pages/1` 次数 | **通过**：dialogTitle=`移动「验收·更多菜单与预览（真跑）」`，moveRequests=0 | 05-move-dialog.png |
+| A5 | 「下载 .md」菜单项触发原下载流程 | 注册 download 事件后点菜单项，保存产物并解包核对 | **通过**：本页含站内嵌入→按现行导出口径回 zip=`验收·更多菜单与预览（真跑）.zip`（`<标题>.md`+`embeds/embed-a.html`）；包内 md 含首段文字=true、链接已相对化=true、嵌入文件在包内=true。与改版前同一条 `GET /api/pages/:id/download` 链路，仅入口改经菜单 | 06-after-download.png, 验收·更多菜单与预览（真跑）.zip（解包核对 dlzip/） |
+| A6 | 「历史」菜单项打开版本历史对话框，可见「第 N 版」条目 | 点菜单项→等列表异步渲染→断言对话框与条目→Esc 关闭 | **通过**：含"版本历史"=true，版本条目=`["第 16 版"]` | 07-history-dialog.png |
+| A7 | 「删除」菜单项弹删除确认，取消后页面未删 | 点菜单项→断言 AlertDialog 文案→点「取消」→断言无 DELETE 请求且页面仍在 | **通过**：确认框文案命中=true，DELETE 请求=0，页面仍在=true | 08-delete-confirm.png |
+
+### B 场景：编辑页预览（1440×900；操作链=改一段文字+替换一块嵌入→预览→返回编辑→预览态保存→回阅读页）
+
+| # | 判定标准 | 测法 | 结果 | 证据 |
+|---|---|---|---|---|
+| B1 | 编辑页有「预览」按钮，点击进入预览态，工具条出现并渲染当前编辑内容 | 点「预览」→断言 toolbar、段落文本、嵌入 iframe | **通过**：toolbar=true，iframe=本轮嵌入A key（=版本A=true） | 09-preview-initial.png |
+| B2 | 进入/退出预览不调用保存接口 | 进/出预览前后统计 PUT `/api/pages/1` 次数 | **通过**：enterΔ=0，exitΔ=0 | network.json（PUT 计数） |
+| B3a | 编辑中可改一段文字 | ProseMirror 段落定位行尾 + keyboard.type 追加「【文字改动α】」 | **通过**：段落=`…核验。【文字改动α】` | results.json（全文断言） |
+| B3b | 编辑中可改一块嵌入内容 | 点 `data-html-embed-replace`→filechooser 上传 embed-b.html→断言卡片名 | **通过**：data-html-embed-name="embed-b.html" | results.json（卡片名断言） |
+| B3c | 两处改动后显示未保存状态 | 读 `span[aria-live='polite']` 状态行 | **通过**：状态行="有未保存的更改" | 10-edited-both.png |
+| B4 | 预览所见=当前编辑内容（文字改动+新嵌入B+iframe 内为版本B 内容） | 预览态读段落、iframe src、穿 iframe 读 h2 | **通过**：para含α=true；iframe 已非版本A=true；frameH2="嵌入内容版本B" | 11-preview-edited.png, 12-preview-content.png |
+| B5 | 返回编辑后两处改动不丢、未保存状态保留 | 点「返回编辑」→复读段落/卡片名/状态行 | **通过**：段落含α与原文，卡片="embed-b.html"，状态="有未保存的更改" | results.json（逐字段断言） |
+| B6a | 预览态保存成功：回阅读页且落库内容=预览所见 | 预览工具条点「保存」→waitForURL `/p/1`→读阅读页段落/iframe/穿 iframe 读 h2 | **通过**：PUT次数=1，阅读页段落含α+原文，iframe=版本B key，frameH2="嵌入内容版本B" | 12-read-after-save.png, 13-read-content.png |
+| B6b | 历史只多一个版本（进出预览期间无版本增长） | 保存前后各查 revisions 接口，比较版本数与增量 | **通过**：before=1([16]) → after=2([17,16])，增量=1 | network.json + results.json |
+| B6c | 预览态保存走既有路径（同一 PUT 端点、现行回跳口径） | 网络监听保存请求方法/URL + 落地 URL 断言 | **通过**：PUT `/api/pages/1` ×1，保存后回 `/p/1` | network.json |
+
+### C 场景：窄屏 390×844（isMobile + hasTouch）
+
+| # | 判定标准 | 测法 | 结果 | 证据 |
+|---|---|---|---|---|
+| C1 | 菜单展开可见、四项全部在视口内、Esc 与点外关闭可用、无横向溢出 | 触发菜单→量测菜单与四项 boundingBox→Esc 关闭→touchscreen.tap 点标题（真实移动用户路径）关闭→断言 `scrollWidth≤391` | **通过**：menuBox={x:78.8, y:254.5, w:153.8, h:108.6} 全落视口内，itemsInViewport=true，esc=true，outside=true，无横向溢出=true | 13-narrow-menu.png |
+| C2 | 预览顶栏完整可见、返回编辑/保存按钮在视口内可点、无横向溢出、返回编辑可用 | 进预览→量测工具条/两按钮 boundingBox→点返回编辑断言回到编辑态 | **通过**：toolbar={x:16,y:76,w:358,h:50}，返回编辑钮与保存钮均在视口内且可点，backOk=true，无横向溢出=true | 14-narrow-preview.png |
+
+## 失败项复现路径
+
+**无不通过项**（最终轮 19/19）。以下为验收过程中如实记录的两类非判定失败，均属测试工具口径或非产品缺陷：
+
+1. **A6 假失败一轮**：版本历史列表为异步加载，快照早于「第 N 版」渲染时 innerText 为空（1/3 轮）。属测试工具时机问题，修正口径为「等待条目渲染后取文本」后恒过。如需复现：开对话框后 0ms 内即读文本（不等待）。
+2. **窄屏点外偶发竞态（自动化专属，不判缺陷）**：以数十毫秒间隔「关菜单→立刻重开→立刻点外」的自动化紧凑序列下，实测约 15–25% 概率菜单不关闭（紧凑序列 40 轮中 7 次；嫌疑为 Radix DismissableLayer 监听器挂载竞态）。按真实用户节奏（动作间隔 ≥300ms）+ 触摸输入实测 **42 轮 0 失败**，Esc 关闭全部 60+ 轮恒稳。C1 按真实用户路径（touch + 真实节奏）验收通过；真人操作节奏无法压缩到该竞态窗口。
+
+## 边界说明
+
+- **A5 产物形态**：下载按现行导出口径分流——页含站内嵌入文件→回 zip（`<标题>.md`+`embeds/`），无站内文件→回纯 `.md`；菜单项触发的是原下载链路，行为与改版前一致，非缺陷。
+- **嵌入替换语义**：UI「替换」上传新文件得新 key（非引用预上传对象），B4/B6a 断言按「iframe 已非版本A + 内容=版本B」口径判定，不受 key 变化影响。
+- **版本号口径**：version_no 为页面级递增绝对值，B6b 按「保存后=保存前+1」相对口径判定。
+- **红线遵守**：未改任何被测代码、未代实现者修 bug、未删页/清库/写生产数据；验收期间的全部修正仅涉及测试脚本（选择器、等待时机、断言口径），不涉及产品代码。
+
+## 结论
+
+**19/19 项全部通过（A1–A7、B1–B6c、C1–C2），0 项不通过，建议签收。** #130/#227 与 #131/#228 在 `7464e1b` 构建上运行时行为符合规格：四项原流程（移动/下载/历史/删除含确认）全部经菜单可达且行为不变；预览所见与保存落库内容一致、返回编辑不丢、保存走既有 PUT 路径且历史恰增一版；窄屏下菜单与预览顶栏均可用。
+
+*验收脚本：`/tmp/ciki-acc-230/qa-acceptance.mjs`；原始证据：`/tmp/ciki-acc-230/evidence/`（16 张编号截图 + 下载 zip + results.json + network.json）*
