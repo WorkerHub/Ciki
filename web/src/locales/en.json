@@ -14,6 +14,7 @@
       "en": "English"
     },
     "cancel": "Cancel",
+    "preview": "Preview",
     "save": "Save",
     "retry": "Retry",
     "theme": {
@@ -333,6 +334,9 @@
       "reload": "Reload",
       "readOnly": "You are a read-only member of this space, so you cannot edit pages.",
       "backToRead": "Back to reading",
+      "backToEdit": "Back to edit",
+      "preview": "Preview",
+      "previewToolbar": "Preview toolbar",
       "titleLabel": "Page title",
       "titlePlaceholder": "Page title",
       "styleHint": "The editor and the reading view share one set of styles; every save creates a version you can roll back to.",

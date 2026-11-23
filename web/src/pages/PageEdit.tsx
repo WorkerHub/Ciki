@@ -1,7 +1,8 @@
-import { ArrowLeft, Save, X } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { ArrowLeft, Eye, Save, X } from "lucide-react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useBlocker, useNavigate, useParams } from "react-router"
+import { ArticleToc } from "@/components/ArticleToc"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
+import { ReadView } from "@/editor/ReadView"
 import {
   editorPayload,
   parseContentJson,
@@ -32,6 +34,8 @@ import { formatTime } from "@/lib/format"
 import { pagePath, parseIdParam } from "@/lib/routes"
 import { readScrollAnchor, restoreScrollAnchor } from "@/lib/scroll-anchor"
 import { canEdit } from "@/lib/space"
+import { extractToc } from "@/lib/toc"
+import { cn } from "@/lib/utils"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -57,17 +61,37 @@ export function PageEdit() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [savedAt, setSavedAt] = useState<string | null>(null)
+  const [isPreview, setIsPreview] = useState(false)
+  const [previewHtml, setPreviewHtml] = useState("")
+  const [previewContentRoot, setPreviewContentRoot] =
+    useState<HTMLElement | null>(null)
   const role = useSpaceRole(page?.spaceId)
   const readOnly = page !== null && !canEdit(role)
   const syncedPage = useRef<number | null>(null)
   /** 显式放行离开（放弃修改、或保存按钮保存成功自动返回阅读）：blocker 不能再拦。 */
   const bypassBlocker = useRef(false)
 
+  const previewToc = useMemo(() => extractToc(previewHtml), [previewHtml])
+  const previewHeadingIds = useMemo(
+    () => previewToc.map((item) => item.id),
+    [previewToc]
+  )
+
   const editor = useWikiEditor({
     contentJson: page?.contentJson ?? "",
     onUpdate: () => setDirty(true),
     onError: setSaveError
   })
+
+  const enterPreview = useCallback(() => {
+    if (!editor) return
+    setPreviewHtml(editor.getHTML())
+    setIsPreview(true)
+  }, [editor])
+
+  const backToEdit = useCallback(() => {
+    setIsPreview(false)
+  }, [])
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken 只是「重新加载」的触发器
   useEffect(() => {
@@ -76,6 +100,8 @@ export function PageEdit() {
       setPage(null)
       setLoading(false)
       setNotFound(true)
+      setIsPreview(false)
+      setPreviewHtml("")
       return
     }
     let alive = true
@@ -87,6 +113,8 @@ export function PageEdit() {
     setLoadError("")
     setNotFound(false)
     setLoading(true)
+    setIsPreview(false)
+    setPreviewHtml("")
     pagesApi
       .getForEditor(pageId)
       .then((detail) => {
@@ -307,77 +335,180 @@ export function PageEdit() {
 
   return (
     <div className="space-y-3">
-      <header className="space-y-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={() => navigate(pagePath(pageId))}
-          className="text-muted-foreground"
-        >
-          <ArrowLeft aria-hidden="true" />
-          {t("page.edit.backToRead")}
-        </Button>
-        <Input
-          value={title}
-          onChange={(event) => {
-            setTitle(event.target.value)
-            setDirty(true)
-          }}
-          aria-label={t("page.edit.titleLabel")}
-          name="page-title"
-          maxLength={255}
-          placeholder={t("page.edit.titlePlaceholder")}
-          className="h-auto border-0 bg-transparent px-0 font-heading text-[1.75rem] font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-[1.75rem] dark:bg-transparent"
-        />
-        <Separator />
-        <p className="text-[11px] text-muted-foreground">
-          {t("page.edit.styleHint")}
-        </p>
-      </header>
+      {/* 编辑态顶栏与编辑器 */}
+      <div
+        className={cn("space-y-3", isPreview && "hidden")}
+        hidden={isPreview}
+      >
+        <header className="space-y-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => navigate(pagePath(pageId))}
+            className="text-muted-foreground"
+          >
+            <ArrowLeft aria-hidden="true" />
+            {t("page.edit.backToRead")}
+          </Button>
+          <Input
+            value={title}
+            onChange={(event) => {
+              setTitle(event.target.value)
+              setDirty(true)
+            }}
+            aria-label={t("page.edit.titleLabel")}
+            name="page-title"
+            maxLength={255}
+            placeholder={t("page.edit.titlePlaceholder")}
+            className="h-auto border-0 bg-transparent px-0 font-heading text-[1.75rem] font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-[1.75rem] dark:bg-transparent"
+          />
+          <Separator />
+          <p className="text-[11px] text-muted-foreground">
+            {t("page.edit.styleHint")}
+          </p>
+        </header>
 
-      {/* 全页唯一的保存入口：状态与按钮都在吸顶工具条的行尾，长文滚到哪儿都能存。 */}
-      <WikiEditorSurface
-        editor={editor}
-        error={saveError}
-        onError={setSaveError}
-        currentPageId={pageId}
-        actions={
-          <>
-            <span
-              className="whitespace-nowrap text-xs text-muted-foreground"
-              aria-live="polite"
+        {/* 全页唯一的保存入口：状态与按钮都在吸顶工具条的行尾，长文滚到哪儿都能存。 */}
+        <WikiEditorSurface
+          editor={editor}
+          error={saveError}
+          onError={setSaveError}
+          currentPageId={pageId}
+          actions={
+            <>
+              <span
+                className="whitespace-nowrap text-xs text-muted-foreground"
+                aria-live="polite"
+              >
+                {saving
+                  ? t("page.edit.saving")
+                  : dirty
+                    ? t("page.edit.unsaved")
+                    : savedAt
+                      ? t("page.edit.savedAt", { time: formatTime(savedAt) })
+                      : ""}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={cancelEdit}
+                disabled={saving}
+              >
+                <X aria-hidden="true" />
+                {t("common.cancel")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={enterPreview}
+                disabled={saving || !ready}
+              >
+                <Eye aria-hidden="true" />
+                {t("page.edit.preview")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void handleSave()}
+                disabled={saving || !ready}
+              >
+                <Save aria-hidden="true" />
+                {t("common.save")}
+              </Button>
+            </>
+          }
+        />
+      </div>
+
+      {/* 预览态 */}
+      {isPreview ? (
+        <div className="space-y-4" data-page-preview="">
+          <div
+            data-editor-sticky-bar=""
+            className="sticky top-0 z-30 bg-background pt-2"
+          >
+            <div
+              role="toolbar"
+              aria-label={t("page.edit.previewToolbar")}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card p-1.5"
             >
-              {saving
-                ? t("page.edit.saving")
-                : dirty
-                  ? t("page.edit.unsaved")
-                  : savedAt
-                    ? t("page.edit.savedAt", { time: formatTime(savedAt) })
-                    : ""}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={cancelEdit}
-              disabled={saving}
-            >
-              <X aria-hidden="true" />
-              {t("common.cancel")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => void handleSave()}
-              disabled={saving || !ready}
-            >
-              <Save aria-hidden="true" />
-              {t("common.save")}
-            </Button>
-          </>
-        }
-      />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={backToEdit}
+                disabled={saving}
+              >
+                <ArrowLeft aria-hidden="true" />
+                {t("page.edit.backToEdit")}
+              </Button>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className="whitespace-nowrap text-xs text-muted-foreground"
+                  aria-live="polite"
+                >
+                  {saving
+                    ? t("page.edit.saving")
+                    : dirty
+                      ? t("page.edit.unsaved")
+                      : savedAt
+                        ? t("page.edit.savedAt", { time: formatTime(savedAt) })
+                        : ""}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void handleSave()}
+                  disabled={saving || !ready}
+                >
+                  <Save aria-hidden="true" />
+                  {t("common.save")}
+                </Button>
+              </div>
+            </div>
+            {saveError ? (
+              <p
+                role="alert"
+                className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {saveError}
+              </p>
+            ) : null}
+          </div>
+
+          <header className="space-y-2">
+            <h1 className="font-heading text-[1.75rem] font-semibold tracking-tight md:text-[1.75rem]">
+              {title.trim() || t("page.untitled")}
+            </h1>
+            <Separator />
+          </header>
+
+          {previewHtml.trim() ? (
+            <div className="flex">
+              <div className="min-w-0 flex-1">
+                <ReadView
+                  html={previewHtml}
+                  headingIds={previewHeadingIds}
+                  onReady={setPreviewContentRoot}
+                  pageId={pageId ?? undefined}
+                  canWrite={false}
+                />
+              </div>
+              <ArticleToc items={previewToc} contentRoot={previewContentRoot} />
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border px-6 py-10 text-center">
+              <p className="text-sm text-muted-foreground">
+                {t("page.view.empty.body")}
+              </p>
+            </div>
+          )}
+        </div>
+      ) : null}
 
       <AlertDialog open={blocker.state === "blocked"}>
         <AlertDialogContent>
