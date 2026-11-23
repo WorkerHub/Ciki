@@ -13,6 +13,23 @@ import { sanitizeExcalidrawSceneJson } from "./excalidraw-sanitize"
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 export const MAX_SCENE_BYTES = 2 * 1024 * 1024
+export const MAX_EMBED_BYTES = 1024 * 1024
+
+/** embed 下发的 Content-Type（含字符集，规格 §2 要求逐字带上）。 */
+export const EMBED_CONTENT_TYPE = "text/html; charset=utf-8"
+
+/** embed 文件 key 形状：`embeds/<uuid>.html`，与原文件名无关、永不迁移。 */
+export const EMBED_KEY_RE =
+  /^embeds\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.html$/
+
+/**
+ * embed 下发的 CSP（规格 §2 安全硬要求）：`sandbox` 指令让文件即使被顶层打开也是
+ * opaque origin——读不到站内 localStorage、发不出带凭据的请求；`default-src 'none'`
+ * 再封死一切外链资源，只放行内联脚本/样式与 data:/blob: 媒体。动画必须是单文件
+ * 自包含，外链一律由 CSP 阻断，没有白名单。
+ */
+export const EMBED_CONTENT_SECURITY_POLICY =
+  "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 
 /** 新上传 key 的来源类别（规格 §1）：只决定 key 的前缀目录。 */
 export type UploadCategory = "avatars" | "pages" | "imports"
@@ -259,4 +276,113 @@ export async function handleImageUpload(
   const stored = await storeImageUpload(c, uploaderId, category)
   if (!stored.ok) return stored.response
   return c.json(stored.image, 201)
+}
+
+/**
+ * embed 上传（规格 §2）：只收 `.html`、≤1MB、不做任何消毒。
+ *
+ * 安全完全落在「下发 + 渲染隔离」两层（规格 §3/§4）：下发带 CSP `sandbox` 与
+ * `nosniff`，读态 iframe 再叠 `sandbox="allow-scripts"`。因此这里只做类型与体积
+ * 校验，key 用随机 UUID、绝不落原文件名。
+ */
+
+export type EmbedUploadRead = { ok: true; bytes: Uint8Array } | UploadRejected
+
+/**
+ * 读取并校验 `multipart/form-data` 单文件：content-length 预检 → 解析表单 →
+ * `file` 字段存在 → 扩展名必须是 `.html` → 大小 ≤1MB。失败时把可直接返回的响应
+ * 带出来，调用方不必重复这套口径。
+ */
+export async function readEmbedUpload(
+  c: Context<HonoEnv>
+): Promise<EmbedUploadRead> {
+  const declared = Number.parseInt(c.req.header("content-length") ?? "0", 10)
+  if (declared > MAX_EMBED_BYTES + 1024) {
+    return {
+      ok: false,
+      response: c.json({ error: "File too large", code: "FILE_TOO_LARGE" }, 413)
+    }
+  }
+
+  let form: Record<string, string | File>
+  try {
+    form = await c.req.parseBody()
+  } catch {
+    return {
+      ok: false,
+      response: c.json({ error: "Expected multipart/form-data" }, 400)
+    }
+  }
+
+  const file = form.file
+  if (!(file instanceof File)) {
+    return { ok: false, response: c.json({ error: "Missing file field" }, 400) }
+  }
+
+  if (!file.name.toLowerCase().endsWith(".html")) {
+    return {
+      ok: false,
+      response: c.json({ error: "Only .html files are accepted" }, 400)
+    }
+  }
+
+  if (file.size > MAX_EMBED_BYTES) {
+    return {
+      ok: false,
+      response: c.json({ error: "File too large", code: "FILE_TOO_LARGE" }, 413)
+    }
+  }
+
+  return { ok: true, bytes: new Uint8Array(await file.arrayBuffer()) }
+}
+
+/** 落盘后的元数据：与图片上传同一响应形状（key / url / contentType / size）。 */
+export interface StoredEmbed {
+  key: string
+  url: string
+  contentType: string
+  size: number
+}
+
+export type EmbedStored = { ok: true; embed: StoredEmbed } | UploadRejected
+
+/**
+ * 校验 + 落 R2：key 固定 `embeds/<uuid>.html`，customMetadata 记 uploaderId 与
+ * category。与图片落盘分开一支实现——embed 没有魔数/消毒预检，也不走 `sniffImage`。
+ */
+export async function storeEmbedUpload(
+  c: Context<HonoEnv>,
+  uploaderId: number
+): Promise<EmbedStored> {
+  const read = await readEmbedUpload(c)
+  if (!read.ok) return read
+
+  const { bytes } = read
+  const key = `embeds/${crypto.randomUUID()}.html`
+  await c.env.R2.put(key, bytes, {
+    httpMetadata: { contentType: EMBED_CONTENT_TYPE },
+    customMetadata: { uploaderId: String(uploaderId), category: "embeds" }
+  })
+
+  return {
+    ok: true,
+    embed: {
+      key,
+      url: `/api/files/${key}`,
+      contentType: EMBED_CONTENT_TYPE,
+      size: bytes.length
+    }
+  }
+}
+
+/**
+ * 处理 `multipart/form-data` 单文件 embed 上传：成功 201，响应形状与图片上传一致。
+ */
+export async function handleEmbedUpload(
+  c: Context<HonoEnv>,
+  uploaderId: number
+): Promise<Response> {
+  const stored = await storeEmbedUpload(c, uploaderId)
+  if (!stored.ok) return stored.response
+  return c.json(stored.embed, 201)
 }

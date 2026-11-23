@@ -11,6 +11,7 @@
  * （规格「页尾评论」§三，评论区没有图片上传入口，占位没有意义）。
  */
 import xss, { FilterXSS, escapeAttrValue } from "xss"
+import { EMBED_KEY_RE } from "./upload"
 
 export const MAX_TITLE_LENGTH = 255
 export const MAX_JSON_BYTES = 800_000
@@ -131,7 +132,7 @@ const whitelist = {
   li: ["data-type", "data-checked"],
   label: [],
   input: ["type", "checked", "disabled"],
-  div: ["class"]
+  div: ["class", "data-type", "data-key", "data-height", "data-name"]
 }
 
 const STRIP_TAG_BODY = [
@@ -208,6 +209,29 @@ function createFilter(policy: ImageSrcPolicy): FilterXSS {
       }
       if (tag === "div" && name === "class") {
         return value === "tableWrapper" ? undefined : ""
+      }
+      // Embed 内容块载具（div[data-type="html-embed"]）：type 只认 html-embed，
+      // key 必须匹配 embeds/<uuid>.html，height 只收 200–2000 的整数，
+      // name 是原始文件名（任意字符串，交给 xss 转义）。
+      // 仅页面正文，不进评论（policy === "comment" 时剥除）。
+      if (tag === "div" && name === "data-type") {
+        if (policy === "comment") return ""
+        return value === "html-embed" ? undefined : ""
+      }
+      if (tag === "div" && name === "data-key") {
+        if (policy === "comment") return ""
+        return EMBED_KEY_RE.test(value) ? undefined : ""
+      }
+      if (tag === "div" && name === "data-height") {
+        if (policy === "comment") return ""
+        const height = /^\d+$/.test(value) ? Number(value) : null
+        return height !== null && height >= 200 && height <= 2000
+          ? undefined
+          : ""
+      }
+      if (tag === "div" && name === "data-name") {
+        if (policy === "comment") return ""
+        return undefined
       }
       if (tag === "input" && name === "type") {
         return value === "checkbox" ? undefined : ""

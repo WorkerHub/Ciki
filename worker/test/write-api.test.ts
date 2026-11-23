@@ -1440,4 +1440,122 @@ describe("写接口：图片上传（第五端点）", () => {
     expect(body.contentHtml).toContain(uploaded.url)
     expect(body.contentHtml).not.toContain("data-original-src")
   })
+
+  it("写接口：embed 上传（POST /api/write/files/embeds）与建页一条龙", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    const { token } = await issueWriteToken(env, admin)
+
+    const html = "<!DOCTYPE html><html><body><h1>Animation</h1></body></html>"
+    const htmlBytes = new TextEncoder().encode(html)
+    const form = new FormData()
+    form.append(
+      "file",
+      new File([htmlBytes], "anim.html", { type: "text/html" })
+    )
+
+    // 1. write 令牌上传
+    const res = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: form
+    })
+    expect(res.status).toBe(201)
+    const embed = (await res.json()) as UploadedImage
+    expect(embed.key).toMatch(/^embeds\/[0-9a-f-]{36}\.html$/)
+    expect(embed.url).toBe(`/api/files/${embed.key}`)
+    expect(embed.contentType).toBe("text/html; charset=utf-8")
+    expect(embed.size).toBe(htmlBytes.length)
+    expect(r2.store.has(embed.key)).toBe(true)
+
+    // 2. read 令牌与会话 Cookie 被拒 401
+    const readToken = await createApiToken(env, admin, "read")
+    const readRes = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { authorization: `Bearer ${readToken.token}` },
+      body: form
+    })
+    expect(readRes.status).toBe(401)
+
+    const sessionRes = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { cookie: admin },
+      body: form
+    })
+    expect(sessionRes.status).toBe(401)
+
+    // 3. 校验：非 .html 400，超 1MB 413
+    const badForm = new FormData()
+    badForm.append(
+      "file",
+      new File([htmlBytes], "anim.txt", { type: "text/plain" })
+    )
+    const badRes = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: badForm
+    })
+    expect(badRes.status).toBe(400)
+
+    const bigForm = new FormData()
+    bigForm.append(
+      "file",
+      new File([new Uint8Array(1024 * 1024 + 1)], "big.html", {
+        type: "text/html"
+      })
+    )
+    const bigRes = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}` },
+      body: bigForm
+    })
+    expect(bigRes.status).toBe(413)
+
+    // 4. 一条龙建页：在 content_json 中引用 htmlEmbed 节点
+    const createPageRes = await writeRequest(
+      env,
+      token,
+      "POST",
+      "/api/write/pages",
+      {
+        title: "带 embed 动画页",
+        content_json: JSON.stringify({
+          type: "doc",
+          content: [
+            {
+              type: "htmlEmbed",
+              attrs: {
+                key: embed.key,
+                height: 500,
+                name: "anim.html"
+              }
+            }
+          ]
+        })
+      }
+    )
+    expect(createPageRes.status).toBe(201)
+    const page = (await createPageRes.json()) as PageMeta
+
+    // 5. 会话读回：contentHtml 包含合法的 html-embed 载具，contentMd 包含派生链接
+    const detail = await jsonRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}`,
+      undefined,
+      admin
+    )
+    expect(detail.status).toBe(200)
+    const detailBody = (await detail.json()) as {
+      contentHtml: string
+      contentMd: string
+    }
+    expect(detailBody.contentHtml).toContain('data-type="html-embed"')
+    expect(detailBody.contentHtml).toContain(`data-key="${embed.key}"`)
+    expect(detailBody.contentHtml).toContain('data-height="500"')
+    expect(detailBody.contentHtml).toContain('data-name="anim.html"')
+    expect(detailBody.contentMd).toContain(
+      `[HTML 动画：anim.html](https://ciki.oneboy.app/api/files/${embed.key})`
+    )
+  })
 })

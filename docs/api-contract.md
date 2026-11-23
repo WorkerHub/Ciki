@@ -509,6 +509,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 `{"dryRun": false}` 的 200 与上面逐字段相同，只是**不含** `prunable` / `prunableBytes`。
 
 字段口径：`scanned` = **本 kind 那个桶**的对象总数（分页列全桶）；`referenced` = 引用集去重后的 key 数——`images` 为 `users.avatar_key` ∪ 全部页面 `content_html`/`content_md` ∪ 全部历史版本正文（从内容桶取回解压后扫）里的 `/api/files/<key>`，回收站页面与它们的版本同样计入；`content` 为全部 `pages.content_hash` ∪ 全部 `page_revisions.content_hash`（含回收站）；`deleted` = 本轮删除数（`dryRun` 时为「按 200 上限的将删数」，触顶同样置 `truncated`）；`youngSkipped` = 未被引用但 uploaded 距今不足 30 天而跳过的对象数；`failed` = 单个对象删除失败数（不中断整轮）；`truncated` = 是否因单轮删除上限（200）而停止删除；`prunable` = 满足「未被引用且 uploaded 距今 >30 天」的对象总数，**不受 200 上限截断**；`prunableBytes` = 上述对象的 R2 对象大小之和（字节）。
+（注：`images` 清理范围覆盖 `ciki-assets` 桶全量资产，包含 `avatars/`、`pages/`、`imports/` 以及 `embeds/` 动画文件；引用扫描同时匹配 Excalidraw 画布块与 htmlEmbed 内容块的 `data-key`、`sceneKey` 与 TipTap JSON 中的 `key`，被引用的 embed 资产不误删，删页或删块后孤儿可清）。
 
 `prunable` / `prunableBytes` 只出现在 dry run 响应里，不入日志表——实跑命中 200 上限时 `deleted` 会小于第一步看到的 `prunable`，这是「再点一次接着删」的正常状态（不是失败）：前端第二步据 `truncated: true` 提示「本轮已删 200 个，仍有剩余，可再跑一轮」。
 
@@ -1545,25 +1546,28 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
 
 #### GET /api/pages/:id/download
 
-阅读页「下载 .md」的服务端入口：按页面 MD 里有没有**站内图**自动分流，含站内图的页面下 zip 包（入口与按钮文案不变）。权限与 `GET /api/pages/:id` 同一口径：非成员、页面不存在、已软删一律 404；走 `/api/pages` 的会话中间件，只读令牌与导入令牌都进不来。
+阅读页「下载 .md」的服务端入口：按页面 MD 里有没有**站内图或 htmlEmbed 动画**自动分流，含站内图或 embed 动画的页面下 zip 包（入口与按钮文案不变）。权限与 `GET /api/pages/:id` 同一口径：非成员、页面不存在、已软删一律 404；走 `/api/pages` 的会话中间件，只读令牌与导入令牌都进不来。
 
 - **站内图**（分流依据）= MD 里形如 `![alt](https://ciki.oneboy.app/api/files/<key>)` 的图片引用，且 `<key>` 满足 `/api/files` 的 key 形状（`pages|imports|avatars/<uuid>.<ext>` 或存量平铺 `<uuid>.<ext>`）。站外图、形状不合规的本站地址（`svg`、非 UUID 等）都不算。
+- **站内 embed**（分流依据）= MD 里形如 `[HTML 动画：<name>](https://ciki.oneboy.app/api/files/<key>)` 的链接引用，且 `<key>` 满足 `embeds/<uuid>.html`。
 - **产物口径**：文件名主名沿用一期 `markdownFilename` 的规则（丢控制字符 → `[\\/:*?"<>|]` 换 `-` → 连续 `-` 折成一个 → 去首尾 `-` / `.` / 空白 → 空则「未命名页面」），中文原样由 `filename*` 承载；`filename` 给 ASCII 兜底（非 ASCII 字符换 `-` 后折叠，折叠后为空用 `page`）。
 - 正文取值与只读接口一致：库里有 `content_md` 就用，没有就按需现生成。
 
-**无站内图 → 200 `.md`**：`Content-Type: text/markdown; charset=utf-8`，`Content-Disposition: attachment; filename="<ASCII兜底>.md"; filename*=UTF-8''<百分号编码>`。正文与一期前端产物逐字节一致：`# <title.trim()>\n\n<contentMd.trimEnd()>\n`，正文为空时只有 `# <title.trim()>\n`。
+**无站内图且无 embed → 200 `.md`**：`Content-Type: text/markdown; charset=utf-8`，`Content-Disposition: attachment; filename="<ASCII兜底>.md"; filename*=UTF-8''<百分号编码>`。正文与一期前端产物逐字节一致：`# <title.trim()>\n\n<contentMd.trimEnd()>\n`，正文为空时只有 `# <title.trim()>\n`。
 
-**有站内图 → 200 zip**：`Content-Type: application/zip`，主名同 `.md`、扩展名换 `.zip`。包结构：
+**有站内图或 embed → 200 zip**：`Content-Type: application/zip`，主名同 `.md`、扩展名换 `.zip`。包结构：
 
 ```text
 <标题>.md           # 与 .md 产物同款：标题行 + 空行 + 正文
 images/<basename>   # 每张被引用站内图一份；同图被多次引用只入一份
+embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字取自 attrs.name
 ```
 
 - `images/` 下的文件名取 key 的 basename（`pages/<uuid>.png` → `<uuid>.png`）；真撞名（如 `pages/<uuid>.png` 与 `imports/<uuid>.png`）按 key 全路径下划线化兜底。
+- `embeds/` 下的文件名取自节点的 `attrs.name`（原始文件名），清洗控制字符与非法字符；同名冲突按序号递增（`<stem>-2.html`，`<stem>-3.html`），绝不覆盖；缺 name 时退回 key 的 basename。
 - 包内条目按 Unix 语义写：中央目录的 `version made by` = 3（Unix）、外部属性含 `0644` 权限位，非 ASCII 条目名带 UTF-8 标志位（bit 11）。因此 macOS 的系统 `/usr/bin/unzip`、Finder 与其它标准实现都能正确解出中文标题的 `.md`（不置 Unix 语义时 Info-ZIP 会按 DOS 代码页解码中文名而失败）。
-- 包内 MD 只改站内图链接为 `images/<basename>`：alt 原样、站外图地址原样，其余内容与 `.md` 产物逐字一致。
-- 引用的图在 R2 已不存在（如已被孤儿清理）：该图不入包，链接保留原绝对地址，不因个别缺图让整包失败。分流只看引用，所以全部缺图时仍是 zip（包内只有 MD）。
+- 包内 MD 改写站内图链接为 `images/<basename>`，改写 embed 链接为 `[HTML 动画：<name>](embeds/<filename>)`：alt 原样、站外图地址原样，其余内容与 `.md` 产物逐字一致。MD 导入不还原 embed 块（相对链接当普通链接，超出范围）。
+- 引用的图或 embed 在 R2 已不存在（如已被孤儿清理）：该资产不入包，链接保留原绝对地址，不因个别缺失让整包失败。分流只看引用，所以全部缺失时仍是 zip（包内只有 MD）。
 - 只动下载产物：库里 `content_md` 仍是绝对地址版（`GET /api/pages/:id` 的 `contentMd` 口径不变），相对化只发生在组装 zip 时。
 - 组装是流式的：图从 R2 按 key 直读（与 `/api/files` 同源）、逐块写入 zip 响应，不把整包或整图先读进内存；zip 由 fflate 生成。
 
@@ -1796,7 +1800,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 ### 文件
 
-上传的 key 形如 `<类别>/<UUID>.<ext>`，类别按来源分三类：`avatars/`（用户头像，只经 `POST /api/me/avatar` 产生）、`pages/`（正文图：编辑器上传、粘贴带入、编辑页手动上传替换，以及写接口经 `POST /api/write/files` 上传）、`imports/`（剪贴板插件经 `POST /api/import/files` 上传）。**存量平铺 key（`<uuid>.<ext>`）及其一切引用不迁移、不改写**，读接口两种形状都认。
+上传的 key 形如 `<类别>/<UUID>.<ext>`，类别按来源分四类：`avatars/`（用户头像，只经 `POST /api/me/avatar` 产生）、`pages/`（正文图：编辑器上传、粘贴带入、编辑页手动上传替换，以及写接口经 `POST /api/write/files` 上传）、`imports/`（剪贴板插件经 `POST /api/import/files` 上传）、`embeds/`（HTML/JS 动画块，经 `POST /api/files/embeds` 或 `POST /api/write/files/embeds` 上传，存 `ciki-assets` 桶）。**存量平铺 key（`<uuid>.<ext>`）及其一切引用不迁移、不改写**，读接口两种形状都认。
 
 #### POST /api/files
 
@@ -1815,9 +1819,38 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 400 非图片/类型不符；413 `code:"FILE_TOO_LARGE"`。
 
+#### POST /api/files/embeds
+
+`multipart/form-data`，字段名 `file`，单文件。需会话鉴权（页面写权限）。
+
+- 仅接收 `.html` 文件（不区分大小写），单文件上限 1 MB（1048576 字节）。
+- key 采用随机 UUID（形如 `embeds/<uuid>.html`），绝不落原文件名；R2 `customMetadata` 记录 `uploaderId` 与 `category:"embeds"`。
+- **服务端不做 HTML 消毒**：安全依赖下发 CSP 隔离与前端沙箱渲染。
+
+201：
+
+```json
+{
+  "key": "embeds/550e8400-e29b-41d4-a716-446655440000.html",
+  "url": "/api/files/embeds/550e8400-e29b-41d4-a716-446655440000.html",
+  "contentType": "text/html; charset=utf-8",
+  "size": 12345
+}
+```
+
+400 `Only .html files are accepted` / `Missing file field` / `Expected multipart/form-data`；413 `code:"FILE_TOO_LARGE"`。
+
 #### GET /api/files/:key
 
-需会话；返回图片字节，`Content-Type` 为上传时类型，带 `ETag` 与 `Cache-Control: private, max-age=3600`。
+需会话；带 `ETag` 与 `Cache-Control: private, max-age=3600`。未登录 401 + no-store。
+
+1. **普通图片与资产（`pages/` / `avatars/` / `imports/` 或平铺 key）**：返回图片字节，`Content-Type` 为上传时类型。
+2. **Embed 内容块（`embeds/<uuid>.html`，安全硬要求）**：返回 HTML 内容，必须携带以下安全响应头：
+   - `Content-Type: text/html; charset=utf-8`
+   - `X-Content-Type-Options: nosniff`
+   - `Content-Security-Policy: sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`
+
+CSP sandbox 强制 opaque origin（即便用户顶层打开 URL 亦无法访问站内 localStorage / Cookie 或发起同源 API 请求）；外链资源全部阻断、无白名单，动画必须单文件自包含（内联 JS/CSS，图片/字体通过 data: / blob: 嵌入）。
 
 `key` 可含一个类别前缀（`avatars/` / `pages/` / `imports/`），也可以是存量的平铺 key；未知前缀、多级前缀、大写 hex、`svg` 或其它形状一律 404。不存在 404；未登录 401 + no-store。
 
@@ -2221,6 +2254,15 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 400 非支持类型 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`。
 - 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回本人上传的文件字节（严格校验上传者归属，跨账号一律 404，不泄露存在性）。
 
+#### POST /api/write/files/embeds
+
+写接口的 embed 动画上传端点。`multipart/form-data`，字段名 `file`，单文件。
+
+- 校验口径、存储与响应形状与 `POST /api/files/embeds` 完全一致：仅 `.html`、≤1MB、UUID key（`embeds/<uuid>.html`）、不做消毒。
+- 鉴权只认 `kind = write` 令牌；`kind = read` 令牌、导入令牌、会话 Cookie 一律 401。
+- 上传没有空间维度，不查令牌空间范围；持 write 令牌且对目标空间有 editor 角色的 agent 可上传拿 key，再在写页 `content_json` 中引用 `htmlEmbed` 节点一条龙写完。
+- 计入现有 `write` 限流桶（600 次 / 5 分钟）。
+
 ### 服务端消毒规则（content_html）
 
 保存/回滚时执行：保留结构性标签与下列属性，其余一律剥除。
@@ -2233,6 +2275,8 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 链接：`a[href]` 仅 http/https/mailto/相对路径。
 - 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>`（存量平铺）或 `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀；`avatars/` 只服务资料页，不进正文），或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
 - 画布（Excalidraw）：`img[data-type="excalidraw"]`，允许 `data-scene-key`（格式 `pages/<uuid>.json`，必填）、`data-preview-key`（格式 `pages/<uuid>.png`，可选）、`data-extracted-text`、`width`。在回填预览图前，缺 `src` 与 `data-preview-key` 的画布标签正常保留，由读态前端渲染或触发回填。
+- Embed 内容块（TipTap `htmlEmbed`）：`<div data-type="html-embed" data-key="embeds/<uuid>.html" data-height="480" data-name="<filename>"></div>`，属性校验：`data-type` 仅 `html-embed`，`data-key` 必须匹配 `embeds/<uuid>.html`，`data-height` 仅 200–2000 的正整数，`data-name` 为原始文件名。
+  - **仅页面正文，不进评论**：`sanitizeCommentHtml` 会整段剥除这些 embed data 属性。
 - 一律剥除 `script`/`style`/`iframe`/`object`/`embed`/`form` 及所有 `on*` 事件属性、未列出的 class/attr。
 - **评论正文（`comments.body_md`）**：服务端用 `marked` 渲染后再过同一份白名单，与正文只差 `img[src]` 一项——站内 `/api/files/…` 与 `https:` 外链原样保留，`http:` / `data:` / 非法地址删掉 `src`（评论区没有上传入口，不写 `data-original-src` 占位）。`<script>`、事件属性、`javascript:` 链接、白名单外标签一律剥除，与正文同口径。
 

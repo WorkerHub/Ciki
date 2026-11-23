@@ -58,6 +58,7 @@ import {
 import StarterKit from "@tiptap/starter-kit"
 import { GlobalWindow } from "happy-dom"
 import { PREVIEW_KEY_RE, SCENE_KEY_RE } from "./sanitize"
+import { EMBED_KEY_RE } from "./upload"
 
 /** 内容无法按编辑器 schema 渲染（未知节点/属性、结构不合法）。 */
 export class TiptapRenderError extends Error {
@@ -191,6 +192,76 @@ const ImportExcalidraw = Node.create({
 
   renderText({ node }) {
     return node.attrs.extractedText ? `${node.attrs.extractedText}\n` : ""
+  }
+})
+
+/**
+ * Embed 内容块（HTML 动画，规格「Embed 内容块」）：与 web 侧 WikiHtmlEmbed 同名同形。
+ *
+ * 载具结构是带 data 属性的 <div>（不能用 <iframe>：§4 消毒 STRIP_TAG_BODY 会整段
+ * 剥掉 iframe，真正的沙箱 iframe 由 web 读态 NodeView 渲染）：
+ * - data-type="html-embed"
+ * - data-key: R2 文件 key（embeds/<uuid>.html）
+ * - data-height: 显示高度（px，200–2000）
+ * - data-name: 原始文件名（导出 zip 时用）
+ *
+ * 服务端渲染不加载文件内容，只按属性静态渲染这个 div 载具；动画只由前端读态
+ * iframe 执行，服务端永远不碰 embed 文件里的脚本。
+ */
+const ImportHtmlEmbed = Node.create({
+  name: "htmlEmbed",
+  priority: 1000,
+  group: "block",
+  atom: true,
+
+  addAttributes() {
+    return {
+      key: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-key") ?? "",
+        renderHTML: (attributes) => {
+          if (!attributes.key) return {}
+          return { "data-key": attributes.key }
+        }
+      },
+      height: {
+        default: 480,
+        parseHTML: (element) => {
+          const raw = element.getAttribute("data-height")?.trim() ?? ""
+          return /^\d+$/.test(raw) ? Number(raw) : 480
+        },
+        renderHTML: (attributes) => {
+          const height =
+            typeof attributes.height === "number" &&
+            Number.isFinite(attributes.height)
+              ? Math.round(attributes.height)
+              : 480
+          return { "data-height": String(height) }
+        }
+      },
+      name: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-name") ?? "",
+        renderHTML: (attributes) => {
+          return attributes.name ? { "data-name": attributes.name } : {}
+        }
+      }
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="html-embed"]' }]
+  },
+
+  renderHTML({ HTMLAttributes }) {
+    return [
+      "div",
+      mergeAttributes({ "data-type": "html-embed" }, HTMLAttributes)
+    ]
+  },
+
+  renderText() {
+    return ""
   }
 })
 
@@ -421,6 +492,7 @@ const extensions: Extensions = [
   Highlight.configure({ multicolor: true }),
   ImportImage.configure({ allowBase64: true, inline: false }),
   ImportExcalidraw,
+  ImportHtmlEmbed,
   // 始终包一层 .tableWrapper：读态超宽表格要横向滚动（与 web 一致）。
   ImportTable.configure({ renderWrapper: true }),
   TableRow,
@@ -543,6 +615,33 @@ function validateContent(
       throw new TiptapRenderError(
         `${path} excalidraw previewKey is invalid (pages/<uuid>.png)`
       )
+    }
+  }
+
+  if (value.type === "htmlEmbed") {
+    const attrs = isPlainObject(value.attrs) ? value.attrs : {}
+    const key = attrs.key
+    if (typeof key !== "string" || !EMBED_KEY_RE.test(key)) {
+      throw new TiptapRenderError(
+        `${path} htmlEmbed requires a valid key (embeds/<uuid>.html)`
+      )
+    }
+    const height = attrs.height
+    if (
+      height !== undefined &&
+      height !== null &&
+      (typeof height !== "number" ||
+        !Number.isInteger(height) ||
+        height < 200 ||
+        height > 2000)
+    ) {
+      throw new TiptapRenderError(
+        `${path} htmlEmbed height must be an integer 200-2000`
+      )
+    }
+    const name = attrs.name
+    if (name !== undefined && name !== null && typeof name !== "string") {
+      throw new TiptapRenderError(`${path} htmlEmbed name must be a string`)
     }
   }
 

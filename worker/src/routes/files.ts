@@ -5,18 +5,29 @@
  * 上传的校验与落盘在 lib/upload.ts（导入接口共用同一份实现）。
  */
 import { Hono } from "hono"
-import { UPLOAD_KEY_RE, handleImageUpload } from "../lib/upload"
+import {
+  EMBED_CONTENT_SECURITY_POLICY,
+  EMBED_CONTENT_TYPE,
+  EMBED_KEY_RE,
+  UPLOAD_KEY_RE,
+  handleEmbedUpload,
+  handleImageUpload
+} from "../lib/upload"
 import type { HonoEnv } from "../types"
 
 export const fileRoutes = new Hono<HonoEnv>()
 
 fileRoutes.post("/", (c) => handleImageUpload(c, c.get("userId"), "pages"))
 
-// key 带类别前缀（`pages/<uuid>.png`），所以用正则参数而非单段参数；
-// 解码后的值仍要过 UPLOAD_KEY_RE，非法形状与未知前缀一律 404。
+// embed 上传（规格 §2）：会话路径，与图片上传同一权限面（页面写权限，见上层中间件）。
+fileRoutes.post("/embeds", (c) => handleEmbedUpload(c, c.get("userId")))
+
+// key 带类别前缀（`pages/<uuid>.png`、`embeds/<uuid>.html`），所以用正则参数而非
+// 单段参数；解码后的值仍要过 UPLOAD_KEY_RE / EMBED_KEY_RE，非法形状与未知前缀一律 404。
 fileRoutes.get("/:key{.+}", async (c) => {
   const key = c.req.param("key")
-  if (!UPLOAD_KEY_RE.test(key)) {
+  const isEmbed = EMBED_KEY_RE.test(key)
+  if (!isEmbed && !UPLOAD_KEY_RE.test(key)) {
     return c.json({ error: "File not found" }, 404)
   }
 
@@ -26,10 +37,18 @@ fileRoutes.get("/:key{.+}", async (c) => {
   }
 
   const headers = new Headers()
-  headers.set(
-    "Content-Type",
-    object.httpMetadata?.contentType ?? "application/octet-stream"
-  )
+  if (isEmbed) {
+    // embed 下发（规格 §3 安全硬要求）：CSP sandbox 逼成 opaque origin，
+    // nosniff 防止 MIME 嗅探，Content-Type 带字符集逐字下发。
+    headers.set("Content-Type", EMBED_CONTENT_TYPE)
+    headers.set("X-Content-Type-Options", "nosniff")
+    headers.set("Content-Security-Policy", EMBED_CONTENT_SECURITY_POLICY)
+  } else {
+    headers.set(
+      "Content-Type",
+      object.httpMetadata?.contentType ?? "application/octet-stream"
+    )
+  }
   headers.set("Content-Length", String(object.size))
   if (object.httpEtag) headers.set("ETag", object.httpEtag)
   headers.set("Cache-Control", "private, max-age=3600")

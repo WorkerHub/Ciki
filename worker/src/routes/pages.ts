@@ -67,10 +67,15 @@ import { derivePageMarkdown } from "../lib/tiptap-markdown"
 import {
   cleanPageFilename,
   contentDisposition,
+  embedEntryNames,
+  embedLink,
+  embedNames,
   imageEntryNames,
   imageLink,
   markdownDocument,
+  rewriteSiteEmbedLinks,
   rewriteSiteImageLinks,
+  siteEmbedKeys,
   siteImageKeys
 } from "../lib/markdown-download"
 import { normalizePageInput, type PageContentResult } from "../lib/page-input"
@@ -345,9 +350,10 @@ pageRoutes.get("/:id/download", async (c) => {
     contentMd: row.content_md
   })
   const name = cleanPageFilename(row.title)
-  const keys = siteImageKeys(document)
+  const imageKeys = siteImageKeys(document)
+  const embedKeys = siteEmbedKeys(document)
 
-  if (keys.length === 0) {
+  if (imageKeys.length === 0 && embedKeys.length === 0) {
     return new Response(document, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
@@ -356,22 +362,47 @@ pageRoutes.get("/:id/download", async (c) => {
     })
   }
 
-  const entries = imageEntryNames(keys)
-  // 真的进了包的图：R2 里已经没有的（孤儿清理过）不入包，链接也保持绝对地址。
-  const included = new Set<string>()
+  // embed 文件名取自 attrs.name（不是 key 的 basename）：按 content_hash 读内容 JSON
+  // 拿 key→name 映射。内容对象缺失时退回 key 的 basename，不因个别 embed 让整包失败。
+  let names = new Map<string, string>()
+  if (embedKeys.length > 0) {
+    try {
+      names = embedNames(await readContent(c.env, row.content_hash))
+    } catch {
+      // 忽略：embedEntryNames 缺 name 时会退回 key 的 basename。
+    }
+  }
+
+  const imageEntries = imageEntryNames(imageKeys)
+  const embedEntries = embedEntryNames(embedKeys, names)
+  // 真的进了包的资产：R2 里已经没有的（孤儿清理过）不入包，链接也保持绝对地址。
+  const includedImages = new Set<string>()
+  const includedEmbeds = new Set<string>()
   const body = zipStream(async (zip) => {
-    // 图在前、MD 在后：包内 MD 要按「哪些图真的取到了」决定改写哪些链接，
-    // 取不到的图必须原样保留绝对地址，所以它的字节只能最后写。
-    for (const key of keys) {
+    // 图与 embed 在前、MD 在后：包内 MD 要按「哪些资产真的取到了」决定改写哪些链接，
+    // 取不到的资产必须原样保留绝对地址，所以它的字节只能最后写。
+    for (const key of imageKeys) {
       const object = await c.env.R2.get(key)
       if (!object) continue
-      included.add(key)
-      await zip.addBinary(imageLink(entries.get(key)!), object.body)
+      includedImages.add(key)
+      await zip.addBinary(imageLink(imageEntries.get(key)!), object.body)
     }
-    const markdown = rewriteSiteImageLinks(document, (key) => {
-      const entry = entries.get(key)
-      return entry && included.has(key) ? entry : null
-    })
+    for (const key of embedKeys) {
+      const object = await c.env.R2.get(key)
+      if (!object) continue
+      includedEmbeds.add(key)
+      await zip.addBinary(embedLink(embedEntries.get(key)!), object.body)
+    }
+    const markdown = rewriteSiteEmbedLinks(
+      rewriteSiteImageLinks(document, (key) => {
+        const entry = imageEntries.get(key)
+        return entry && includedImages.has(key) ? entry : null
+      }),
+      (key) => {
+        const entry = embedEntries.get(key)
+        return entry && includedEmbeds.has(key) ? entry : null
+      }
+    )
     await zip.addText(`${name}.md`, markdown)
   })
 
