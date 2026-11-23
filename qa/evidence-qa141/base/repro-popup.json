@@ -1,0 +1,62 @@
+{
+  "linkInfo": {
+    "outerHTML": "<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"#heading-8\">跳转至第八章（正文内同页锚点链接）</a>",
+    "text": "跳转至第八章（正文内同页锚点链接）",
+    "rect": {
+      "x": 375.828125,
+      "y": 464.892578125,
+      "w": 260.109375,
+      "h": 19
+    }
+  },
+  "popupShell": {
+    "url": "http://127.0.0.1:8894/p/1#heading-8",
+    "htmlScrollTop": 0,
+    "bodyScrollTop": 0,
+    "docScrollTop": 0,
+    "docScrollHeight": 900,
+    "innerH": 900,
+    "flexCol": {
+      "scrollTop": 0,
+      "scrollHeight": 3622,
+      "clientHeight": 900,
+      "rectTop": 0,
+      "rectBottom": 900
+    },
+    "contentScroll": {
+      "scrollTop": 2433,
+      "scrollHeight": 3598,
+      "clientHeight": 852,
+      "rectTop": 48,
+      "rectBottom": 900
+    },
+    "header": {
+      "rectTop": 0,
+      "rectBottom": 48,
+      "h": 48
+    },
+    "searchInput": {
+      "rectTop": 7.5,
+      "rectBottom": 39.5,
+      "visible": true
+    },
+    "tocPresent": true,
+    "tocItems": 10,
+    "activeId": "#heading-8",
+    "expectedActive": "heading-8",
+    "headingTops": {
+      "heading-1": -2169.09375,
+      "heading-2": -1845.46875,
+      "heading-3": -1521.84375,
+      "heading-4": -1224.46875,
+      "heading-5": -900.84375,
+      "heading-6": -577.21875,
+      "heading-7": -253.59375,
+      "heading-8": 70.03125,
+      "heading-9": 393.65625,
+      "heading-10": 717.28125
+    },
+    "bottomHits": ["p", "div.tiptap.ProseMirror", "div"],
+    "backToTopVisible": true
+  }
+}
