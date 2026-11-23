@@ -225,15 +225,14 @@ export async function repairAgentEmails(
 
   let updatedCount = 0
   if (targets.length > 0) {
-    const now = new Date().toISOString()
     const statements = targets.map((row) =>
       db
         .prepare(
           `UPDATE ${table}
-              SET email = ?, updated_at = ?
+              SET email = ?
             WHERE id = ? AND kind = 'agent' AND email = ?`
         )
-        .bind(`${row.username}@internal`, now, row.id, row.email)
+        .bind(`${row.username}@internal`, row.id, row.email)
     )
 
     for (let i = 0; i < statements.length; i += 50) {

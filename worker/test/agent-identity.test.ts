@@ -1349,6 +1349,8 @@ describe("Agent 占位邮箱存量刷短：一次性数据修复 (Task #109)", (
     )
     // 目标 agent 邮箱更新为 <username>@internal
     expect(afterAgent1?.email).toBe("agenttarget1@internal")
+    // 不修改 updated_at 等无关字段（规格仅更新 email）
+    expect(afterAgent1?.updated_at).toBe(initAgent1?.updated_at)
     // 自定义邮箱 agent 不碰
     expect(afterAgent2?.email).toBe("custom-agent@example.com")
     // 原本已是短式的 agent 不碰
