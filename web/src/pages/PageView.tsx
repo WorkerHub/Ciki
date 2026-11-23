@@ -137,7 +137,6 @@ export function PageView() {
   const location = useLocation()
   const tree = usePagesStore((state) => state.tree)
   const removePage = usePagesStore((state) => state.removePage)
-  const expandTo = usePagesStore((state) => state.expandTo)
   const loadTree = usePagesStore((state) => state.load)
   const spaces = useSpacesStore((state) => state.spaces)
   const spacesStatus = useSpacesStore((state) => state.status)
@@ -298,11 +297,6 @@ export function PageView() {
       window.removeEventListener("focus", maybeRefresh)
     }
   }, [refresh])
-
-  // 深链进来时把侧边栏展开到当前页，树里能直接看到自己在哪
-  useEffect(() => {
-    if (page) expandTo(page.id)
-  }, [page, expandTo])
 
   // 搜索是全空间范围：点进别的空间的页面时，当前空间跟着切过去，树才对得上。
   // 只在页面首次载入时同步一次，否则用户切换空间会立刻被这页拉回旧空间。
