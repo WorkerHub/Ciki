@@ -13,6 +13,7 @@ import {
 } from "vitest"
 import { ApiError, type Me, type PageDetail, type Space } from "@/lib/api"
 import { i18n } from "@/i18n"
+import * as scrollAnchor from "@/lib/scroll-anchor"
 import { readScrollAnchor, rememberScrollAnchor } from "@/lib/scroll-anchor"
 import { PageView } from "@/pages/PageView"
 import { useAuthStore } from "@/stores/auth"
@@ -432,15 +433,17 @@ describe("阅读页按空间角色收口写入口", () => {
   it("带 hash 打开时内容就绪后滚到对应标题一次", async () => {
     setViewportWide(true)
     vi.mocked(pagesApi.get).mockResolvedValue(pageWithToc())
-    const spy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
+    const spy = vi.spyOn(scrollAnchor, "scrollToHeading")
+    const scrollIntoViewSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
     renderView("/p/1#heading-2")
 
     await waitFor(() => expect(spy).toHaveBeenCalled())
-    const hits = spy.mock.instances.filter(
-      (instance) => (instance as HTMLElement).id === "heading-2"
-    )
+    const hits = spy.mock.calls.filter(([target]) => target.id === "heading-2")
     expect(hits).toHaveLength(1)
+    expect(hits[0][1]).toEqual({ behavior: "auto" })
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
     spy.mockRestore()
+    scrollIntoViewSpy.mockRestore()
   })
 
   it("从 A 页切到带 hash 的 B 页时仍滚到 B 的对应标题", async () => {
@@ -462,7 +465,8 @@ describe("阅读页按空间角色收口写入口", () => {
       ],
       { initialEntries: ["/p/1"] }
     )
-    const spy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
+    const spy = vi.spyOn(scrollAnchor, "scrollToHeading")
+    const scrollIntoViewSpy = vi.spyOn(HTMLElement.prototype, "scrollIntoView")
     render(<RouterProvider router={router} />)
     await screen.findByText("A 页")
 
@@ -470,13 +474,13 @@ describe("阅读页按空间角色收口写入口", () => {
     await router.navigate("/p/2#heading-2")
     await screen.findByText("B 页")
     await waitFor(() =>
-      expect(
-        spy.mock.instances.some(
-          (instance) => (instance as HTMLElement).id === "heading-2"
-        )
-      ).toBe(true)
+      expect(spy.mock.calls.some(([target]) => target.id === "heading-2")).toBe(
+        true
+      )
     )
+    expect(scrollIntoViewSpy).not.toHaveBeenCalled()
     spy.mockRestore()
+    scrollIntoViewSpy.mockRestore()
   })
 
   describe("阅读⇄编辑的位置保持", () => {
@@ -538,7 +542,8 @@ describe("阅读页按空间角色收口写入口", () => {
       await screen.findAllByRole("heading", { level: 2 })
 
       expect(readScrollAnchor(1)).toBeNull()
-      expect(screen.getByTestId("scroller").scrollTop).toBe(0)
+      // 让位给 hash 恢复（heading-2 顶 100，判定线 24 → 滚到 76），而不是编辑记忆锚点的 226
+      expect(screen.getByTestId("scroller").scrollTop).toBeCloseTo(76)
     })
   })
 })

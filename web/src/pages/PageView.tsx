@@ -69,6 +69,7 @@ import {
   captureScrollAnchor,
   rememberScrollAnchor,
   restoreScrollAnchor,
+  scrollToHeading,
   takeScrollAnchor
 } from "@/lib/scroll-anchor"
 import { canEdit } from "@/lib/space"
@@ -193,7 +194,7 @@ export function PageView() {
     const target = document.getElementById(id)
     if (!target || !contentRoot.contains(target)) return
     hashRestored.current = page.id
-    target.scrollIntoView()
+    scrollToHeading(target, { behavior: "auto" })
   }, [contentRoot, page, location.hash])
 
   // 从编辑页回到阅读时，按「进入编辑前」记下的锚点复位（每次载入只做一次）。

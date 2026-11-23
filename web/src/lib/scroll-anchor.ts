@@ -94,6 +94,42 @@ export function restoreScrollAnchor(
   return true
 }
 
+/**
+ * 将指定标题元素滚动到其所属正文滚动容器的判定线位置（ACTIVE_LINE = 24）。
+ *
+ * 只滚动 target 所在的最近可滚动祖先（findScrollParent），绝不调用原生锚点跳转
+ * 或 target.scrollIntoView()，杜绝外壳容器（main 列、Panel 或 html/body）被连带
+ * 滚动顶出视口。
+ *
+ * 默认使用平滑滚动，在 prefers-reduced-motion 下自动回退为瞬时滚动；首屏或测试
+ * 可通过 options.behavior 显式传入 "auto" 或 "smooth"。
+ */
+export function scrollToHeading(
+  target: HTMLElement,
+  options: { behavior?: ScrollBehavior } = {}
+): boolean {
+  if (!target.isConnected) return false
+  const scrollParent = findScrollParent(target)
+  if (!scrollParent) return false
+
+  const reduceMotion =
+    typeof window !== "undefined" &&
+    Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches)
+  const behavior = options.behavior ?? (reduceMotion ? "auto" : "smooth")
+
+  const parentRect = scrollParent.getBoundingClientRect()
+  const targetRect = target.getBoundingClientRect()
+  const offset = targetRect.top - (parentRect.top + ACTIVE_LINE)
+  const targetScrollTop = Math.max(0, scrollParent.scrollTop + offset)
+
+  if (typeof scrollParent.scrollTo === "function") {
+    scrollParent.scrollTo({ top: targetScrollTop, behavior })
+  } else {
+    scrollParent.scrollTop = targetScrollTop
+  }
+  return true
+}
+
 function readStored(pageId: number): ScrollAnchor | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)

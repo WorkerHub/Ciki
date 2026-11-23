@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import {
   captureScrollAnchor,
   readScrollAnchor,
   rememberScrollAnchor,
   restoreScrollAnchor,
+  scrollToHeading,
   takeScrollAnchor
 } from "@/lib/scroll-anchor"
 import { box } from "@/test/scroll-layout"
@@ -131,5 +132,79 @@ describe("位置锚的存取", () => {
     sessionStorage.setItem("ciki-scroll-anchor", "not json")
 
     expect(readScrollAnchor(1)).toBeNull()
+  })
+})
+
+describe("滚动目标标题到判定线 (scrollToHeading)", () => {
+  it("将目标标题精准送到滚动容器的判定线 (ACTIVE_LINE = 24)", () => {
+    const scroller = document.createElement("div")
+    scroller.style.overflowY = "auto"
+    scroller.getBoundingClientRect = () => box(48, 700)
+    scroller.scrollTop = 100
+
+    const heading = document.createElement("h2")
+    heading.getBoundingClientRect = () => box(300, 30)
+    scroller.appendChild(heading)
+    document.body.appendChild(scroller)
+
+    // parentRect.top (48) + ACTIVE_LINE (24) = 72
+    // offset = targetRect.top (300) - 72 = 228
+    // expected scrollTop = 100 + 228 = 328
+    const ok = scrollToHeading(heading, { behavior: "auto" })
+    expect(ok).toBe(true)
+    expect(scroller.scrollTop).toBe(328)
+  })
+
+  it("支持调用 scrollParent.scrollTo 并传递 behavior 参数", () => {
+    const scroller = document.createElement("div")
+    scroller.style.overflowY = "auto"
+    scroller.getBoundingClientRect = () => box(0, 600)
+    scroller.scrollTop = 0
+    scroller.scrollTo = vi.fn()
+
+    const heading = document.createElement("h2")
+    heading.getBoundingClientRect = () => box(200, 30)
+    scroller.appendChild(heading)
+    document.body.appendChild(scroller)
+
+    scrollToHeading(heading, { behavior: "smooth" })
+    // parentRect.top (0) + ACTIVE_LINE (24) = 24
+    // offset = 200 - 24 = 176
+    expect(scroller.scrollTo).toHaveBeenCalledWith({
+      top: 176,
+      behavior: "smooth"
+    })
+  })
+
+  it("当目标在判定线上方时，scrollTop 扣减但下限不低于 0", () => {
+    const scroller = document.createElement("div")
+    scroller.style.overflowY = "auto"
+    scroller.getBoundingClientRect = () => box(0, 600)
+    scroller.scrollTop = 50
+
+    const heading = document.createElement("h2")
+    heading.getBoundingClientRect = () => box(10, 30)
+    scroller.appendChild(heading)
+    document.body.appendChild(scroller)
+
+    // offset = 10 - 24 = -14
+    // scrollTop = 50 - 14 = 36
+    scrollToHeading(heading, { behavior: "auto" })
+    expect(scroller.scrollTop).toBe(36)
+
+    // offset 超过当前 scrollTop 时夹到 0
+    heading.getBoundingClientRect = () => box(-100, 30)
+    scrollToHeading(heading, { behavior: "auto" })
+    expect(scroller.scrollTop).toBe(0)
+  })
+
+  it("未挂载节点或找不到滚动容器时返回 false，不抛错", () => {
+    const unmounted = document.createElement("h2")
+    expect(scrollToHeading(unmounted)).toBe(false)
+
+    const noScroller = document.createElement("div")
+    noScroller.appendChild(unmounted)
+    document.body.appendChild(noScroller)
+    expect(scrollToHeading(unmounted)).toBe(false)
   })
 })
