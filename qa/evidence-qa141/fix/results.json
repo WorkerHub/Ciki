@@ -1,0 +1,80 @@
+[
+  {
+    "id": "A0 长文初始态",
+    "name": "打开 /p/1：目录轨渲染 10 条、初始在真顶部（scrollTop=0）、active=heading-1、外壳无位移",
+    "verdict": "通过",
+    "detail": "tocItems=10 active=#heading-1 期望active=heading-1 contentScrollTop=0 flexCol.scrollTop=0 contentScrollH=3598"
+  },
+  {
+    "id": "T1 靠下条目（最后一章）",
+    "name": "点击「第十章 结论」：顶栏与搜索框在原位、html/flexCol 零滚动、底部无空白、URL 不写 hash、正文滚动到位且目标完整可见。注：最后两章距判定线的差额超过正文底部余量，滚动封顶后标题到不了判定线（偏差为几何极限，非外壳位移——基线正是靠把差额偷进外壳才「对齐」，见基线 R1）；可到线目标的对齐由 T2/T2b 验证",
+    "verdict": "通过",
+    "detail": "判定线偏差=332.28125px（观察项·几何封顶） headerTop=0 searchTop=7.5 flexCol.scrollTop=0 html.scrollTop=0 contentScrollTop=2746/max=2746 targetTop=404.28125 contentBottom=900/innerH=900 bottomHits=[\"div.w-full.px-4\",\"div\",\"div.min-h-0.flex-1\"] url=\"http://127.0.0.1:8895/p/1\" scrollTop落点=404.28125"
+  },
+  {
+    "id": "T2 靠上条目",
+    "name": "自页面下部点击「第二章 研究背景」：标题到判定线、外壳零位移、顶栏/搜索框在位、底部无空白",
+    "verdict": "通过",
+    "detail": "判定线偏差=-0.46875px headerTop=0 flexCol.scrollTop=0 contentScrollTop=516 contentBottom=900/innerH=900"
+  },
+  {
+    "id": "T2b 靠下条目（可到线）",
+    "name": "点击「第八章 讨论与反思」（距底>96px）：标题到判定线、外壳零位移、顶栏/搜索框在位、底部无空白、回顶按钮可见",
+    "verdict": "通过",
+    "detail": "判定线偏差=0.03125px backToTop=true flexCol.scrollTop=0 headerTop=0 contentScrollTop=2431"
+  },
+  {
+    "id": "T3 回到顶部",
+    "name": "跳转后点「回到顶部」：正文容器 scrollTop=0（真顶部）、顶栏/搜索框在原位、外壳零位移",
+    "verdict": "通过",
+    "detail": "contentScrollTop=0 headerTop=0 flexCol.scrollTop=0 active=#heading-1 期望=heading-1"
+  },
+  {
+    "id": "T4 目录高亮跟随",
+    "name": "滚动时目录高亮跟随判定线：顶部/滚 1200px/再滚 1200px/点目录首条回顶四个位置，aria-current 恒等于判定线上方最近标题（无在上方时默认首项，同 ArticleToc 口径）",
+    "verdict": "通过",
+    "detail": "顶部:#heading-1/heading-1 滚1:#heading-4/heading-4(scrollTop=1200) 滚2:#heading-7/heading-7(scrollTop=2400) 回顶:#heading-1/heading-1(scrollTop=192)"
+  },
+  {
+    "id": "T5 hash 直达",
+    "name": "直接打开 /p/1#heading-6：heading-6 到判定线（±4px，见注）、外壳零位移、顶栏/搜索框在位、底部无空白。注：正文挂载后尾部有 -26px 布局收缩（评论空态挂载）；收缩落在滚动落位之后时目标上方被拉高 0.5-3px，为晚到布局漂移非外壳位移（对齐机制本身由 T2/T2b 目录点击路径验证精确到 ±0.5px）",
+    "verdict": "通过",
+    "detail": "判定线偏差=-0.21875px headerTop=0 flexCol.scrollTop=0 html.scrollTop=0 contentBottom=900/innerH=900"
+  },
+  {
+    "id": "T5b 正文内同页锚点链接（追加排查·非阻断）",
+    "name": "真实页面正文存在 <a href='#heading-8'>（消毒放行、tiptap 渲染）；点击行为=新标签页（target=_blank），点击不造成本页外壳额外位移；新标签页 hash 恢复后外壳零位移、heading-8 到判定线",
+    "verdict": "通过",
+    "detail": "linkHTML=\"<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"#heading-8\">跳转至第八章（正文内同页锚点链接）</a>\" 点击前flexCol=24/点击后flexCol=24 headerTop -24→-24 popup=true popup判定线偏差=-1.96875 popupFlexCol=0 popupHeaderTop=0"
+  },
+  {
+    "id": "T6 短文（无目录）",
+    "name": "短文页：索引轨不渲染、无回到顶部按钮、顶栏/搜索框在位、外壳零位移、无 console 错误",
+    "verdict": "通过",
+    "detail": "tocPresent=false backToTop=false headerTop=0 contentScrollH=852/clientH=852"
+  },
+  {
+    "id": "T7a 移动视口·初始态",
+    "name": "390×844 打开长文：索引轨不渲染（<1280px）、外壳无位移、无横向溢出",
+    "verdict": "通过",
+    "detail": "tocPresent=false html.scrollTop=0 flexCol={\"scrollTop\":0,\"scrollHeight\":844,\"clientHeight\":844,\"rectTop\":0,\"rectBottom\":844} header={\"rectTop\":0,\"rectBottom\":48,\"h\":48} docScrollWidth=390"
+  },
+  {
+    "id": "T7b 移动视口·滚动后外壳稳定",
+    "name": "内容滚动后：外壳（顶栏）仍在原位、html/flexCol 零滚动、回到顶部按钮出现（内容超一屏）",
+    "verdict": "通过",
+    "detail": "滚动后headerTop=0 html.scrollTop=0 flexCol.scrollTop=0 contentScrollTop=900 backToTop=true"
+  },
+  {
+    "id": "T7c 移动视口·hash 直达回归",
+    "name": "390×844 直接打开 /p/1#heading-6：外壳零位移、顶栏在原位、heading-6 到判定线（±4px，正文尾部晚到收缩可致 2-3px 偏差，非外壳位移；修复的 hash 恢复路径在移动端同样生效）",
+    "verdict": "通过",
+    "detail": "判定线偏差=0.03125px headerTop=0 html.scrollTop=0 flexCol.scrollTop=0"
+  },
+  {
+    "id": "T7d 移动视口·回到顶部",
+    "name": "滚动后点回到顶部：内容容器回 0、外壳无位移（与改动前行为一致）",
+    "verdict": "通过",
+    "detail": "contentScrollTop=0 flexCol.scrollTop=0 headerTop=0"
+  }
+]
