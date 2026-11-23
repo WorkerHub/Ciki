@@ -49,6 +49,10 @@
       "unsupported": "只支持 PNG / JPG / GIF / WebP 图片（SVG 不收）",
       "tooLarge": "图片超过 10MB，请压缩后再上传"
     },
+    "embed": {
+      "unsupported": "仅支持 .html 文件",
+      "tooLarge": "HTML 动画文件不能超过 1MB"
+    },
     "loading": "加载中…",
     "close": "关闭",
     "userFallback": "用户",
@@ -435,6 +439,7 @@
       "link": "插入链接",
       "image": "上传图片",
       "excalidraw": "插入画布",
+      "htmlEmbed": "插入 HTML 动画",
       "undo": {
         "label": "撤销",
         "hint": "撤销（Ctrl/⌘ + Z）"
@@ -524,6 +529,19 @@
       "blankCanvas": "空白画布",
       "clickToEdit": "点击以打开全屏画布编辑器",
       "loadFailed": "画布预览加载失败"
+    },
+    "htmlEmbed": {
+      "title": "HTML 动画",
+      "height": "高度",
+      "replace": "更换文件",
+      "replaceSuccess": "文件已更换",
+      "delete": "删除",
+      "upload": "上传 HTML",
+      "unnamed": "未命名动画",
+      "noFile": "未上传文件",
+      "loadFailed": "HTML 动画加载失败",
+      "loadFailedDesc": "文件不存在或下发失败",
+      "fileNotFound": "文件不存在或已被删除"
     }
   },
   "settings": {

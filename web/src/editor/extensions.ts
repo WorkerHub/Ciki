@@ -18,6 +18,7 @@ import {
   WikiTextStyle
 } from "@/editor/colors/extensions"
 import { WikiExcalidraw } from "@/editor/excalidraw/extension"
+import { WikiHtmlEmbed } from "@/editor/htmlEmbed/extension"
 import { WikiFontSize } from "@/editor/font-size/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
 import { imageWidth } from "@/editor/image-attributes"
@@ -147,6 +148,7 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
     }),
     WikiImage.configure({ allowBase64: true, inline: false }),
     WikiExcalidraw,
+    WikiHtmlEmbed,
     // 颜色与行内字号：文字样式（TextStyle + Color + FontSize）、高亮、单元格底色。
     // HTML 载具一律是 data 属性，详见 colors 与 font-size 扩展说明。
     WikiTextStyle,
@@ -176,4 +178,4 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
   ]
 }
 
-export { WikiExcalidraw }
+export { WikiExcalidraw, WikiHtmlEmbed }

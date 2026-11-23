@@ -59,7 +59,7 @@ import { FontSizeMenu } from "@/editor/font-size/FontSizeMenu"
 import { TableMenu } from "@/editor/table/TableMenu"
 import { describeApiError, type SearchResult, searchApi } from "@/lib/api"
 import { pagePath } from "@/lib/routes"
-import { ACCEPT_IMAGE_ATTR, uploadImage } from "@/lib/upload"
+import { ACCEPT_IMAGE_ATTR, uploadEmbed, uploadImage } from "@/lib/upload"
 
 /** 链接对话框里站内页面候选的取数条数（够看一眼，不铺满弹层）。 */
 const PAGE_PICK_LIMIT = 8
@@ -91,6 +91,7 @@ export function EditorToolbar({
   // 应用/点选后把焦点交回编辑器：Radix 默认会把焦点还给触发器按钮
   const focusEditorOnClose = useRef(false)
   const imageInput = useRef<HTMLInputElement>(null)
+  const embedInput = useRef<HTMLInputElement>(null)
   // 搜索失败要走既有的错误通道，但不该因为父组件回调换身份就重发请求
   const onErrorRef = useRef(onError)
   onErrorRef.current = onError
@@ -238,6 +239,26 @@ export function EditorToolbar({
       onError?.(describeApiError(error))
     } finally {
       if (imageInput.current) imageInput.current.value = ""
+    }
+  }
+
+  const onPickEmbed = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      const uploaded = await uploadEmbed(file)
+      editor
+        .chain()
+        .focus()
+        .setHtmlEmbed({
+          key: uploaded.key,
+          name: file.name,
+          height: 480
+        })
+        .run()
+    } catch (error) {
+      onError?.(describeApiError(error))
+    } finally {
+      if (embedInput.current) embedInput.current.value = ""
     }
   }
 
@@ -407,12 +428,29 @@ export function EditorToolbar({
       >
         <Palette aria-hidden="true" />
       </Button>
+      <Button
+        type="button"
+        size="icon-sm"
+        variant="ghost"
+        aria-label={t("editor.toolbar.htmlEmbed")}
+        title={t("editor.toolbar.htmlEmbed")}
+        onClick={() => embedInput.current?.click()}
+      >
+        <Code2 aria-hidden="true" />
+      </Button>
       <input
         ref={imageInput}
         type="file"
         accept={ACCEPT_IMAGE_ATTR}
         className="hidden"
         onChange={(event) => void onPickImage(event.target.files?.[0])}
+      />
+      <input
+        ref={embedInput}
+        type="file"
+        accept=".html,text/html"
+        className="hidden"
+        onChange={(event) => void onPickEmbed(event.target.files?.[0])}
       />
 
       <Separator orientation="vertical" className="mx-1 !h-5" />

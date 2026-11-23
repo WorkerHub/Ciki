@@ -4,6 +4,7 @@ import { type ReactNode, useMemo, useRef } from "react"
 import { UntransferredImageBridge } from "@/editor/bridge/extension"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
+import { clampHtmlEmbedHeight } from "@/editor/htmlEmbed/extension"
 import { ConfluencePaste } from "@/editor/paste/paste-plugin"
 import i18n from "@/i18n"
 import { stripSingleColumnColwidths } from "@/lib/table-columns"
@@ -61,6 +62,83 @@ export function stripEmptyExcalidrawNodes(node: JSONContent): JSONContent {
 }
 
 /**
+ * 剔除编辑器文档中未上传或 key 为空的空白 htmlEmbed 节点。
+ */
+export function removeEmptyHtmlEmbedNodes(editor: Editor): void {
+  if (!editor || editor.isDestroyed) return
+  const { doc, tr } = editor.state
+  const positions: { from: number; to: number }[] = []
+  doc.descendants((node, pos) => {
+    if (node.type.name === "htmlEmbed") {
+      const key = node.attrs?.key
+      if (!key || (typeof key === "string" && !key.trim())) {
+        positions.push({ from: pos, to: pos + node.nodeSize })
+      }
+    }
+  })
+  if (positions.length > 0) {
+    for (let i = positions.length - 1; i >= 0; i--) {
+      tr.delete(positions[i].from, positions[i].to)
+    }
+    editor.view.dispatch(tr)
+  }
+}
+
+/**
+ * 归一并 clamp htmlEmbed 节点的高度（200–2000px，默认 480px）。
+ */
+export function clampHtmlEmbedHeights(editor: Editor): void {
+  if (!editor || editor.isDestroyed) return
+  const { doc, tr } = editor.state
+  let modified = false
+  doc.descendants((node, pos) => {
+    if (node.type.name === "htmlEmbed") {
+      const clamped = clampHtmlEmbedHeight(node.attrs?.height)
+      if (clamped !== node.attrs?.height) {
+        tr.setNodeMarkup(pos, undefined, {
+          ...node.attrs,
+          height: clamped
+        })
+        modified = true
+      }
+    }
+  })
+  if (modified) {
+    editor.view.dispatch(tr)
+  }
+}
+
+/**
+ * 递归规范化 JSONContent 结构中 htmlEmbed 节点：剔除空 key 并 clamp 高度。
+ */
+export function normalizeHtmlEmbedNodes(node: JSONContent): JSONContent {
+  const next: JSONContent = { ...node }
+  if (next.content) {
+    next.content = next.content
+      .filter((child) => {
+        if (child.type === "htmlEmbed") {
+          const key = child.attrs?.key
+          return Boolean(key && typeof key === "string" && key.trim())
+        }
+        return true
+      })
+      .map((child) => {
+        if (child.type === "htmlEmbed") {
+          return {
+            ...child,
+            attrs: {
+              ...child.attrs,
+              height: clampHtmlEmbedHeight(child.attrs?.height)
+            }
+          }
+        }
+        return normalizeHtmlEmbedNodes(child)
+      })
+  }
+  return next
+}
+
+/**
  * 编辑器内容 → 保存接口要的三件套（契约 pages.contentJson/contentHtml/contentText）。
  *
  * 1. 未绘制的空白画布（sceneKey 为空）在保存前自动剔除，不落库、不触发服务端校验 400。
@@ -69,8 +147,10 @@ export function stripEmptyExcalidrawNodes(node: JSONContent): JSONContent {
  */
 export function editorPayload(editor: Editor): EditorPayload {
   removeEmptyExcalidrawNodes(editor)
-  const normalizedJson = stripEmptyExcalidrawNodes(
-    stripSingleColumnColwidths(editor.getJSON())
+  removeEmptyHtmlEmbedNodes(editor)
+  clampHtmlEmbedHeights(editor)
+  const normalizedJson = normalizeHtmlEmbedNodes(
+    stripEmptyExcalidrawNodes(stripSingleColumnColwidths(editor.getJSON()))
   )
   return {
     contentJson: JSON.stringify(normalizedJson),

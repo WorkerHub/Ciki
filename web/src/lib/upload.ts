@@ -12,6 +12,26 @@ export const ACCEPTED_IMAGE_TYPES = [
 export const ACCEPT_IMAGE_ATTR = ACCEPTED_IMAGE_TYPES.join(",")
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
+/** Embed 规格 §2：仅收 .html、单文件 ≤1MB。 */
+export const MAX_EMBED_BYTES = 1 * 1024 * 1024
+
+/** 校验 HTML Embed 文件：仅收 .html、单文件 ≤1MB，违规给清晰错误。 */
+export function validateEmbedFile(file: File): string | null {
+  if (!file.name.toLowerCase().endsWith(".html")) {
+    return i18n.t("common.embed.unsupported")
+  }
+  if (file.size > MAX_EMBED_BYTES) {
+    return i18n.t("common.embed.tooLarge")
+  }
+  return null
+}
+
+export async function uploadEmbed(file: File): Promise<UploadedFile> {
+  const invalid = validateEmbedFile(file)
+  if (invalid) throw new ApiError(400, invalid, "INVALID_EMBED")
+  return api.uploadEmbed(file)
+}
+
 /** 返回给用户看的错误文案（按当前界面语言取）；通过校验返回 null。 */
 export function validateImageFile(file: File): string | null {
   if (
