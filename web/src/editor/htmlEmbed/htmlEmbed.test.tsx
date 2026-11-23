@@ -439,6 +439,20 @@ describe("htmlEmbed 节点契约与规范", () => {
     await waitFor(() => {
       expect(iframe.style.height).toBe("1200px")
     })
+
+    // ③ 内容动态变矮收缩（例如收起后变更为 273px 矮样例，向下贴合）
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 273 }
+        })
+      )
+    })
+
+    await waitFor(() => {
+      expect(iframe.style.height).toBe("273px")
+    })
   })
 
   it("9c. 恶意消息防护与自动贴合双钳制（200–4000）：非 contentWindow 来源丢弃、乱发协议丢弃、超限高度钳制", async () => {

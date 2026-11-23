@@ -36,7 +36,7 @@ export const EMBED_CONTENT_SECURITY_POLICY =
  *
  * 协议约定（规格 §1/§2/§5）：
  * 1. 独立作用域（IIFE）+ 异常自吞，绝不影响原文件自身脚本执行；
- * 2. 在沙箱内量取内容实际高度（Math.max(documentElement.scrollHeight, body.scrollHeight)）；
+ * 2. 在沙箱内量取内容实际高度（去视口项：Math.max(documentElement.offsetHeight, body.offsetHeight, body.scrollHeight)）；
  * 3. 页面就绪后（立即执行 + DOMContentLoaded / load）上报一次；
  * 4. 用 ResizeObserver 持续监听 documentElement 与 body 的尺寸变化持续上报；
  * 5. 经 window.parent.postMessage 发给父页，消息体形如 `{ type: "ciki-embed-height", height: <number> }`；
@@ -49,7 +49,7 @@ export const EMBED_HEIGHT_REPORTER_SCRIPT = `<script>
       try {
         var de = document.documentElement;
         var b = document.body;
-        var h = Math.max(de ? de.scrollHeight : 0, b ? b.scrollHeight : 0);
+        var h = Math.max(de ? de.offsetHeight : 0, b ? b.offsetHeight : 0, b ? b.scrollHeight : 0);
         if (window.parent) {
           window.parent.postMessage({ type: "ciki-embed-height", height: h }, "*");
         }
