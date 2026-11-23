@@ -25,7 +25,13 @@ const STATIC_TITLE_KEYS: Record<string, string> = {
   "/profile": "profile.title",
   "/settings": "settings.title",
   "/about": "about.title",
-  "/admin": "admin.title"
+  "/admin": "admin.title",
+  "/admin/users": "admin.title",
+  "/admin/spaces": "admin.title",
+  "/admin/site": "admin.title",
+  "/admin/security": "admin.title",
+  "/admin/email": "admin.title",
+  "/admin/others": "admin.title"
 }
 
 /** 从 matchPath 拿到的 slug 段是原始百分号编码，路由里用 encodeURIComponent 存过。 */
