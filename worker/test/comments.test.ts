@@ -672,3 +672,512 @@ describe("评论：与页面的联动", () => {
     expect(left.count).toBe(0)
   })
 })
+
+describe("Agent 令牌评论写端点鉴权与行为", () => {
+  async function createAgentAndToken(
+    env: Env,
+    ownerCookie: string,
+    username = "bot-commenter",
+    kind: "read" | "write" = "write"
+  ): Promise<{
+    agentId: number
+    token: string
+    tokenId: number
+    username: string
+  }> {
+    const createRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/me/agents",
+      { username },
+      ownerCookie
+    )
+    expect(createRes.status).toBe(201)
+    const agent = (await createRes.json()) as { id: number; username: string }
+
+    const tokenRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/me/agents/${agent.id}/tokens`,
+      { kind },
+      ownerCookie
+    )
+    expect(tokenRes.status).toBe(201)
+    const tokenData = (await tokenRes.json()) as { id: number; token: string }
+
+    return {
+      agentId: agent.id,
+      token: tokenData.token,
+      tokenId: tokenData.id,
+      username: agent.username
+    }
+  }
+
+  async function addAgentToSpace(
+    env: Env,
+    adminCookie: string,
+    spaceId: string,
+    agentId: number,
+    role: "admin" | "editor" | "viewer" = "editor"
+  ): Promise<void> {
+    const res = await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${spaceId}/members`,
+      { userId: agentId, role },
+      adminCookie
+    )
+    expect(res.status).toBe(201)
+  }
+
+  function tokenRequest(
+    env: Env,
+    method: string,
+    path: string,
+    token?: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>
+  ): Promise<Response> {
+    const headers: Record<string, string> = { ...extraHeaders }
+    if (body !== undefined) headers["content-type"] = "application/json"
+    if (token !== undefined) headers.authorization = `Bearer ${token}`
+    return request(env, path, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body)
+    })
+  }
+
+  it("发表（POST /:id/comments）：持 write 令牌的 Agent 正常发表顶层与回复（一级串归一），viewer 角色亦可发表", async () => {
+    const { env, admin, author, space, page } = await scenario()
+    const agent = await createAgentAndToken(env, author, "agent-poster")
+    await addAgentToSpace(env, admin, space.id, agent.agentId, "editor")
+
+    // 1. 发表顶层评论
+    const postRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      agent.token,
+      { bodyMd: "## Agent 顶层评论\n来自 agent 的正文" }
+    )
+    expect(postRes.status).toBe(201)
+    const created = (await postRes.json()) as CommentDto & {
+      isAgent: boolean
+      ownerName: string | null
+    }
+    expect(created.bodyMd).toBe("## Agent 顶层评论\n来自 agent 的正文")
+    expect(created.html).toContain("<h2>Agent 顶层评论</h2>")
+    expect(created.authorId).toBe(agent.agentId)
+    expect(created.authorName).toBe("agent-poster")
+    expect(created.isAgent).toBe(true)
+    expect(created.ownerName).toBeTruthy()
+    expect(created.canEdit).toBe(true)
+    expect(created.canDelete).toBe(true)
+
+    // 2. 回复该评论
+    const replyRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      agent.token,
+      { bodyMd: "Agent 一级回复", parentId: created.id }
+    )
+    expect(replyRes.status).toBe(201)
+    const reply = (await replyRes.json()) as CommentDto
+    expect(reply.parentId).toBe(created.id)
+
+    // 3. 对回复再回复：一级串归一，parentId 仍为顶层 id
+    const subReplyRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      agent.token,
+      { bodyMd: "Agent 二级回复归一", parentId: reply.id }
+    )
+    expect(subReplyRes.status).toBe(201)
+    const subReply = (await subReplyRes.json()) as CommentDto
+    expect(subReply.parentId).toBe(created.id)
+
+    // 4. viewer 角色的 Agent 亦可发表（权限尺与真人同一把尺，不加 editor 门槛）
+    const viewerAgent = await createAgentAndToken(env, author, "agent-viewer")
+    await addAgentToSpace(env, admin, space.id, viewerAgent.agentId, "viewer")
+    const viewerPostRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      viewerAgent.token,
+      { bodyMd: "Viewer agent 也可发表" }
+    )
+    expect(viewerPostRes.status).toBe(201)
+  })
+
+  it("预览（POST /:id/comments/preview）：持 write 令牌的 Agent 正常渲染与空正文处理", async () => {
+    const { env, admin, author, space, page } = await scenario()
+    const agent = await createAgentAndToken(env, author, "agent-previewer")
+    await addAgentToSpace(env, admin, space.id, agent.agentId, "editor")
+
+    const prevRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments/preview`,
+      agent.token,
+      { bodyMd: "**粗体正文**" }
+    )
+    expect(prevRes.status).toBe(200)
+    const prevData = (await prevRes.json()) as { html: string }
+    expect(prevData.html).toContain("<strong>粗体正文</strong>")
+
+    // 空正文返回 200 {"html":""}
+    const emptyRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments/preview`,
+      agent.token,
+      { bodyMd: "" }
+    )
+    expect(emptyRes.status).toBe(200)
+    expect((await emptyRes.json()) as { html: string }).toEqual({ html: "" })
+  })
+
+  it("编辑（PUT /:id/comments/:commentId）：Agent 可编辑自己评论，他人编辑报 403", async () => {
+    const { env, admin, author, other, space, page } = await scenario()
+    const agent = await createAgentAndToken(env, author, "agent-editor")
+    await addAgentToSpace(env, admin, space.id, agent.agentId, "editor")
+
+    const postRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      agent.token,
+      { bodyMd: "初版正文" }
+    )
+    const created = (await postRes.json()) as CommentDto
+
+    // 1. Agent 编辑自己发表的评论
+    const editRes = await tokenRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}/comments/${created.id}`,
+      agent.token,
+      { bodyMd: "修改后的正文" }
+    )
+    expect(editRes.status).toBe(200)
+    const edited = (await editRes.json()) as CommentDto
+    expect(edited.bodyMd).toBe("修改后的正文")
+    expect(edited.editedAt).not.toBeNull()
+
+    // 2. 他人（真人或其他 Agent）尝试编辑该评论：403
+    const forbiddenHuman = await jsonRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}/comments/${created.id}`,
+      { bodyMd: "真人试图修改" },
+      other
+    )
+    expect(forbiddenHuman.status).toBe(403)
+
+    const otherAgent = await createAgentAndToken(env, author, "other-agent")
+    await addAgentToSpace(env, admin, space.id, otherAgent.agentId, "editor")
+    const forbiddenAgent = await tokenRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}/comments/${created.id}`,
+      otherAgent.token,
+      { bodyMd: "别的 agent 试图修改" }
+    )
+    expect(forbiddenAgent.status).toBe(403)
+
+    // 3. Agent 尝试编辑真人的评论：403
+    const humanComment = await createComment(env, author, page.id, "真人的评论")
+    const editHumanComment = await tokenRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}/comments/${humanComment.id}`,
+      agent.token,
+      { bodyMd: "Agent 试图修改真人的评论" }
+    )
+    expect(editHumanComment.status).toBe(403)
+  })
+
+  it("删除（DELETE /:id/comments/:commentId）：Agent 可删自己评论，空间管理员可删 Agent 评论，非作者 403", async () => {
+    const { env, admin, author, other, spaceAdmin, space, page } =
+      await scenario()
+    const agent = await createAgentAndToken(env, author, "agent-deleter")
+    await addAgentToSpace(env, admin, space.id, agent.agentId, "editor")
+
+    const postRes1 = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      agent.token,
+      { bodyMd: "Agent 评论 1" }
+    )
+    const comment1 = (await postRes1.json()) as CommentDto
+
+    const postRes2 = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      agent.token,
+      { bodyMd: "Agent 评论 2" }
+    )
+    const comment2 = (await postRes2.json()) as CommentDto
+
+    // 1. 非作者普通成员（other）尝试删除 Agent 评论：403
+    const denyOther = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/pages/${page.id}/comments/${comment1.id}`,
+      undefined,
+      other
+    )
+    expect(denyOther.status).toBe(403)
+
+    // 2. Agent 删除自己的评论：200 且幂等
+    const delRes1 = await tokenRequest(
+      env,
+      "DELETE",
+      `/api/pages/${page.id}/comments/${comment1.id}`,
+      agent.token
+    )
+    expect(delRes1.status).toBe(200)
+    expect((await delRes1.json()) as { success: boolean }).toEqual({
+      success: true
+    })
+
+    const delAgain = await tokenRequest(
+      env,
+      "DELETE",
+      `/api/pages/${page.id}/comments/${comment1.id}`,
+      agent.token
+    )
+    expect(delAgain.status).toBe(200)
+
+    // 3. 空间管理员（spaceAdmin）删除 Agent 评论：200
+    const delAdmin = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/pages/${page.id}/comments/${comment2.id}`,
+      undefined,
+      spaceAdmin
+    )
+    expect(delAdmin.status).toBe(200)
+
+    // 4. Agent（普通 editor）尝试删除他人的评论：403
+    const humanComment = await createComment(env, author, page.id, "真人的评论")
+    const denyAgentDelHuman = await tokenRequest(
+      env,
+      "DELETE",
+      `/api/pages/${page.id}/comments/${humanComment.id}`,
+      agent.token
+    )
+    expect(denyAgentDelHuman.status).toBe(403)
+  })
+
+  it("空间成员与存在性隔离：未加入空间的 Agent 返回 404，不泄露页面存在性", async () => {
+    const { env, author, page } = await scenario()
+    const outsider = await createAgentAndToken(env, author, "outsider-agent")
+    // 注意：outsider 未加入 space
+
+    const postRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      outsider.token,
+      { bodyMd: "未加入空间" }
+    )
+    expect(postRes.status).toBe(404)
+    expect((await postRes.json()) as { error: string }).toEqual({
+      error: "Page not found"
+    })
+
+    const prevRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments/preview`,
+      outsider.token,
+      { bodyMd: "未加入空间" }
+    )
+    expect(prevRes.status).toBe(404)
+
+    const editRes = await tokenRequest(
+      env,
+      "PUT",
+      `/api/pages/${page.id}/comments/1`,
+      outsider.token,
+      { bodyMd: "未加入空间" }
+    )
+    expect(editRes.status).toBe(404)
+
+    const delRes = await tokenRequest(
+      env,
+      "DELETE",
+      `/api/pages/${page.id}/comments/1`,
+      outsider.token
+    )
+    expect(delRes.status).toBe(404)
+
+    // 不存在的页面也是 404
+    const notFoundPage = await tokenRequest(
+      env,
+      "POST",
+      "/api/pages/999999/comments",
+      outsider.token,
+      { bodyMd: "不存在的页面" }
+    )
+    expect(notFoundPage.status).toBe(404)
+  })
+
+  it("令牌类型与失效语义：read 令牌/无效令牌/已吊销/停用均 401，头冲突不回落", async () => {
+    const { env, admin, author, space, page } = await scenario()
+
+    // 1. read 类型令牌被拒：401
+    const readAgent = await createAgentAndToken(
+      env,
+      author,
+      "read-agent",
+      "read"
+    )
+    await addAgentToSpace(env, admin, space.id, readAgent.agentId, "editor")
+    const readPost = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      readAgent.token,
+      { bodyMd: "read 令牌不可写评论" }
+    )
+    expect(readPost.status).toBe(401)
+    expect(readPost.headers.get("cache-control")).toBe("no-store")
+
+    // 2. 无效/不存在的令牌：401
+    const badTokenPost = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      "invalid-token-string",
+      { bodyMd: "无效令牌" }
+    )
+    expect(badTokenPost.status).toBe(401)
+
+    // 3. 吊销后的令牌：401
+    const writeAgent = await createAgentAndToken(env, author, "agent-revoking")
+    await addAgentToSpace(env, admin, space.id, writeAgent.agentId, "editor")
+    const revokeRes = await jsonRequest(
+      env,
+      "DELETE",
+      `/api/me/agents/${writeAgent.agentId}/tokens/${writeAgent.tokenId}`,
+      undefined,
+      author
+    )
+    expect(revokeRes.status).toBe(200)
+    const revokedPost = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      writeAgent.token,
+      { bodyMd: "吊销后" }
+    )
+    expect(revokedPost.status).toBe(401)
+
+    // 4. Agent 账号被停用（isActive=false）：401
+    const doomedAgent = await createAgentAndToken(env, author, "agent-doomed")
+    await addAgentToSpace(env, admin, space.id, doomedAgent.agentId, "editor")
+    const patchRes = await jsonRequest(
+      env,
+      "PATCH",
+      `/api/me/agents/${doomedAgent.agentId}`,
+      { isActive: false },
+      author
+    )
+    expect(patchRes.status).toBe(200)
+    const inactivePost = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      doomedAgent.token,
+      { bodyMd: "停用后" }
+    )
+    expect(inactivePost.status).toBe(401)
+
+    // 5. 头信息冲突：同时携带无效 Authorization 头与有效 Session Cookie 时直接 401，不回落会话
+    const conflictRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      "bad-bearer-token",
+      { bodyMd: "冲突测试" },
+      { cookie: author }
+    )
+    expect(conflictRes.status).toBe(401)
+    expect(conflictRes.headers.get("cache-control")).toBe("no-store")
+
+    // 6. 畸形 Authorization 头（如 Basic 或空 Bearer）：401
+    const malformedRes = await request(env, `/api/pages/${page.id}/comments`, {
+      method: "POST",
+      headers: {
+        authorization: "Basic dXNlcjpwYXNz",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ bodyMd: "畸形头" })
+    })
+    expect(malformedRes.status).toBe(401)
+  })
+
+  it("隔离性：GET 评论列表与页面路由对 Agent 令牌严格拦截 401，真人查列表正确呈现 Agent 评论", async () => {
+    const { env, admin, author, space, page } = await scenario()
+    const agent = await createAgentAndToken(env, author, "agent-isolation")
+    await addAgentToSpace(env, admin, space.id, agent.agentId, "editor")
+
+    // 1. Agent 发表一条评论
+    const postRes = await tokenRequest(
+      env,
+      "POST",
+      `/api/pages/${page.id}/comments`,
+      agent.token,
+      { bodyMd: "Agent 隔离测试评论" }
+    )
+    expect(postRes.status).toBe(201)
+
+    // 2. Agent 持 write 令牌调 GET /api/pages/:id/comments（列表）：401 隔离
+    const listByToken = await tokenRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}/comments`,
+      agent.token
+    )
+    expect(listByToken.status).toBe(401)
+
+    // 3. Agent 持 write 令牌调页面会话端点 GET /api/pages/:id 与 POST /api/pages：401 隔离
+    const pageGetByToken = await tokenRequest(
+      env,
+      "GET",
+      `/api/pages/${page.id}`,
+      agent.token
+    )
+    expect(pageGetByToken.status).toBe(401)
+
+    const pagePostByToken = await tokenRequest(
+      env,
+      "POST",
+      "/api/pages",
+      agent.token,
+      { title: "跨界写页", spaceId: space.id }
+    )
+    expect(pagePostByToken.status).toBe(401)
+
+    // 4. 真人通过会话 GET 查列表：正常展示，isAgent 为 true，ownerName 与 authorName 正确
+    const listByHuman = await listComments(env, author, page.id)
+    expect(listByHuman.total).toBe(1)
+    const comment = listByHuman.threads[0] as unknown as {
+      isAgent: boolean
+      authorName: string
+      ownerName: string | null
+      bodyMd: string
+    }
+    expect(comment.isAgent).toBe(true)
+    expect(comment.authorName).toBe("agent-isolation")
+    expect(comment.ownerName).toBeTruthy()
+    expect(comment.bodyMd).toBe("Agent 隔离测试评论")
+  })
+})

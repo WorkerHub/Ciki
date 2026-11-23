@@ -40,7 +40,7 @@
 
 ## 一、通用约定
 
-- **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）；`/api/read/*` 是外部连接器入口，只认 `Authorization: Bearer <接口令牌>`（`api_tokens.kind` 为 `read` 或 `write` 都行），同样不接受会话 Cookie，且与导入令牌互不通用（见「只读接口（只读令牌）」）；`/api/write/*` 只认 `Authorization: Bearer <kind = write 的接口令牌>`，会话 Cookie、`kind = read` 的令牌与导入令牌在这里一律 401（见「读写接口（读写令牌）」）。
+- **鉴权**：全站登录后可见。除下列公开端点与 `/api/import/*` 外，所有 `/api/*` 都必须带会话 Cookie；未登录一律 `401 {"error":"Unauthorized"}`，且响应头 `Cache-Control: no-store`。`/api/import/*` 是插件专用入口，只认 `Authorization: Bearer <个人导入令牌>`，**不接受会话 Cookie**（见「导入（个人令牌）」）；`/api/read/*` 是外部连接器入口，只认 `Authorization: Bearer <接口令牌>`（`api_tokens.kind` 为 `read` 或 `write` 都行），同样不接受会话 Cookie，且与导入令牌互不通用（见「只读接口（只读令牌）」）；`/api/write/*` 只认 `Authorization: Bearer <kind = write 的接口令牌>`，会话 Cookie、`kind = read` 的令牌与导入令牌在这里一律 401（见「读写接口（读写令牌）」）；评论写端点（`POST /api/pages/:id/comments/preview`、`POST /api/pages/:id/comments`、`PUT /api/pages/:id/comments/:commentId`、`DELETE /api/pages/:id/comments/:commentId`）除会话 Cookie 外，亦支持 `Authorization: Bearer <kind = write 的接口令牌>` 并行鉴权（只认 write 令牌，见「评论」；列表接口仍仅限会话 Cookie）。
   - 公开：`GET /api/health`、`GET /api/public`、`GET /api/setup/state`、`POST /api/setup`、`GET /api/auth/config`、`POST /api/auth/register`、`POST /api/auth/login`、`POST /api/auth/logout`、`POST /api/auth/refresh`、`POST /api/auth/password/forgot`、`POST /api/auth/password/verify`、`POST /api/auth/password/reset`、`POST /api/auth/email/verify`、`POST /api/auth/email/resend`、`POST /api/auth/2fa/verify`、`POST /api/auth/2fa/passkey/authenticate/options`、`POST /api/auth/2fa/passkey/authenticate/verify`、`POST /api/auth/2fa/email-otp/send-login`。
   - 另有不在 `/api` 下的公开入口 `POST /_waker/execute`（waker 回调，靠 HMAC 签名自证，不认会话 Cookie，见「waker 回调」）。
 - **会话 Cookie**：名字 `ciki_session`，值为 32 字节随机不透明令牌（base64url）。属性：`HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`（7 天，`refresh` 会滑动续期）。服务端只存令牌的 SHA-256，不存原值；登出、改密、管理员停用/拒绝都会删会话行，删行即吊销。
@@ -1632,7 +1632,14 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 ### 评论
 
-评论挂在页面维度下（`/api/pages/:id/comments…`），与页面同一条会话中间件：未登录 401；读与发表用与 `GET /api/pages/:id` **同一把权限尺子**（登录 + 对该页有读权限，空间成员任一角色，`viewer` 也能评）；非成员与页面不存在/已软删一律 404（不泄露存在性）。编辑仅作者本人；删除为作者本人、该页所属空间 `admin`、站点管理员。
+评论挂在页面维度下（`/api/pages/:id/comments…`）。鉴权采用双轨路径：
+
+- 列表接口（`GET /api/pages/:id/comments`）仅限已登录的人类会话 Cookie（外部令牌拦截 401）。
+- 四个写端点（发表、预览、编辑、删除）支持真人会话 Cookie 与 `Authorization: Bearer <kind = write 的接口令牌>` 并行鉴权。持 `write` 令牌的 Agent 以其自身账号身份操作，作者归属为该 Agent 账号（`isAgent: true`，`ownerName` 为其 owner 显示名）。
+- 若同时携带 `Authorization` 头与会话 Cookie，严格按令牌校验判定，令牌无效直接 401（带 `Cache-Control: no-store`），不回落会话。
+- 权限口径与真人完全同一把尺：所属空间内 `resolveSpaceRole` 拿到角色（`admin`/`editor`/`viewer`）即可发表与预览；非成员与页面不存在/已软删同口径 404（不泄露存在性）；不叠加 `token_space_scopes` 限制与 `editor` 门槛。
+- 编辑仅作者本人（Agent 亦仅能编辑自己发表的评论）；删除限作者本人、所属空间 `admin` 或站点管理员（空间管理员可删除 Agent 发表的评论）。
+- Agent 停用（`is_active = 0`）或删除、或令牌被吊销后即时失效（401）；已发表评论保留，展示按既有口径。
 
 正文只存 Markdown 原文，HTML 由服务端现算：`marked`（GFM，`breaks: true`）→ 站内消毒器（与正文同一份白名单，只放开 `img[src]` 的判定，见「服务端消毒规则」）。列表、预览、发表/编辑的响应共用同一条链，**前端不做二次渲染、不引前端 MD 库**。
 
@@ -1673,6 +1680,8 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 #### POST /api/pages/:id/comments
 
+鉴权：支持会话 Cookie 或 `Authorization: Bearer <kind = write 的接口令牌>`。
+
 ```json
 { "bodyMd": "## 正文", "parentId": 1 }
 ```
@@ -1685,13 +1694,19 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 
 #### POST /api/pages/:id/comments/preview
 
+鉴权：支持会话 Cookie 或 `Authorization: Bearer <kind = write 的接口令牌>`。
+
 `{ "bodyMd": "…" }` → 200 `{ "html": "…" }`，与列表同一条渲染净化链，不写库。空正文回 `{"html":""}`（不报错）；权限同 GET。预览必须走这个端点——前端不得自己渲染出第二套结果。
 
 #### PUT /api/pages/:id/comments/:commentId
 
+鉴权：支持会话 Cookie 或 `Authorization: Bearer <kind = write 的接口令牌>`。
+
 `{ "bodyMd": "…" }` → 200 更新后的 DTO。**仅作者本人**（空间 `admin` / 站点管理员也不行）：非作者 403，评论不存在 404，已删除 409 `code:"COMMENT_DELETED"`。只改正文与 `editedAt`（首次编辑起非空，前端据此显示「已编辑」）、`createdAt` 不动。
 
 #### DELETE /api/pages/:id/comments/:commentId
+
+鉴权：支持会话 Cookie 或 `Authorization: Bearer <kind = write 的接口令牌>`。
 
 软删，200 `{"success":true}`；重复删除幂等（仍 200，不覆盖首次的 `deletedAt`）。权限：作者本人、该页所属空间 `admin`、站点管理员；其余成员 403、非成员 404。
 

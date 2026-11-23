@@ -7,6 +7,10 @@ import { isEncryptionKeyUsable } from "./core/secret-box"
 import { wakerGateState } from "./core/waker-gate"
 import { runAllBucketCleanups } from "./core/r2-cleanup"
 import { authMiddleware } from "./middleware/auth"
+import {
+  commentAuthMiddleware,
+  isCommentWriteRoute
+} from "./middleware/comment-auth"
 import { authRoutes } from "./routes/auth"
 import { auth2faRoutes } from "./routes/auth-2fa"
 import { meRoutes } from "./routes/me"
@@ -99,9 +103,13 @@ function isPublicRoute(method: string, path: string): boolean {
 }
 
 app.use("/api/*", async (c, next) => {
-  if (isPublicRoute(c.req.method, new URL(c.req.url).pathname)) {
+  const path = new URL(c.req.url).pathname
+  if (isPublicRoute(c.req.method, path)) {
     await next()
     return
+  }
+  if (isCommentWriteRoute(c.req.method, path)) {
+    return commentAuthMiddleware(c, next)
   }
   return authMiddleware(c, next)
 })
@@ -113,8 +121,9 @@ app.route("/api/admin", adminRoutes)
 app.route("/api/public", publicRoutes)
 app.route("/api/setup", setupRoutes)
 app.route("/api/pages", pageRoutes)
-// 评论挂在页面维度下（`/api/pages/:id/comments…`），与页面共用同一条会话中间件，
-// 不需要进 PUBLIC_ROUTES：未登录由会话中间件回 401。
+// 评论挂在页面维度下（`/api/pages/:id/comments…`）：四个写端点（发表/预览/编辑/删除）
+// 经 isCommentWriteRoute 走 commentAuthMiddleware 实现 Session + write 令牌并行鉴权；
+// 列表等只读端点继续走 authMiddleware 会话拦截。
 app.route("/api/pages", commentRoutes)
 app.route("/api/spaces", spaceRoutes)
 app.route("/api/search", searchRoutes)
