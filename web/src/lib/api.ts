@@ -434,6 +434,7 @@ export interface ApiTokenCreated {
 export interface AgentAccount {
   id: number
   username: string
+  avatarUrl: string | null
   isActive: boolean
   createdAt: string
 }
@@ -511,9 +512,11 @@ export interface PageDetail {
   createdByName: string | null
   createdByAvatarUrl: string | null
   createdByIsAgent?: boolean
+  createdByOwnerName?: string | null
   updatedByName: string | null
   updatedByAvatarUrl: string | null
   updatedByIsAgent?: boolean
+  updatedByOwnerName?: string | null
 }
 
 /**
@@ -578,6 +581,8 @@ export interface CommentDto {
   /** 原始 Markdown，仅编辑回填用。 */
   bodyMd: string
   html: string
+  isAgent?: boolean
+  ownerName?: string | null
   createdAt: string
   editedAt: string | null
   deletedAt: string | null
@@ -628,6 +633,7 @@ export interface AdminUser extends User {
   approvalStatus: ApprovalStatus
   createdAt: string
   isAgent?: boolean
+  ownerName?: string | null
   kind?: "human" | "agent"
   ownerUserId?: number | null
   owner?: { id: number; username: string } | null
@@ -763,6 +769,8 @@ export interface SpaceMember {
   role: SpaceRole
   createdAt: string
   isAgent?: boolean
+  avatarUrl?: string | null
+  ownerName?: string | null
 }
 
 export interface SpaceCandidate {
@@ -770,6 +778,22 @@ export interface SpaceCandidate {
   username: string
   email: string
   isAgent?: boolean
+  ownerName?: string | null
+}
+
+export interface AgentSpaceItem {
+  spaceId: number
+  slug: string
+  name: string
+  role: SpaceRole | null
+}
+
+export type AgentSpaceWriteResult =
+  | { spaceId: number; ok: true; role: SpaceRole }
+  | { spaceId: number; ok: false; error: string; code: string }
+
+export interface AgentSpaceBatchResult {
+  results: AgentSpaceWriteResult[]
 }
 
 /**
@@ -1046,7 +1070,16 @@ export const meApi = {
     issueToken: (id: number, input: CreateAgentTokenInput) =>
       api.post<ApiTokenCreated>(`/me/agents/${id}/tokens`, input),
     revokeToken: (id: number, tokenId: number) =>
-      api.del<{ success: true }>(`/me/agents/${id}/tokens/${tokenId}`)
+      api.del<{ success: true }>(`/me/agents/${id}/tokens/${tokenId}`),
+    uploadAvatar: (id: number, file: File) =>
+      uploadTo<AgentAccount>(`/me/agents/${id}/avatar`, file),
+    deleteAvatar: (id: number) =>
+      api.del<AgentAccount>(`/me/agents/${id}/avatar`),
+    spaces: (id: number) => api.get<AgentSpaceItem[]>(`/me/agents/${id}/spaces`),
+    setSpaces: (id: number, input: { spaceIds: number[]; role?: SpaceRole }) =>
+      api.put<AgentSpaceBatchResult>(`/me/agents/${id}/spaces`, input),
+    removeSpace: (id: number, spaceId: number) =>
+      api.del<{ success: true }>(`/me/agents/${id}/spaces/${spaceId}`)
   }
 }
 
