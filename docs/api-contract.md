@@ -1195,6 +1195,66 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 把用户置为 `rejected` + `isActive: false`，吊销其全部会话。
 
+#### GET /api/admin/users/:id/spaces
+
+列出全站空间，附目标真人用户在各空间的现行角色（未加入为 `null`）：
+
+```json
+[
+  { "spaceId": 1, "slug": "default", "name": "默认空间", "role": "admin" },
+  { "spaceId": 2, "slug": "team", "name": "团队空间", "role": null }
+]
+```
+
+- 站点管理员鉴权（非管理员 403 `{"error":"Forbidden"}`）。
+- 仅允许对真人用户操作；目标用户不存在或为 Agent 账号一律 404 `{"error":"User not found"}`（不泄露存在性）。
+- 返回全站全部空间；`role` 为该用户在此空间的现行成员角色（`admin` / `editor` / `viewer`），未加入为 `null`。
+
+#### PUT /api/admin/users/:id/spaces
+
+批量加入 / 改角色，一次提交、逐项回报（与 Agent 空间授权端点同构）：
+
+```json
+{ "spaceIds": [1, 2], "role": "editor" }
+```
+
+- 站点管理员鉴权（非管理员 403 `{"error":"Forbidden"}`）。
+- 仅允许对真人用户操作；目标用户不存在或为 Agent 账号一律 404 `{"error":"User not found"}`（不泄露存在性）。
+- `spaceIds` 必填：正整数数组（去重、升序），为空 / 非数组 / 含非法项回 400 `code:"INVALID_SPACE_SCOPE"`。
+- `role` 可选，默认 `editor`（普通成员档）；取值仅 `admin` / `editor` / `viewer`，非法回 400 `code:"INVALID_ROLE"`。
+- 每个空间独立校验与写入，部分失败不影响其余空间，逐项回报：
+
+```json
+{
+  "results": [
+    { "spaceId": 1, "ok": true, "role": "editor" },
+    {
+      "spaceId": 999,
+      "ok": false,
+      "error": "Space not found",
+      "code": "SPACE_NOT_FOUND"
+    }
+  ]
+}
+```
+
+- 单项成功：`{ "spaceId": n, "ok": true, "role": "…" }`（未加入则加入，已加入则改角色）。
+- 单项失败逐一点名：
+  - `code:"SPACE_NOT_FOUND"`：空间不存在。
+  - `code:"SPACE_FORBIDDEN"`：操作者无管理权。
+  - `code:"LAST_SPACE_ADMIN"`：把该空间最后一名 `admin` 降级。
+  - `code:"USER_NOT_ELIGIBLE"`：目标用户未激活 / 未批准，无法加入新空间（仅加入新空间时校验，已是成员改角色不加此限制；与空间成员管理 `POST /api/spaces/:id/members` 同源）。
+
+#### DELETE /api/admin/users/:id/spaces/:spaceId
+
+将真人用户移出单个空间，成功 200 `{"success":true}`：
+
+- 站点管理员鉴权（非管理员 403 `{"error":"Forbidden"}`）。
+- 仅允许对真人用户操作；目标用户不存在或为 Agent 账号一律 404 `{"error":"User not found"}`（不泄露存在性）。
+- 空间不存在 404 `code:"SPACE_NOT_FOUND"`；无管理权 403 `{"error":"Forbidden"}`。
+- 目标用户非该空间成员 404 `code:"MEMBER_NOT_FOUND"`；移除最后一名 `admin` 409 `code:"LAST_SPACE_ADMIN"`。
+- 允许移出停用状态的用户（同源校验：DELETE 允许移出停用用户）。
+
 #### GET /api/admin/spaces
 
 站点管理员的空间总览：
