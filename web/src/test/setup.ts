@@ -77,55 +77,19 @@ if (typeof window !== "undefined") {
       let lineDash: number[] = []
       return {
         canvas: this,
-        fillStyle: "#000000",
-        strokeStyle: "#000000",
         filter: "none",
-        font: "10px sans-serif",
-        globalAlpha: 1.0,
-        globalCompositeOperation: "source-over",
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: "low",
-        lineCap: "butt",
-        lineDashOffset: 0,
-        lineJoin: "miter",
-        lineWidth: 1,
-        miterLimit: 10,
-        shadowBlur: 0,
-        shadowColor: "rgba(0, 0, 0, 0)",
-        shadowOffsetX: 0,
-        shadowOffsetY: 0,
-        textAlign: "start",
-        textBaseline: "alphabetic",
-        direction: "inherit",
-        letterSpacing: "0px",
-        wordSpacing: "0px",
-        save: () => {},
-        restore: () => {},
-        reset: () => {},
-        scale: () => {},
-        rotate: () => {},
-        translate: () => {},
-        transform: () => {},
+        fillRect: () => {},
+        clearRect: () => {},
+        strokeRect: () => {},
+        getImageData: () => ({ data: new Array(4) }),
+        putImageData: () => {},
+        createImageData: () => ({ data: new Array(4) }),
         setTransform: () => {},
-        resetTransform: () => {},
-        getTransform: () => ({
-          a: 1,
-          b: 0,
-          c: 0,
-          d: 1,
-          e: 0,
-          f: 0,
-          m11: 1,
-          m12: 0,
-          m21: 0,
-          m22: 1,
-          m41: 0,
-          m42: 0,
-          is2D: true,
-          isIdentity: true
-        }),
+        drawImage: () => {},
+        save: () => {},
+        fillText: () => {},
+        restore: () => {},
         beginPath: () => {},
-        closePath: () => {},
         moveTo: () => {},
         lineTo: () => {},
         bezierCurveTo: () => {},
@@ -135,70 +99,24 @@ if (typeof window !== "undefined") {
         ellipse: () => {},
         rect: () => {},
         roundRect: () => {},
+        closePath: () => {},
         stroke: () => {},
         fill: () => {},
         clip: () => {},
-        isPointInPath: () => false,
-        isPointInStroke: () => false,
-        clearRect: () => {},
-        fillRect: () => {},
-        strokeRect: () => {},
+        translate: () => {},
+        scale: () => {},
+        rotate: () => {},
+        measureText: () => ({ width: 0 }),
+        transform: () => {},
         setLineDash: (segments: number[]) => {
           lineDash = Array.isArray(segments) ? [...segments] : []
         },
-        getLineDash: () => [...lineDash],
-        fillText: () => {},
-        strokeText: () => {},
-        measureText: (text: string) => ({
-          width: text ? text.length * 10 : 0,
-          actualBoundingBoxAscent: 0,
-          actualBoundingBoxDescent: 0,
-          actualBoundingBoxLeft: 0,
-          actualBoundingBoxRight: 0,
-          fontBoundingBoxAscent: 0,
-          fontBoundingBoxDescent: 0,
-          emHeightAscent: 0,
-          emHeightDescent: 0,
-          hangingBaseline: 0,
-          alphabeticBaseline: 0,
-          ideographicBaseline: 0
-        }),
-        drawImage: () => {},
-        createImageData: (sw: number | ImageData, sh?: number) => ({
-          width: typeof sw === "number" ? sw : sw.width,
-          height: typeof sh === "number" ? sh : 0,
-          data: new Uint8ClampedArray(4),
-          colorSpace: "srgb" as PredefinedColorSpace
-        }),
-        getImageData: (_sx: number, _sy: number, sw: number, sh: number) => ({
-          width: sw,
-          height: sh,
-          data: new Uint8ClampedArray(Math.max(4, (sw || 1) * (sh || 1) * 4)),
-          colorSpace: "srgb" as PredefinedColorSpace
-        }),
-        putImageData: () => {},
-        createLinearGradient: () => ({
-          addColorStop: () => {}
-        }),
-        createRadialGradient: () => ({
-          addColorStop: () => {}
-        }),
-        createConicGradient: () => ({
-          addColorStop: () => {}
-        }),
-        createPattern: () => ({
-          setTransform: () => {}
-        }),
-        drawFocusIfNeeded: () => {}
+        getLineDash: () => [...lineDash]
       }
     } as unknown as typeof HTMLCanvasElement.prototype.getContext
     HTMLCanvasElement.prototype.toBlob = (callback, type = "image/png") => {
       const blob = new Blob(["mock-image-bytes"], { type })
       callback(blob)
-    }
-    if (!HTMLCanvasElement.prototype.toDataURL) {
-      HTMLCanvasElement.prototype.toDataURL = (_type = "image/png") =>
-        "data:image/png;base64,mock"
     }
   }
   if (!("Path2D" in globalThis)) {
