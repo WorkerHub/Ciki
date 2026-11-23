@@ -3,6 +3,7 @@ import {
   CircleX,
   MoreHorizontal,
   Plus,
+  ShieldCheck,
   UserCog,
   UserX
 } from "lucide-react"
@@ -60,6 +61,7 @@ import {
   describeApiError,
   type Role
 } from "@/lib/api"
+import { UserSpacesDialog } from "@/components/UserSpacesDialog"
 import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDate } from "@/lib/format"
 import { useAuthStore } from "@/stores/auth"
@@ -106,6 +108,7 @@ export function UsersTab() {
   const [passwordTarget, setPasswordTarget] = useState<AdminUser | null>(null)
   const [passwordValue, setPasswordValue] = useState("")
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null)
+  const [spacesTarget, setSpacesTarget] = useState<AdminUser | null>(null)
 
   const load = useCallback(async (nextFilter: Filter) => {
     setLoading(true)
@@ -289,6 +292,14 @@ export function UsersTab() {
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                             </>
+                          ) : null}
+                          {!user.isAgent && user.kind !== "agent" ? (
+                            <DropdownMenuItem
+                              onSelect={() => setSpacesTarget(user)}
+                            >
+                              <ShieldCheck aria-hidden="true" />
+                              {t("admin.users.spaces.menuItem")}
+                            </DropdownMenuItem>
                           ) : null}
                           <DropdownMenuItem
                             disabled={busy || isSelf}
@@ -519,6 +530,14 @@ export function UsersTab() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <UserSpacesDialog
+        user={spacesTarget}
+        open={spacesTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setSpacesTarget(null)
+        }}
+      />
     </div>
   )
 }
