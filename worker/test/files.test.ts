@@ -550,4 +550,47 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
     )
     expect(res.headers.get("x-content-type-options")).toBe("nosniff")
   })
+
+  it("Unicode 字符（如 'İ'）：在原串正则匹配，避免 toLowerCase 码元长度变化导致切片错位", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 'İ'（U+0130）若经 toLowerCase() 会变成 'i\u0307'（2 个码元），产生长度漂移
+    const rawHtml = "<!DOCTYPE html><html><body>İçerik</body></html>"
+    const rawBytes = new TextEncoder().encode(rawHtml)
+    const key = "embeds/55555555-6666-7777-8888-999999999999.html"
+    await r2.put(key, rawBytes, {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const html = await res.text()
+
+    // 验证闭合标签未被破坏、注入脚本完整在 </body> 之前
+    expect(html).toContain("İçerik<script>")
+    expect(html).toContain("</script></body></html>")
+    expect(html).not.toContain("<<script>")
+  })
+
+  it("Embed 下发不透传原文件的 ETag（内容已被动态注入脚本）", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml = "<html><body><p>No ETag</p></body></html>"
+    const key = "embeds/66666666-7777-8888-9999-000000000000.html"
+    await r2.put(key, new TextEncoder().encode(rawHtml), {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get("etag")).toBeNull()
+  })
 })

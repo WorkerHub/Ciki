@@ -50,7 +50,8 @@ fileRoutes.get("/:key{.+}", async (c) => {
     const injectedHtml = injectEmbedHeightScript(rawHtml)
     const encoded = new TextEncoder().encode(injectedHtml)
     headers.set("Content-Length", String(encoded.byteLength))
-    if (object.httpEtag) headers.set("ETag", object.httpEtag)
+    // embed 下发内容已被动态注入脚本，与 R2 底层原文件字节不再一致；
+    // 不透传原文件的 httpEtag，避免客户端以原文件标识缓存动态注入内容。
     headers.set("Cache-Control", "private, max-age=3600")
     return new Response(encoded, { headers })
   } else {

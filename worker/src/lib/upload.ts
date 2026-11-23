@@ -80,9 +80,10 @@ export const EMBED_HEIGHT_REPORTER_SCRIPT = `<script>
 
 /**
  * 在 embed HTML 响应内容中注入高度上报脚本：
- * - 优先在最后一个 \`</body>\` 前注入（不区分大小写）；
+ * - 优先在最后一个 \`</body>\` 前注入（在原字符串上使用大小写不敏感正则匹配，避免 toLowerCase() 改变 Unicode 码元长度导致索引错位）；
  * - 无 body 标签时追加在文件末尾；
  * - 注入只发生在下发响应里，R2 存储的原文件不改，导出 zip 仍保持原文件逐字字节。
+ * - 已知限制（规格定版口径）：字符串层级匹配最后一个 \`</body>\` 标签，若原文件内联 JS 字符串或注释中包含 \`</body>\`，注入将落在该字符串前。
  */
 export function injectEmbedHeightScript(html: string): string {
   if (
@@ -91,13 +92,15 @@ export function injectEmbedHeightScript(html: string): string {
   ) {
     return html
   }
-  const lower = html.toLowerCase()
-  const bodyIndex = lower.lastIndexOf("</body>")
-  if (bodyIndex !== -1) {
+  let lastIndex = -1
+  for (const match of html.matchAll(/<\/body>/gi)) {
+    lastIndex = match.index
+  }
+  if (lastIndex !== -1) {
     return (
-      html.slice(0, bodyIndex) +
+      html.slice(0, lastIndex) +
       EMBED_HEIGHT_REPORTER_SCRIPT +
-      html.slice(bodyIndex)
+      html.slice(lastIndex)
     )
   }
   return html + EMBED_HEIGHT_REPORTER_SCRIPT

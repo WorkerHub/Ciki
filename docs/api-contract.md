@@ -1853,6 +1853,7 @@ embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字�
 CSP sandbox 强制 opaque origin（即便用户顶层打开 URL 亦无法访问站内 localStorage / Cookie 或发起同源 API 请求）；外链资源全部阻断、无白名单，动画必须单文件自包含（内联 JS/CSS，图片/字体通过 data: / blob: 嵌入）。
 
 - **下发注入**：embed 文件经带会话路径（`GET /api/files/:key`）下发时，在响应内容末尾（`</body>` 闭合标签前；无 body 标签时追加到文件末尾）临时注入一小段高度上报脚本。注入只发生在下发响应里，R2 存储的原文件不改，页面导出 zip 里的 HTML 产物仍为原文件逐字字节。
+  - 实现细节与已知边界：注入位置在原字符串上使用大小写不敏感正则匹配最后一个 `</body>`，避免 Unicode 字符转小写时码元长度变化导致切片错位；若原文件内联 JS 字符串或 HTML 注释中出现 `</body>` 为字符串切片口径的既有边界；因实际下发内容已包含注入脚本，embed 下发响应不透传 R2 底层原文件的 `ETag`。
 - **上报协议**：注入脚本在沙箱 iframe 内量取内容实际高度（`Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)`），页面加载完成（及 `DOMContentLoaded` / `load`）上报一次，并使用 `ResizeObserver` 监听内容尺寸变化持续上报。经 `window.parent.postMessage` 发给父页，消息体形如：
 
   ```json
