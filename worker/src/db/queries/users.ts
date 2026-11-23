@@ -186,6 +186,81 @@ export async function createAgentUser(
 }
 
 /**
+ * 长式 Agent 占位邮箱正则（Task #109 / 改动二）：
+ * 匹配 agent-<36位uuid>@internal（严格 8-4-4-4-12 十六进制 uuid）
+ */
+export const LONG_AGENT_EMAIL_REGEX =
+  /^agent-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}@internal$/
+
+export interface RepairAgentEmailsResult {
+  matchedCount: number
+  updatedCount: number
+  residualCount: number
+}
+
+/**
+ * Agent 占位邮箱存量刷短：一次性数据修复（Task #109）
+ * - 对象：仅 kind='agent' 且 email 为长式占位形态（匹配 agent-<36位uuid>@internal）的行；
+ *   真人邮箱与任何非该形态的值一律不碰。
+ * - 动作：逐行把 email 更新为 `<该行 username>@internal`。
+ * - 幂等：可重复执行、第二遍为 no-op。
+ * - 报数：执行前先报命中行数、执行后复查长式占位残留为 0 并回报实际更新行数。
+ */
+export async function repairAgentEmails(
+  db: D1Database,
+  prefix: string
+): Promise<RepairAgentEmailsResult> {
+  const table = usersTable(prefix)
+
+  // 1. 扫描候选 agent 行
+  const candidates = await db
+    .prepare(`SELECT id, username, email FROM ${table} WHERE kind = 'agent'`)
+    .all<{ id: number; username: string; email: string }>()
+
+  // 严格匹配长式占位形态
+  const targets = (candidates.results ?? []).filter(
+    (row) => row.email && LONG_AGENT_EMAIL_REGEX.test(row.email)
+  )
+  const matchedCount = targets.length
+
+  let updatedCount = 0
+  if (targets.length > 0) {
+    const statements = targets.map((row) =>
+      db
+        .prepare(
+          `UPDATE ${table}
+              SET email = ?
+            WHERE id = ? AND kind = 'agent' AND email = ?`
+        )
+        .bind(`${row.username}@internal`, row.id, row.email)
+    )
+
+    for (let i = 0; i < statements.length; i += 50) {
+      const chunk = statements.slice(i, i + 50)
+      const batchResults = await db.batch(chunk)
+      for (const res of batchResults) {
+        updatedCount += res.meta.changes ?? 0
+      }
+    }
+  }
+
+  // 2. 复查长式占位残留
+  const verifyRows = await db
+    .prepare(`SELECT email FROM ${table} WHERE kind = 'agent'`)
+    .all<{ email: string }>()
+
+  const residualCount = (verifyRows.results ?? []).filter(
+    (row) => row.email && LONG_AGENT_EMAIL_REGEX.test(row.email)
+  ).length
+
+  return {
+    matchedCount,
+    updatedCount,
+    residualCount
+  }
+}
+
+/**
  * 注册邮箱验证成功：只置位、只在「还没验证」时生效（重复提交不会改写 updated_at）。
  * 返回是否真的改到了行。
  */

@@ -12,7 +12,9 @@ import {
   createApprovedUser,
   findUserByEmail,
   findUserById,
-  AGENT_UNVERIFIABLE_PASSWORD_HASH
+  AGENT_UNVERIFIABLE_PASSWORD_HASH,
+  repairAgentEmails,
+  LONG_AGENT_EMAIL_REGEX
 } from "../src/db/queries/users"
 import { insertPasskey } from "../src/db/queries/passkeys"
 import { findSession } from "../src/core/session"
@@ -1208,5 +1210,156 @@ describe("展示用户身份的各 DTO 中的 isAgent 标记与管理面 owner �
     expect(commentsBody.threads[0].authorName).toBe("已注销用户")
     expect(commentsBody.threads[0].isAgent).toBe(false)
     expect(commentsBody.threads[0].ownerName).toBeNull()
+  })
+})
+
+describe("Agent 占位邮箱存量刷短：一次性数据修复 (Task #109)", () => {
+  it("正则仅匹配严格的 agent-<36位uuid>@internal", () => {
+    // 合法形态
+    expect(
+      LONG_AGENT_EMAIL_REGEX.test(
+        "agent-84e9a354-94b3-4d82-ae1e-6b4a45f78005@internal"
+      )
+    ).toBe(true)
+    expect(
+      LONG_AGENT_EMAIL_REGEX.test(
+        "agent-00000000-0000-0000-0000-000000000000@internal"
+      )
+    ).toBe(true)
+
+    // 非法形态
+    expect(LONG_AGENT_EMAIL_REGEX.test("agent-short@internal")).toBe(false)
+    expect(LONG_AGENT_EMAIL_REGEX.test("Muse@internal")).toBe(false)
+    expect(LONG_AGENT_EMAIL_REGEX.test("agent-84e9a354@internal")).toBe(false)
+    expect(
+      LONG_AGENT_EMAIL_REGEX.test(
+        "agent-84E9A354-94B3-4D82-AE1E-6B4A45F78005@internal"
+      )
+    ).toBe(false)
+    expect(
+      LONG_AGENT_EMAIL_REGEX.test(
+        "agent-84e9a354-94b3-4d82-ae1e-6b4a45f78005@example.com"
+      )
+    ).toBe(false)
+    expect(
+      LONG_AGENT_EMAIL_REGEX.test(
+        "user-84e9a354-94b3-4d82-ae1e-6b4a45f78005@internal"
+      )
+    ).toBe(false)
+  })
+
+  it("仅修改 kind='agent' 且符合长式占位形态的邮箱，跳过真人与非长式 agent，且完全幂等", async () => {
+    const { env } = await initializedContext()
+    const prefix = "ciki_"
+
+    // 1. 创建人类用户
+    const ownerId = await createApprovedUser(env.DB, prefix, {
+      email: "human_owner@example.com",
+      username: "humanowner",
+      password_hash: "hash",
+      role: "user"
+    })
+
+    // 创建一个邮箱形似长式占位的人类用户（极端边界：kind=human 绝不可被碰）
+    const humanWithLongAgentEmailId = await env.DB.prepare(
+      `INSERT INTO ${usersTable(prefix)}
+        (email, username, password_hash, role, is_active, approval_status,
+         email_verified, language, kind, owner_user_id, avatar_key, created_at, updated_at)
+       VALUES (?, ?, 'hash', 'user', 1, 'approved', 1, 'zh', 'human', NULL, '', ?, ?)`
+    )
+      .bind(
+        "agent-11111111-1111-1111-1111-111111111111@internal",
+        "fakehumanagent",
+        new Date().toISOString(),
+        new Date().toISOString()
+      )
+      .run()
+      .then((r) => r.meta.last_row_id)
+
+    // 2. 创建三个 agent 用户：
+    // - agent1: 长式占位邮箱（待修复目标）
+    // - agent2: 显式自定义邮箱（不应修改）
+    // - agent3: 已经是短式邮箱（新生成口径，不应修改）
+    const agent1Id = await env.DB.prepare(
+      `INSERT INTO ${usersTable(prefix)}
+        (email, username, password_hash, role, is_active, approval_status,
+         email_verified, language, kind, owner_user_id, avatar_key, created_at, updated_at)
+       VALUES (?, ?, ?, 'user', 1, 'approved', 1, 'zh', 'agent', ?, '', ?, ?)`
+    )
+      .bind(
+        "agent-84e9a354-94b3-4d82-ae1e-6b4a45f78005@internal",
+        "agenttarget1",
+        AGENT_UNVERIFIABLE_PASSWORD_HASH,
+        ownerId,
+        new Date().toISOString(),
+        new Date().toISOString()
+      )
+      .run()
+      .then((r) => r.meta.last_row_id)
+
+    const agent2Id = await createAgentUser(env.DB, prefix, {
+      owner_user_id: ownerId,
+      username: "agentcustom",
+      email: "custom-agent@example.com"
+    })
+
+    const agent3Id = await createAgentUser(env.DB, prefix, {
+      owner_user_id: ownerId,
+      username: "agentshort"
+    })
+
+    // 验证初始状态
+    const initHuman = await findUserById(
+      env.DB,
+      prefix,
+      humanWithLongAgentEmailId
+    )
+    const initAgent1 = await findUserById(env.DB, prefix, agent1Id)
+    const initAgent2 = await findUserById(env.DB, prefix, agent2Id)
+    const initAgent3 = await findUserById(env.DB, prefix, agent3Id)
+
+    expect(initHuman?.email).toBe(
+      "agent-11111111-1111-1111-1111-111111111111@internal"
+    )
+    expect(initAgent1?.email).toBe(
+      "agent-84e9a354-94b3-4d82-ae1e-6b4a45f78005@internal"
+    )
+    expect(initAgent2?.email).toBe("custom-agent@example.com")
+    expect(initAgent3?.email).toBe("agentshort@internal")
+
+    // 执行存量刷短
+    const firstResult = await repairAgentEmails(env.DB, prefix)
+    expect(firstResult.matchedCount).toBe(1)
+    expect(firstResult.updatedCount).toBe(1)
+    expect(firstResult.residualCount).toBe(0)
+
+    // 校验执行后数据
+    const afterHuman = await findUserById(
+      env.DB,
+      prefix,
+      humanWithLongAgentEmailId
+    )
+    const afterAgent1 = await findUserById(env.DB, prefix, agent1Id)
+    const afterAgent2 = await findUserById(env.DB, prefix, agent2Id)
+    const afterAgent3 = await findUserById(env.DB, prefix, agent3Id)
+
+    // 人类账号邮箱绝对不碰
+    expect(afterHuman?.email).toBe(
+      "agent-11111111-1111-1111-1111-111111111111@internal"
+    )
+    // 目标 agent 邮箱更新为 <username>@internal
+    expect(afterAgent1?.email).toBe("agenttarget1@internal")
+    // 不修改 updated_at 等无关字段（规格仅更新 email）
+    expect(afterAgent1?.updated_at).toBe(initAgent1?.updated_at)
+    // 自定义邮箱 agent 不碰
+    expect(afterAgent2?.email).toBe("custom-agent@example.com")
+    // 原本已是短式的 agent 不碰
+    expect(afterAgent3?.email).toBe("agentshort@internal")
+
+    // 第二遍执行验证幂等性（no-op）
+    const secondResult = await repairAgentEmails(env.DB, prefix)
+    expect(secondResult.matchedCount).toBe(0)
+    expect(secondResult.updatedCount).toBe(0)
+    expect(secondResult.residualCount).toBe(0)
   })
 })
