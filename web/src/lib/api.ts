@@ -796,6 +796,10 @@ export interface AgentSpaceBatchResult {
   results: AgentSpaceWriteResult[]
 }
 
+export type UserSpaceItem = AgentSpaceItem
+export type UserSpaceWriteResult = AgentSpaceWriteResult
+export type UserSpaceBatchResult = AgentSpaceBatchResult
+
 /**
  * 系统管理「空间总览」的行：统计字段只在这个端点返回。
  * `slug` 与本项目的 Space DTO 同源（`GET /api/spaces` 必带）；若后端这个端点
@@ -1226,6 +1230,14 @@ export const adminApi = {
     api.post<{ success: true }>(`/admin/users/${id}/approve`),
   reject: (id: number) =>
     api.post<{ success: true }>(`/admin/users/${id}/reject`),
+  userSpaces: (id: number) =>
+    api.get<AgentSpaceItem[]>(`/admin/users/${id}/spaces`),
+  setUserSpaces: (
+    id: number,
+    input: { spaceIds: number[]; role?: SpaceRole }
+  ) => api.put<AgentSpaceBatchResult>(`/admin/users/${id}/spaces`, input),
+  removeUserSpace: (id: number, spaceId: number) =>
+    api.del<{ success: true }>(`/admin/users/${id}/spaces/${spaceId}`),
   /** 最近一轮真实清理（排除 dry-run 与被防双跑守卫跳过的运行）。 */
   r2Cleanup: () => api.get<R2CleanupStatus>("/admin/r2-cleanup"),
   /** 手动触发清理：dryRun=true 只算不删，false 走真实删除。 */

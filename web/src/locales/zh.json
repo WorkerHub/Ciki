@@ -849,6 +849,16 @@
         "rejected": "已拒绝",
         "inactive": "已停用",
         "active": "正常"
+      },
+      "spaces": {
+        "menuItem": "空间授权",
+        "title": "管理用户「{{name}}」的空间权限",
+        "description": "为用户分配或移除空间。可多选空间批量设置角色，也可单个移出。",
+        "empty": "当前没有可用空间。",
+        "removeSuccess": "已将用户移出空间「{{name}}」。",
+        "errors": {
+          "notEligible": "用户账号处于禁用或未审批状态"
+        }
       }
     },
     "spaces": {

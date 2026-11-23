@@ -855,6 +855,16 @@
         "rejected": "Rejected",
         "inactive": "Deactivated",
         "active": "Active"
+      },
+      "spaces": {
+        "menuItem": "Space Authorization",
+        "title": "Manage space permissions for \"{{name}}\"",
+        "description": "Assign or remove spaces for this user. Select spaces to set roles in batch, or remove individually.",
+        "empty": "No spaces available.",
+        "removeSuccess": "User removed from space \"{{name}}\".",
+        "errors": {
+          "notEligible": "User account is disabled or pending approval"
+        }
       }
     },
     "spaces": {
