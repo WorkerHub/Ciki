@@ -537,6 +537,7 @@
     "htmlEmbed": {
       "title": "HTML Embed",
       "height": "Height",
+      "auto": "Auto",
       "replace": "Replace file",
       "replaceSuccess": "File replaced",
       "delete": "Delete",

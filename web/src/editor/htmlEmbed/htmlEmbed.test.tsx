@@ -12,10 +12,17 @@ import { api } from "@/lib/api"
 import { MAX_EMBED_BYTES, validateEmbedFile } from "@/lib/upload"
 import {
   DEFAULT_HTML_EMBED_HEIGHT,
+  MAX_HTML_EMBED_AUTO_HEIGHT,
   MAX_HTML_EMBED_HEIGHT,
+  MAX_HTML_EMBED_MANUAL_HEIGHT,
+  MIN_HTML_EMBED_AUTO_HEIGHT,
   MIN_HTML_EMBED_HEIGHT,
-  clampHtmlEmbedHeight
+  MIN_HTML_EMBED_MANUAL_HEIGHT,
+  clampAutoHtmlEmbedHeight,
+  clampHtmlEmbedHeight,
+  clampManualHtmlEmbedHeight
 } from "./extension"
+import { CIKI_EMBED_HEIGHT_MESSAGE_TYPE } from "./types"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 const EMBED_KEY = "embeds/0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b.html"
@@ -94,6 +101,12 @@ describe("htmlEmbed 节点契约与规范", () => {
       height: EMBED_HEIGHT,
       name: EMBED_NAME
     })
+
+    // 未指定 data-height 时解析为 null（自动贴合）
+    const autoEditor = makeEditor(
+      `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="${EMBED_NAME}"></div>`
+    )
+    expect(autoEditor.getJSON().content?.[0]?.attrs?.height).toBeNull()
   })
 
   it("2. 载具输出：TipTap 输出 HTML 必须是 div[data-type='html-embed']，绝不输出 iframe", () => {
@@ -106,20 +119,35 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(outputHtml).toContain(`data-name="${EMBED_NAME}"`)
     // 核心安全与消毒契约：HTML 载具不能用 iframe 标签，防止服务端消毒剥除
     expect(outputHtml).not.toContain("<iframe")
+
+    // 当 height 为 null 时，输出 HTML 不包含 data-height 属性
+    const autoEditor = makeEditor(
+      `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="${EMBED_NAME}"></div>`
+    )
+    const autoHtml = autoEditor.getHTML()
+    expect(autoHtml).toContain('data-type="html-embed"')
+    expect(autoHtml).not.toContain("data-height")
   })
 
-  it("3. 高度 clamp 机制：无论解析、输入还是保存均锁定在 200–2000px 范围", () => {
-    // 纯函数 clamp 验证
-    expect(clampHtmlEmbedHeight(100)).toBe(MIN_HTML_EMBED_HEIGHT)
-    expect(clampHtmlEmbedHeight(3000)).toBe(MAX_HTML_EMBED_HEIGHT)
-    expect(clampHtmlEmbedHeight("600")).toBe(600)
-    expect(clampHtmlEmbedHeight("invalid")).toBe(DEFAULT_HTML_EMBED_HEIGHT)
-    expect(clampHtmlEmbedHeight(null)).toBe(DEFAULT_HTML_EMBED_HEIGHT)
-    expect(clampHtmlEmbedHeight(undefined)).toBe(DEFAULT_HTML_EMBED_HEIGHT)
-    expect(clampHtmlEmbedHeight("")).toBe(DEFAULT_HTML_EMBED_HEIGHT)
-    expect(clampHtmlEmbedHeight("   ")).toBe(DEFAULT_HTML_EMBED_HEIGHT)
+  it("3. 高度 clamp 机制：手填值 clamp 200–2000（为空返回 null），自动贴合上报 clamp 200–4000", () => {
+    // 手填 clamp 纯函数验证：有效数字锁定在 200–2000px，为空/非法值返回 null（自动模式）
+    expect(clampManualHtmlEmbedHeight(100)).toBe(MIN_HTML_EMBED_MANUAL_HEIGHT)
+    expect(clampManualHtmlEmbedHeight(3000)).toBe(MAX_HTML_EMBED_MANUAL_HEIGHT)
+    expect(clampManualHtmlEmbedHeight("600")).toBe(600)
+    expect(clampManualHtmlEmbedHeight("invalid")).toBeNull()
+    expect(clampManualHtmlEmbedHeight(null)).toBeNull()
+    expect(clampManualHtmlEmbedHeight(undefined)).toBeNull()
+    expect(clampManualHtmlEmbedHeight("")).toBeNull()
+    expect(clampManualHtmlEmbedHeight("   ")).toBeNull()
+    expect(clampHtmlEmbedHeight("500")).toBe(500)
 
-    // parseHTML clamp
+    // 自动贴合上报 clamp 纯函数验证：锁定在 200–4000px
+    expect(clampAutoHtmlEmbedHeight(100)).toBe(MIN_HTML_EMBED_AUTO_HEIGHT)
+    expect(clampAutoHtmlEmbedHeight(5000)).toBe(MAX_HTML_EMBED_AUTO_HEIGHT)
+    expect(clampAutoHtmlEmbedHeight(1200)).toBe(1200)
+    expect(clampAutoHtmlEmbedHeight("invalid")).toBe(DEFAULT_HTML_EMBED_HEIGHT)
+
+    // parseHTML 手填 clamp
     const lowEditor = makeEditor(
       `<div data-type="html-embed" data-key="${EMBED_KEY}" data-height="50" data-name="test.html"></div>`
     )
@@ -130,20 +158,22 @@ describe("htmlEmbed 节点契约与规范", () => {
     )
     expect(highEditor.getJSON().content?.[0]?.attrs?.height).toBe(2000)
 
-    // 缺失或为空的 data-height 必须回退到默认 480，绝不能误返回 200
+    // 缺失或为空的 data-height 解析为 null（自动贴合），不回退到 200，支持可空
     const absentEditor = makeEditor(
       `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="test.html"></div>`
     )
-    expect(absentEditor.getJSON().content?.[0]?.attrs?.height).toBe(
-      DEFAULT_HTML_EMBED_HEIGHT
-    )
+    expect(absentEditor.getJSON().content?.[0]?.attrs?.height).toBeNull()
 
     const emptyEditor = makeEditor(
       `<div data-type="html-embed" data-key="${EMBED_KEY}" data-height="" data-name="test.html"></div>`
     )
-    expect(emptyEditor.getJSON().content?.[0]?.attrs?.height).toBe(
-      DEFAULT_HTML_EMBED_HEIGHT
+    expect(emptyEditor.getJSON().content?.[0]?.attrs?.height).toBeNull()
+
+    // 存量已填高度的节点保持固定数值、不做数据迁移
+    const existingEditor = makeEditor(
+      `<div data-type="html-embed" data-key="${EMBED_KEY}" data-height="480" data-name="test.html"></div>`
     )
+    expect(existingEditor.getJSON().content?.[0]?.attrs?.height).toBe(480)
   })
 
   it("3b. renderText 国际化与摘要文本生成", () => {
@@ -205,7 +235,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(container.querySelector("iframe")).toBeNull()
   })
 
-  it("6. 编辑态高度调整：修改高度并失焦自动更新属性并 clamp 范围", async () => {
+  it("6. 编辑态高度调整：修改高度并失焦自动更新属性并 clamp 范围，清空高度输入自动转为 null（自动贴合）", async () => {
     const user = userEvent.setup()
     let curEditor: Editor | null = null
     render(
@@ -223,7 +253,7 @@ describe("htmlEmbed 节点契约与规范", () => {
       String(EMBED_HEIGHT)
     )) as HTMLInputElement
 
-    // 输入超上限的值 2500，失焦后自动 clamp 到 2000
+    // 1. 输入超上限的值 2500，失焦后自动 clamp 到 2000
     await user.clear(heightInput)
     await user.type(heightInput, "2500")
     await user.tab()
@@ -235,6 +265,19 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(
       (curEditor as Editor | null)?.getJSON().content?.[0]?.attrs?.height
     ).toBe(2000)
+
+    // 2. 清空高度输入，失焦后节点 attrs.height 变为 null（自动贴合模式），输入框 placeholder 显示「自动」
+    await user.clear(heightInput)
+    await user.tab()
+
+    await waitFor(() => {
+      expect(heightInput.value).toBe("")
+    })
+
+    expect(heightInput.placeholder).toBe("自动")
+    expect(
+      (curEditor as Editor | null)?.getJSON().content?.[0]?.attrs?.height
+    ).toBeNull()
   })
 
   it("7. 编辑态删除块：点击删除按钮直接移除节点", async () => {
@@ -353,7 +396,178 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(screen.getByText("文件不存在或下发失败")).toBeInTheDocument()
   })
 
-  it("11. 保存清理与归一：空白 key 节点自动剥离，未 clamp 高度自动锁定", () => {
+  it("9b. 阅读态自动贴合：未填高度时初始默认高度，接收 ciki-embed-height 消息自动贴合高度并跟随动态变高", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+
+    // 未填高度样例（自动贴合）
+    const AUTO_EMBED_HTML = `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="${EMBED_NAME}"></div>`
+    const { container } = render(<ReadView html={AUTO_EMBED_HTML} />)
+
+    const iframe = await waitFor(() => {
+      const el = container.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+
+    // 初始高度为默认 480px
+    expect(iframe.style.height).toBe(`${DEFAULT_HTML_EMBED_HEIGHT}px`)
+
+    // ① 未填高度样例收到合法的 ciki-embed-height 消息自动贴合（例如 350px）
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 350 }
+        })
+      )
+    })
+
+    await waitFor(() => {
+      expect(iframe.style.height).toBe("350px")
+    })
+
+    // ② 内容动态变高跟随（例如展开后变更为 1200px）
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 1200 }
+        })
+      )
+    })
+
+    await waitFor(() => {
+      expect(iframe.style.height).toBe("1200px")
+    })
+  })
+
+  it("9c. 恶意消息防护与自动贴合双钳制（200–4000）：非 contentWindow 来源丢弃、乱发协议丢弃、超限高度钳制", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+
+    const AUTO_EMBED_HTML = `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="${EMBED_NAME}"></div>`
+    const { container } = render(<ReadView html={AUTO_EMBED_HTML} />)
+
+    const iframe = await waitFor(() => {
+      const el = container.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+
+    // 先贴合到 500px 基线
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 500 }
+        })
+      )
+    })
+    await waitFor(() => {
+      expect(iframe.style.height).toBe("500px")
+    })
+
+    // 1. 来源校验：若 event.source 不是本 iframe.contentWindow（例如主窗口或伪造来源），严格忽略
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: window,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 1000 }
+        })
+      )
+    })
+    expect(iframe.style.height).toBe("500px")
+
+    // 2. 协议校验：只处理 ciki-embed-height 一种消息，其余恶意/乱发类型直接丢弃
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: "malicious-eval", code: "alert(1)", height: 800 }
+        })
+      )
+    })
+    expect(iframe.style.height).toBe("500px")
+
+    // 3. 数值校验：非数字或 NaN 乱发直接丢弃
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: "not-a-number" }
+        })
+      )
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: NaN }
+        })
+      )
+    })
+    expect(iframe.style.height).toBe("500px")
+
+    // 4. 恶意狂发超大值（如 999999）：自动模式钳制到上限 4000px
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 999999 }
+        })
+      )
+    })
+    await waitFor(() => {
+      expect(iframe.style.height).toBe(`${MAX_HTML_EMBED_AUTO_HEIGHT}px`)
+    })
+
+    // 5. 恶意狂发超小值（如 10）：自动模式钳制到下限 200px
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 10 }
+        })
+      )
+    })
+    await waitFor(() => {
+      expect(iframe.style.height).toBe(`${MIN_HTML_EMBED_AUTO_HEIGHT}px`)
+    })
+  })
+
+  it("9d. ③ 填固定高度仍固定：固定高度路径不受上报干扰", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+
+    // 填固定高度 600px 的节点
+    const FIXED_HTML = `<div data-type="html-embed" data-key="${EMBED_KEY}" data-height="600" data-name="${EMBED_NAME}"></div>`
+    const { container } = render(<ReadView html={FIXED_HTML} />)
+
+    const iframe = await waitFor(() => {
+      const el = container.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+
+    expect(iframe.style.height).toBe("600px")
+
+    // iframe 发送高度上报消息，因节点处于固定模式，严格忽略上报值
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          source: iframe.contentWindow,
+          data: { type: CIKI_EMBED_HEIGHT_MESSAGE_TYPE, height: 350 }
+        })
+      )
+    })
+
+    // 高度依然稳固保持在 600px
+    expect(iframe.style.height).toBe("600px")
+  })
+
+  it("11. 保存清理与归一：空白 key 节点自动剥离，手填未 clamp 高度自动锁定 200–2000，为空保持 null", () => {
     const editor = makeEditor(
       `<p>正文</p><div data-type="html-embed" data-key="" data-name="blank.html"></div>`
     )
@@ -363,9 +577,24 @@ describe("htmlEmbed 节点契约与规范", () => {
     // 空白 htmlEmbed 节点必须被移除
     expect(payload.contentJson).not.toContain('"type":"htmlEmbed"')
     expect(payload.contentHtml).not.toContain('data-type="html-embed"')
+
+    // 手填超出 2000 的高度在保存前规范化为 2000
+    const highEditor = makeEditor(
+      `<p>正文</p><div data-type="html-embed" data-key="${EMBED_KEY}" data-height="3000" data-name="test.html"></div>`
+    )
+    const highPayload = editorPayload(highEditor)
+    expect(highPayload.contentJson).toContain('"height":2000')
+
+    // 未填高度（自动贴合）在保存前保持 null，生成的 contentHtml 不带 data-height
+    const autoEditor = makeEditor(
+      `<p>正文</p><div data-type="html-embed" data-key="${EMBED_KEY}" data-name="test.html"></div>`
+    )
+    const autoPayload = editorPayload(autoEditor)
+    expect(autoPayload.contentJson).toContain('"height":null')
+    expect(autoPayload.contentHtml).not.toContain("data-height")
   })
 
-  it("12. 工具栏插入：点击插入按钮选择文件并插入 htmlEmbed 节点", async () => {
+  it("12. 工具栏插入：点击插入按钮选择文件并插入 htmlEmbed 节点，默认留空（null，自动贴合）", async () => {
     const editor = makeEditor("<p>段落</p>")
     const uploadSpy = vi.spyOn(api, "uploadEmbed").mockResolvedValue({
       key: EMBED_KEY,
@@ -394,8 +623,10 @@ describe("htmlEmbed 节点契约与规范", () => {
     })
 
     expect(uploadSpy).toHaveBeenCalledWith(testFile)
-    expect(
-      editor.getJSON().content?.some((node) => node.type === "htmlEmbed")
-    ).toBe(true)
+    const embedNode = editor
+      .getJSON()
+      .content?.find((node) => node.type === "htmlEmbed")
+    expect(embedNode).toBeDefined()
+    expect(embedNode?.attrs?.height).toBeNull()
   })
 })

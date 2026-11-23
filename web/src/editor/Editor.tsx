@@ -4,7 +4,7 @@ import { type ReactNode, useMemo, useRef } from "react"
 import { UntransferredImageBridge } from "@/editor/bridge/extension"
 import { EditorToolbar } from "@/editor/EditorToolbar"
 import { createExtensions } from "@/editor/extensions"
-import { clampHtmlEmbedHeight } from "@/editor/htmlEmbed/extension"
+import { clampManualHtmlEmbedHeight } from "@/editor/htmlEmbed/extension"
 import { ConfluencePaste } from "@/editor/paste/paste-plugin"
 import i18n from "@/i18n"
 import { stripSingleColumnColwidths } from "@/lib/table-columns"
@@ -85,7 +85,7 @@ export function removeEmptyHtmlEmbedNodes(editor: Editor): void {
 }
 
 /**
- * 归一并 clamp htmlEmbed 节点的高度（200–2000px，默认 480px）。
+ * 归一并 clamp htmlEmbed 节点的高度（手填 200–2000px，为空保持 null）。
  */
 export function clampHtmlEmbedHeights(editor: Editor): void {
   if (!editor || editor.isDestroyed) return
@@ -93,11 +93,20 @@ export function clampHtmlEmbedHeights(editor: Editor): void {
   let modified = false
   doc.descendants((node, pos) => {
     if (node.type.name === "htmlEmbed") {
-      const clamped = clampHtmlEmbedHeight(node.attrs?.height)
-      if (clamped !== node.attrs?.height) {
+      const raw = node.attrs?.height
+      if (raw != null && raw !== "") {
+        const clamped = clampManualHtmlEmbedHeight(raw)
+        if (clamped !== raw) {
+          tr.setNodeMarkup(pos, undefined, {
+            ...node.attrs,
+            height: clamped
+          })
+          modified = true
+        }
+      } else if (raw !== null) {
         tr.setNodeMarkup(pos, undefined, {
           ...node.attrs,
-          height: clamped
+          height: null
         })
         modified = true
       }
@@ -109,7 +118,7 @@ export function clampHtmlEmbedHeights(editor: Editor): void {
 }
 
 /**
- * 递归规范化 JSONContent 结构中 htmlEmbed 节点：剔除空 key 并 clamp 高度。
+ * 递归规范化 JSONContent 结构中 htmlEmbed 节点：剔除空 key 并规范手填高度（手填 clamp 200–2000，为空保持 null）。
  */
 export function normalizeHtmlEmbedNodes(node: JSONContent): JSONContent {
   const next: JSONContent = { ...node }
@@ -124,11 +133,14 @@ export function normalizeHtmlEmbedNodes(node: JSONContent): JSONContent {
       })
       .map((child) => {
         if (child.type === "htmlEmbed") {
+          const raw = child.attrs?.height
+          const height =
+            raw != null && raw !== "" ? clampManualHtmlEmbedHeight(raw) : null
           return {
             ...child,
             attrs: {
               ...child.attrs,
-              height: clampHtmlEmbedHeight(child.attrs?.height)
+              height
             }
           }
         }
