@@ -229,6 +229,26 @@ describe("createAgentUser 工具函数", () => {
     expect(explicitEmailAgent).not.toBeNull()
     expect(explicitEmailAgent?.username).toBe("worker-bee-3")
     expect(explicitEmailAgent?.email).toBe("custom-explicit@internal")
+
+    // 5. 派生邮箱撞上既有用户 email（用户名未撞）：触发 isEmailConflict 重试，平滑分配下一后缀
+    await createApprovedUser(env.DB, prefix, {
+      email: "worker-bee-4@internal",
+      username: "different-user-taking-email",
+      password_hash: "hash",
+      role: "user"
+    })
+    const emailCollideAgentId = await createAgentUser(env.DB, prefix, {
+      owner_user_id: ownerId,
+      username: "worker-bee"
+    })
+    const emailCollideAgent = await findUserById(
+      env.DB,
+      prefix,
+      emailCollideAgentId
+    )
+    expect(emailCollideAgent).not.toBeNull()
+    expect(emailCollideAgent?.username).toBe("worker-bee-5")
+    expect(emailCollideAgent?.email).toBe("worker-bee-5@internal")
   })
 })
 

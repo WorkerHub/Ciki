@@ -1,5 +1,6 @@
 import {
   cleanUsername,
+  isEmailConflict,
   isUsernameConflict,
   usernameWithSuffix
 } from "../../core/identity"
@@ -177,6 +178,7 @@ export async function createAgentUser(
       return result.meta.last_row_id
     } catch (err) {
       if (isUsernameConflict(err)) continue
+      if (!data.email && isEmailConflict(err)) continue
       throw err
     }
   }
