@@ -49,10 +49,9 @@ export function formatAgentAuthor({
  */
 export function formatAgentOwnerTooltip(ownerName?: string | null): string {
   const trimmedOwner = ownerName?.trim()
-  const isEn = (i18n.language ?? "").toLowerCase().startsWith("en")
-  if (isEn) {
-    const owner = trimmedOwner || "Deleted User"
-    return `${owner}'s Agent`
+  if (!trimmedOwner) {
+    return "已注销用户的 Agent"
   }
-  return trimmedOwner ? `${trimmedOwner} 的 Agent` : "已注销用户的 Agent"
+  const isEn = (i18n.language ?? "").toLowerCase().startsWith("en")
+  return isEn ? `${trimmedOwner}'s Agent` : `${trimmedOwner} 的 Agent`
 }

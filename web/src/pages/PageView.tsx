@@ -108,7 +108,7 @@ function BylineAuthorAvatar({
         <TooltipTrigger asChild>
           <button
             type="button"
-            aria-label={tooltipText}
+            aria-label={username}
             className="inline-flex rounded-full border-0 bg-transparent p-0 cursor-default focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             {avatar}

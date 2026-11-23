@@ -80,9 +80,9 @@ describe("formatAgentOwnerTooltip", () => {
     expect(formatAgentOwnerTooltip("Alice")).toBe("Alice's Agent")
   })
 
-  it("英文环境下，ownerName 为 null / 空白时回落为「Deleted User's Agent」", async () => {
+  it("英文环境下，ownerName 为 null / 空白时回落为「已注销用户的 Agent」（与 DELETED_AUTHOR_NAME 一致）", async () => {
     await i18n.changeLanguage("en")
-    expect(formatAgentOwnerTooltip(null)).toBe("Deleted User's Agent")
-    expect(formatAgentOwnerTooltip("   ")).toBe("Deleted User's Agent")
+    expect(formatAgentOwnerTooltip(null)).toBe("已注销用户的 Agent")
+    expect(formatAgentOwnerTooltip("   ")).toBe("已注销用户的 Agent")
   })
 })
