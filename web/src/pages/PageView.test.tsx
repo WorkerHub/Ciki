@@ -201,7 +201,15 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(screen.queryByRole("button", { name: "子页面" })).toBeNull()
     expect(screen.queryByRole("button", { name: "删除" })).toBeNull()
     expect(screen.queryByRole("button", { name: "移动" })).toBeNull()
-    expect(screen.getByRole("button", { name: "历史" })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "更多" }))
+    expect(
+      await screen.findByRole("menuitem", { name: "历史" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("menuitem", { name: "下载 .md" })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole("menuitem", { name: "移动" })).toBeNull()
+    expect(screen.queryByRole("menuitem", { name: "删除" })).toBeNull()
   })
 
   it("正文下方是评论区：标题与顶层发表框，0 条时不显数字", async () => {
@@ -258,7 +266,8 @@ describe("阅读页按空间角色收口写入口", () => {
       renderView()
       await screen.findByText("支付服务部署手册")
       // 下载是读动作：只读成员同样看得到入口
-      const download = screen.getByRole("button", { name: "下载 .md" })
+      await user.click(screen.getByRole("button", { name: "更多" }))
+      const download = await screen.findByRole("menuitem", { name: "下载 .md" })
       expect(download).toBeInTheDocument()
 
       await user.click(download)
@@ -294,7 +303,10 @@ describe("阅读页按空间角色收口写入口", () => {
       renderView()
       await screen.findByText("支付服务部署手册")
 
-      await user.click(screen.getByRole("button", { name: "下载 .md" }))
+      await user.click(screen.getByRole("button", { name: "更多" }))
+      await user.click(
+        await screen.findByRole("menuitem", { name: "下载 .md" })
+      )
 
       await waitFor(() => expect(errorSpy).toHaveBeenCalled())
       expect(errorSpy.mock.calls[0][0]).toBe("对象不存在，或已被删除。")
@@ -314,6 +326,7 @@ describe("阅读页按空间角色收口写入口", () => {
   })
 
   it("editor 有编辑、子页面、删除与移动入口", async () => {
+    const user = userEvent.setup()
     useSpacesStore.setState({
       spaces: [
         space({ myRole: "editor" }),
@@ -326,20 +339,28 @@ describe("阅读页按空间角色收口写入口", () => {
       await screen.findByRole("link", { name: "编辑" })
     ).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "子页面" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "移动" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    expect(
+      await screen.findByRole("menuitem", { name: "移动" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "删除" })).toBeInTheDocument()
   })
 
   it("只有一个空间时也给移动入口（同空间改父页面）", async () => {
+    const user = userEvent.setup()
     renderView()
 
     expect(
       await screen.findByRole("link", { name: "编辑" })
     ).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "移动" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    expect(
+      await screen.findByRole("menuitem", { name: "移动" })
+    ).toBeInTheDocument()
   })
 
   it("站点管理员即使不是空间成员也有全部写入口", async () => {
+    const user = userEvent.setup()
     useAuthStore.setState({
       user: { ...memberUser, role: "admin" },
       status: "ready",
@@ -351,7 +372,10 @@ describe("阅读页按空间角色收口写入口", () => {
     expect(
       await screen.findByRole("link", { name: "编辑" })
     ).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "删除" })).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    expect(
+      await screen.findByRole("menuitem", { name: "删除" })
+    ).toBeInTheDocument()
   })
 
   it("深链进别的空间的页面时把当前空间切过去", async () => {
@@ -833,11 +857,18 @@ describe("阅读页：英文界面", () => {
     expect(await screen.findByText("支付服务部署手册")).toBeInTheDocument()
     expect(screen.getByRole("link", { name: "Edit" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Subpage" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "History" })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "More" })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole("button", { name: "More" }))
     expect(
-      screen.getByRole("button", { name: "Download .md" })
+      await screen.findByRole("menuitem", { name: "Move" })
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole("menuitem", { name: "Download .md" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("menuitem", { name: "History" })
+    ).toBeInTheDocument()
+    expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument()
     expect(screen.getByText(/^Created /)).toBeInTheDocument()
     expect(screen.queryByText(/^创建于/)).toBeNull()
     expect(screen.queryByText(/^更新于/)).toBeNull()
@@ -854,7 +885,10 @@ describe("阅读页：英文界面", () => {
     expect(
       screen.getByRole("link", { name: "Start editing" })
     ).toBeInTheDocument()
-    await userEvent.click(screen.getByRole("button", { name: "Delete" }))
+    await userEvent.click(screen.getByRole("button", { name: "More" }))
+    await userEvent.click(
+      await screen.findByRole("menuitem", { name: "Delete" })
+    )
     expect(
       await screen.findByText("Delete “支付服务部署手册”?")
     ).toBeInTheDocument()
@@ -889,7 +923,8 @@ describe("阅读页：英文界面", () => {
     ).toBeInTheDocument()
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }))
 
-    await userEvent.click(screen.getByRole("button", { name: "Move" }))
+    await userEvent.click(screen.getByRole("button", { name: "More" }))
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Move" }))
     expect(
       await screen.findByText("Move “支付服务部署手册”")
     ).toBeInTheDocument()
@@ -1327,5 +1362,127 @@ describe("阅读页回到顶部按钮集成", () => {
         screen.getByRole("button", { name: "回到顶部" })
       ).toBeInTheDocument()
     })
+  })
+})
+
+describe("阅读页次要操作收进「更多」菜单", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
+    useAuthStore.setState({
+      user: memberUser,
+      status: "ready",
+      restricted: false
+    })
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    useSpacesStore.setState({
+      spaces: [space({ myRole: "editor" })],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    vi.mocked(pagesApi.get).mockResolvedValue(page)
+    vi.mocked(pagesApi.tree).mockResolvedValue([])
+    vi.mocked(pagesApi.download).mockReset()
+  })
+
+  it("菜单项顺序严格与现行平铺一致（移动、下载 .md、历史、删除），且删除项为红色危险样式", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    const moreButton = screen.getByRole("button", { name: "更多" })
+    expect(moreButton).toBeInTheDocument()
+
+    await user.click(moreButton)
+
+    const menuItems = await screen.findAllByRole("menuitem")
+    expect(menuItems.map((item) => item.textContent?.trim())).toEqual([
+      "移动",
+      "下载 .md",
+      "历史",
+      "删除"
+    ])
+
+    const deleteItem = screen.getByRole("menuitem", { name: "删除" })
+    expect(deleteItem).toHaveAttribute("data-variant", "destructive")
+  })
+
+  it("点击移动打开移动对话框，且行为与口径保持不变", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    await user.click(await screen.findByRole("menuitem", { name: "移动" }))
+
+    expect(
+      await screen.findByText("移动「支付服务部署手册」")
+    ).toBeInTheDocument()
+  })
+
+  it("点击历史打开版本历史弹窗，且行为保持不变", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    await user.click(await screen.findByRole("menuitem", { name: "历史" }))
+
+    expect(await screen.findByText("版本历史")).toBeInTheDocument()
+  })
+
+  it("点击删除打开删除确认弹窗，移入回收站口径不变", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    await user.click(await screen.findByRole("menuitem", { name: "删除" }))
+
+    expect(
+      await screen.findByText("删除「支付服务部署手册」？")
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText("页面与全部子页面会移入回收站，之后可以在回收站里恢复。")
+    ).toBeInTheDocument()
+  })
+
+  it("原生 DropdownMenu 支持按 Esc 键关闭菜单", async () => {
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    expect(
+      await screen.findByRole("menuitem", { name: "移动" })
+    ).toBeInTheDocument()
+
+    await user.keyboard("{Escape}")
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "移动" })).toBeNull()
+    })
+  })
+
+  it("只读角色（viewer）更多菜单仅包含「下载 .md」和「历史」，无「移动」和「删除」", async () => {
+    const user = userEvent.setup()
+    useSpacesStore.setState({ spaces: [space({ myRole: "viewer" })] })
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    await user.click(screen.getByRole("button", { name: "更多" }))
+
+    const menuItems = await screen.findAllByRole("menuitem")
+    expect(menuItems.map((item) => item.textContent?.trim())).toEqual([
+      "下载 .md",
+      "历史"
+    ])
+    expect(screen.queryByRole("menuitem", { name: "移动" })).toBeNull()
+    expect(screen.queryByRole("menuitem", { name: "删除" })).toBeNull()
   })
 })
