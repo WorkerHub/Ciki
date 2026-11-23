@@ -114,6 +114,10 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(clampHtmlEmbedHeight(3000)).toBe(MAX_HTML_EMBED_HEIGHT)
     expect(clampHtmlEmbedHeight("600")).toBe(600)
     expect(clampHtmlEmbedHeight("invalid")).toBe(DEFAULT_HTML_EMBED_HEIGHT)
+    expect(clampHtmlEmbedHeight(null)).toBe(DEFAULT_HTML_EMBED_HEIGHT)
+    expect(clampHtmlEmbedHeight(undefined)).toBe(DEFAULT_HTML_EMBED_HEIGHT)
+    expect(clampHtmlEmbedHeight("")).toBe(DEFAULT_HTML_EMBED_HEIGHT)
+    expect(clampHtmlEmbedHeight("   ")).toBe(DEFAULT_HTML_EMBED_HEIGHT)
 
     // parseHTML clamp
     const lowEditor = makeEditor(
@@ -125,6 +129,31 @@ describe("htmlEmbed 节点契约与规范", () => {
       `<div data-type="html-embed" data-key="${EMBED_KEY}" data-height="5000" data-name="test.html"></div>`
     )
     expect(highEditor.getJSON().content?.[0]?.attrs?.height).toBe(2000)
+
+    // 缺失或为空的 data-height 必须回退到默认 480，绝不能误返回 200
+    const absentEditor = makeEditor(
+      `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="test.html"></div>`
+    )
+    expect(absentEditor.getJSON().content?.[0]?.attrs?.height).toBe(
+      DEFAULT_HTML_EMBED_HEIGHT
+    )
+
+    const emptyEditor = makeEditor(
+      `<div data-type="html-embed" data-key="${EMBED_KEY}" data-height="" data-name="test.html"></div>`
+    )
+    expect(emptyEditor.getJSON().content?.[0]?.attrs?.height).toBe(
+      DEFAULT_HTML_EMBED_HEIGHT
+    )
+  })
+
+  it("3b. renderText 国际化与摘要文本生成", () => {
+    const editor = makeEditor(EMBED_HTML)
+    expect(editor.getText()).toContain(`[HTML 动画: ${EMBED_NAME}]`)
+
+    const unnamedEditor = makeEditor(
+      `<div data-type="html-embed" data-key="${EMBED_KEY}"></div>`
+    )
+    expect(unnamedEditor.getText()).toContain("[HTML 动画: 未命名动画]")
   })
 
   it("4. 上传校验：非 .html 扩展名及超过 1MB 均被清晰拦截拒绝", () => {

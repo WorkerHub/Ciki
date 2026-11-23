@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 import { ReactNodeViewRenderer } from "@tiptap/react"
+import { i18n } from "@/i18n"
 import { HtmlEmbedBlockView } from "./HtmlEmbedBlockView"
 import type { HtmlEmbedNodeAttrs } from "./types"
 
@@ -8,6 +9,9 @@ export const MAX_HTML_EMBED_HEIGHT = 2000
 export const DEFAULT_HTML_EMBED_HEIGHT = 480
 
 export function clampHtmlEmbedHeight(raw: unknown): number {
+  if (raw == null) return DEFAULT_HTML_EMBED_HEIGHT
+  if (typeof raw === "string" && raw.trim() === "")
+    return DEFAULT_HTML_EMBED_HEIGHT
   const num = Number(raw)
   if (!Number.isFinite(num)) return DEFAULT_HTML_EMBED_HEIGHT
   return Math.min(
@@ -62,8 +66,11 @@ export const WikiHtmlEmbed = Node.create<HtmlEmbedOptions>({
       },
       height: {
         default: DEFAULT_HTML_EMBED_HEIGHT,
-        parseHTML: (element) =>
-          clampHtmlEmbedHeight(element.getAttribute("data-height")),
+        parseHTML: (element) => {
+          const raw = element.getAttribute("data-height")
+          if (raw == null || raw.trim() === "") return DEFAULT_HTML_EMBED_HEIGHT
+          return clampHtmlEmbedHeight(raw)
+        },
         renderHTML: (attributes) => {
           return {
             "data-height": String(clampHtmlEmbedHeight(attributes.height))
@@ -101,8 +108,10 @@ export const WikiHtmlEmbed = Node.create<HtmlEmbedOptions>({
   },
 
   renderText({ node }) {
-    const name = node.attrs.name || "未命名动画"
-    return `[HTML 动画：${name}]\n`
+    const label = i18n.t("editor.htmlEmbed.title")
+    const unnamed = i18n.t("editor.htmlEmbed.unnamed")
+    const name = node.attrs.name || unnamed
+    return `[${label}: ${name}]\n`
   },
 
   addCommands() {
