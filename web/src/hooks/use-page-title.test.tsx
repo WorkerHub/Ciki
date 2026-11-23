@@ -178,12 +178,33 @@ describe("resolveTitle 路由映射", () => {
     expect(resolveTitle("/admin", mockTree, mockSpaces, dummyT)).toBe(
       "i18n:admin.title"
     )
+    expect(resolveTitle("/admin/users", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:admin.title"
+    )
+    expect(resolveTitle("/admin/spaces", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:admin.title"
+    )
+    expect(resolveTitle("/admin/site", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:admin.title"
+    )
+    expect(resolveTitle("/admin/security", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:admin.title"
+    )
+    expect(resolveTitle("/admin/email", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:admin.title"
+    )
+    expect(resolveTitle("/admin/others", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:admin.title"
+    )
   })
 
   it("未匹配路径回落 notFound", () => {
     expect(
       resolveTitle("/some/unknown/path", mockTree, mockSpaces, dummyT)
     ).toBe("i18n:notFound.title")
+    expect(resolveTitle("/admin/unknown", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:notFound.title"
+    )
   })
 })
 
@@ -237,6 +258,31 @@ describe("usePageTitle hook 集成", () => {
 
     await act(async () => {
       await router.navigate("/404-not-found")
+    })
+    await waitFor(() => expect(document.title).toBe("页面不存在 · Ciki"))
+  })
+
+  it("系统管理各分区及裸 /admin 均正确显示系统管理标题，未知子路径回落 404", async () => {
+    const { router } = renderWithRoute("/admin/users")
+    await waitFor(() => expect(document.title).toBe("系统管理 · Ciki"))
+
+    const partitions = [
+      "/admin/spaces",
+      "/admin/site",
+      "/admin/security",
+      "/admin/email",
+      "/admin/others",
+      "/admin"
+    ]
+    for (const path of partitions) {
+      await act(async () => {
+        await router.navigate(path)
+      })
+      await waitFor(() => expect(document.title).toBe("系统管理 · Ciki"))
+    }
+
+    await act(async () => {
+      await router.navigate("/admin/not-found-subpath")
     })
     await waitFor(() => expect(document.title).toBe("页面不存在 · Ciki"))
   })
