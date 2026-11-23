@@ -1,6 +1,13 @@
+import { useCallback, useMemo } from "react"
 import { useTranslation } from "react-i18next"
 import { SpacesAuthorizeDialog } from "@/components/SpacesAuthorizeDialog"
-import { type AdminUser, adminApi } from "@/lib/api"
+import {
+  type AdminUser,
+  type AgentSpaceBatchResult,
+  type AgentSpaceItem,
+  type SpaceRole,
+  adminApi
+} from "@/lib/api"
 
 export interface UserSpacesDialogProps {
   user: AdminUser | null
@@ -15,6 +22,33 @@ export function UserSpacesDialog({
 }: UserSpacesDialogProps) {
   const { t } = useTranslation()
 
+  const userId = user?.id
+  const userEmail = user?.email
+  const target = useMemo(
+    () =>
+      userId !== undefined && userEmail !== undefined
+        ? { id: userId, name: userEmail }
+        : null,
+    [userId, userEmail]
+  )
+
+  const loadSpaces = useCallback(
+    (id: number): Promise<AgentSpaceItem[]> => adminApi.userSpaces(id),
+    []
+  )
+  const setSpaces = useCallback(
+    (
+      id: number,
+      input: { spaceIds: number[]; role?: SpaceRole }
+    ): Promise<AgentSpaceBatchResult> => adminApi.setUserSpaces(id, input),
+    []
+  )
+  const removeSpace = useCallback(
+    (id: number, spaceId: number): Promise<{ success: true }> =>
+      adminApi.removeUserSpace(id, spaceId),
+    []
+  )
+
   if (!user) return null
 
   const displayName = user.email
@@ -23,7 +57,7 @@ export function UserSpacesDialog({
     <SpacesAuthorizeDialog
       open={open}
       onOpenChange={onOpenChange}
-      target={{ id: user.id, name: displayName }}
+      target={target}
       title={t("admin.users.spaces.title", { name: displayName })}
       description={t("admin.users.spaces.description")}
       emptyText={t("admin.users.spaces.empty")}
@@ -31,9 +65,9 @@ export function UserSpacesDialog({
         t("admin.users.spaces.removeSuccess", { name })
       }
       notEligibleErrorMessage={t("admin.users.spaces.errors.notEligible")}
-      loadSpaces={(id) => adminApi.userSpaces(id)}
-      setSpaces={(id, input) => adminApi.setUserSpaces(id, input)}
-      removeSpace={(id, spaceId) => adminApi.removeUserSpace(id, spaceId)}
+      loadSpaces={loadSpaces}
+      setSpaces={setSpaces}
+      removeSpace={removeSpace}
     />
   )
 }

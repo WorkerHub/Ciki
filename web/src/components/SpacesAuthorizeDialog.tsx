@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Dialog,
@@ -72,35 +72,41 @@ export function SpacesAuthorizeDialog({
     Array<{ spaceId: number; spaceName: string; message: string }>
   >([])
 
-  const fetchSpaces = useCallback(
-    async (targetId: number) => {
-      setLoading(true)
-      setError("")
-      try {
-        const data = await loadSpaces(targetId)
-        setSpacesList(data)
-      } catch (err) {
-        setSpacesList(null)
-        setError(describeApiError(err))
-      } finally {
-        setLoading(false)
-      }
-    },
-    [loadSpaces]
-  )
+  const loadSpacesRef = useRef(loadSpaces)
+  loadSpacesRef.current = loadSpaces
+  const setSpacesRef = useRef(setSpaces)
+  setSpacesRef.current = setSpaces
+  const removeSpaceRef = useRef(removeSpace)
+  removeSpaceRef.current = removeSpace
+
+  const fetchSpaces = useCallback(async (targetId: number) => {
+    setLoading(true)
+    setError("")
+    try {
+      const data = await loadSpacesRef.current(targetId)
+      setSpacesList(data)
+    } catch (err) {
+      setSpacesList(null)
+      setError(describeApiError(err))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const targetId = target?.id
 
   useEffect(() => {
-    if (open && target) {
+    if (open && targetId !== undefined) {
       setSelectedIds([])
       setError("")
       setSuccessNotice("")
       setBatchErrors([])
       setBatchRole("editor")
-      void fetchSpaces(target.id)
+      void fetchSpaces(targetId)
     } else {
       setSpacesList(null)
     }
-  }, [open, target, fetchSpaces])
+  }, [open, targetId, fetchSpaces])
 
   if (!target) return null
 
@@ -130,7 +136,7 @@ export function SpacesAuthorizeDialog({
     setSuccessNotice("")
     setBatchErrors([])
     try {
-      const res = await setSpaces(target.id, {
+      const res = await setSpacesRef.current(target.id, {
         spaceIds: selectedIds,
         role: batchRole
       })
@@ -179,7 +185,7 @@ export function SpacesAuthorizeDialog({
         setSelectedIds([])
       }
 
-      const updatedList = await loadSpaces(target.id)
+      const updatedList = await loadSpacesRef.current(target.id)
       setSpacesList(updatedList)
     } catch (err) {
       setError(describeApiError(err))
@@ -195,9 +201,9 @@ export function SpacesAuthorizeDialog({
     setSuccessNotice("")
     setBatchErrors([])
     try {
-      await removeSpace(target.id, space.spaceId)
+      await removeSpaceRef.current(target.id, space.spaceId)
       setSuccessNotice(removeSuccessMessage(space.name))
-      const updatedList = await loadSpaces(target.id)
+      const updatedList = await loadSpacesRef.current(target.id)
       setSpacesList(updatedList)
       setSelectedIds((prev) => prev.filter((id) => id !== space.spaceId))
     } catch (err) {
@@ -213,7 +219,7 @@ export function SpacesAuthorizeDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>

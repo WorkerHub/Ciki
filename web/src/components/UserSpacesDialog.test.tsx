@@ -196,4 +196,41 @@ describe("UserSpacesDialog", () => {
       await screen.findByText("已将用户移出空间「空间2」。")
     ).toBeInTheDocument()
   })
+
+  it("父组件无关重渲染不再重触发 effect、不清空已勾选", async () => {
+    vi.mocked(adminApi.userSpaces).mockResolvedValue([
+      { spaceId: 1, slug: "s-1", name: "空间1", role: "editor" },
+      { spaceId: 2, slug: "s-2", name: "空间2", role: null }
+    ])
+
+    const user = userEvent.setup()
+    const onOpenChange = vi.fn()
+    const { rerender } = render(
+      <UserSpacesDialog
+        user={MOCK_USER}
+        open={true}
+        onOpenChange={onOpenChange}
+      />
+    )
+
+    expect(await screen.findByText("空间1")).toBeInTheDocument()
+    expect(adminApi.userSpaces).toHaveBeenCalledTimes(1)
+
+    const checkbox1 = screen.getByLabelText("选择空间 空间1")
+    await user.click(checkbox1)
+    expect(checkbox1).toBeChecked()
+    expect(screen.getByText("已选 1 个空间")).toBeInTheDocument()
+
+    rerender(
+      <UserSpacesDialog
+        user={{ ...MOCK_USER }}
+        open={true}
+        onOpenChange={vi.fn()}
+      />
+    )
+
+    expect(adminApi.userSpaces).toHaveBeenCalledTimes(1)
+    expect(checkbox1).toBeChecked()
+    expect(screen.getByText("已选 1 个空间")).toBeInTheDocument()
+  })
 })
