@@ -27,9 +27,16 @@ import { deleteUserEmailCodes } from "../db/queries/email-codes"
 import { clearPasswordResetCredentials } from "../core/password-reset"
 import { deleteUserSessions } from "../core/session"
 import {
+  countSpaceAdmins,
+  deleteSpaceMember,
   deleteSpaceMembershipsForUser,
+  findSpaceMember,
+  insertSpaceMember,
   joinDefaultSpace,
-  listSpaceOverviews
+  listAllSpaces,
+  listSpaceOverviews,
+  listSpacesForUser,
+  updateSpaceMemberRole
 } from "../db/queries/spaces"
 import { hashPassword } from "../core/auth"
 import {
@@ -38,6 +45,13 @@ import {
   getSetting,
   setSetting
 } from "../db/queries/settings"
+import {
+  isSpaceManager,
+  isSpaceRole,
+  resolveSpaceAccess,
+  type SpaceRole
+} from "../core/space-access"
+import { parseTokenScopeInput } from "../core/token-scope"
 import {
   DEFAULT_SITE_NAME,
   defaultUsernameFromEmail,
@@ -89,6 +103,25 @@ import type { HonoEnv } from "../types"
 
 const EMAIL_RE =
   /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+
+const INVALID_SPACE_SCOPE = {
+  error: "Invalid space scope",
+  code: "INVALID_SPACE_SCOPE"
+} as const
+
+const USER_NOT_ELIGIBLE = {
+  error: "User cannot join a space",
+  code: "USER_NOT_ELIGIBLE"
+} as const
+
+const SPACE_NOT_FOUND = {
+  error: "Space not found",
+  code: "SPACE_NOT_FOUND"
+} as const
+
+type SpaceWriteResult =
+  | { spaceId: number; ok: true; role: SpaceRole }
+  | { spaceId: number; ok: false; error: string; code: string }
 
 interface UserOwnerSummary {
   id: number
@@ -361,6 +394,188 @@ adminRoutes.post("/users/:id/reject", async (c) => {
   return c.json({ success: true })
 })
 
+/**
+ * 列出全站空间，附目标真人用户在各空间的现行角色（未加入为 null）。
+ * 仅允许对真人用户操作；Agent 账号或用户不存在一律 404（不泄露存在性）。
+ */
+adminRoutes.get("/users/:id/spaces", async (c) => {
+  const uid = parseId(c.req.param("id"))
+  if (uid === null) return c.json({ error: "User not found" }, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const user = await findUserById(c.env.DB, prefix, uid)
+  if (!user || user.kind === "agent") {
+    return c.json({ error: "User not found" }, 404)
+  }
+
+  const spaces = await listAllSpaces(c.env.DB, prefix)
+  const userSpaces = await listSpacesForUser(c.env.DB, prefix, user.id)
+  const roleBySpace = new Map(userSpaces.map((space) => [space.id, space.role]))
+
+  return c.json(
+    spaces.map((space) => ({
+      spaceId: space.id,
+      slug: space.slug,
+      name: space.name,
+      role: roleBySpace.get(space.id) ?? null
+    }))
+  )
+})
+
+/**
+ * 批量加入 / 改角色：
+ * - 仅限真人用户，Agent 账号或用户不存在一律 404（不泄露存在性）；
+ * - 用户停用或未批准一律 409 USER_NOT_ELIGIBLE（与空间成员管理同源）；
+ * - `spaceIds` 必填、非空正整数数组（去重升序）；
+ * - `role` 可选，默认 `editor`（普通成员档），限 admin/editor/viewer；
+ * - 每个空间独立解析与校验，逐项回报，部分失败点名失败空间与原因；
+ * - 把最后一名 admin 降级时该项回 LAST_SPACE_ADMIN，不动其它空间。
+ */
+adminRoutes.put("/users/:id/spaces", async (c) => {
+  const uid = parseId(c.req.param("id"))
+  if (uid === null) return c.json({ error: "User not found" }, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const user = await findUserById(c.env.DB, prefix, uid)
+  if (!user || user.kind === "agent") {
+    return c.json({ error: "User not found" }, 404)
+  }
+  if (!user.is_active || user.approval_status !== "approved") {
+    return c.json(USER_NOT_ELIGIBLE, 409)
+  }
+
+  const body = await readJsonBody<Record<string, unknown>>(c)
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
+
+  const parsed = parseTokenScopeInput(body, { required: true })
+  if (!parsed.ok || parsed.action !== "set" || parsed.scope === null) {
+    return c.json(INVALID_SPACE_SCOPE, 400)
+  }
+  const spaceIds = parsed.scope
+
+  const role = body.role === undefined ? "editor" : body.role
+  if (!isSpaceRole(role)) {
+    return c.json(
+      { error: "role must be admin, editor or viewer", code: "INVALID_ROLE" },
+      400
+    )
+  }
+
+  const adminId = c.get("userId")
+  const now = new Date().toISOString()
+  const results: SpaceWriteResult[] = []
+
+  for (const spaceId of spaceIds) {
+    const access = await resolveSpaceAccess(
+      c.env.DB,
+      prefix,
+      spaceId,
+      adminId,
+      true
+    )
+    if (!access) {
+      results.push({
+        spaceId,
+        ok: false,
+        error: "Space not found",
+        code: "SPACE_NOT_FOUND"
+      })
+      continue
+    }
+    if (!isSpaceManager(access.role)) {
+      results.push({
+        spaceId,
+        ok: false,
+        error: "Space forbidden",
+        code: "SPACE_FORBIDDEN"
+      })
+      continue
+    }
+
+    const member = await findSpaceMember(c.env.DB, prefix, spaceId, user.id)
+    if (!member) {
+      await insertSpaceMember(c.env.DB, prefix, {
+        space_id: spaceId,
+        user_id: user.id,
+        role,
+        created_at: now
+      }).run()
+      results.push({ spaceId, ok: true, role })
+      continue
+    }
+
+    if (member.role === role) {
+      results.push({ spaceId, ok: true, role })
+      continue
+    }
+
+    if (member.role === "admin" && role !== "admin") {
+      const admins = await countSpaceAdmins(c.env.DB, prefix, spaceId)
+      if (admins <= 1) {
+        results.push({
+          spaceId,
+          ok: false,
+          error: "A space must keep at least one admin",
+          code: "LAST_SPACE_ADMIN"
+        })
+        continue
+      }
+    }
+
+    await updateSpaceMemberRole(c.env.DB, prefix, spaceId, user.id, role)
+    results.push({ spaceId, ok: true, role })
+  }
+
+  return c.json({ results })
+})
+
+/** 单个移出空间：移出最后一名 admin 409。 */
+adminRoutes.delete("/users/:id/spaces/:spaceId", async (c) => {
+  const uid = parseId(c.req.param("id"))
+  if (uid === null) return c.json({ error: "User not found" }, 404)
+
+  const prefix = getTablePrefix(c.env)
+  const user = await findUserById(c.env.DB, prefix, uid)
+  if (!user || user.kind === "agent") {
+    return c.json({ error: "User not found" }, 404)
+  }
+
+  const spaceId = parseId(c.req.param("spaceId"))
+  if (spaceId === null) return c.json(SPACE_NOT_FOUND, 404)
+
+  const access = await resolveSpaceAccess(
+    c.env.DB,
+    prefix,
+    spaceId,
+    c.get("userId"),
+    true
+  )
+  if (!access) return c.json(SPACE_NOT_FOUND, 404)
+  if (!isSpaceManager(access.role)) return c.json({ error: "Forbidden" }, 403)
+
+  const member = await findSpaceMember(c.env.DB, prefix, spaceId, user.id)
+  if (!member) {
+    return c.json({ error: "Member not found", code: "MEMBER_NOT_FOUND" }, 404)
+  }
+
+  if (member.role === "admin") {
+    const admins = await countSpaceAdmins(c.env.DB, prefix, spaceId)
+    if (admins <= 1) {
+      return c.json(
+        {
+          error: "A space must keep at least one admin",
+          code: "LAST_SPACE_ADMIN"
+        },
+        409
+      )
+    }
+  }
+
+  await deleteSpaceMember(c.env.DB, prefix, spaceId, user.id)
+  return c.json({ success: true })
+})
 adminRoutes.get("/settings", async (c) => {
   const prefix = getTablePrefix(c.env)
   return c.json({
