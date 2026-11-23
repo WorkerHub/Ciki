@@ -323,16 +323,11 @@ export function AgentAccountsCard() {
     }
   }
 
-  const copyText = async (text: string, type: "token" | "prompt") => {
+  const copyToken = async (text: string) => {
     try {
       await navigator.clipboard.writeText(text)
-      if (type === "token") {
-        setCopiedToken(true)
-        window.setTimeout(() => setCopiedToken(false), 1600)
-      } else {
-        setCopiedPrompt(true)
-        window.setTimeout(() => setCopiedPrompt(false), 1600)
-      }
+      setCopiedToken(true)
+      window.setTimeout(() => setCopiedToken(false), 1600)
     } catch {
       setError(t("settings.tokens.common.copyFailed"))
     }
@@ -694,7 +689,7 @@ export function AgentAccountsCard() {
                                     : t("settings.tokens.common.copyLabel")
                                 }
                                 onClick={() =>
-                                  void copyText(issuedToken.token, "token")
+                                  void copyToken(issuedToken.token)
                                 }
                               >
                                 {copiedToken ? (

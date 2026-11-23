@@ -259,7 +259,7 @@ export function AgentSpacesDialog({
                   <div className="flex items-center gap-2">
                     <Checkbox
                       checked={allSelected}
-                      aria-label="Select all spaces"
+                      aria-label={t("settings.agents.spaces.selectAll")}
                       onCheckedChange={toggleSelectAll}
                     />
                     <span>{t("settings.agents.spaces.columnSpace")}</span>
@@ -285,7 +285,10 @@ export function AgentSpacesDialog({
                         <div className="flex items-center gap-2">
                           <Checkbox
                             checked={isChecked}
-                            aria-label={`Select ${space.name}`}
+                            aria-label={t(
+                              "settings.agents.spaces.selectSpace",
+                              { name: space.name }
+                            )}
                             onCheckedChange={() => toggleSelect(space.spaceId)}
                           />
                           <span className="font-medium">{space.name}</span>

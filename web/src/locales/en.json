@@ -739,6 +739,8 @@
         "columnSpace": "Space",
         "columnRole": "Current role",
         "columnActions": "Actions",
+        "selectAll": "Select all spaces",
+        "selectSpace": "Select {{name}}",
         "notJoined": "Not joined",
         "remove": "Remove",
         "removeSuccess": "Agent removed from space \"{{name}}\".",

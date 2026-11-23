@@ -49,6 +49,7 @@ import {
   TableRow
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { UserAvatar } from "@/components/UserAvatar"
 import {
   ApiError,
   describeApiError,
@@ -514,19 +515,34 @@ export function SpaceSettingsPage() {
                   return (
                     <TableRow key={member.userId}>
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate font-medium">
-                            {author.displayName}
-                          </span>
-                          {author.showAgentBadge ? (
-                            <Badge variant="secondary" className="text-[10px]">
-                              Agent
-                            </Badge>
-                          ) : null}
+                        <div className="flex items-center gap-2">
+                          <UserAvatar
+                            user={{
+                              username: member.username,
+                              email: member.email,
+                              avatarUrl: member.avatarUrl ?? null
+                            }}
+                            className="size-7 shrink-0 text-xs"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate font-medium">
+                                {author.displayName}
+                              </span>
+                              {author.showAgentBadge ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px]"
+                                >
+                                  Agent
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {member.email}
+                            </span>
+                          </div>
                         </div>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {member.email}
-                        </span>
                       </TableCell>
                       <TableCell>
                         <Select

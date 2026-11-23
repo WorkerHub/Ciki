@@ -330,7 +330,7 @@ describe("AgentAccountsCard", () => {
     expect(screen.getByText("未加入")).toBeInTheDocument()
 
     // 勾选研发空间进行批量设置
-    await user.click(screen.getByLabelText("Select 研发空间"))
+    await user.click(screen.getByLabelText("选择空间 研发空间"))
     expect(screen.getByText("已选 1 个空间")).toBeInTheDocument()
 
     const applyBtn = screen.getByRole("button", { name: "批量设置角色" })

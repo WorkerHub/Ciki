@@ -307,6 +307,28 @@ describe("空间设置与成员管理", () => {
     expect(within(candidateItem).queryByText("Agent")).toBeNull()
   })
 
+  it("空间成员列表正确渲染头像", async () => {
+    const memberWithAvatar: SpaceMember = {
+      userId: 12,
+      username: "avatar-user",
+      email: "avatar@example.com",
+      role: "viewer",
+      avatarUrl: "https://example.com/avatar.png",
+      createdAt: "2026-11-08T00:00:00.000Z"
+    }
+    vi.mocked(spacesApi.members).mockResolvedValue([
+      members[0],
+      memberWithAvatar
+    ])
+    renderSettings()
+
+    const memberRow = (await screen.findByText("avatar-user")).closest(
+      "tr"
+    ) as HTMLElement
+    expect(memberRow.querySelector('[data-slot="avatar"]')).toBeInTheDocument()
+    expect(within(memberRow).getByText("A")).toBeInTheDocument()
+  })
+
   it("默认空间不能删除", async () => {
     vi.mocked(spacesApi.get).mockResolvedValue({ ...space, isDefault: true })
     renderSettings()

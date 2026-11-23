@@ -105,7 +105,7 @@ describe("AgentSpacesDialog", () => {
     )
 
     expect(await screen.findByText("空间1")).toBeInTheDocument()
-    const selectAllCheckbox = screen.getByLabelText("Select all spaces")
+    const selectAllCheckbox = screen.getByLabelText("全选所有空间")
     expect(selectAllCheckbox).not.toBeChecked()
 
     await user.click(selectAllCheckbox)
@@ -164,7 +164,7 @@ describe("AgentSpacesDialog", () => {
     )
 
     await screen.findByText("空间1")
-    await user.click(screen.getByLabelText("Select all spaces"))
+    await user.click(screen.getByLabelText("全选所有空间"))
 
     await user.click(screen.getByRole("button", { name: "批量设置角色" }))
 

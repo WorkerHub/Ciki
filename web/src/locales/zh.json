@@ -733,6 +733,8 @@
         "columnSpace": "空间",
         "columnRole": "当前角色",
         "columnActions": "操作",
+        "selectAll": "全选所有空间",
+        "selectSpace": "选择空间 {{name}}",
         "notJoined": "未加入",
         "remove": "移出",
         "removeSuccess": "已将 Agent 移出空间「{{name}}」。",
