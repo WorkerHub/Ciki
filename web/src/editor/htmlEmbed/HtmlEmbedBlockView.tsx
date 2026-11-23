@@ -8,11 +8,16 @@ import { Input } from "@/components/ui/input"
 import { describeApiError } from "@/lib/api"
 import { uploadEmbed } from "@/lib/upload"
 import {
-  MAX_HTML_EMBED_HEIGHT,
-  MIN_HTML_EMBED_HEIGHT,
-  clampHtmlEmbedHeight
+  DEFAULT_HTML_EMBED_HEIGHT,
+  MAX_HTML_EMBED_MANUAL_HEIGHT,
+  MIN_HTML_EMBED_MANUAL_HEIGHT,
+  clampAutoHtmlEmbedHeight,
+  clampManualHtmlEmbedHeight
 } from "./extension"
-import type { HtmlEmbedNodeAttrs } from "./types"
+import {
+  CIKI_EMBED_HEIGHT_MESSAGE_TYPE,
+  type HtmlEmbedNodeAttrs
+} from "./types"
 
 export function HtmlEmbedBlockView({
   node,
@@ -24,15 +29,23 @@ export function HtmlEmbedBlockView({
   const { t } = useTranslation()
   const attrs = node.attrs as HtmlEmbedNodeAttrs
   const { key, name, height } = attrs
-  const clampedHeight = clampHtmlEmbedHeight(height)
+  const fixedHeight = clampManualHtmlEmbedHeight(height)
+  const isAuto = fixedHeight === null
 
-  const [heightInput, setHeightInput] = useState(String(clampedHeight))
+  const [autoHeight, setAutoHeight] = useState<number>(
+    DEFAULT_HTML_EMBED_HEIGHT
+  )
+  const [heightInput, setHeightInput] = useState(() => {
+    return fixedHeight !== null ? String(fixedHeight) : ""
+  })
   const [isUploading, setIsUploading] = useState(false)
   const [hasError, setHasError] = useState(!key)
+  const iframeRef = useRef<HTMLIFrameElement>(null)
   const replaceInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setHeightInput(String(clampHtmlEmbedHeight(attrs.height)))
+    const fixed = clampManualHtmlEmbedHeight(attrs.height)
+    setHeightInput(fixed !== null ? String(fixed) : "")
   }, [attrs.height])
 
   // 阅读态：检测资源是否可用或下发异常
@@ -64,11 +77,67 @@ export function HtmlEmbedBlockView({
     }
   }, [editor.isEditable, key])
 
+  // 阅读态：接收 iframe 高度上报并自动贴合
+  useEffect(() => {
+    if (editor.isEditable) return
+
+    const handleMessage = (event: MessageEvent) => {
+      // 1. 只接受 event.source 等于本 iframe contentWindow 的消息（沙箱 origin 为 opaque，不验 origin 验 source）
+      const iframe = iframeRef.current
+      if (!iframe?.contentWindow || event.source !== iframe.contentWindow) {
+        return
+      }
+
+      // 2. 仅当该节点处于「自动」模式时应用上报值（固定高度路径不受上报干扰）
+      if (fixedHeight !== null) {
+        return
+      }
+
+      // 3. 只处理 ciki-embed-height 一种消息，其余丢弃
+      const data = event.data
+      if (!data || typeof data !== "object") {
+        return
+      }
+      if (data.type !== CIKI_EMBED_HEIGHT_MESSAGE_TYPE) {
+        return
+      }
+
+      // 4. 高度取数值后钳制到 200–4000 再应用
+      const rawHeight = data.height
+      if (typeof rawHeight !== "number" || !Number.isFinite(rawHeight)) {
+        return
+      }
+
+      const clamped = clampAutoHtmlEmbedHeight(rawHeight)
+      setAutoHeight(clamped)
+    }
+
+    window.addEventListener("message", handleMessage)
+    return () => {
+      window.removeEventListener("message", handleMessage)
+    }
+  }, [editor.isEditable, fixedHeight])
+
   const commitHeight = (val: string) => {
-    const clamped = clampHtmlEmbedHeight(val)
-    setHeightInput(String(clamped))
-    if (clamped !== attrs.height) {
-      updateAttributes({ height: clamped })
+    const trimmed = val.trim()
+    if (!trimmed) {
+      setHeightInput("")
+      if (attrs.height !== null) {
+        updateAttributes({ height: null })
+      }
+      return
+    }
+    const clamped = clampManualHtmlEmbedHeight(trimmed)
+    if (clamped === null) {
+      setHeightInput("")
+      if (attrs.height !== null) {
+        updateAttributes({ height: null })
+      }
+    } else {
+      setHeightInput(String(clamped))
+      if (clamped !== attrs.height) {
+        updateAttributes({ height: clamped })
+      }
     }
   }
 
@@ -107,6 +176,11 @@ export function HtmlEmbedBlockView({
     }
   }
 
+  // 计算当前阅读态渲染高度：固定高度手填 200–2000，自动贴合 clamp 200–4000
+  const displayHeight = isAuto
+    ? clampAutoHtmlEmbedHeight(autoHeight)
+    : fixedHeight
+
   // 1. 阅读态渲染：仅 iframe（无额外权限）或错误占位卡
   if (!editor.isEditable) {
     if (!key || hasError) {
@@ -118,7 +192,7 @@ export function HtmlEmbedBlockView({
         >
           <div
             className="flex flex-col items-center justify-center rounded-lg border border-dashed border-destructive/40 bg-destructive/5 p-6 text-center text-xs text-muted-foreground"
-            style={{ minHeight: "120px", height: `${clampedHeight}px` }}
+            style={{ minHeight: "120px", height: `${displayHeight}px` }}
             data-html-embed-error=""
           >
             <AlertCircle className="mb-2 h-6 w-6 text-destructive" />
@@ -140,6 +214,7 @@ export function HtmlEmbedBlockView({
         data-html-embed-block=""
       >
         <iframe
+          ref={iframeRef}
           src={`/api/files/${key}`}
           sandbox="allow-scripts"
           referrerPolicy="no-referrer"
@@ -148,7 +223,7 @@ export function HtmlEmbedBlockView({
           className="w-full rounded-md border border-border/50 bg-background"
           style={{
             width: "100%",
-            height: `${clampedHeight}px`,
+            height: `${displayHeight}px`,
             display: "block"
           }}
           onError={() => setHasError(true)}
@@ -201,9 +276,10 @@ export function HtmlEmbedBlockView({
             <Input
               id={`embed-height-${posId}`}
               type="number"
-              min={MIN_HTML_EMBED_HEIGHT}
-              max={MAX_HTML_EMBED_HEIGHT}
+              min={MIN_HTML_EMBED_MANUAL_HEIGHT}
+              max={MAX_HTML_EMBED_MANUAL_HEIGHT}
               step={10}
+              placeholder={t("editor.htmlEmbed.auto")}
               value={heightInput}
               onChange={(e) => setHeightInput(e.target.value)}
               onBlur={() => commitHeight(heightInput)}

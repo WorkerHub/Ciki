@@ -1852,6 +1852,15 @@ embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字�
 
 CSP sandbox 强制 opaque origin（即便用户顶层打开 URL 亦无法访问站内 localStorage / Cookie 或发起同源 API 请求）；外链资源全部阻断、无白名单，动画必须单文件自包含（内联 JS/CSS，图片/字体通过 data: / blob: 嵌入）。
 
+- **下发注入**：embed 文件经带会话路径（`GET /api/files/:key`）下发时，在响应内容末尾（`</body>` 闭合标签前；无 body 标签时追加到文件末尾）临时注入一小段高度上报脚本。注入只发生在下发响应里，R2 存储的原文件不改，页面导出 zip 里的 HTML 产物仍为原文件逐字字节。
+  - 实现细节与已知边界：注入位置在原字符串上使用大小写不敏感正则匹配最后一个 `</body>`，避免 Unicode 字符转小写时码元长度变化导致切片错位；若原文件内联 JS 字符串或 HTML 注释中出现 `</body>` 为字符串切片口径的既有边界；因实际下发内容已包含注入脚本，embed 下发响应不透传 R2 底层原文件的 `ETag`。
+- **上报协议**：注入脚本在沙箱 iframe 内量取内容实际高度（`Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)`），页面加载完成（及 `DOMContentLoaded` / `load`）上报一次，并使用 `ResizeObserver` 监听内容尺寸变化持续上报。经 `window.parent.postMessage` 发给父页，消息体形如：
+
+  ```json
+  { "type": "ciki-embed-height", "height": 480 }
+  ```
+- **安全边界不变**：注入脚本采用独立作用域与异常自吞，不得影响原文件自身脚本的执行。注入脚本走现行 CSP（`script-src 'unsafe-inline'` 已放行），不新增任何 CSP 指令或 iframe 权限。上报内容仅为一个数字，父页除来源校验与数值钳制外不处理任何其他消息；固定高度路径不受上报干扰。
+
 `key` 可含一个类别前缀（`avatars/` / `pages/` / `imports/`），也可以是存量的平铺 key；未知前缀、多级前缀、大写 hex、`svg` 或其它形状一律 404。不存在 404；未登录 401 + no-store。
 
 ### 导入（个人令牌）
@@ -2275,7 +2284,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 链接：`a[href]` 仅 http/https/mailto/相对路径。
 - 图片：`img[src]` 仅本站 `/api/files/<uuid>.<ext>`（存量平铺）或 `/api/files/(pages|imports)/<uuid>.<ext>`（新前缀；`avatars/` 只服务资料页，不进正文），或 `data:image/(png|jpeg|gif|webp);base64,…`；其它 `src` 移入 `data-original-src` 并加 `data-confluence-img="true"`（「未转存」标记，读态由前端渲染占位并提供上传替换入口）。
 - 画布（Excalidraw）：`img[data-type="excalidraw"]`，允许 `data-scene-key`（格式 `pages/<uuid>.json`，必填）、`data-preview-key`（格式 `pages/<uuid>.png`，可选）、`data-extracted-text`、`width`。在回填预览图前，缺 `src` 与 `data-preview-key` 的画布标签正常保留，由读态前端渲染或触发回填。
-- Embed 内容块（TipTap `htmlEmbed`）：`<div data-type="html-embed" data-key="embeds/<uuid>.html" data-height="480" data-name="<filename>"></div>`，属性校验：`data-type` 仅 `html-embed`，`data-key` 必须匹配 `embeds/<uuid>.html`，`data-height` 仅 200–2000 的正整数，`data-name` 为原始文件名。
+- Embed 内容块（TipTap `htmlEmbed`）：`<div data-type="html-embed" data-key="embeds/<uuid>.html" data-height="480" data-name="<filename>"></div>`，属性校验：`data-type` 仅 `html-embed`，`data-key` 必须匹配 `embeds/<uuid>.html`，`data-height` 可空/可选（未指定或空表示「自动贴合」，设置时仅 200–2000 的正整数固定高度），`data-name` 为原始文件名。
   - **仅页面正文，不进评论**：`sanitizeCommentHtml` 会整段剥除这些 embed data 属性。
 - 一律剥除 `script`/`style`/`iframe`/`object`/`embed`/`form` 及所有 `on*` 事件属性、未列出的 class/attr。
 - **评论正文（`comments.body_md`）**：服务端用 `marked` 渲染后再过同一份白名单，与正文只差 `img[src]` 一项——站内 `/api/files/…` 与 `https:` 外链原样保留，`http:` / `data:` / 非法地址删掉 `src`（评论区没有上传入口，不写 `data-original-src` 占位）。`<script>`、事件属性、`javascript:` 链接、白名单外标签一律剥除，与正文同口径。

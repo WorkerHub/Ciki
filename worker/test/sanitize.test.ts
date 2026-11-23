@@ -376,6 +376,16 @@ describe("Excalidraw 画布块 HTML 载具属性消毒", () => {
       }
     })
 
+    it("data-height 可空/可选：未设置高度表示自动贴合，载具正常放行不强加高度", () => {
+      const html = sanitizePageHtml(
+        `<div data-type="html-embed" data-key="${embedKey}" data-name="auto-fit.html"></div>`
+      )
+      expect(html).toContain('data-type="html-embed"')
+      expect(html).toContain(`data-key="${embedKey}"`)
+      expect(html).toContain('data-name="auto-fit.html"')
+      expect(html).not.toContain("data-height=")
+    })
+
     it("评论消毒剥除全部 embed 属性（仅页面正文，不进评论）", () => {
       const html = sanitizeCommentHtml(
         `<div data-type="html-embed" data-key="${embedKey}" data-height="480" data-name="test.html">评论内容</div>`

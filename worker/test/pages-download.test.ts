@@ -764,6 +764,13 @@ describe("htmlEmbed 内容块导出组装（规格 §8）", () => {
 
     expect(entries["embeds/chart-demo.html"]).toEqual(htmlBytes1)
     expect(entries["embeds/chart-demo-2.html"]).toEqual(htmlBytes2)
+    // 注入只在下发响应发生，导出 zip 里的 html 产物与原文件逐字一致，绝无注入脚本
+    expect(strFromU8(entries["embeds/chart-demo.html"])).not.toContain(
+      "ciki-embed-height"
+    )
+    expect(strFromU8(entries["embeds/chart-demo-2.html"])).not.toContain(
+      "ciki-embed-height"
+    )
 
     const md = strFromU8(entries["含动画页面.md"])
     // 改写存在的两个为相对链接

@@ -251,8 +251,7 @@ export function EditorToolbar({
         .focus()
         .setHtmlEmbed({
           key: uploaded.key,
-          name: file.name,
-          height: 480
+          name: file.name
         })
         .run()
     } catch (error) {
