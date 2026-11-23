@@ -14,11 +14,12 @@ import TableCell from "@tiptap/extension-table-cell"
 import TableHeader from "@tiptap/extension-table-header"
 import { TextStyle } from "@tiptap/extension-text-style"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
+import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import { normalizeColor } from "@/lib/color"
 import {
   adaptBackgroundColorForDark,
-  adaptTextColorForDark,
-  applyJointColorAdaptation
+  adaptJointTextColorForDark,
+  adaptTextColorForDark
 } from "@/lib/color-adapt"
 import { normalizeFontSize } from "@/lib/font-size"
 
@@ -155,8 +156,10 @@ export const jointColorPluginKey = new PluginKey("jointColorAdaptation")
 
 /**
  * 联合背景文字颜色夜间自适应插件：
- * 当文字处于高亮背景或单元格底色内时，以有效深底为基准动态注入 --dark-text-color，
- * 解决独立对齐默认背景导致的对比度塌陷（维持「浅底深字 → 深底浅字」配对）。
+ * 改用 ProseMirror Decoration（Inline Decoration）纯状态驱动机制：
+ * 当文字处于高亮背景或单元格底色内时，以有效深底为基准计算并在视图绘制阶段生成带 --dark-text-color
+ * 的行内装饰器，解决独立对齐默认背景导致的对比度塌陷（维持「浅底深字 → 深底浅字」配对）。
+ * 不在 view()/update() 里直接写 DOM，彻底杜绝 ProseMirror DOMObserver 看到 style mutation 产生的自激死循环。
  */
 export const WikiJointColorAdaptation = Extension.create({
   name: "jointColorAdaptation",
@@ -164,12 +167,55 @@ export const WikiJointColorAdaptation = Extension.create({
     return [
       new Plugin({
         key: jointColorPluginKey,
-        view(editorView) {
-          applyJointColorAdaptation(editorView.dom as HTMLElement)
-          return {
-            update(view) {
-              applyJointColorAdaptation(view.dom as HTMLElement)
-            }
+        props: {
+          decorations(state) {
+            const decos: Decoration[] = []
+            state.doc.descendants((node, pos) => {
+              if (!node.isText) return
+
+              const textStyle = node.marks.find(
+                (m) => m.type.name === "textStyle" && m.attrs.color
+              )
+              const textColor = textStyle?.attrs?.color as string | undefined
+              if (!textColor) return
+
+              const highlight = node.marks.find(
+                (m) => m.type.name === "highlight" && m.attrs.color
+              )
+              let effectiveBg = highlight?.attrs?.color as string | undefined
+
+              if (!effectiveBg) {
+                const $pos = state.doc.resolve(pos)
+                for (let d = $pos.depth; d > 0; d--) {
+                  const ancestor = $pos.node(d)
+                  if (
+                    ancestor.type.name === "tableCell" ||
+                    ancestor.type.name === "tableHeader"
+                  ) {
+                    effectiveBg = ancestor.attrs.backgroundColor as
+                      | string
+                      | undefined
+                    if (effectiveBg) break
+                  }
+                }
+              }
+
+              if (effectiveBg) {
+                const darkColor = adaptJointTextColorForDark(
+                  textColor,
+                  effectiveBg
+                )
+                if (darkColor) {
+                  decos.push(
+                    Decoration.inline(pos, pos + node.nodeSize, {
+                      style: `--dark-text-color: ${darkColor};`,
+                      class: "wiki-joint-text"
+                    })
+                  )
+                }
+              }
+            })
+            return DecorationSet.create(state.doc, decos)
           }
         }
       })

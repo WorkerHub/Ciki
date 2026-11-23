@@ -131,6 +131,15 @@ export function contrastRatio(lum1: number, lum2: number): number {
 }
 
 /**
+ * WCAG 相对亮度转 CIE 1976 感知亮度 L* (归一化范围 0.0 - 1.0)
+ * https://en.wikipedia.org/wiki/CIELAB_color_space
+ */
+export function perceptualLightness(r: number, g: number, b: number): number {
+  const y = relativeLuminance(r, g, b)
+  return y <= 0.008856 ? (y * 903.3) / 100 : 1.16 * Math.cbrt(y) - 0.16
+}
+
+/**
  * 夜间模式文字颜色提亮自适应：
  * - 在固定深色背景（默认 #222222）下评估对比度；
  * - 若对比度已达标 (>= targetContrast 且比背景亮)，原色保持不变返回；
@@ -196,8 +205,10 @@ export function adaptTextColorForDark(
 /**
  * 夜间模式内联背景色（高亮/单元格背景）对称压暗：
  * - 保持色相 H 与饱和度 S 不变；
- * - 原本较亮（L > 0.5）的背景在 HSL 空间内对称映射到暗色区间：L' = 1 - L；
- * - 原本已经是深色（L <= 0.5）的背景维持原色不变。
+ * - 压暗阈值按 WCAG 相对亮度/感知亮度判断：相对亮度 <= 0.18（感知亮度 L* <= 0.5）视为深色背景无需压暗；
+ * - 原本较亮（HSL L > 0.5）的背景在 HSL 空间内对称映射到暗色区间：L' = 1 - L；
+ * - 中点高饱和亮色（如 #ffab00 橙、#ffff00 黄、#00ffff 青，HSL L 恰为 0.5 但实际相对亮度高），
+ *   按感知亮度对称压暗 L' = 1 - L*。
  */
 export function adaptBackgroundColorForDark(
   hex: string | null | undefined
@@ -207,13 +218,20 @@ export function adaptBackgroundColorForDark(
   const rgb = hexToRgb(normalized)
   if (!rgb) return null
 
+  // 压暗阈值改用 WCAG 相对亮度/感知亮度判断，而非裸 HSL L 值：
+  // 相对亮度 <= 0.18（感知亮度 L* <= 0.5）的背景本身已属于暗色区间，无需压暗
+  const lum = relativeLuminance(rgb[0], rgb[1], rgb[2])
+  if (lum <= 0.18) return normalized
+
   const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2])
 
-  // 本身是深色背景则无需反转
-  if (l <= 0.5) return normalized
+  // 对亮背景做对称压暗：
+  // 对于常规浅色背景（HSL L > 0.5），采用对称压暗 L' = 1 - L；
+  // 对于中点高饱和亮色（HSL L <= 0.5 但感知亮度高，如 #ffab00 橙、#ffff00 黄、#00ffff 青），
+  // 裸 HSL L 无法体现真实亮度，按感知亮度做对称压暗 L' = 1 - L*
+  const pLight = perceptualLightness(rgb[0], rgb[1], rgb[2])
+  const darkL = l > 0.5 ? 1 - l : Math.max(0.05, 1 - pLight)
 
-  // 对称压暗：L' = 1 - L
-  const darkL = 1 - l
   const [r, g, b] = hslToRgb(h, s, darkL)
   return rgbToHex(r, g, b)
 }

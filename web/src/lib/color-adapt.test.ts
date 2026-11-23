@@ -164,10 +164,39 @@ describe("adaptBackgroundColorForDark（夜间模式背景对称压暗）", () =
     expect(adaptBackgroundColorForDark("#ffffff")).toBe("#000000")
   })
 
-  it("已经是深色的背景 (L <= 0.5) 保持原色不变", () => {
+  it("已经是深色的背景（相对亮度 <= 0.18）保持原色不变", () => {
     expect(adaptBackgroundColorForDark("#000000")).toBe("#000000")
     expect(adaptBackgroundColorForDark("#222222")).toBe("#222222")
     expect(adaptBackgroundColorForDark("#123456")).toBe("#123456")
+  })
+
+  it("中点亮色（L≈0.5，如 #ffab00 橙底、#ffff00 黄、#00ffff 亮青）按感知亮度正确压暗", () => {
+    // #ffab00 的 HSL L 恰为 0.5，但相对亮度为 0.504，属于亮背景
+    const orangeDark = adaptBackgroundColorForDark("#ffab00")!
+    expect(orangeDark).toBeTruthy()
+    expect(orangeDark).not.toBe("#ffab00")
+    expect(orangeDark).toBe("#795100")
+
+    // 压暗后的有效底色与纯白文字对比度必须 >= 4.5:1
+    const whiteRgb = hexToRgb("#ffffff")!
+    const orangeDarkRgb = hexToRgb(orangeDark)!
+    const crWhite = contrastRatio(
+      relativeLuminance(whiteRgb[0], whiteRgb[1], whiteRgb[2]),
+      relativeLuminance(orangeDarkRgb[0], orangeDarkRgb[1], orangeDarkRgb[2])
+    )
+    expect(crWhite).toBeGreaterThanOrEqual(WCAG_AA_CONTRAST)
+
+    // 正黄 (#ffff00) 与亮青 (#00ffff) 同属 L=0.5 的亮色，均被压暗且与白字对比度 >= 4.5:1
+    for (const saturatedBright of ["#ffff00", "#00ffff"]) {
+      const dark = adaptBackgroundColorForDark(saturatedBright)!
+      expect(dark).not.toBe(saturatedBright)
+      const darkRgb = hexToRgb(dark)!
+      const cr = contrastRatio(
+        relativeLuminance(whiteRgb[0], whiteRgb[1], whiteRgb[2]),
+        relativeLuminance(darkRgb[0], darkRgb[1], darkRgb[2])
+      )
+      expect(cr).toBeGreaterThanOrEqual(WCAG_AA_CONTRAST)
+    }
   })
 
   it("非法/空输入安全返回 null", () => {
@@ -207,6 +236,23 @@ describe("adaptJointTextColorForDark（联合背景基准自适应）", () => {
     expect(adaptedText).toBeTruthy()
 
     const darkBg = adaptBackgroundColorForDark(cellBg)!
+    const bgRgb = hexToRgb(darkBg)!
+    const textRgb = hexToRgb(adaptedText)!
+    const bgLum = relativeLuminance(bgRgb[0], bgRgb[1], bgRgb[2])
+    const textLum = relativeLuminance(textRgb[0], textRgb[1], textRgb[2])
+    const cr = contrastRatio(textLum, bgLum)
+    expect(cr).toBeGreaterThanOrEqual(WCAG_AA_CONTRAST)
+  })
+
+  it("橙底高亮 (#ffab00) 下文字联合适配保对比度 >= 4.5:1，不塌陷为白字压亮橙", () => {
+    const textColor = "#172b4d"
+    const highlightBg = "#ffab00"
+    const adaptedText = adaptJointTextColorForDark(textColor, highlightBg)!
+    expect(adaptedText).toBeTruthy()
+
+    const darkBg = adaptBackgroundColorForDark(highlightBg)!
+    expect(darkBg).toBe("#795100")
+
     const bgRgb = hexToRgb(darkBg)!
     const textRgb = hexToRgb(adaptedText)!
     const bgLum = relativeLuminance(bgRgb[0], bgRgb[1], bgRgb[2])

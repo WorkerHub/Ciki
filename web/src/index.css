@@ -553,7 +553,8 @@
  * - 仅在暗黑模式且元素声明了自适应 CSS 变量时覆盖，浅色模式保持原始原色完全不变。
  */
 .dark .wiki-content [data-text-color][style*="--dark-text-color"],
-.dark .wiki-content mark[data-color][style*="--dark-text-color"] {
+.dark .wiki-content mark[data-color][style*="--dark-text-color"],
+.dark .wiki-content .wiki-joint-text {
   /* biome-ignore lint/complexity/noImportantStyles: 覆盖元素内联 style 必须使用 !important */
   color: var(--dark-text-color) !important;
 }
