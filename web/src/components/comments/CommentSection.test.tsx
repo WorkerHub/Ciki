@@ -680,4 +680,33 @@ describe("页尾评论区英文界面", () => {
     expect(screen.getByText("This cannot be undone.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
   })
+
+  it("支持 Agent 评论及其 owner 显形逻辑", async () => {
+    await i18n.changeLanguage("zh-CN")
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 2,
+      threads: [
+        thread({
+          id: 1,
+          authorName: "bot-1",
+          isAgent: true,
+          ownerName: "Alice"
+        }),
+        thread({
+          id: 2,
+          authorName: "bot-2",
+          isAgent: true,
+          ownerName: null
+        })
+      ]
+    })
+    renderSection()
+
+    expect(
+      await screen.findByText("bot-1（Alice 的 Agent）")
+    ).toBeInTheDocument()
+    expect(screen.getByText("bot-2")).toBeInTheDocument()
+    const badges = screen.getAllByText("Agent")
+    expect(badges).toHaveLength(1)
+  })
 })

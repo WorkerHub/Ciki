@@ -232,6 +232,7 @@ export interface UserAuthorSummary {
   username: string
   avatar_key: string
   kind: UserKind
+  owner_name: string | null
 }
 
 export async function findUsersByIds(
@@ -244,7 +245,11 @@ export async function findUsersByIds(
   const placeholders = uniqueIds.map(() => "?").join(", ")
   const rows = await db
     .prepare(
-      `SELECT id, username, avatar_key, kind FROM ${usersTable(prefix)} WHERE id IN (${placeholders})`
+      `SELECT u.id, u.username, u.avatar_key, u.kind,
+              CASE WHEN u.kind = 'agent' THEN o.username ELSE NULL END AS owner_name
+         FROM ${usersTable(prefix)} u
+         LEFT JOIN ${usersTable(prefix)} o ON o.id = u.owner_user_id
+        WHERE u.id IN (${placeholders})`
     )
     .bind(...uniqueIds)
     .all<UserAuthorSummary>()

@@ -18,6 +18,7 @@ import { CreatePageDialog } from "@/components/CreatePageDialog"
 import { CommentSection } from "@/components/comments/CommentSection"
 import { MovePageDialog } from "@/components/MovePageDialog"
 import { UserAvatar } from "@/components/UserAvatar"
+import { formatAgentAuthor } from "@/lib/agent-display"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -303,6 +304,16 @@ export function PageView() {
   const showEdited = Boolean(page.updatedByName) && !isNeverEdited
   const hasByline = showCreated || showEdited
   const showMetaRow = hasByline || role === "viewer"
+  const createdAuthor = formatAgentAuthor({
+    name: page.createdByName ?? "",
+    isAgent: page.createdByIsAgent,
+    ownerName: page.createdByOwnerName
+  })
+  const updatedAuthor = formatAgentAuthor({
+    name: page.updatedByName ?? "",
+    isAgent: page.updatedByIsAgent,
+    ownerName: page.updatedByOwnerName
+  })
 
   return (
     <article className="space-y-4">
@@ -353,8 +364,8 @@ export function PageView() {
                       }}
                       className="size-4 text-[9px]"
                     />
-                    <span>{page.createdByName}</span>
-                    {page.createdByIsAgent ? (
+                    <span>{createdAuthor.displayName}</span>
+                    {createdAuthor.showAgentBadge ? (
                       <Badge variant="secondary" className="text-[10px]">
                         Agent
                       </Badge>
@@ -379,8 +390,8 @@ export function PageView() {
                       }}
                       className="size-4 text-[9px]"
                     />
-                    <span>{page.updatedByName}</span>
-                    {page.updatedByIsAgent ? (
+                    <span>{updatedAuthor.displayName}</span>
+                    {updatedAuthor.showAgentBadge ? (
                       <Badge variant="secondary" className="text-[10px]">
                         Agent
                       </Badge>

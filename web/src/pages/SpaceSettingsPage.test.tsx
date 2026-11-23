@@ -271,6 +271,64 @@ describe("空间设置与成员管理", () => {
     expect(within(candidateItem).getByText("Agent")).toBeInTheDocument()
   })
 
+  it("空间成员与候选人带 ownerName 时展示「{agent}（{owner} 的 Agent）」且不展示 Agent 徽标", async () => {
+    const user = userEvent.setup()
+    const agentMember: SpaceMember = {
+      userId: 10,
+      username: "bot-helper",
+      email: "bot-helper@internal",
+      role: "viewer",
+      isAgent: true,
+      ownerName: "Alice",
+      createdAt: "2026-11-08T00:00:00.000Z"
+    }
+    vi.mocked(spacesApi.members).mockResolvedValue([members[0], agentMember])
+    const agentCandidate: SpaceCandidate = {
+      userId: 11,
+      username: "candidate-agent",
+      email: "candidate-agent@internal",
+      isAgent: true,
+      ownerName: "Bob"
+    }
+    vi.mocked(spacesApi.candidates).mockResolvedValue([agentCandidate])
+    renderSettings()
+
+    const memberRow = (
+      await screen.findByText("bot-helper（Alice 的 Agent）")
+    ).closest("tr") as HTMLElement
+    expect(within(memberRow).queryByText("Agent")).toBeNull()
+
+    await user.type(screen.getByLabelText("添加成员"), "candidate-agent")
+    await user.click(screen.getByRole("button", { name: "搜索" }))
+
+    const candidateItem = (
+      await screen.findByText("candidate-agent（Bob 的 Agent）")
+    ).closest("li") as HTMLElement
+    expect(within(candidateItem).queryByText("Agent")).toBeNull()
+  })
+
+  it("空间成员列表正确渲染头像", async () => {
+    const memberWithAvatar: SpaceMember = {
+      userId: 12,
+      username: "avatar-user",
+      email: "avatar@example.com",
+      role: "viewer",
+      avatarUrl: "https://example.com/avatar.png",
+      createdAt: "2026-11-08T00:00:00.000Z"
+    }
+    vi.mocked(spacesApi.members).mockResolvedValue([
+      members[0],
+      memberWithAvatar
+    ])
+    renderSettings()
+
+    const memberRow = (await screen.findByText("avatar-user")).closest(
+      "tr"
+    ) as HTMLElement
+    expect(memberRow.querySelector('[data-slot="avatar"]')).toBeInTheDocument()
+    expect(within(memberRow).getByText("A")).toBeInTheDocument()
+  })
+
   it("默认空间不能删除", async () => {
     vi.mocked(spacesApi.get).mockResolvedValue({ ...space, isDefault: true })
     renderSettings()

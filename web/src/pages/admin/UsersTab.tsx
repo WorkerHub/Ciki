@@ -60,6 +60,7 @@ import {
   describeApiError,
   type Role
 } from "@/lib/api"
+import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDate } from "@/lib/format"
 import { useAuthStore } from "@/stores/auth"
 
@@ -207,11 +208,16 @@ export function UsersTab() {
             ) : (
               users.map((user) => {
                 const isSelf = user.id === me?.id
+                const author = formatAgentAuthor({
+                  name: user.email,
+                  isAgent: user.isAgent,
+                  ownerName: user.ownerName
+                })
                 return (
                   <TableRow key={user.id}>
                     <TableCell className="max-w-[18rem] truncate font-medium">
-                      {user.email}
-                      {user.isAgent ? (
+                      {author.displayName}
+                      {author.showAgentBadge ? (
                         <Badge
                           variant="secondary"
                           className="ml-1.5 text-[10px]"

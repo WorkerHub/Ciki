@@ -6,6 +6,7 @@
  * 已软删的评论也在返回集合里——串结构要靠它们判断「占位保留还是整条消失」。
  */
 import { commentsTable, usersTable } from "../../lib/tables"
+import type { UserKind } from "./users"
 
 export interface CommentRow {
   id: number
@@ -18,19 +19,24 @@ export interface CommentRow {
   deleted_at: string | null
 }
 
-/** 列表行：评论本体 + 作者的展示字段（作者已被删除时两个字段都是 NULL）。 */
+/** 列表行：评论本体 + 作者的展示字段（作者已被删除时字段为 NULL）。 */
 export interface CommentListRow extends CommentRow {
   author_username: string | null
   author_avatar_key: string | null
+  author_kind: UserKind | null
+  author_owner_name: string | null
 }
 
 const SELECT_WITH_AUTHOR = (prefix: string): string =>
   `SELECT c.id, c.page_id, c.parent_id, c.author_id, c.body_md, c.created_at,
           c.edited_at, c.deleted_at,
           u.username AS author_username,
-          u.avatar_key AS author_avatar_key
+          u.avatar_key AS author_avatar_key,
+          u.kind AS author_kind,
+          CASE WHEN u.kind = 'agent' THEN o.username ELSE NULL END AS author_owner_name
      FROM ${commentsTable(prefix)} c
-     LEFT JOIN ${usersTable(prefix)} u ON u.id = c.author_id`
+     LEFT JOIN ${usersTable(prefix)} u ON u.id = c.author_id
+     LEFT JOIN ${usersTable(prefix)} o ON o.id = u.owner_user_id`
 
 /**
  * 整页评论（含已软删行），时间正序。

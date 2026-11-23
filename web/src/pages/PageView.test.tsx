@@ -1060,6 +1060,25 @@ describe("阅读页标题下署名行", () => {
     expect(badges).toHaveLength(2)
   })
 
+  it("当创建者是带 ownerName 的 Agent 时，呈现「{agent}（{owner} 的 Agent）」且不叠加 Agent 徽标", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdByName: "deploy-bot",
+      createdByAvatarUrl: null,
+      createdByIsAgent: true,
+      createdByOwnerName: "Alice",
+      updatedByName: null,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z"
+    })
+    renderView()
+
+    expect(
+      await screen.findByText("deploy-bot（Alice 的 Agent）")
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Agent")).toBeNull()
+  })
+
   it("英文环境下展示 Created 与 Last edited", async () => {
     await i18n.changeLanguage("en")
     vi.mocked(pagesApi.get).mockResolvedValue({

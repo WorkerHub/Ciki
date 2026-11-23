@@ -930,11 +930,14 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   {
     "id": 10,
     "username": "doc-sync-bot",
+    "avatarUrl": null,
     "isActive": true,
     "createdAt": "2026-11-20T10:00:00.000Z"
   }
 ]
 ```
+
+- `avatarUrl`：该 Agent 的头像地址（`/api/files/<key>`），未设置头像时为 `null`；图片本身要会话才能读。
 
 #### POST /api/me/agents
 
@@ -947,7 +950,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```
 
 - `username`：必填，1–40 字符，自动去控制字符并规范化。非法 400 `code:"INVALID_USERNAME"`；重名 409 `code:"USERNAME_TAKEN"`。
-- 创建成功 201，返回与 `GET /api/me/agents` 单项结构相同的 DTO：`{ id, username, isActive, createdAt }`。
+- 创建成功 201，返回与 `GET /api/me/agents` 单项结构相同的 DTO：`{ id, username, avatarUrl, isActive, createdAt }`（新建 Agent 无头像，`avatarUrl` 为 `null`）。
 - 新建 Agent 初始为启用状态（`is_active = 1`），`approval_status = 'approved'`，`email_verified = 1`，`owner_user_id` 指向当前登录用户。
 
 #### PATCH /api/me/agents/:id
@@ -962,11 +965,47 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - `isActive` 必须为布尔值，否则 400 `{"error":"isActive must be a boolean"}`。
 - 非本人名下或非 Agent 返回 404。
-- 成功返回更新后的 `{ id, username, isActive, createdAt }`。停用 Agent 时，其名下持有的 API 令牌在调用鉴权时立即连带失效。
+- 成功返回更新后的 `{ id, username, avatarUrl, isActive, createdAt }`。停用 Agent 时，其名下持有的 API 令牌在调用鉴权时立即连带失效。
 
 #### DELETE /api/me/agents/:id
 
 彻底删除本人名下的 Agent 账号：成功 200 `{"success":true}`。级联清理其会话、Passkey、TOTP、验证码、所有空间成员关系（`space_members`）与用户行。非本人名下或非 Agent 返回 404。
+
+#### POST /api/me/agents/:id/avatar
+
+为本人名下的 Agent 上传/更换头像。`multipart/form-data`，字段名 `file`，单文件；校验与存储口径与 `POST /api/me/avatar`、`POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId`（该 Agent 的用户 id）与 `category:"avatars"`。同一请求内完成「写入该 Agent 的 `avatar_key` → 删除旧头像对象」（旧图删不掉只留孤儿对象，不影响响应）。
+
+成功 200 返回该 Agent 的 DTO（与 `GET /api/me/agents` 单项同结构，含最新 `avatarUrl`），前端一次拿到新的头像地址：
+
+```json
+{
+  "id": 10,
+  "username": "doc-sync-bot",
+  "avatarUrl": "/api/files/avatars/<uuid>.png",
+  "isActive": true,
+  "createdAt": "2026-11-20T10:00:00.000Z"
+}
+```
+
+- 头像读路径复用 `/api/files/:key`（会话即可读，无归属校验），显示面零新增逻辑。
+- 非本人名下 / 目标不存在 / 目标不是 Agent 一律 404 `{"error":"Agent not found"}`，不泄露存在性；站点管理员亦不可代改他人名下 Agent 的头像。
+- 校验失败与 `POST /api/me/avatar` 同口径：非图片 400、单张 >10MB 413 `code:"FILE_TOO_LARGE"`、未登录 401。
+
+#### DELETE /api/me/agents/:id/avatar
+
+删除本人名下 Agent 的头像：清空其 `avatar_key` 并 best-effort 删除旧头像对象。成功 200 返回该 Agent 的 DTO（`avatarUrl` 为 `null`）：
+
+```json
+{
+  "id": 10,
+  "username": "doc-sync-bot",
+  "avatarUrl": null,
+  "isActive": true,
+  "createdAt": "2026-11-20T10:00:00.000Z"
+}
+```
+
+- 无头像时删除仍 200（幂等）；非本人名下 / 目标不存在 / 目标不是 Agent 一律 404。
 
 #### GET /api/me/agents/:id/tokens
 
@@ -1020,6 +1059,69 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 代管吊销本人名下 Agent 的单枚接口令牌：成功 200 `{"success":true}`，该令牌立即失效。非本人名下 / 目标不存在 / 已吊销均 404。
 
+#### GET /api/me/agents/:id/spaces
+
+列出 owner 有成员管理权的空间，附该 Agent 现行角色（未加入为 `null`）：
+
+```json
+[
+  { "spaceId": 2, "slug": "team", "name": "团队", "role": "editor" },
+  { "spaceId": 5, "slug": "notes", "name": "笔记", "role": null }
+]
+```
+
+- 仅返回 owner 可管理的空间：常规用户是其中 `admin` 的空间；站点管理员是全部空间（有效 `myRole` 均为 `admin`）。
+- `role` 是该 Agent 在此空间的现行成员角色（`admin` / `editor` / `viewer`），尚未加入为 `null`。
+- 非本人名下 / 目标不存在 / 非 Agent 一律 404 `{"error":"Agent not found"}`（不泄露存在性）。
+
+#### PUT /api/me/agents/:id/spaces
+
+批量加入 / 改角色，一次提交、逐项回报：
+
+```json
+{ "spaceIds": [2, 5], "role": "editor" }
+```
+
+- `spaceIds` 必填：正整数数组（去重、升序），为空 / 非数组 / 含非法项回 400 `code:"INVALID_SPACE_SCOPE"`。
+- `role` 可选，默认 `editor`（普通成员档）；取值仅 `admin` / `editor` / `viewer`，非法回 400 `code:"INVALID_ROLE"`。
+- 每个空间独立校验 owner 的管理权与成员关系，**部分失败不影响其余空间写入**，逐项回报：
+
+```json
+{
+  "results": [
+    { "spaceId": 2, "ok": true, "role": "editor" },
+    {
+      "spaceId": 5,
+      "ok": false,
+      "error": "Space forbidden",
+      "code": "SPACE_FORBIDDEN"
+    },
+    {
+      "spaceId": 999,
+      "ok": false,
+      "error": "Space not found",
+      "code": "SPACE_NOT_FOUND"
+    }
+  ]
+}
+```
+
+- 单项成功：`{ "spaceId": n, "ok": true, "role": "…" }`（未加入则加入，已加入则改角色）。
+- 单项失败逐一点名，不静默吞：
+  - `code:"SPACE_NOT_FOUND"`：空间不存在，或 owner 非该空间成员（对 owner 视为不可见）。
+  - `code:"SPACE_FORBIDDEN"`：owner 是该空间成员但无管理权（`editor` / `viewer`）。
+  - `code:"LAST_SPACE_ADMIN"`：把该空间最后一名 `admin` 降级。
+- 非本人名下 / 目标不存在 / 非 Agent 一律 404 `{"error":"Agent not found"}`。
+- Agent 已停用 / 未批准一律 409 `{"error":"User cannot join a space","code":"USER_NOT_ELIGIBLE"}`（与既有 POST /api/spaces/:id/members 对齐）。
+
+#### DELETE /api/me/agents/:id/spaces/:spaceId
+
+将 Agent 移出单个空间，成功 200 `{"success":true}`。仅 owner 有成员管理权的空间可操作：
+
+- 非本人名下 / 目标不存在 / 非 Agent 一律 404 `{"error":"Agent not found"}`。
+- 空间不存在或 owner 非成员 404 `code:"SPACE_NOT_FOUND"`；owner 是成员但无管理权 403 `{"error":"Forbidden"}`。
+- Agent 非该空间成员 404 `code:"MEMBER_NOT_FOUND"`；移除最后一名 `admin` 409 `code:"LAST_SPACE_ADMIN"`。
+
 ### 管理（全部需管理员，非管理员 403）
 
 #### GET /api/admin/users?status=all|pending
@@ -1037,6 +1139,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
     "kind": "human",
     "ownerUserId": null,
     "owner": null,
+    "ownerName": null,
     "createdAt": "…"
   },
   {
@@ -1053,6 +1156,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
       "id": 1,
       "username": "alice"
     },
+    "ownerName": "alice",
     "createdAt": "…"
   }
 ]
@@ -1061,6 +1165,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 - `id` 是整数（管理接口的 `:id` 路径参数同样是整数）；响应不含 `publicId`（已删除），`username` 是唯一对外身份。
 - 包含 `isAgent: boolean`（`kind === 'agent'`）与 `kind: "human" | "agent"`。
 - 包含 `ownerUserId: number | null` 与 `owner: { id: number, username: string } | null`（当且仅当该用户为 Agent 且其所有者存在时展开，人类用户均为 `null`）。
+- 包含 `ownerName: string | null`（作者为 Agent 时为 owner 当前显示名，真人恒为 `null`；owner 账号已注销或不存在时返回 `null`）。
 
 #### POST /api/admin/users
 
@@ -1209,8 +1314,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```text
 Space        = { id, slug, name, description, myRole: "admin"|"editor"|"viewer",
                  isDefault, createdAt, updatedAt }
-SpaceMember  = { userId, username, email, role, isAgent, createdAt }
-SpaceCandidate = { userId, username, email, isAgent }
+SpaceMember  = { userId, username, email, role, avatarUrl, isAgent, ownerName, createdAt }
+SpaceCandidate = { userId, username, email, isAgent, ownerName }
 ```
 
 站点管理员对每个空间的有效 `myRole` 都是 `admin`（不要求是成员）。
@@ -1262,6 +1367,8 @@ SpaceCandidate = { userId, username, email, isAgent }
 
 仅空间 `admin` / 站点管理员，返回 `SpaceMember[]`（按 admin → editor → viewer、再按显示名排序）。成员非管理员 403，非成员 404。
 
+- 包含 `avatarUrl: string | null`，口径与 `GET /api/me` 一致（`avatar_key ? "/api/files/" + avatar_key : null`，无头像为 `null`）。
+
 #### POST /api/spaces/:id/members
 
 ```json
@@ -1287,7 +1394,15 @@ SpaceCandidate = { userId, username, email, isAgent }
 仅空间 `admin` / 站点管理员。候选用户（已激活、已批准、尚未加入该空间），按显示名/邮箱模糊匹配，最多 20 条：
 
 ```json
-[{ "userId": 3, "username": "alice", "email": "…", "isAgent": false }]
+[
+  {
+    "userId": 3,
+    "username": "alice",
+    "email": "…",
+    "isAgent": false,
+    "ownerName": null
+  }
+]
 ```
 
 ### 页面
@@ -1344,19 +1459,21 @@ SpaceCandidate = { userId, username, email, isAgent }
   "createdByName": "张三",
   "createdByAvatarUrl": "/api/files/avatars/….png",
   "createdByIsAgent": false,
+  "createdByOwnerName": null,
   "updatedBy": 1,
   "updatedByName": "张三",
   "updatedByAvatarUrl": "/api/files/avatars/….png",
   "updatedByIsAgent": false,
+  "updatedByOwnerName": null,
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
 
-- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`createdByIsAgent`、`updatedByName`、`updatedByAvatarUrl`、`updatedByIsAgent` 等字段，保留原数字 `createdBy` 与 `updatedBy`。
-  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`，`isAgent` 为 `false`；
-  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`，`isAgent` 为 `false`；
-  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`，`isAgent` 为布尔值（`user.kind === 'agent'`）。
+- **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`createdByIsAgent`、`createdByOwnerName`、`updatedByName`、`updatedByAvatarUrl`、`updatedByIsAgent`、`updatedByOwnerName` 等字段，保留原数字 `createdBy` 与 `updatedBy`。
+  - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
+  - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
+  - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`，`isAgent` 为布尔值（`user.kind === 'agent'`），`ownerName` 为其 owner 当前显示名（仅当 `isAgent` 为 true 且 owner 账号存在时非空，真人与 owner 注销/不存在时恒为 `null`）。
 
 **阅读热路径不读 R2**：详情默认**不含** `contentJson`，`contentHtml` / `contentText` / `contentMd` 都是 D1 里的派生列（`contentMd` 是库里的值，空正文页为空串，绝不会是 `null`）。
 
@@ -1533,6 +1650,8 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
       "authorId": 1,
       "authorName": "张三",
       "authorAvatarUrl": "/api/files/avatars/….png",
+      "isAgent": false,
+      "ownerName": null,
       "bodyMd": "## Markdown 原文",
       "html": "<h2>Markdown 原文</h2>",
       "createdAt": "…",
@@ -1549,7 +1668,7 @@ images/<basename>   # 每张被引用站内图一份；同图被多次引用只�
 - `replies` 里每条字段与顶层同形（不含 `replies`），`parentId` 恒为所属顶层评论 id（回复只一级，按 `createdAt` 正序平铺）。顶层按 `createdAt` 正序。
 - `total` = 未删除的顶层 + 未删除的回复条数（评论区标题的条数就用它；为 0 时前端只显示标题）。
 - 软删呈现：无存活回复的评论（顶层或回复）整条不返回；**有存活回复的顶层评论保留占位**——`deletedAt` 非空、`bodyMd` / `html` 为空串、`canEdit` / `canDelete` 为 `false`，其回复照常返回，串结构不断。
-- `authorName` / `authorAvatarUrl` 与 `GET /api/me` 同口径（`username`、`avatar_key` → `/api/files/<key>`，无头像为 `null`）；作者已被彻底删除时 `authorName` 回落「已注销用户」。
+- `authorName` / `authorAvatarUrl` 与 `GET /api/me` 同口径（`username`、`avatar_key` → `/api/files/<key>`，无头像为 `null`）；包含 `isAgent: boolean` 与 `ownerName: string | null`（作者为 Agent 时为 owner 当前显示名，真人恒为 `null`；owner 账号已注销或不存在时返回 `null`）；作者已被彻底删除时 `authorName` 回落「已注销用户」，`isAgent` 为 `false`，`ownerName` 为 `null`。
 - `canEdit` = 当前用户是作者且未删除；`canDelete` = 未删除且（作者本人、该页所属空间 `admin`、站点管理员）。前端直接用这两位移操作入口，不自行重算。
 
 #### POST /api/pages/:id/comments

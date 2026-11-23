@@ -47,6 +47,8 @@ interface CommentDto {
   authorId: number
   authorName: string
   authorAvatarUrl: string | null
+  isAgent: boolean
+  ownerName: string | null
   bodyMd: string
   html: string
   createdAt: string
@@ -121,6 +123,7 @@ async function commentTarget(
 /** 库行 → DTO；已软删的评论不给正文（占位只显示「该评论已删除」），也不给操作。 */
 function toDto(row: CommentListRow, viewer: Viewer): CommentDto {
   const deleted = row.deleted_at !== null
+  const isAgent = row.author_kind === "agent"
   return {
     id: row.id,
     parentId: row.parent_id,
@@ -129,6 +132,8 @@ function toDto(row: CommentListRow, viewer: Viewer): CommentDto {
     authorAvatarUrl: row.author_avatar_key
       ? `/api/files/${row.author_avatar_key}`
       : null,
+    isAgent,
+    ownerName: isAgent ? (row.author_owner_name ?? null) : null,
     bodyMd: deleted ? "" : row.body_md,
     html: deleted ? "" : renderCommentHtml(row.body_md),
     createdAt: row.created_at,

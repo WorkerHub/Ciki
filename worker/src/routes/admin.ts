@@ -114,6 +114,7 @@ function userDto(user: UserRow, ownerMap?: Map<number, UserOwnerSummary>) {
     kind: user.kind,
     ownerUserId: user.owner_user_id,
     owner,
+    ownerName: owner ? owner.username : null,
     createdAt: user.created_at
   }
 }

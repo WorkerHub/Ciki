@@ -49,6 +49,7 @@ import {
   TableRow
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { UserAvatar } from "@/components/UserAvatar"
 import {
   ApiError,
   describeApiError,
@@ -59,6 +60,7 @@ import {
   type SpaceRole,
   spacesApi
 } from "@/lib/api"
+import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDate } from "@/lib/format"
 import { adminSpacesPath, spacePath } from "@/lib/routes"
 import { canManage, effectiveRole } from "@/lib/space"
@@ -505,22 +507,42 @@ export function SpaceSettingsPage() {
               <TableBody>
                 {members.map((member) => {
                   const lastAdmin = member.role === "admin" && adminCount <= 1
+                  const author = formatAgentAuthor({
+                    name: member.username || member.email,
+                    isAgent: member.isAgent,
+                    ownerName: member.ownerName
+                  })
                   return (
                     <TableRow key={member.userId}>
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate font-medium">
-                            {member.username || member.email}
-                          </span>
-                          {member.isAgent ? (
-                            <Badge variant="secondary" className="text-[10px]">
-                              Agent
-                            </Badge>
-                          ) : null}
+                        <div className="flex items-center gap-2">
+                          <UserAvatar
+                            user={{
+                              username: member.username,
+                              email: member.email,
+                              avatarUrl: member.avatarUrl ?? null
+                            }}
+                            className="size-7 shrink-0 text-xs"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate font-medium">
+                                {author.displayName}
+                              </span>
+                              {author.showAgentBadge ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-[10px]"
+                                >
+                                  Agent
+                                </Badge>
+                              ) : null}
+                            </div>
+                            <span className="block truncate text-xs text-muted-foreground">
+                              {member.email}
+                            </span>
+                          </div>
                         </div>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {member.email}
-                        </span>
                       </TableCell>
                       <TableCell>
                         <Select
@@ -629,38 +651,45 @@ export function SpaceSettingsPage() {
             ) : null}
             {candidates.length > 0 ? (
               <ul className="divide-y divide-border rounded-md border border-border">
-                {candidates.map((candidate) => (
-                  <li
-                    key={candidate.userId}
-                    className="flex flex-wrap items-center gap-2 px-3 py-2"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-medium">
-                          {candidate.username || candidate.email}
-                        </p>
-                        {candidate.isAgent ? (
-                          <Badge variant="secondary" className="text-[10px]">
-                            Agent
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <p className="truncate text-[11px] text-muted-foreground">
-                        {candidate.email}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={addingId === candidate.userId}
-                      onClick={() => void addCandidate(candidate)}
+                {candidates.map((candidate) => {
+                  const author = formatAgentAuthor({
+                    name: candidate.username || candidate.email,
+                    isAgent: candidate.isAgent,
+                    ownerName: candidate.ownerName
+                  })
+                  return (
+                    <li
+                      key={candidate.userId}
+                      className="flex flex-wrap items-center gap-2 px-3 py-2"
                     >
-                      {addingId === candidate.userId
-                        ? t("space.settings.members.adding")
-                        : t("space.settings.members.addSubmit")}
-                    </Button>
-                  </li>
-                ))}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-sm font-medium">
+                            {author.displayName}
+                          </p>
+                          {author.showAgentBadge ? (
+                            <Badge variant="secondary" className="text-[10px]">
+                              Agent
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {candidate.email}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={addingId === candidate.userId}
+                        onClick={() => void addCandidate(candidate)}
+                      >
+                        {addingId === candidate.userId
+                          ? t("space.settings.members.adding")
+                          : t("space.settings.members.addSubmit")}
+                      </Button>
+                    </li>
+                  )
+                })}
               </ul>
             ) : null}
           </form>
