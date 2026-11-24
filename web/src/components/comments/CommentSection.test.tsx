@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter } from "react-router"
+import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CommentSection } from "@/components/comments/CommentSection"
 import { i18n } from "@/i18n"
@@ -752,5 +752,121 @@ describe("页尾评论区英文界面", () => {
     const commentEl = targetEl.closest("[id='comment-1']")
     expect(commentEl).toBeInTheDocument()
     window.location.hash = ""
+  })
+})
+
+describe("评论定位与高亮（跨页落地与同页跳转双路径）", () => {
+  beforeEach(async () => {
+    vi.mocked(commentsApi.list).mockReset()
+    vi.mocked(commentsApi.create).mockReset()
+    vi.mocked(commentsApi.update).mockReset()
+    vi.mocked(commentsApi.remove).mockReset()
+    vi.mocked(commentsApi.preview).mockReset()
+    await i18n.changeLanguage("zh-CN")
+  })
+
+  it("跨页落地：URL 携带 #comment-1 时，目标评论自动获得高亮状态并在 2500ms 后恢复", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 2,
+      threads: [
+        thread({ id: 1, bodyMd: "目标评论", html: "<p>目标评论</p>" }),
+        thread({ id: 2, bodyMd: "另一评论", html: "<p>另一评论</p>" })
+      ]
+    })
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/p/1",
+          element: <CommentSection pageId={1} />
+        }
+      ],
+      { initialEntries: ["/p/1#comment-1"] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await screen.findByText("目标评论")
+
+    const target = await waitFor(() => {
+      const el = item(1)
+      expect(el?.className).toContain("ring-primary/40")
+      return el!
+    })
+
+    const other = item(2)
+    expect(other?.className).not.toContain("ring-primary/40")
+
+    // 2500ms 后高亮移除
+    await act(async () => {
+      vi.advanceTimersByTime(2600)
+    })
+
+    expect(target.className).not.toContain("ring-primary/40")
+    vi.useRealTimers()
+  })
+
+  it("同页 hash 跳转：已在当前页时路由 hash 变化，自动触发重新定位与高亮", async () => {
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 2,
+      threads: [
+        thread({ id: 1, bodyMd: "评论 1", html: "<p>评论 1</p>" }),
+        thread({ id: 2, bodyMd: "评论 2", html: "<p>评论 2</p>" })
+      ]
+    })
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/p/1",
+          element: <CommentSection pageId={1} />
+        }
+      ],
+      { initialEntries: ["/p/1#comment-1"] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await screen.findByText("评论 1")
+    await screen.findByText("评论 2")
+
+    // 首屏落地定位评论 1
+    await waitFor(() => {
+      expect(item(1)?.className).toContain("ring-primary/40")
+    })
+    expect(item(2)?.className).not.toContain("ring-primary/40")
+
+    // 同页跳转到评论 2
+    await act(async () => {
+      await router.navigate("/p/1#comment-2")
+    })
+
+    // 评论 2 获得高亮
+    await waitFor(() => {
+      expect(item(2)?.className).toContain("ring-primary/40")
+    })
+  })
+
+  it("目标评论不存在时给出已删除 toast 提示且不高亮", async () => {
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [
+        thread({
+          id: 1,
+          deletedAt: "2026-11-20T00:00:00.000Z",
+          html: "<p>已删除</p>"
+        })
+      ]
+    })
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/p/1",
+          element: <CommentSection pageId={1} />
+        }
+      ],
+      { initialEntries: ["/p/1#comment-1"] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await screen.findByText("该评论已删除")
+    expect(item(1)?.className).not.toContain("ring-primary/40")
   })
 })
