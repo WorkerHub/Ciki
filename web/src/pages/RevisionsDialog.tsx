@@ -1,5 +1,5 @@
 import { RotateCcw, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import {
@@ -21,7 +21,6 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ReadView } from "@/editor/ReadView"
 import {
   ApiError,
   describeApiError,
@@ -31,6 +30,12 @@ import {
   type RevisionSummary
 } from "@/lib/api"
 import { formatDateTime, formatRelative } from "@/lib/format"
+
+const ReadView = lazy(() =>
+  import("@/editor/ReadView").then((module) => ({
+    default: module.ReadView
+  }))
+)
 
 /** 删除成功的轻提示：浮在弹窗之上，约 3 秒自动消失，不占版面。 */
 const TOAST_DURATION = 3000
@@ -331,7 +336,16 @@ export function RevisionsDialog({
                 </div>
                 <ScrollArea className="min-h-0 flex-1">
                   <div className="px-4 py-3">
-                    <ReadView html={selected.contentHtml} />
+                    <Suspense
+                      fallback={
+                        <div className="wiki-content animate-pulse py-2">
+                          <div className="h-5 w-1/3 rounded bg-muted/40 mb-3" />
+                          <div className="h-4 w-full rounded bg-muted/30 mb-2" />
+                        </div>
+                      }
+                    >
+                      <ReadView html={selected.contentHtml} />
+                    </Suspense>
                   </div>
                 </ScrollArea>
               </>

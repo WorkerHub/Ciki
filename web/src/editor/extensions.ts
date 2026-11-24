@@ -7,7 +7,6 @@ import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
-import { common, createLowlight } from "lowlight"
 import { CodeBlockView } from "@/editor/CodeBlockView"
 import {
   WikiColor,
@@ -22,9 +21,10 @@ import { WikiHtmlEmbed } from "@/editor/htmlEmbed/extension"
 import { WikiFontSize } from "@/editor/font-size/extensions"
 import { ImageBlock } from "@/editor/ImageBlock"
 import { imageWidth } from "@/editor/image-attributes"
+import { lowlight } from "@/editor/lowlight"
+import { WikiLowlightPlugin } from "@/editor/lowlight-plugin"
 
-/** lowlight 只在模块加载时建一次；common 覆盖了 Confluence 里常见语言。 */
-export const lowlight = createLowlight(common)
+export { lowlight }
 
 export type EditorMode = "edit" | "read"
 
@@ -67,6 +67,15 @@ export const WikiCodeBlock = CodeBlockLowlight.extend({
     return ReactNodeViewRenderer(CodeBlockView, {
       stopEvent: stopForInteractive
     })
+  },
+  addProseMirrorPlugins() {
+    return [
+      WikiLowlightPlugin({
+        name: this.name,
+        lowlight: this.options.lowlight,
+        defaultLanguage: this.options.defaultLanguage
+      })
+    ]
   }
 })
 
@@ -139,7 +148,11 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
           rel: "noopener noreferrer nofollow",
           target: "_blank"
         }
-      }
+      },
+      dropcursor: isEdit ? undefined : false,
+      gapcursor: isEdit ? undefined : false,
+      undoRedo: isEdit ? undefined : false,
+      trailingNode: isEdit ? undefined : false
     }),
     WikiCodeBlock.configure({
       lowlight,
