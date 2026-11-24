@@ -508,7 +508,9 @@ export interface PageDetail {
   /** 服务端派生的 Markdown（只读展示/导出用，空页为空串）；前端从不回写。 */
   contentMd: string
   createdBy: number
+  createdById?: number
   updatedBy: number
+  updatedById?: number
   createdAt: string
   updatedAt: string
   createdByName: string | null
@@ -527,6 +529,45 @@ export interface PageDetail {
  */
 export interface PageContentDetail extends PageDetail {
   contentJson: string
+}
+
+/**
+ * 作者公开资料（/api/users/:id/profile）：
+ * 仅登录会话可访问，绝不含邮箱、密码哈希、角色等敏感字段。
+ */
+export interface UserProfile {
+  id: number
+  username: string
+  avatarUrl: string | null
+  isAgent: boolean
+  ownerName: string | null
+  createdAt: string
+}
+
+/**
+ * 作者主页页面条目（/api/users/:id/pages 列表元素）：
+ * 仅含当前查看者有权访问空间内的页面。
+ */
+export interface UserPageItem {
+  id: number
+  title: string
+  spaceName: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface UserPagesResponse {
+  pages: UserPageItem[]
+  total: number
+  page: number
+  limit: number
+  hasMore: boolean
+}
+
+export interface UserPagesQuery {
+  page?: number
+  limit?: number
+  offset?: number
 }
 
 export interface PageInput {
@@ -1211,6 +1252,19 @@ export const spacesApi = {
     api.get<SpaceCandidate[]>(
       `/spaces/${id}/member-candidates?q=${encodeURIComponent(q)}`
     )
+}
+
+export const usersApi = {
+  getProfile: (id: number) => api.get<UserProfile>(`/users/${id}/profile`),
+  getPages: (id: number, params?: UserPagesQuery) => {
+    const search = new URLSearchParams()
+    if (params?.page) search.set("page", String(params.page))
+    if (params?.limit) search.set("limit", String(params.limit))
+    if (params?.offset !== undefined)
+      search.set("offset", String(params.offset))
+    const qs = search.toString()
+    return api.get<UserPagesResponse>(`/users/${id}/pages${qs ? `?${qs}` : ""}`)
+  }
 }
 
 export const adminApi = {

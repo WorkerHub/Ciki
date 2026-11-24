@@ -10,6 +10,7 @@ import {
   pageEditPath,
   pagePath,
   parseIdParam,
+  userPath,
   spacePath,
   spaceSearchPath,
   spaceSettingsPath,
@@ -38,6 +39,10 @@ describe("链接生成", () => {
   it("页面地址是全局的数字形态", () => {
     expect(pagePath(12)).toBe("/p/12")
     expect(pageEditPath(12)).toBe("/p/12/edit")
+  })
+
+  it("作者主页地址是全局的数字形态", () => {
+    expect(userPath(42)).toBe("/users/42")
   })
 
   it("空间上下文一律经 slug", () => {

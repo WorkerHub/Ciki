@@ -175,6 +175,12 @@ describe("resolveTitle 路由映射", () => {
     expect(resolveTitle("/about", mockTree, mockSpaces, dummyT)).toBe(
       "i18n:about.title"
     )
+    expect(resolveTitle("/users/12", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:user.title"
+    )
+    expect(resolveTitle("/users/invalid", mockTree, mockSpaces, dummyT)).toBe(
+      "i18n:notFound.title"
+    )
     expect(resolveTitle("/admin", mockTree, mockSpaces, dummyT)).toBe(
       "i18n:admin.title"
     )

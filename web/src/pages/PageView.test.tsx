@@ -1004,6 +1004,40 @@ describe("阅读页标题下署名行", () => {
     expect(screen.getByText("最后编辑于 2026-11-09")).toBeInTheDocument()
   })
 
+  it("文档署名行创建者与最后编辑者的头像与用户名均跳转到 /users/:id（含 Agent）", async () => {
+    vi.mocked(pagesApi.get).mockResolvedValue({
+      ...page,
+      createdBy: 10,
+      createdById: 10,
+      createdByName: "张三",
+      createdByAvatarUrl: "/avatars/zhangsan.png",
+      createdByIsAgent: false,
+      updatedBy: 20,
+      updatedById: 20,
+      updatedByName: "agent-bot",
+      updatedByAvatarUrl: "/avatars/bot.png",
+      updatedByIsAgent: true,
+      updatedByOwnerName: "Alice",
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-09T03:00:00.000Z"
+    })
+    renderView()
+
+    await screen.findByText("支付服务部署手册")
+
+    const zhangsanLinks = screen.getAllByRole("link", { name: "张三" })
+    expect(zhangsanLinks.length).toBeGreaterThanOrEqual(1)
+    expect(
+      zhangsanLinks.some((l) => l.getAttribute("href") === "/users/10")
+    ).toBe(true)
+
+    const botLinks = screen.getAllByRole("link", { name: "agent-bot" })
+    expect(botLinks.length).toBeGreaterThanOrEqual(1)
+    expect(botLinks.some((l) => l.getAttribute("href") === "/users/20")).toBe(
+      true
+    )
+  })
+
   it("createdByName 为 null 时不显示创建段，若已编辑仅显示最后编辑段", async () => {
     vi.mocked(pagesApi.get).mockResolvedValue({
       ...page,

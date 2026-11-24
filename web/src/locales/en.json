@@ -1304,6 +1304,22 @@
     "title": "Page not found",
     "description": "The link may have expired, or the page was moved to the trash."
   },
+  "user": {
+    "title": "Author Profile",
+    "joinedAt": "Joined {{time}}",
+    "pagesTitle": "Pages",
+    "loadMore": "Load more",
+    "loading": "Loading…",
+    "empty": {
+      "title": "No pages yet",
+      "description": "This author has not created any pages you have access to."
+    },
+    "notFound": {
+      "title": "User not found",
+      "description": "This user may have been deleted, or the link is invalid."
+    },
+    "loadFailed": "Failed to load author profile"
+  },
   "time": {
     "justNow": "Just now",
     "minutesAgo_one": "{{count}} minute ago",

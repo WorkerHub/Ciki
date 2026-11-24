@@ -1,5 +1,6 @@
 import { Pencil, Reply, Trash2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router"
 import { CommentBody } from "@/components/comments/CommentBody"
 import { CommentComposer } from "@/components/comments/CommentComposer"
 import { UserAvatar } from "@/components/UserAvatar"
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import type { CommentDto } from "@/lib/api"
 import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDateTime, formatRelative } from "@/lib/format"
+import { userPath } from "@/lib/routes"
 
 interface CommentItemProps {
   comment: CommentDto
@@ -52,19 +54,45 @@ export function CommentItem({
   })
   return (
     <div data-comment-id={comment.id} className="flex gap-3">
-      <UserAvatar
-        user={{
-          username: comment.authorName,
-          email: "",
-          avatarUrl: comment.authorAvatarUrl
-        }}
-        className="mt-0.5 size-8"
-      />
+      {comment.authorId ? (
+        <Link
+          to={userPath(comment.authorId)}
+          aria-label={comment.authorName}
+          className="mt-0.5 inline-flex rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          <UserAvatar
+            user={{
+              username: comment.authorName,
+              email: "",
+              avatarUrl: comment.authorAvatarUrl
+            }}
+            className="size-8"
+          />
+        </Link>
+      ) : (
+        <UserAvatar
+          user={{
+            username: comment.authorName,
+            email: "",
+            avatarUrl: comment.authorAvatarUrl
+          }}
+          className="mt-0.5 size-8"
+        />
+      )}
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="text-sm font-medium break-words">
-            {author.displayName}
-          </span>
+          {comment.authorId ? (
+            <Link
+              to={userPath(comment.authorId)}
+              className="text-sm font-medium break-words hover:underline hover:text-foreground"
+            >
+              {author.displayName}
+            </Link>
+          ) : (
+            <span className="text-sm font-medium break-words">
+              {author.displayName}
+            </span>
+          )}
           {author.showAgentBadge ? (
             <Badge variant="secondary" className="text-[10px]">
               Agent
