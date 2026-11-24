@@ -19,6 +19,7 @@ import { publicRoutes } from "./routes/public"
 import { setupRoutes } from "./routes/setup"
 import { pageRoutes } from "./routes/pages"
 import { commentRoutes } from "./routes/comments"
+import { notificationRoutes } from "./routes/notifications"
 import { spaceRoutes } from "./routes/spaces"
 import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
@@ -26,6 +27,7 @@ import { importRoutes } from "./routes/import"
 import { readRoutes } from "./routes/read"
 import { writeRoutes } from "./routes/write"
 import { wakerRoutes } from "./routes/waker"
+import { userRoutes } from "./routes/users"
 import { CALLBACK_MOUNT_PATH } from "./waker"
 import type { Env, HonoEnv } from "./types"
 
@@ -125,12 +127,14 @@ app.route("/api/pages", pageRoutes)
 // 经 isCommentWriteRoute 走 commentAuthMiddleware 实现 Session + write 令牌并行鉴权；
 // 列表等只读端点继续走 authMiddleware 会话拦截。
 app.route("/api/pages", commentRoutes)
+app.route("/api/notifications", notificationRoutes)
 app.route("/api/spaces", spaceRoutes)
 app.route("/api/search", searchRoutes)
 app.route("/api/files", fileRoutes)
 app.route("/api/import", importRoutes)
 app.route("/api/read", readRoutes)
 app.route("/api/write", writeRoutes)
+app.route("/api/users", userRoutes)
 
 // 存活探针。生效前缀不在这里暴露——它只经 setup / 管理面的接口回显。
 app.get("/api/health", (c) => c.json({ status: "ok" }))

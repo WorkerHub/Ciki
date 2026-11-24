@@ -382,6 +382,28 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 - **硬删随父页**：页面彻底删除（回收站清空）时其评论一并删除；页面软删（回收站）不动评论——评论接口随页面 404，恢复后原样回来。
 - 评论不进 FTS、不进只读接口（一期范围外，不留口子）。
 
+### notifications（站内通知）
+
+| 列           | 类型                     | 说明                                         |
+| ------------ | ------------------------ | -------------------------------------------- |
+| id           | INTEGER PK AUTOINCREMENT | 通知 id（整数）                              |
+| recipient_id | INTEGER NOT NULL         | 接收人用户 id（永不为 Agent 账号）           |
+| actor_id     | INTEGER NOT NULL         | 操作人用户 id（评论者，可为人类或 Agent）    |
+| type         | TEXT NOT NULL            | 类型：`comment`（文档评论）/ `reply`（回复） |
+| page_id      | INTEGER NOT NULL         | 目标页面 id                                  |
+| comment_id   | INTEGER NOT NULL         | 目标评论 id                                  |
+| page_title   | TEXT NOT NULL DEFAULT '' | 页面标题快照（评论/页面被删后通知仍可读）    |
+| excerpt      | TEXT NOT NULL DEFAULT '' | 评论纯文本截断 100 字快照                    |
+| created_at   | TEXT NOT NULL            | ISO 时间                                     |
+| read_at      | TEXT NULL                | 首次标已读的 ISO 时间；未读为 NULL           |
+
+索引：`(recipient_id, read_at)`、`(recipient_id, created_at)`。
+
+- 产生逻辑：评论创建成功后同步写入（不走 waker、不走队列），覆盖会话与 write 令牌。
+- 接收人集合 = { 页面创建者 } ∪ { 父评论作者（回复时） } − { 评论者本人 } − { agent 账号 }。同一人只写一条（其为父评论作者时 type 取 `reply`，否则 `comment`）。
+- 评论者是 agent 时照常通知人类接收人；agent 账号永不作为接收人。
+- 通知写入失败不影响评论创建本身（降级记日志）。
+
 ### r2_cleanup_runs
 
 | 列                                                                  | 类型                           | 说明                                                                                   |
@@ -1368,6 +1390,62 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 按当前设置修剪全部页面（含回收站页面的版本行），200 `{"limit":3,"deleted":42}`，`deleted` 即实际删除数（单条 set-based DELETE，原子）。只删 `page_revisions` 行：`pages` 当前内容、FTS、R2 对象都不动。不限时 409 `{"error":"Revision retention is unlimited","code":"RETENTION_UNLIMITED"}`，一条也不删。重复调用幂等（没有超出上限的版本时 `deleted: 0`）。
 
+### 用户与作者主页（需会话）
+
+读者在文档页点击作者头像或用户名，可进入该作者的公开主页。仅限登录会话访问，不开放公开访问。
+
+#### GET /api/users/:id/profile
+
+返回该用户的公开资料：
+
+```json
+{
+  "id": 1,
+  "username": "alice",
+  "avatarUrl": "/api/files/avatars/alice.png",
+  "isAgent": false,
+  "ownerName": null,
+  "createdAt": "2026-11-24T10:00:00.000Z"
+}
+```
+
+- 字段：`id`（数字 ID）、`username`（用户名）、`avatarUrl`（头像文件地址或 null）、`isAgent`（是否为 Agent 账号）、`ownerName`（归属人用户名，仅 agent 时有值；人类用户或 owner 不存在时为 null）、`createdAt`（注册加入时间）。
+- 绝不返回邮箱（email）、密码哈希（password_hash）、站点角色（role）、邮箱验证状态（email_verified）等敏感字段。
+- 用户不存在或 `:id` 非规范正整数回 404 `{"error":"User not found"}`。
+
+#### GET /api/users/:id/pages
+
+该用户创建的页面列表，**仅含当前查看者有权访问的空间内的页面**（复用现行空间可见性判定，无权空间的页面连标题不得出现）。必须分页，按 `updatedAt` 倒序。
+
+入参（Query 参数）：
+
+- `page`：页码（正整数，缺省 1）
+- `limit`：每页条数（正整数，缺省 20，范围 1–100）
+- `offset`：可选偏移量（传入时优先于 page 计算）
+
+```json
+{
+  "pages": [
+    {
+      "id": 12,
+      "title": "页面标题",
+      "spaceName": "默认空间",
+      "createdAt": "2026-11-24T10:00:00.000Z",
+      "updatedAt": "2026-11-24T10:30:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20,
+  "hasMore": false
+}
+```
+
+- 空间可见性过滤：站点管理员可见全部空间内该用户创建的页面；非管理员仅可见当前查看者在 `space_members` 中所属空间内该用户创建的页面。
+- 软删除过滤：`deleted_at IS NOT NULL` 的页面排除，不泄露标题且不计入 `total`。
+- 排序：按 `updatedAt` 倒序（相同时按 `id` 倒序稳定分页）。
+- 用户不存在或 `:id` 非规范正整数回 404 `{"error":"User not found"}`。
+
 ### 空间与成员
 
 权限：站点管理员可见/可管理全部空间；普通用户只看得见自己是成员的空间。列表/详情/树/直链/回收站/搜索对非成员一律 404。空间信息与成员管理仅空间 `admin` 或站点管理员可调用（`editor` / `viewer` → 403）。任何登录用户都能建空间，创建者自动成为该空间 `admin`。
@@ -1517,11 +1595,13 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
   "contentText": "…",
   "contentMd": "## 小节\n\n正文",
   "createdBy": 1,
+  "createdById": 1,
   "createdByName": "张三",
   "createdByAvatarUrl": "/api/files/avatars/….png",
   "createdByIsAgent": false,
   "createdByOwnerName": null,
   "updatedBy": 1,
+  "updatedById": 1,
   "updatedByName": "张三",
   "updatedByAvatarUrl": "/api/files/avatars/….png",
   "updatedByIsAgent": false,
@@ -1532,6 +1612,7 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
 ```
 
 - **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`createdByIsAgent`、`createdByOwnerName`、`updatedByName`、`updatedByAvatarUrl`、`updatedByIsAgent`、`updatedByOwnerName` 等字段，保留原数字 `createdBy` 与 `updatedBy`。
+  - 新增 `createdById` 与 `updatedById` 别名（值等同于 `createdBy` 与 `updatedBy`），供前端署名行跳转作者主页；
   - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
   - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
   - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`，`isAgent` 为布尔值（`user.kind === 'agent'`），`ownerName` 为其 owner 当前显示名（仅当 `isAgent` 为 true 且 owner 账号存在时非空，真人与 owner 注销/不存在时恒为 `null`）。
@@ -1773,6 +1854,57 @@ embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字�
 鉴权：支持会话 Cookie 或 `Authorization: Bearer <kind = write 的接口令牌>`。
 
 软删，200 `{"success":true}`；重复删除幂等（仍 200，不覆盖首次的 `deletedAt`）。权限：作者本人、该页所属空间 `admin`、站点管理员；其余成员 403、非成员 404。
+
+### 站内通知（仅会话，令牌不可用）
+
+#### GET /api/notifications?limit=20&offset=0
+
+按 `created_at DESC, id DESC` 倒序返回通知列表。支持 `limit`（1–100，默认 20）与 `offset`（≥0，默认 0）。
+
+```json
+[
+  {
+    "id": 1,
+    "recipientId": 2,
+    "actorId": 3,
+    "actorName": "张三",
+    "actorAvatarUrl": "/api/files/avatars/….png",
+    "type": "comment",
+    "pageId": 10,
+    "commentId": 42,
+    "pageTitle": "页面标题快照",
+    "excerpt": "评论纯文本截断100字快照",
+    "read": false,
+    "isRead": false,
+    "readAt": null,
+    "createdAt": "2026-11-24T10:00:00.000Z"
+  }
+]
+```
+
+- `actorName`：操作人用户名，已被彻底删除时回落「已注销用户」。
+- `actorAvatarUrl`：操作人头像地址（`/api/files/<key>`），无头像时为 `null`。
+- `read` / `isRead`：已读状态布尔值。
+- `readAt`：标已读时间戳（ISO 字符串），未读为 `null`。
+
+#### GET /api/notifications/unread-count
+
+轻量未读计数端点，仅供角标轮询使用：
+
+```json
+{
+  "count": 5,
+  "unreadCount": 5
+}
+```
+
+#### POST /api/notifications/:id/read
+
+标单条通知已读。**仅限本人**：非本人 403 `{"error": "Forbidden"}`；通知不存在 404 `{"error": "Notification not found"}`。成功返回 200 `{"success": true}`。重复标已读幂等。
+
+#### POST /api/notifications/read-all
+
+将当前用户的全部未读通知标为已读。成功返回 200 `{"success": true}`。
 
 ### 搜索
 
