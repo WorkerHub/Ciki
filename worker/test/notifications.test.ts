@@ -8,7 +8,7 @@ import {
 } from "./support/app"
 import { issueApiToken } from "../src/core/api-token"
 import { createAgentUser } from "../src/db/queries/users"
-import { notificationsTable } from "../src/lib/tables"
+import { notificationsTable, usersTable } from "../src/lib/tables"
 import type { NotificationDto } from "../src/routes/notifications"
 
 type Env = Parameters<typeof adminSession>[0]
@@ -501,6 +501,421 @@ describe("评论通知（notifications 迁移 + 同步产生 + 通知接口）",
       await jsonRequest(env, "GET", "/api/notifications", undefined, userA)
     ).json()) as NotificationDto[]
     expect(listA.filter((n) => !n.read)).toHaveLength(1)
+  })
+
+  it("Agent 写的文档，人类发顶层评论 → 归属人角标 +1，点开跳转定位到该评论、角标清零", async () => {
+    const { env } = await initializedContext()
+    const prefix = "ciki_"
+    const admin = await adminSession(env)
+    const userA = await userSession(
+      env,
+      admin,
+      "user-owner-agent-doc@example.com"
+    )
+    const userB = await userSession(
+      env,
+      admin,
+      "user-commenter-agent-doc@example.com"
+    )
+    const userAId = await meId(env, userA)
+    const userBId = await meId(env, userB)
+
+    const space = await createSpace(env, admin, "Agent 文档归属人空间")
+    await addMember(env, admin, space.id, userA, "editor")
+    await addMember(env, admin, space.id, userB, "editor")
+
+    // 创建归属于 User A 的 Agent 账号并分配空间编辑者权限与 write 令牌
+    const agentId = await createAgentUser(env.DB, prefix, {
+      username: "agent-writer",
+      owner_user_id: userAId
+    })
+    await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space.id}/members`,
+      { userId: agentId, role: "editor" },
+      admin
+    )
+    const { token } = await issueApiToken(env.DB, prefix, agentId, {
+      kind: "write",
+      name: "agent-doc-token"
+    })
+
+    // Agent 创建文档
+    const pageRes = await request(env, "/api/write/pages", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        title: "Agent 创作的技术文档",
+        space_id: space.id,
+        content_json: JSON.stringify({ type: "doc" })
+      })
+    })
+    expect(pageRes.status).toBe(201)
+    const page = (await pageRes.json()) as { id: number }
+
+    // 评论前 A 与 B 未读数均为 0
+    const beforeCountA = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        "/api/notifications/unread-count",
+        undefined,
+        userA
+      )
+    ).json()) as { count: number; unreadCount: number }
+    expect(beforeCountA.unreadCount).toBe(0)
+
+    // 人类 B 在 Agent 写的文档下发表顶层评论
+    const comment = await postComment(
+      env,
+      userB,
+      page.id,
+      "人类对 Agent 文档的顶层评论"
+    )
+
+    // 归属人 A 未读数变为 1
+    const afterCountA = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        "/api/notifications/unread-count",
+        undefined,
+        userA
+      )
+    ).json()) as { count: number; unreadCount: number }
+    expect(afterCountA.count).toBe(1)
+    expect(afterCountA.unreadCount).toBe(1)
+
+    // 归属人 A 查看通知列表：收到 comment 型通知，且快照与定位信息完整
+    const listA = (await (
+      await jsonRequest(env, "GET", "/api/notifications", undefined, userA)
+    ).json()) as NotificationDto[]
+    expect(listA).toHaveLength(1)
+    expect(listA[0]).toMatchObject({
+      type: "comment",
+      actorId: userBId,
+      commentId: comment.id,
+      pageTitle: "Agent 创作的技术文档",
+      excerpt: "人类对 Agent 文档的顶层评论",
+      read: false
+    })
+
+    // Agent 账号自身永不产生任何通知
+    const agentNotifications = await env.DB.prepare(
+      `SELECT * FROM ${notificationsTable(prefix)} WHERE recipient_id = ?`
+    )
+      .bind(agentId)
+      .all()
+    expect(agentNotifications.results).toHaveLength(0)
+
+    // 归属人 A 标单条已读，角标清零
+    const readRes = await jsonRequest(
+      env,
+      "POST",
+      `/api/notifications/${listA[0].id}/read`,
+      undefined,
+      userA
+    )
+    expect(readRes.status).toBe(200)
+
+    const finalCountA = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        "/api/notifications/unread-count",
+        undefined,
+        userA
+      )
+    ).json()) as { count: number; unreadCount: number }
+    expect(finalCountA.unreadCount).toBe(0)
+  })
+
+  it("Agent 文档回复通知：不同人时归属人另收 comment 型一条，父评论作者收到 reply 型", async () => {
+    const { env } = await initializedContext()
+    const prefix = "ciki_"
+    const admin = await adminSession(env)
+    const userA = await userSession(env, admin, "user-owner-diff@example.com")
+    const userB = await userSession(
+      env,
+      admin,
+      "user-parent-author@example.com"
+    )
+    const userC = await userSession(env, admin, "user-replier-diff@example.com")
+    const userAId = await meId(env, userA)
+    const userCId = await meId(env, userC)
+
+    const space = await createSpace(env, admin, "不同人回复测试空间")
+    await addMember(env, admin, space.id, userA, "editor")
+    await addMember(env, admin, space.id, userB, "editor")
+    await addMember(env, admin, space.id, userC, "editor")
+
+    const agentId = await createAgentUser(env.DB, prefix, {
+      username: "agent-author-diff",
+      owner_user_id: userAId
+    })
+    await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space.id}/members`,
+      { userId: agentId, role: "editor" },
+      admin
+    )
+    const { token } = await issueApiToken(env.DB, prefix, agentId, {
+      kind: "write",
+      name: "agent-token-diff"
+    })
+
+    const pageRes = await request(env, "/api/write/pages", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        title: "Agent 的跨人回复页",
+        space_id: space.id,
+        content_json: JSON.stringify({ type: "doc" })
+      })
+    })
+    expect(pageRes.status).toBe(201)
+    const page = (await pageRes.json()) as { id: number }
+
+    // B 发表顶层评论
+    const commentB = await postComment(env, userB, page.id, "B 发表的顶层评论")
+
+    // 清空 A 此时收到的 1 条未读（顶层评论通知）
+    await jsonRequest(
+      env,
+      "POST",
+      "/api/notifications/read-all",
+      undefined,
+      userA
+    )
+
+    // C 回复 B 的评论
+    const replyC = await postComment(
+      env,
+      userC,
+      page.id,
+      "C 回复 B",
+      commentB.id
+    )
+
+    // 父评论作者 B 收到 reply 型通知
+    const listB = (await (
+      await jsonRequest(env, "GET", "/api/notifications", undefined, userB)
+    ).json()) as NotificationDto[]
+    expect(listB).toHaveLength(1)
+    expect(listB[0]).toMatchObject({
+      type: "reply",
+      actorId: userCId,
+      commentId: replyC.id
+    })
+
+    // 归属人 A 收到 comment 型通知一条
+    const listA = (await (
+      await jsonRequest(env, "GET", "/api/notifications", undefined, userA)
+    ).json()) as NotificationDto[]
+    const unreadA = listA.filter((n) => !n.read)
+    expect(unreadA).toHaveLength(1)
+    expect(unreadA[0]).toMatchObject({
+      type: "comment",
+      actorId: userCId,
+      commentId: replyC.id
+    })
+  })
+
+  it("Agent 文档回复通知：归属人与父评论作者为同一人时只收 1 条且 type 为 reply", async () => {
+    const { env } = await initializedContext()
+    const prefix = "ciki_"
+    const admin = await adminSession(env)
+    const userA = await userSession(env, admin, "user-owner-same@example.com")
+    const userB = await userSession(env, admin, "user-replier-same@example.com")
+    const userAId = await meId(env, userA)
+    const userBId = await meId(env, userB)
+
+    const space = await createSpace(env, admin, "同一人回复测试空间")
+    await addMember(env, admin, space.id, userA, "editor")
+    await addMember(env, admin, space.id, userB, "editor")
+
+    const agentId = await createAgentUser(env.DB, prefix, {
+      username: "agent-author-same",
+      owner_user_id: userAId
+    })
+    await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space.id}/members`,
+      { userId: agentId, role: "editor" },
+      admin
+    )
+    const { token } = await issueApiToken(env.DB, prefix, agentId, {
+      kind: "write",
+      name: "agent-token-same"
+    })
+
+    const pageRes = await request(env, "/api/write/pages", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        title: "Agent 的同作者回复页",
+        space_id: space.id,
+        content_json: JSON.stringify({ type: "doc" })
+      })
+    })
+    expect(pageRes.status).toBe(201)
+    const page = (await pageRes.json()) as { id: number }
+
+    // 归属人 A 在自己 Agent 的文档下发表评论（不通知自己）
+    const commentA = await postComment(env, userA, page.id, "归属人 A 的评论")
+    const countAAfterOwnComment = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        "/api/notifications/unread-count",
+        undefined,
+        userA
+      )
+    ).json()) as { count: number; unreadCount: number }
+    expect(countAAfterOwnComment.unreadCount).toBe(0)
+
+    // B 回复 A 的评论
+    const replyB = await postComment(
+      env,
+      userB,
+      page.id,
+      "B 回复 A",
+      commentA.id
+    )
+
+    // A 仅收到 1 条通知，且 type 为 reply
+    const listA = (await (
+      await jsonRequest(env, "GET", "/api/notifications", undefined, userA)
+    ).json()) as NotificationDto[]
+    expect(listA).toHaveLength(1)
+    expect(listA[0]).toMatchObject({
+      type: "reply",
+      actorId: userBId,
+      commentId: replyB.id
+    })
+  })
+
+  it("归属人评论自己 Agent 的文档 → 不产生通知", async () => {
+    const { env } = await initializedContext()
+    const prefix = "ciki_"
+    const admin = await adminSession(env)
+    const userA = await userSession(env, admin, "user-owner-self@example.com")
+    const userAId = await meId(env, userA)
+
+    const space = await createSpace(env, admin, "归属人自己评论空间")
+    await addMember(env, admin, space.id, userA, "editor")
+
+    const agentId = await createAgentUser(env.DB, prefix, {
+      username: "agent-self-doc",
+      owner_user_id: userAId
+    })
+    await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space.id}/members`,
+      { userId: agentId, role: "editor" },
+      admin
+    )
+    const { token } = await issueApiToken(env.DB, prefix, agentId, {
+      kind: "write",
+      name: "agent-token-self"
+    })
+
+    const pageRes = await request(env, "/api/write/pages", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${token}`,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        title: "Agent 的归属人文档",
+        space_id: space.id,
+        content_json: JSON.stringify({ type: "doc" })
+      })
+    })
+    expect(pageRes.status).toBe(201)
+    const page = (await pageRes.json()) as { id: number }
+
+    // 归属人 A 评论该文档
+    await postComment(env, userA, page.id, "A 自己写的评论")
+
+    const countA = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        "/api/notifications/unread-count",
+        undefined,
+        userA
+      )
+    ).json()) as { count: number; unreadCount: number }
+    expect(countA.count).toBe(0)
+    expect(countA.unreadCount).toBe(0)
+
+    const listA = (await (
+      await jsonRequest(env, "GET", "/api/notifications", undefined, userA)
+    ).json()) as NotificationDto[]
+    expect(listA).toHaveLength(0)
+  })
+
+  it("孤儿 Agent（owner_user_id 为 null）文档，人类发评论 → 保守维持现状：不替换、无接收人，不产生通知", async () => {
+    const { env } = await initializedContext()
+    const prefix = "ciki_"
+    const admin = await adminSession(env)
+    const userB = await userSession(
+      env,
+      admin,
+      "user-commenter-orphan@example.com"
+    )
+
+    const space = await createSpace(env, admin, "孤儿 Agent 空间")
+    await addMember(env, admin, space.id, userB, "editor")
+
+    // 直接插入一个没有 owner_user_id 的孤儿 Agent
+    const orphanAgentId = 98765
+    await env.DB.prepare(
+      `INSERT INTO ${usersTable(prefix)} (
+        id, email, password_hash, username, avatar_key, role, is_active,
+        approval_status, email_verified, language, kind, owner_user_id, created_at, updated_at
+      ) VALUES (?, ?, 'hash', ?, '', 'user', 1, 'approved', 1, 'zh-CN', 'agent', NULL, datetime('now'), datetime('now'))`
+    )
+      .bind(orphanAgentId, "orphan-agent@example.com", "orphan-agent")
+      .run()
+
+    // 页面由孤儿 Agent 创建
+    const page = await createPage(env, admin, "孤儿 Agent 文档", space.id)
+    await env.DB.prepare(
+      `UPDATE ${prefix}pages SET created_by = ? WHERE id = ?`
+    )
+      .bind(orphanAgentId, page.id)
+      .run()
+
+    // 人类 B 发表顶层评论
+    const comment = await postComment(
+      env,
+      userB,
+      page.id,
+      "评论孤儿 Agent 文档"
+    )
+
+    // 检查通知表中没有任何针对此评论的通知记录
+    const notifications = await env.DB.prepare(
+      `SELECT * FROM ${notificationsTable(prefix)} WHERE comment_id = ?`
+    )
+      .bind(comment.id)
+      .all()
+    expect(notifications.results).toHaveLength(0)
   })
 
   it("标单条已读权限控制：仅限本人（他人 403，不存在 404）", async () => {
