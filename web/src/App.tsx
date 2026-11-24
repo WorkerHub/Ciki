@@ -5,7 +5,6 @@ import {
   type RouteObject,
   RouterProvider
 } from "react-router"
-import { AppShell } from "@/components/AppShell"
 import {
   GuestOnly,
   RequireAdmin,
@@ -15,6 +14,12 @@ import {
 import { SpaceRoute } from "@/components/SpaceRoute"
 import { Toaster } from "@/components/ui/sonner"
 import { NotFound } from "@/pages/NotFound"
+
+const AppShell = lazy(() =>
+  import("@/components/AppShell").then((module) => ({
+    default: module.AppShell
+  }))
+)
 
 // 页面按路由懒加载：编辑器（TipTap + lowlight）与二维码库只在对应页面才下载。
 const AdminPage = lazy(() =>

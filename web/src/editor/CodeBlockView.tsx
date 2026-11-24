@@ -4,7 +4,7 @@ import {
   NodeViewWrapper
 } from "@tiptap/react"
 import { Check, ChevronDown, ChevronRight, Code2, Copy } from "lucide-react"
-import { useId, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { COMMON_LANGUAGES, languageLabel } from "@/editor/languages"
+import { loadLanguage, lowlight } from "@/editor/lowlight"
 import { resolveInitialCollapsed } from "@/lib/code-block-collapse"
 
 const NO_LANGUAGE = "none"
@@ -57,6 +58,19 @@ export function CodeBlockView({
   const collapsed = collapsible && !opened
   const panelId = useId()
   const toggleLabelId = useId()
+
+  useEffect(() => {
+    if (!language || lowlight.registered(language)) return
+    let cancelled = false
+    void loadLanguage(language).then((success) => {
+      if (success && !cancelled && editor && !editor.isDestroyed) {
+        editor.view.dispatch(editor.state.tr.setMeta("lowlight", true))
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [language, editor])
 
   const copy = async () => {
     try {
