@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useLocation } from "react-router"
 import { toast } from "sonner"
 import { CommentComposer } from "@/components/comments/CommentComposer"
 import { CommentItem } from "@/components/comments/CommentItem"
@@ -31,6 +32,7 @@ import { scrollToHeading } from "@/lib/scroll-anchor"
  */
 export function CommentSection({ pageId }: { pageId: number }) {
   const { t } = useTranslation()
+  const location = useLocation()
   const { data, status, error, pending, reload, create, update, remove } =
     useComments(pageId)
   const total = data?.total ?? 0
@@ -47,23 +49,13 @@ export function CommentSection({ pageId }: { pageId: number }) {
   const [highlightedCommentId, setHighlightedCommentId] = useState<
     number | null
   >(null)
-  const [currentHash, setCurrentHash] = useState(() =>
-    typeof window !== "undefined" ? window.location.hash : ""
-  )
+  const hash =
+    location.hash ||
+    (typeof window !== "undefined" ? window.location.hash : "")
   const hashCheckedRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const onHashChange = () => {
-      setCurrentHash(window.location.hash)
-    }
-    window.addEventListener("hashchange", onHashChange)
-    return () => window.removeEventListener("hashchange", onHashChange)
-  }, [])
-
-  useEffect(() => {
     if (!hasData) return
-    const hash =
-      currentHash || (typeof window !== "undefined" ? window.location.hash : "")
     if (!hash.startsWith("#comment-")) return
     const key = `${pageId}:${hash}`
     if (hashCheckedRef.current === key) return
@@ -107,7 +99,7 @@ export function CommentSection({ pageId }: { pageId: number }) {
       cancelAnimationFrame(rafId)
       if (timer) clearTimeout(timer)
     }
-  }, [hasData, data, pageId, currentHash, t])
+  }, [hasData, data, pageId, hash, t])
 
   const preview = (bodyMd: string) =>
     commentsApi.preview(pageId, bodyMd).then((result) => result.html)
