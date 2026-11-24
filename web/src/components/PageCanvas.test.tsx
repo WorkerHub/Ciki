@@ -17,7 +17,6 @@ describe("PageCanvas 文章页正文画布", () => {
     expect(canvas).toBeInTheDocument()
     expect(canvas).toHaveClass("overflow-x-clip")
     expect(canvas).toHaveClass("[overflow-clip-margin:4px]")
-    expect(canvas).toHaveStyle({ overflowClipMargin: "4px" })
   })
 
   it("外层容器提供固定内边距与最大宽度约束", () => {

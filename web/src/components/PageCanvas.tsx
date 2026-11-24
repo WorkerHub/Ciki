@@ -15,7 +15,6 @@ export function PageCanvas({ children }: { children: ReactNode }) {
       <div
         data-page-canvas=""
         className="mx-auto w-full max-w-[1600px] overflow-x-clip [overflow-clip-margin:4px]"
-        style={{ overflowClipMargin: "4px" }}
       >
         {children}
       </div>
