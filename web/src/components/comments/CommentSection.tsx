@@ -50,8 +50,7 @@ export function CommentSection({ pageId }: { pageId: number }) {
     number | null
   >(null)
   const hash =
-    location.hash ||
-    (typeof window !== "undefined" ? window.location.hash : "")
+    location.hash || (typeof window !== "undefined" ? window.location.hash : "")
   const hashCheckedRef = useRef<string | null>(null)
 
   useEffect(() => {
