@@ -43,7 +43,9 @@ export function getDecorations({
 
     const nodes = language
       ? lowlight.registered(language)
-        ? getHighlightNodes(lowlight.highlight(language, block.node.textContent))
+        ? getHighlightNodes(
+            lowlight.highlight(language, block.node.textContent)
+          )
         : []
       : getHighlightNodes(lowlight.highlightAuto(block.node.textContent))
 
@@ -96,8 +98,14 @@ export function WikiLowlightPlugin({
 
         const oldNodeName = oldState.selection.$head.parent.type.name
         const newNodeName = newState.selection.$head.parent.type.name
-        const oldNodes = findChildren(oldState.doc, (node) => node.type.name === name)
-        const newNodes = findChildren(newState.doc, (node) => node.type.name === name)
+        const oldNodes = findChildren(
+          oldState.doc,
+          (node) => node.type.name === name
+        )
+        const newNodes = findChildren(
+          newState.doc,
+          (node) => node.type.name === name
+        )
 
         if (
           [oldNodeName, newNodeName].includes(name) ||

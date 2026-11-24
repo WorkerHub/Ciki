@@ -25,7 +25,7 @@ describe("lowlight 语言包拆分与按需加载", () => {
     expect(lowlight.registered("rust")).toBe(true)
 
     // 高亮结果正常产生 tokens
-    const tree = lowlight.highlight("rust", "fn main() { println!(\"ok\"); }")
+    const tree = lowlight.highlight("rust", 'fn main() { println!("ok"); }')
     expect(tree.type).toBe("root")
     expect(tree.children.length).toBeGreaterThan(0)
   })
