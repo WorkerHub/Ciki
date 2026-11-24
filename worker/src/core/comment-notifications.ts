@@ -2,7 +2,7 @@
  * 评论通知业务逻辑（规格「Ciki 评论通知」§产生）：
  *
  * 规则：
- * 1. 接收人集合 = { 页面创建者 } ∪ { 父评论作者（回复时） } − { 评论者本人 } − { agent 账号 }。
+ * 1. 接收人集合 = { 页面创建者（若为 agent 账号则替换为其归属人 owner） } ∪ { 父评论作者（回复时） } − { 评论者本人 } − { agent 账号 }。
  * 2. 同一人只写一条（其为父评论作者时 type 取 reply，否则 comment）。
  * 3. 评论者是 agent 时照常通知人类接收人；agent 账号永不作为接收人。
  * 4. 评论纯文本截断 100 字快照存入 excerpt，页面标题存入 page_title 快照。
@@ -11,6 +11,7 @@ import {
   insertNotifications,
   type InsertNotificationInput
 } from "../db/queries/notifications"
+import { findUserById } from "../db/queries/users"
 import { toPlainText } from "../lib/sanitize"
 import { usersTable } from "../lib/tables"
 
@@ -33,9 +34,22 @@ export async function createCommentNotifications(
 
   const recipients = new Map<number, "comment" | "reply">()
 
-  // 页面创建者（若非评论者本人）
-  if (page.created_by > 0 && page.created_by !== commenterId) {
-    recipients.set(page.created_by, "comment")
+  // 页面创建者（若为 Agent 账号，将其替换为该 Agent 的归属人 owner；孤儿 Agent 无归属人则不替换/不产生接收人）
+  let pageRecipientId: number | null =
+    page.created_by > 0 ? page.created_by : null
+  if (pageRecipientId !== null) {
+    const creator = await findUserById(db, prefix, pageRecipientId)
+    if (!creator) {
+      pageRecipientId = null
+    } else if (creator.kind === "agent") {
+      pageRecipientId =
+        creator.owner_user_id && creator.owner_user_id > 0
+          ? creator.owner_user_id
+          : null
+    }
+  }
+  if (pageRecipientId !== null && pageRecipientId !== commenterId) {
+    recipients.set(pageRecipientId, "comment")
   }
 
   // 父评论作者（若非评论者本人，且其为父评论作者时 type 取 reply 覆盖 comment）
