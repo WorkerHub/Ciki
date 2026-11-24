@@ -1490,4 +1490,27 @@ describe("阅读页次要操作收进「更多」菜单", () => {
     expect(screen.queryByRole("menuitem", { name: "移动" })).toBeNull()
     expect(screen.queryByRole("menuitem", { name: "删除" })).toBeNull()
   })
+
+  it("工具栏容器包含 min-height/min-width 覆盖类，避免移动端 header 规则误伤导致高度不一", async () => {
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    const refreshButton = screen.getByRole("button", { name: "刷新" })
+    const editLink = screen.getByRole("link", { name: "编辑" })
+    const newChildButton = screen.getByRole("button", { name: "子页面" })
+    const moreButton = screen.getByRole("button", { name: "更多" })
+
+    expect(refreshButton).toHaveAttribute("data-size", "icon-sm")
+    expect(editLink).toHaveAttribute("data-size", "sm")
+    expect(newChildButton).toHaveAttribute("data-size", "sm")
+    expect(moreButton).toHaveAttribute("data-size", "icon-sm")
+
+    const toolbar = refreshButton.closest("div")
+    expect(toolbar).not.toBeNull()
+    expect(toolbar).toHaveClass("[&_[data-slot]]:!min-h-0")
+    expect(toolbar).toHaveClass("[&_[data-slot]]:!min-w-0")
+    expect(toolbar?.contains(editLink)).toBe(true)
+    expect(toolbar?.contains(newChildButton)).toBe(true)
+    expect(toolbar?.contains(moreButton)).toBe(true)
+  })
 })
