@@ -4,13 +4,17 @@ import {
   applyTheme,
   resolveTheme,
   THEME_STORAGE_KEY,
-  type Theme
+  DEFAULT_THEME_STYLE,
+  type ThemeMode,
+  type ThemeStyle
 } from "@/lib/theme"
 
-interface ThemeState {
-  theme: Theme
+export interface ThemeState {
+  theme: ThemeMode
+  style: ThemeStyle
   resolved: "light" | "dark"
-  setTheme: (theme: Theme) => void
+  setTheme: (theme: ThemeMode) => void
+  setStyle: (style: ThemeStyle) => void
   /** 系统明暗变化时调用；只有 auto 档需要重算。 */
   syncSystem: () => void
 }
@@ -19,22 +23,31 @@ export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
       theme: "auto",
+      style: DEFAULT_THEME_STYLE,
       resolved: resolveTheme("auto"),
       setTheme: (theme) => {
-        set({ theme, resolved: applyTheme(theme) })
+        const style = get().style
+        set({ theme, resolved: applyTheme(theme, style) })
+      },
+      setStyle: (style) => {
+        const theme = get().theme
+        set({ style, resolved: applyTheme(theme, style) })
       },
       syncSystem: () => {
         if (get().theme !== "auto") return
-        set({ resolved: applyTheme("auto") })
+        const style = get().style
+        set({ resolved: applyTheme("auto", style) })
       }
     }),
     {
       name: THEME_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ theme: state.theme }),
+      partialize: (state) => ({ theme: state.theme, style: state.style }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
-        state.resolved = applyTheme(state.theme)
+        if (!state.style || (state.style !== "nova" && state.style !== "paper"))
+          state.style = DEFAULT_THEME_STYLE
+        state.resolved = applyTheme(state.theme, state.style)
       }
     }
   )

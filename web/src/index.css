@@ -4,6 +4,26 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/inter-variable-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "JetBrains Mono Variable";
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url("/fonts/jetbrains-mono-variable-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* Kumo 组件内部的类名写在它自己的产物里，不声明 @source 就会被 Tailwind 漏掉。 */
 @source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
 
@@ -11,7 +31,7 @@
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: "Geist Variable", sans-serif;
+  --font-sans: var(--font-sans-family, "Geist Variable", sans-serif);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -43,13 +63,13 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+  --radius-4xl: var(--radius-4xl);
 }
 
 :root {
@@ -77,6 +97,16 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-read-max-width: none;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -87,7 +117,14 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
+:root,
+html[data-theme="nova"] {
+  --font-sans-family: "Geist Variable", sans-serif;
+}
+
+.dark,
+html[data-theme="nova"].dark {
+  --font-sans-family: "Geist Variable", sans-serif;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -121,6 +158,177 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ================================================================== *
+ * 主题机制（可回写模板）
+ * 一套主题 = 名称/标识 + 浅版语义令牌 + 暗版语义令牌
+ * ================================================================== */
+
+/* ------------------------------------------------------------------ *
+ * 主题 2：纸面（Paper，Algo Lab 风格）
+ * 浅版与暗版真源实测值映射至 Ciki 语义令牌体系
+ * ------------------------------------------------------------------ */
+html[data-theme="paper"] {
+  /* 字体栈：西文 Inter Variable + 中文回退链；等宽 JetBrains Mono Variable + 回退链 */
+  --font-sans-family:
+    "Inter Variable", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono-family:
+    "JetBrains Mono Variable", "PingFang SC", "Noto Sans CJK SC",
+    "Source Han Sans SC", "Microsoft YaHei", ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+
+  /* 语义色彩令牌 - 浅版 */
+  --background: #f7f4ee;
+  --foreground: #2a2b2f;
+  --card: #f9f7f2;
+  --card-foreground: #2a2b2f;
+  --popover: #f9f7f2;
+  --popover-foreground: #2a2b2f;
+  --coral: #e2705a;
+  --coral-deep: #d6624b;
+  --coral-300: #f3bcae;
+  --coral-200: #f7cec0;
+  --coral-100: #fae0d6;
+  --coral-50: #fcece5;
+  --coral-ink: #7c2717;
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-ink);
+  --secondary: #e9e3da;
+  --secondary-foreground: #434247;
+  --muted: #e9e3da;
+  --muted-foreground: #77746f;
+  --accent: #e9e3da;
+  --accent-foreground: #2a2b2f;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #dfdbd2;
+  --input: #dfdbd2;
+  --ring: #f3bcae;
+
+  /* 侧栏令牌 */
+  --sidebar: #f7f4ee;
+  --sidebar-foreground: #2a2b2f;
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-ink);
+  --sidebar-accent: #e9e3da;
+  --sidebar-accent-foreground: #2a2b2f;
+  --sidebar-border: #dfdbd2;
+  --sidebar-ring: #f3bcae;
+
+  /* 形状与圆角令牌：card 14px / 控件 8px / chip 7px */
+  --r-card: 14px;
+  --r-ctl: 8px;
+  --r-chip: 7px;
+  --radius: 8px;
+  --radius-lg: var(--r-ctl, 8px);
+  --radius-md: var(--r-ctl, 8px);
+  --radius-sm: var(--r-chip, 7px);
+  --radius-xl: var(--r-card, 14px);
+
+  /* 暖色调阴影与顶部内高光：色基 #4a3a28 */
+  --shadow-card:
+    0 1px 0 #ffffffbf inset, 0 1px 2px #4a3a280a, 0 6px 14px -8px #4a3a281f;
+  --shadow-ctl: 0 1px 0 #ffffffcc inset, 0 1px 2px #4a3a280d;
+  --shadow-coral:
+    0 1px 0 #ffffff38 inset, 0 1px 2px #a03c2847, 0 4px 10px -4px #d45f4873;
+  --shadow-pop:
+    0 1px 0 #ffffffbf inset, 0 2px 4px #4a3a280f, 0 30px 60px -22px #4a3a2873;
+
+  /* 纸纹理 */
+  --grain: 0.55;
+  --grain-blend: multiply;
+
+  /* 代码块令牌 */
+  --code-bg: #2d2e32;
+  --code-fg: #e9e6e0;
+  --code-dim: #a3a7b8;
+  --code-kw: #f08a6d;
+  --code-str: #e6c477;
+  --code-type: #93cfc6;
+  --code-border: rgba(255, 255, 255, 0.08);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.7;
+  --wiki-read-max-width: 860px;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+html[data-theme="paper"].dark {
+  /* 语义色彩令牌 - 暗版 */
+  --background: #0b0c0e;
+  --foreground: #f2f0eb;
+  --card: #1a1b1f;
+  --card-foreground: #f2f0eb;
+  --popover: #1a1b1f;
+  --popover-foreground: #f2f0eb;
+  --coral: #e8694e;
+  --coral-deep: #f07a5f;
+  --coral-300: #94402e;
+  --coral-200: #6e2f21;
+  --coral-100: #4c2219;
+  --coral-50: #271612;
+  --coral-ink: #f6ab98;
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-ink);
+  --secondary: #24262b;
+  --secondary-foreground: #c8c5bf;
+  --muted: #24262b;
+  --muted-foreground: #908d87;
+  --accent: #24262b;
+  --accent-foreground: #f2f0eb;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #26282d;
+  --input: #26282d;
+  --ring: #94402e;
+
+  /* 侧栏令牌 */
+  --sidebar: #141518;
+  --sidebar-foreground: #f2f0eb;
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-ink);
+  --sidebar-accent: #24262b;
+  --sidebar-accent-foreground: #f2f0eb;
+  --sidebar-border: #26282d;
+  --sidebar-ring: #94402e;
+
+  /* 暗版阴影：以黑色为主 + inset 白高光 */
+  --shadow-card: 0 1px 0 #ffffff09 inset, 0 10px 24px -14px #000000b3;
+  --shadow-ctl: 0 1px 0 #ffffff0d inset, 0 1px 2px #00000066;
+  --shadow-coral:
+    0 1px 0 #ffffff2e inset, 0 1px 2px #00000080, 0 6px 16px -6px #e8694e80;
+  --shadow-pop:
+    0 1px 0 #ffffff0d inset, 0 0 0 1px #00000080, 0 30px 70px -20px #000000d9;
+
+  /* 纸纹理 */
+  --grain: 0.22;
+  --grain-blend: soft-light;
+
+  /* 代码块令牌 */
+  --code-bg: #101114;
+  --code-fg: #e9e6e0;
+  --code-dim: #9da1b0;
+  --code-kw: #f08a6d;
+  --code-str: #e6c477;
+  --code-type: #93cfc6;
+  --code-border: rgba(255, 255, 255, 0.08);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.7;
+  --wiki-read-max-width: 860px;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -129,7 +337,7 @@
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-sans-family, "Geist Variable", sans-serif);
   }
 }
 
@@ -139,8 +347,8 @@
  * 的定版（表格按内容定宽、代码块浅色高亮、任务列表勾选态）。
  * ------------------------------------------------------------------ */
 .wiki-content {
-  font-size: 0.9375rem;
-  line-height: 1.75;
+  font-size: var(--wiki-font-size);
+  line-height: var(--wiki-line-height);
   color: var(--foreground);
   word-break: break-word;
 }
@@ -848,4 +1056,171 @@
     min-width: 2rem;
     min-height: 2rem;
   }
+}
+
+/* ================================================================== *
+ * 纸面主题组件与正文细节覆盖（置于基础正文样式之后，保证选择器特异性递增）
+ * ================================================================== */
+
+/* 纸面主题圆角与阴影落地 */
+html[data-theme="paper"] [data-slot="card"],
+html[data-theme="paper"] .bg-card {
+  border-radius: var(--r-card, 14px);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-theme="paper"] [data-slot="popover"],
+html[data-theme="paper"] [data-slot="dropdown-menu-content"],
+html[data-theme="paper"] [data-slot="select-content"],
+html[data-theme="paper"] [role="dialog"] {
+  box-shadow: var(--shadow-pop);
+}
+
+html[data-theme="paper"] [data-slot="button"],
+html[data-theme="paper"] [data-slot="input"],
+html[data-theme="paper"] [data-slot="select-trigger"] {
+  border-radius: var(--r-ctl, 8px);
+}
+
+html[data-theme="paper"] .chip,
+html[data-theme="paper"] [data-slot="badge"] {
+  border-radius: var(--r-chip, 7px);
+}
+
+html[data-theme="paper"] [data-slot="button"][data-variant="default"] {
+  box-shadow: var(--shadow-coral);
+}
+
+html[data-theme="paper"] [data-slot="button"][data-variant="outline"],
+html[data-theme="paper"] [data-slot="button"][data-variant="secondary"] {
+  box-shadow: var(--shadow-ctl);
+}
+
+/* 阅读页正文列宽对齐纸面舒适阅读宽度 */
+html[data-theme="paper"] [data-readview-container] {
+  max-width: var(--wiki-read-max-width, none);
+}
+
+/* 纸纹理：轻微纸张质感，不遮挡交互与可读性 */
+html[data-theme="paper"] body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  mix-blend-mode: var(--grain-blend, multiply);
+  opacity: var(--grain, 0.55);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .36 0 0 0 0 .28 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 纸面主题下的代码块视觉与高亮配色 */
+html[data-theme="paper"] .wiki-content .code-block,
+html[data-theme="paper"] .wiki-content.comment-body pre {
+  background: var(--code-bg);
+  border-color: var(--border);
+  border-radius: var(--r-card, 14px);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-theme="paper"] .wiki-content .code-block > pre {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  font-family: var(--font-mono-family);
+}
+
+/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+html[data-theme="paper"] .wiki-content .code-block > button,
+html[data-theme="paper"] .wiki-content .code-block [data-code-header] {
+  background: var(--code-bg);
+  border-bottom: 1px solid var(--code-border, rgba(255, 255, 255, 0.08));
+  color: var(--code-dim);
+}
+
+/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+html[data-theme="paper"] .wiki-content .code-block > button span,
+html[data-theme="paper"] .wiki-content .code-block [data-code-header] button,
+html[data-theme="paper"] .wiki-content .code-block [data-code-header] span,
+html[data-theme="paper"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  [data-code-language] {
+  color: var(--code-dim);
+}
+
+/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+html[data-theme="paper"] .wiki-content .code-block > button:hover,
+html[data-theme="paper"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--code-fg);
+}
+
+html[data-theme="paper"] .wiki-content.comment-body pre {
+  color: var(--code-fg);
+  font-family: var(--font-mono-family);
+}
+
+/* highlight.js token 映射 */
+html[data-theme="paper"] .wiki-content .hljs-keyword,
+html[data-theme="paper"] .wiki-content .hljs-tag,
+html[data-theme="paper"] .wiki-content .hljs-selector-tag,
+html[data-theme="paper"] .wiki-content .hljs-doctag,
+html[data-theme="paper"] .wiki-content .hljs-template-tag {
+  color: var(--code-kw, #f08a6d);
+}
+
+/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+html[data-theme="paper"] .wiki-content .hljs-string,
+html[data-theme="paper"] .wiki-content .hljs-regexp,
+html[data-theme="paper"] .wiki-content .hljs-meta .hljs-string {
+  color: var(--code-str, #e6c477);
+}
+
+html[data-theme="paper"] .wiki-content .hljs-type,
+html[data-theme="paper"] .wiki-content .hljs-title.class_,
+html[data-theme="paper"] .wiki-content .hljs-built_in,
+html[data-theme="paper"] .wiki-content .hljs-builtin-name {
+  color: var(--code-type, #93cfc6);
+}
+
+html[data-theme="paper"] .wiki-content .hljs-comment,
+html[data-theme="paper"] .wiki-content .hljs-punctuation {
+  color: var(--code-dim);
+  font-style: italic;
+}
+
+html[data-theme="paper"] .wiki-content .hljs-number,
+html[data-theme="paper"] .wiki-content .hljs-literal {
+  color: var(--code-str, #e6c477);
+}
+
+html[data-theme="paper"] .wiki-content .hljs-title,
+html[data-theme="paper"] .wiki-content .hljs-title.function_,
+html[data-theme="paper"] .wiki-content .hljs-section,
+html[data-theme="paper"] .wiki-content .hljs-attr,
+html[data-theme="paper"] .wiki-content .hljs-attribute,
+html[data-theme="paper"] .wiki-content .hljs-variable {
+  color: var(--code-fg, #e9e6e0);
+}
+
+/* 纸面主题下的链接与行内元素 */
+html[data-theme="paper"] .wiki-content a {
+  color: var(--primary);
+  text-decoration-color: var(--primary);
+}
+
+html[data-theme="paper"] .wiki-content blockquote {
+  border-left-color: var(--primary);
+  background: var(--muted);
+  color: var(--foreground);
+}
+
+html[data-theme="paper"] .wiki-content :not(pre) > code {
+  font-family: var(--font-mono-family);
+  background: var(--muted);
+  color: var(--foreground);
 }

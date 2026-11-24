@@ -615,7 +615,10 @@ export function PageView() {
 
       {page.contentHtml.trim() ? (
         <div className="flex">
-          <div className="min-w-0 flex-1 overflow-x-clip">
+          <div
+            data-readview-container=""
+            className="min-w-0 flex-1 overflow-x-clip"
+          >
             <Suspense
               fallback={
                 <div

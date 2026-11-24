@@ -14,7 +14,7 @@ import { AgentAccountsCard } from "@/components/AgentAccountsCard"
 import { ApiTokensCard } from "@/components/ApiTokensCard"
 import { ImportTokensCard } from "@/components/ImportTokensCard"
 import { LanguageSegmented } from "@/components/LanguageToggle"
-import { ThemeSegmented } from "@/components/ThemeToggle"
+import { ThemeSegmented, ThemeStyleSegmented } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -457,7 +457,10 @@ export function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
-          <ThemeSegmented />
+          <div className="flex flex-wrap items-center gap-3">
+            <ThemeStyleSegmented />
+            <ThemeSegmented />
+          </div>
           <p className="text-xs text-muted-foreground">
             {t("settings.appearance.account", { email: user?.email })}
           </p>
