@@ -1,8 +1,8 @@
 import { act, render, waitFor } from "@testing-library/react"
 import { createMemoryRouter, RouterProvider } from "react-router"
 import { beforeEach, describe, expect, it } from "vitest"
-import type { PageNode, Space } from "@/lib/api"
 import { changeLanguage } from "@/i18n"
+import type { PageNode, Space } from "@/lib/api"
 import { usePagesStore } from "@/stores/pages"
 import { useSiteStore } from "@/stores/site"
 import { useSpacesStore } from "@/stores/spaces"
@@ -77,6 +77,17 @@ describe("formatDocumentTitle", () => {
   it("站名为空字符串时只显示标题", () => {
     expect(formatDocumentTitle("个人资料", "", true)).toBe("个人资料")
   })
+
+  it("页面标题为空时只显示站名", () => {
+    expect(formatDocumentTitle("", "Ciki", true)).toBe("Ciki")
+    expect(formatDocumentTitle("", "Ciki", false)).toBe("Ciki")
+    expect(formatDocumentTitle("   ", "Ciki", true)).toBe("Ciki")
+  })
+
+  it("页面标题与站名均为空时返回空字符串", () => {
+    expect(formatDocumentTitle("", "", true)).toBe("")
+    expect(formatDocumentTitle("", "", false)).toBe("")
+  })
 })
 
 describe("resolveTitle 路由映射", () => {
@@ -117,6 +128,64 @@ describe("resolveTitle 路由映射", () => {
     )
   })
 
+  it("wiki 页面在目录加载中时返回空字符串（仅显示站名）", () => {
+    expect(
+      resolveTitle("/p/1", [], mockSpaces, dummyT, {
+        pagesLoading: true,
+        pagesError: null
+      })
+    ).toBe("")
+    expect(
+      resolveTitle("/p/1/edit", [], mockSpaces, dummyT, {
+        pagesLoading: true,
+        pagesError: null
+      })
+    ).toBe("")
+  })
+
+  it("wiki 页面在目录加载失败时返回空字符串（仅显示站名）", () => {
+    expect(
+      resolveTitle("/p/1", [], mockSpaces, dummyT, {
+        pagesLoading: false,
+        pagesError: "网络连接异常"
+      })
+    ).toBe("")
+    expect(
+      resolveTitle("/p/1/edit", [], mockSpaces, dummyT, {
+        pagesLoading: false,
+        pagesError: "网络连接异常"
+      })
+    ).toBe("")
+  })
+
+  it("wiki 页面在目录成功加载后查不到目标才回落 notFound", () => {
+    expect(
+      resolveTitle("/p/999", mockTree, mockSpaces, dummyT, {
+        pagesLoading: false,
+        pagesError: null
+      })
+    ).toBe("i18n:notFound.title")
+    expect(
+      resolveTitle("/p/999/edit", mockTree, mockSpaces, dummyT, {
+        pagesLoading: false,
+        pagesError: null
+      })
+    ).toBe("i18n:notFound.title")
+  })
+
+  it("wiki 页面非法 id 即使在加载中也立即回落 notFound", () => {
+    expect(
+      resolveTitle("/p/not-number", [], mockSpaces, dummyT, {
+        pagesLoading: true
+      })
+    ).toBe("i18n:notFound.title")
+    expect(
+      resolveTitle("/p/not-number/edit", [], mockSpaces, dummyT, {
+        pagesLoading: true
+      })
+    ).toBe("i18n:notFound.title")
+  })
+
   it("空间首页按 slug 取空间名", () => {
     expect(resolveTitle("/s/engineering", mockTree, mockSpaces, dummyT)).toBe(
       "工程团队"
@@ -133,6 +202,27 @@ describe("resolveTitle 路由映射", () => {
     expect(resolveTitle("/s/non-existent", mockTree, mockSpaces, dummyT)).toBe(
       "i18n:notFound.title"
     )
+  })
+
+  it("空间首页在空间列表加载中或加载失败时返回空字符串（仅显示站名）", () => {
+    expect(
+      resolveTitle("/s/engineering", mockTree, [], dummyT, {
+        spacesStatus: "loading"
+      })
+    ).toBe("")
+    expect(
+      resolveTitle("/s/engineering", mockTree, [], dummyT, {
+        spacesStatus: "error"
+      })
+    ).toBe("")
+  })
+
+  it("空间首页在空间列表就绪且不存在时才回落 notFound", () => {
+    expect(
+      resolveTitle("/s/non-existent", mockTree, mockSpaces, dummyT, {
+        spacesStatus: "ready"
+      })
+    ).toBe("i18n:notFound.title")
   })
 
   it("空间功能区映射到对应页名", () => {
@@ -223,8 +313,12 @@ describe("usePageTitle hook 集成", () => {
   beforeEach(async () => {
     await changeLanguage("zh")
     useSiteStore.setState({ name: "Ciki", loaded: true })
-    usePagesStore.setState({ tree: mockTree, loading: false })
-    useSpacesStore.setState({ spaces: mockSpaces, status: "ready" })
+    usePagesStore.setState({ tree: mockTree, loading: false, error: null })
+    useSpacesStore.setState({
+      spaces: mockSpaces,
+      status: "ready",
+      error: null
+    })
   })
 
   function renderWithRoute(path: string) {
@@ -333,5 +427,65 @@ describe("usePageTitle hook 集成", () => {
     })
 
     await waitFor(() => expect(document.title).toBe("Sign in · Ciki"))
+  })
+
+  it("整页刷新真实文档时加载中只显示站名，加载完成后更新为正确标题，全程不显示「页面不存在」", async () => {
+    usePagesStore.setState({ tree: [], loading: true, error: null })
+    renderWithRoute("/p/1")
+    await waitFor(() => expect(document.title).toBe("Ciki"))
+
+    act(() => {
+      usePagesStore.setState({ tree: mockTree, loading: false, error: null })
+    })
+    await waitFor(() => expect(document.title).toBe("团队指南 · Ciki"))
+  })
+
+  it("编辑页整页刷新时加载中只显示站名，加载完成后更新为正确标题", async () => {
+    usePagesStore.setState({ tree: [], loading: true, error: null })
+    renderWithRoute("/p/1/edit")
+    await waitFor(() => expect(document.title).toBe("Ciki"))
+
+    act(() => {
+      usePagesStore.setState({ tree: mockTree, loading: false, error: null })
+    })
+    await waitFor(() => expect(document.title).toBe("团队指南 · Ciki"))
+  })
+
+  it("目录加载失败时保持只显示站名，不误报「页面不存在」", async () => {
+    usePagesStore.setState({
+      tree: [],
+      loading: false,
+      error: "Failed to fetch"
+    })
+    renderWithRoute("/p/1")
+    await waitFor(() => expect(document.title).toBe("Ciki"))
+  })
+
+  it("整页刷新空间首页时加载中只显示站名，加载完成后更新为空间名", async () => {
+    useSpacesStore.setState({ spaces: [], status: "loading" })
+    renderWithRoute("/s/engineering")
+    await waitFor(() => expect(document.title).toBe("Ciki"))
+
+    act(() => {
+      useSpacesStore.setState({ spaces: mockSpaces, status: "ready" })
+    })
+    await waitFor(() => expect(document.title).toBe("工程团队 · Ciki"))
+  })
+
+  it("空间列表加载失败时保持只显示站名，不误报「页面不存在」", async () => {
+    useSpacesStore.setState({ spaces: [], status: "error" })
+    renderWithRoute("/s/engineering")
+    await waitFor(() => expect(document.title).toBe("Ciki"))
+  })
+
+  it("真实不存在的文档 id 加载完成后正确显示「页面不存在」", async () => {
+    usePagesStore.setState({ tree: [], loading: true, error: null })
+    renderWithRoute("/p/999")
+    await waitFor(() => expect(document.title).toBe("Ciki"))
+
+    act(() => {
+      usePagesStore.setState({ tree: mockTree, loading: false, error: null })
+    })
+    await waitFor(() => expect(document.title).toBe("页面不存在 · Ciki"))
   })
 })

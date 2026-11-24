@@ -1,7 +1,7 @@
+import type { TFunction } from "i18next"
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import { matchPath, useLocation } from "react-router"
-import type { TFunction } from "i18next"
 import type { PageNode, Space } from "@/lib/api"
 import { parseIdParam } from "@/lib/routes"
 import { spaceBySlug } from "@/lib/space"
@@ -44,23 +44,36 @@ function decodeSlug(raw: string): string {
   }
 }
 
+export interface ResolveTitleOptions {
+  pagesLoading?: boolean
+  pagesError?: string | null
+  spacesStatus?: "loading" | "ready" | "error"
+}
+
 /**
  * 把当前路由 + 页面树 + 空间列表折算成「不带站名」的页签标题。
  * 顺序从最具体的匹配（编辑页、空间子页）到最宽泛（空间首页），
- * 都匹配不上时回落 404 页名。
+ * 依赖数据加载中或加载失败时返回空字符串（仅展示站名），数据加载完成且查不到目标时回落 404 页名。
  */
 export function resolveTitle(
   pathname: string,
   tree: PageNode[],
   spaces: Space[],
-  t: TFunction
+  t: TFunction,
+  options?: ResolveTitleOptions
 ): string {
+  const pagesLoading = options?.pagesLoading ?? false
+  const pagesError = options?.pagesError ?? null
+  const spacesStatus = options?.spacesStatus ?? "ready"
+
   const pageEdit = matchPath("/p/:pageId/edit", pathname)
   if (pageEdit) {
     const id = parseIdParam(pageEdit.params.pageId)
     if (id === null) return t("notFound.title")
     const node = findNode(tree, id)
-    return node ? node.title.trim() || t("page.untitled") : t("notFound.title")
+    if (node) return node.title.trim() || t("page.untitled")
+    if (pagesLoading || pagesError !== null) return ""
+    return t("notFound.title")
   }
 
   const pageView = matchPath("/p/:pageId", pathname)
@@ -68,7 +81,9 @@ export function resolveTitle(
     const id = parseIdParam(pageView.params.pageId)
     if (id === null) return t("notFound.title")
     const node = findNode(tree, id)
-    return node ? node.title.trim() || t("page.untitled") : t("notFound.title")
+    if (node) return node.title.trim() || t("page.untitled")
+    if (pagesLoading || pagesError !== null) return ""
+    return t("notFound.title")
   }
 
   const userPage = matchPath("/users/:id", pathname)
@@ -86,7 +101,9 @@ export function resolveTitle(
   const home = matchPath("/s/:slug", pathname)
   if (home) {
     const space = spaceBySlug(spaces, decodeSlug(home.params.slug ?? ""))
-    return space?.name?.trim() || t("notFound.title")
+    if (space) return space.name?.trim() || t("notFound.title")
+    if (spacesStatus !== "ready") return ""
+    return t("notFound.title")
   }
 
   const staticKey = STATIC_TITLE_KEYS[pathname]
@@ -95,18 +112,27 @@ export function resolveTitle(
   return t("notFound.title")
 }
 
-/** 「标题 · 站名」，站名尚未从站点设置读到（loaded）时只显示标题。 */
+/**
+ * 「标题 · 站名」，站名尚未从站点设置读到（loaded）时只显示标题。
+ * 标题为空（依赖数据加载中或加载失败）时只显示站名。
+ */
 export function formatDocumentTitle(
   title: string,
   siteName: string,
   siteLoaded: boolean
 ): string {
-  return siteLoaded && siteName ? `${title} · ${siteName}` : title
+  const trimmedTitle = title.trim()
+  if (!trimmedTitle) {
+    return siteName.trim()
+  }
+  return siteLoaded && siteName.trim()
+    ? `${trimmedTitle} · ${siteName.trim()}`
+    : trimmedTitle
 }
 
 /**
  * 全局页签标题：挂在壳层（RootGate）覆盖全部路由，随路由 / 页面树 / 空间 /
- * 语言 / 站点名一起重算。页面改名或保存后重拉树，`tree` 变化即触发同步。
+ * 语言 / 站点名以及数据加载状态一起重算。页面改名或保存后重拉树，`tree` 变化即触发同步。
  */
 export function usePageTitle(): void {
   const { t } = useTranslation()
@@ -114,10 +140,27 @@ export function usePageTitle(): void {
   const siteName = useSiteStore((state) => state.name)
   const siteLoaded = useSiteStore((state) => state.loaded)
   const tree = usePagesStore((state) => state.tree)
+  const pagesLoading = usePagesStore((state) => state.loading)
+  const pagesError = usePagesStore((state) => state.error)
   const spaces = useSpacesStore((state) => state.spaces)
+  const spacesStatus = useSpacesStore((state) => state.status)
 
   useEffect(() => {
-    const title = resolveTitle(pathname, tree, spaces, t)
+    const title = resolveTitle(pathname, tree, spaces, t, {
+      pagesLoading,
+      pagesError,
+      spacesStatus
+    })
     document.title = formatDocumentTitle(title, siteName, siteLoaded)
-  }, [pathname, tree, spaces, siteName, siteLoaded, t])
+  }, [
+    pathname,
+    tree,
+    pagesLoading,
+    pagesError,
+    spaces,
+    spacesStatus,
+    siteName,
+    siteLoaded,
+    t
+  ])
 }
