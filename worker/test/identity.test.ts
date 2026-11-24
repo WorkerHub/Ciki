@@ -155,50 +155,71 @@ describe("身份模型：username 与显示名", () => {
 })
 
 describe("Profile 头像", () => {
-  it("本人上传的 key 可设为头像；换头像删旧图；他人 key/虚构 key 400；null 清除", async () => {
+  it("本人 avatars/ key 可设为头像；换头像删旧图；他人 key/虚构 key/非 avatars 前缀 400；null 清除", async () => {
     const { env, r2 } = await initializedContext()
     const admin = await adminSession(env, "alice@example.com")
     const other = await userSession(env, admin, "bob@example.com")
+    const adminUser = await me(env, admin)
+    const otherUser = await me(env, other)
 
-    const first = await uploadImage(env, admin)
+    const firstKey = `avatars/${crypto.randomUUID()}.png`
+    await r2.put(firstKey, PNG, {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: { uploaderId: String(adminUser.id), category: "avatars" }
+    })
     const setFirst = await jsonRequest(
       env,
       "PUT",
       "/api/me/profile",
-      { avatarKey: first.key },
+      { avatarKey: firstKey },
       admin
     )
     expect(setFirst.status).toBe(200)
     expect((await setFirst.json()) as MeShape).toMatchObject({
-      avatarUrl: `/api/files/${first.key}`
+      avatarUrl: `/api/files/${firstKey}`
     })
-    expect((await me(env, admin)).avatarUrl).toBe(`/api/files/${first.key}`)
+    expect((await me(env, admin)).avatarUrl).toBe(`/api/files/${firstKey}`)
 
-    const second = await uploadImage(env, admin)
+    const secondKey = `avatars/${crypto.randomUUID()}.png`
+    await r2.put(secondKey, PNG, {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: { uploaderId: String(adminUser.id), category: "avatars" }
+    })
     const setSecond = await jsonRequest(
       env,
       "PUT",
       "/api/me/profile",
-      { avatarKey: second.key },
+      { avatarKey: secondKey },
       admin
     )
     expect(setSecond.status).toBe(200)
-    expect(r2.store.has(first.key)).toBe(false)
-    expect(r2.store.has(second.key)).toBe(true)
+    expect(r2.store.has(firstKey)).toBe(false)
+    expect(r2.store.has(secondKey)).toBe(true)
 
-    const foreign = await uploadImage(env, other)
+    const foreignKey = `avatars/${crypto.randomUUID()}.png`
+    await r2.put(foreignKey, PNG, {
+      httpMetadata: { contentType: "image/png" },
+      customMetadata: { uploaderId: String(otherUser.id), category: "avatars" }
+    })
     const steal = await jsonRequest(
       env,
       "PUT",
       "/api/me/profile",
-      { avatarKey: foreign.key },
+      { avatarKey: foreignKey },
       admin
     )
     expect(steal.status).toBe(400)
     expect(await steal.json()).toMatchObject({ code: "INVALID_AVATAR" })
-    expect((await me(env, admin)).avatarUrl).toBe(`/api/files/${second.key}`)
+    expect((await me(env, admin)).avatarUrl).toBe(`/api/files/${secondKey}`)
+
+    // 堵兼容路径绕过口：pages/、imports/、存量平铺 key 或非法 key 均回 400 INVALID_AVATAR
+    const pageImage = await uploadImage(env, admin)
+    expect(pageImage.key.startsWith("pages/")).toBe(true)
 
     for (const avatarKey of [
+      pageImage.key,
+      `imports/${crypto.randomUUID()}.png`,
+      `${crypto.randomUUID()}.png`,
       "not-a-key.png",
       "00000000-0000-0000-0000-000000000000.png",
       123
@@ -211,6 +232,7 @@ describe("Profile 头像", () => {
         admin
       )
       expect(res.status).toBe(400)
+      expect(await res.json()).toMatchObject({ code: "INVALID_AVATAR" })
     }
 
     const cleared = await jsonRequest(
@@ -222,7 +244,7 @@ describe("Profile 头像", () => {
     )
     expect(cleared.status).toBe(200)
     expect((await me(env, admin)).avatarUrl).toBeNull()
-    expect(r2.store.has(second.key)).toBe(false)
+    expect(r2.store.has(secondKey)).toBe(false)
   })
 })
 
@@ -259,7 +281,7 @@ describe("头像专用上传口", () => {
     expect(await me(env, admin)).toEqual(secondMe)
   })
 
-  it("校验口径与 /api/files 一致：非图片 400、超 10MB 413、未登录 401", async () => {
+  it("校验口径：非图片 400、超 2MB 413、未登录 401，且不影响普通图片 10MB 上限", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
 
@@ -270,17 +292,36 @@ describe("头像专用上传口", () => {
     )
     expect(fake.status).toBe(400)
 
-    const big = new Uint8Array(10 * 1024 * 1024 + 1)
+    // avatars 类别单独收紧至 2MB：2MB + 1 字节超限回 413
+    const big = new Uint8Array(2 * 1024 * 1024 + 1)
     big.set(PNG)
     const tooLarge = await postAvatar(env, admin, avatarForm(big))
     expect(tooLarge.status).toBe(413)
     expect(await tooLarge.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
 
+    // 边界值：正好 2MB 允许上传
+    const exact2Mb = new Uint8Array(2 * 1024 * 1024)
+    exact2Mb.set(PNG)
+    const exactOk = await postAvatar(env, admin, avatarForm(exact2Mb))
+    expect(exactOk.status).toBe(200)
+
     const anonymous = await postAvatar(env, "", avatarForm(PNG))
     expect(anonymous.status).toBe(401)
 
-    // 失败一律不落盘、不改头像
-    expect((await me(env, admin)).avatarUrl).toBeNull()
+    // 页面图片（pages 类别，/api/files）仍保持 10MB 上限，3MB 图片正常上传
+    const threeMb = new Uint8Array(3 * 1024 * 1024)
+    threeMb.set(PNG)
+    const pageForm = new FormData()
+    pageForm.append(
+      "file",
+      new File([threeMb], "page.png", { type: "image/png" })
+    )
+    const pageRes = await request(env, "/api/files", {
+      method: "POST",
+      headers: { cookie: admin },
+      body: pageForm
+    })
+    expect(pageRes.status).toBe(201)
   })
 })
 

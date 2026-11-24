@@ -866,14 +866,14 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。各字段互不影响、可单独提交，写入是一次 `UPDATE`：任一字段校验失败整单 400、一行都不写。
 - `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；**必须唯一（大小写不敏感，`Alice` 与 `alice` 算重名；改成自己当前名字含只改大小写不算撞名）**，撞名 409 `code:"USERNAME_TAKEN"`（并发下由库内唯一索引兜底，同样 409 而非 500）；不自动加后缀。
-- `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key——平铺 `<uuid>.<ext>` 或带已知前缀（`avatars/` / `pages/` / `imports/`）都收；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
+- `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key，**仅接受 `avatars/` 前缀**（其余类别如 `pages/`、`imports/` 或存量平铺 key 均回 400 `code:"INVALID_AVATAR"`，防止绕过头像归一化）；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
 - `language`：只认精确的 `zh` / `en`（不 trim、不做大小写归一），其它值（含 `null`、数字）400 `{"error":"language must be zh or en","code":"INVALID_LANGUAGE"}`。只带语言不影响 username 与头像。
 - `bio`：接受可选纯文本，去首尾空白，按 Unicode 码点（`Array.from(str).length`）计上限 100，超长或类型非字符串回 400 `{"error":"...","code":"INVALID_BIO"}`；人类用户原样保存，Agent 账号无资料编辑入口（`bio` 恒为空串 `""`）。
 - `id` / `email` 只读：传了也不生效（只认上面四个字段）。
 
 #### POST /api/me/avatar（需会话）
 
-头像专用上传口。`multipart/form-data`，字段名 `file`，单文件；校验口径与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId` 与 `category:"avatars"`。
+头像专用上传口。`multipart/form-data`，字段名 `file`，单文件；校验类型与 `POST /api/files` 一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件），但头像类别单独收紧体积上限为单张 ≤2MB（超限回 413 `code:"FILE_TOO_LARGE"`），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId` 与 `category:"avatars"`。
 
 同一请求内完成「写入本人 `avatar_key` → 删除旧头像对象」（旧图删不掉只留孤儿对象，不影响响应）。200 返回与 `GET /api/me` 完全相同的对象，前端一次拿到新的 `avatarUrl`：
 
@@ -1006,7 +1006,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 #### POST /api/me/agents/:id/avatar
 
-为本人名下的 Agent 上传/更换头像。`multipart/form-data`，字段名 `file`，单文件；校验与存储口径与 `POST /api/me/avatar`、`POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId`（该 Agent 的用户 id）与 `category:"avatars"`。同一请求内完成「写入该 Agent 的 `avatar_key` → 删除旧头像对象」（旧图删不掉只留孤儿对象，不影响响应）。
+为本人名下的 Agent 上传/更换头像。`multipart/form-data`，字段名 `file`，单文件；校验与存储口径与 `POST /api/me/avatar` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤2MB），落 `avatars/<uuid>.<ext>`，R2 `customMetadata` 记 `uploaderId`（该 Agent 的用户 id）与 `category:"avatars"`。同一请求内完成「写入该 Agent 的 `avatar_key` → 删除旧头像对象」（旧图删不掉只留孤儿对象，不影响响应）。
 
 成功 200 返回该 Agent 的 DTO（与 `GET /api/me/agents` 单项同结构，含最新 `avatarUrl`），前端一次拿到新的头像地址：
 
@@ -1022,7 +1022,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 - 头像读路径复用 `/api/files/:key`（会话即可读，无归属校验），显示面零新增逻辑。
 - 非本人名下 / 目标不存在 / 目标不是 Agent 一律 404 `{"error":"Agent not found"}`，不泄露存在性；站点管理员亦不可代改他人名下 Agent 的头像。
-- 校验失败与 `POST /api/me/avatar` 同口径：非图片 400、单张 >10MB 413 `code:"FILE_TOO_LARGE"`、未登录 401。
+- 校验失败与 `POST /api/me/avatar` 同口径：非图片 400、单张 >2MB 413 `code:"FILE_TOO_LARGE"`、未登录 401。
 
 #### DELETE /api/me/agents/:id/avatar
 

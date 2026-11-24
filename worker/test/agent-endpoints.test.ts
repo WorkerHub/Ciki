@@ -437,7 +437,7 @@ describe("/api/me/agents/:id/avatar 头像上传/更换/删除", () => {
     })
   })
 
-  it("校验口径与真人头像一致：非图片 400、超 10MB 413、未登录 401", async () => {
+  it("校验口径与真人头像一致：非图片 400、超 2MB 413、未登录 401", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const owner = await userSession(env, admin, "avatar-validation@example.com")
@@ -459,7 +459,7 @@ describe("/api/me/agents/:id/avatar 头像上传/更换/删除", () => {
     )
     expect(fake.status).toBe(400)
 
-    const big = new Uint8Array(10 * 1024 * 1024 + 1)
+    const big = new Uint8Array(2 * 1024 * 1024 + 1)
     big.set(PNG)
     const tooLarge = await postAgentAvatar(
       env,
@@ -469,6 +469,17 @@ describe("/api/me/agents/:id/avatar 头像上传/更换/删除", () => {
     )
     expect(tooLarge.status).toBe(413)
     expect(await tooLarge.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+
+    // 边界值：正好 2MB 允许上传
+    const exact2Mb = new Uint8Array(2 * 1024 * 1024)
+    exact2Mb.set(PNG)
+    const exactOk = await postAgentAvatar(
+      env,
+      owner,
+      bot.id,
+      agentAvatarForm(exact2Mb)
+    )
+    expect(exactOk.status).toBe(200)
 
     const anonymous = await postAgentAvatar(
       env,

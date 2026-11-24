@@ -36,7 +36,7 @@ import {
 import { twofaSummary } from "./auth-2fa"
 import { isUsernameConflict, normalizeUsername } from "../core/identity"
 import { isLanguage, normalizeLanguage, type Language } from "../core/language"
-import { UPLOAD_KEY_RE, storeImageUpload } from "../lib/upload"
+import { AVATAR_KEY_RE, storeImageUpload } from "../lib/upload"
 import {
   deleteSessionById,
   deleteUserSessions,
@@ -108,8 +108,8 @@ meRoutes.get("/", async (c) => {
 
 /**
  * 个人资料：只改显示名、头像与界面语言。id / email 一律只读，不接受写入；
- * 头像必须是本人上传过、且 R2 里仍在的 key（null 表示清除）。前端已改走
- * `POST /api/me/avatar`，这里的 avatarKey 只作兼容保留。
+ * 头像必须是本人上传过、且 R2 里仍在的 `avatars/` 前缀 key（null 表示清除，非 avatars/
+ * 前缀或存量平铺 key 均回 400，防止绕过归一化）。前端已改走 `POST /api/me/avatar`，这里的 avatarKey 只作兼容保留。
  *
  * 语言（i18n 规格 §2.7）：支持集内值才收，非法 400 `INVALID_LANGUAGE`；三个字段
  * 互不影响、可单独提交，校验全部前置、落库仍是一次 UPDATE。
@@ -194,7 +194,7 @@ meRoutes.put("/profile", async (c) => {
       avatarKey = null
     } else {
       const candidate = typeof body.avatarKey === "string" ? body.avatarKey : ""
-      const object = UPLOAD_KEY_RE.test(candidate)
+      const object = AVATAR_KEY_RE.test(candidate)
         ? await c.env.R2.head(candidate)
         : null
       if (!object || object.customMetadata?.uploaderId !== String(userId)) {
