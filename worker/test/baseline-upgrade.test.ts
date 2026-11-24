@@ -209,9 +209,18 @@ describe("最终形态存量库 → 单条 schema_v1：只动账本", () => {
     expect(result.migrations).toEqual(migrationList("applied"))
     expect(ledgerNames(context)).toEqual(SORTED_MIGRATION_NAMES)
 
-    // 坍缩不改任何结构：表/索引集合与升级前完全一致。
-    expect(tableNames(context).sort()).toEqual(beforeTables)
-    expect(indexNames(context).sort()).toEqual(beforeIndexes)
+    // 坍缩不改任何基线结构；追加的 schema_v11 增加 notifications 表及索引。
+    const expectedTables = [
+      ...beforeTables,
+      tableName(PREFIX, "notifications")
+    ].sort()
+    const expectedIndexes = [
+      ...beforeIndexes,
+      `${PREFIX}notifications_recipient_created`,
+      `${PREFIX}notifications_recipient_read`
+    ].sort()
+    expect(tableNames(context).sort()).toEqual(expectedTables)
+    expect(indexNames(context).sort()).toEqual(expectedIndexes)
     expect(tableNames(context)).not.toContain(tableName(PREFIX, "read_tokens"))
     expect(tableNames(context)).not.toContain(tableName(PREFIX, "write_tokens"))
 
@@ -335,7 +344,12 @@ describe("全新库与幂等", () => {
 
     expect(result.migrations).toEqual(migrationList("applied"))
     expect(ledgerNames(context)).toEqual(SORTED_MIGRATION_NAMES)
-    expect(MIGRATION_NAMES).toEqual(["schema_v1", "schema_v9", "schema_v10"])
+    expect(MIGRATION_NAMES).toEqual([
+      "schema_v1",
+      "schema_v9",
+      "schema_v10",
+      "schema_v11"
+    ])
 
     const tables = tableNames(context)
     for (const table of SCHEMA_TABLES) {

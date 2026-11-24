@@ -21,6 +21,7 @@
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { canDeleteComment, canEditComment } from "../core/comment-access"
+import { createCommentNotifications } from "../core/comment-notifications"
 import { resolveSpaceRole, type SpaceRole } from "../core/space-access"
 import {
   getCommentWithAuthor,
@@ -258,6 +259,7 @@ commentRoutes.post("/:id/comments", async (c) => {
    * 只有「不存在 / 不属于本页」才是 404。
    */
   let parentId: number | null = null
+  let parentAuthorId: number | null = null
   if (parent.value !== null) {
     const parentRow = await getCommentWithAuthor(
       db,
@@ -267,6 +269,17 @@ commentRoutes.post("/:id/comments", async (c) => {
     )
     if (!parentRow) return commentNotFound(c)
     parentId = parentRow.parent_id ?? parentRow.id
+    if (parentRow.parent_id === null) {
+      parentAuthorId = parentRow.author_id
+    } else {
+      const topRow = await getCommentWithAuthor(
+        db,
+        prefix,
+        target.page.id,
+        parentId
+      )
+      parentAuthorId = topRow?.author_id ?? null
+    }
   }
 
   const id = await insertComment(db, prefix, {
@@ -276,6 +289,20 @@ commentRoutes.post("/:id/comments", async (c) => {
     bodyMd: parsed.value.bodyMd,
     createdAt: new Date().toISOString()
   })
+
+  try {
+    await createCommentNotifications({
+      db,
+      prefix,
+      page: target.page,
+      commentId: id,
+      commenterId: c.get("userId"),
+      html: parsed.value.html,
+      parentAuthorId
+    })
+  } catch (err) {
+    console.error("Failed to create comment notifications:", err)
+  }
 
   const created = await getCommentWithAuthor(db, prefix, target.page.id, id)
   if (!created) return commentNotFound(c)

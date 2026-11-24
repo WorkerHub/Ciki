@@ -382,6 +382,28 @@ CREATE VIRTUAL TABLE {prefix}pages_fts USING fts5(page_id UNINDEXED, title, cont
 - **硬删随父页**：页面彻底删除（回收站清空）时其评论一并删除；页面软删（回收站）不动评论——评论接口随页面 404，恢复后原样回来。
 - 评论不进 FTS、不进只读接口（一期范围外，不留口子）。
 
+### notifications（站内通知）
+
+| 列           | 类型                     | 说明                                         |
+| ------------ | ------------------------ | -------------------------------------------- |
+| id           | INTEGER PK AUTOINCREMENT | 通知 id（整数）                              |
+| recipient_id | INTEGER NOT NULL         | 接收人用户 id（永不为 Agent 账号）           |
+| actor_id     | INTEGER NOT NULL         | 操作人用户 id（评论者，可为人类或 Agent）    |
+| type         | TEXT NOT NULL            | 类型：`comment`（文档评论）/ `reply`（回复） |
+| page_id      | INTEGER NOT NULL         | 目标页面 id                                  |
+| comment_id   | INTEGER NOT NULL         | 目标评论 id                                  |
+| page_title   | TEXT NOT NULL DEFAULT '' | 页面标题快照（评论/页面被删后通知仍可读）    |
+| excerpt      | TEXT NOT NULL DEFAULT '' | 评论纯文本截断 100 字快照                    |
+| created_at   | TEXT NOT NULL            | ISO 时间                                     |
+| read_at      | TEXT NULL                | 首次标已读的 ISO 时间；未读为 NULL           |
+
+索引：`(recipient_id, read_at)`、`(recipient_id, created_at)`。
+
+- 产生逻辑：评论创建成功后同步写入（不走 waker、不走队列），覆盖会话与 write 令牌。
+- 接收人集合 = { 页面创建者 } ∪ { 父评论作者（回复时） } − { 评论者本人 } − { agent 账号 }。同一人只写一条（其为父评论作者时 type 取 `reply`，否则 `comment`）。
+- 评论者是 agent 时照常通知人类接收人；agent 账号永不作为接收人。
+- 通知写入失败不影响评论创建本身（降级记日志）。
+
 ### r2_cleanup_runs
 
 | 列                                                                  | 类型                           | 说明                                                                                   |
@@ -1773,6 +1795,57 @@ embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字�
 鉴权：支持会话 Cookie 或 `Authorization: Bearer <kind = write 的接口令牌>`。
 
 软删，200 `{"success":true}`；重复删除幂等（仍 200，不覆盖首次的 `deletedAt`）。权限：作者本人、该页所属空间 `admin`、站点管理员；其余成员 403、非成员 404。
+
+### 站内通知（仅会话，令牌不可用）
+
+#### GET /api/notifications?limit=20&offset=0
+
+按 `created_at DESC, id DESC` 倒序返回通知列表。支持 `limit`（1–100，默认 20）与 `offset`（≥0，默认 0）。
+
+```json
+[
+  {
+    "id": 1,
+    "recipientId": 2,
+    "actorId": 3,
+    "actorName": "张三",
+    "actorAvatarUrl": "/api/files/avatars/….png",
+    "type": "comment",
+    "pageId": 10,
+    "commentId": 42,
+    "pageTitle": "页面标题快照",
+    "excerpt": "评论纯文本截断100字快照",
+    "read": false,
+    "isRead": false,
+    "readAt": null,
+    "createdAt": "2026-11-24T10:00:00.000Z"
+  }
+]
+```
+
+- `actorName`：操作人用户名，已被彻底删除时回落「已注销用户」。
+- `actorAvatarUrl`：操作人头像地址（`/api/files/<key>`），无头像时为 `null`。
+- `read` / `isRead`：已读状态布尔值。
+- `readAt`：标已读时间戳（ISO 字符串），未读为 `null`。
+
+#### GET /api/notifications/unread-count
+
+轻量未读计数端点，仅供角标轮询使用：
+
+```json
+{
+  "count": 5,
+  "unreadCount": 5
+}
+```
+
+#### POST /api/notifications/:id/read
+
+标单条通知已读。**仅限本人**：非本人 403 `{"error": "Forbidden"}`；通知不存在 404 `{"error": "Notification not found"}`。成功返回 200 `{"success": true}`。重复标已读幂等。
+
+#### POST /api/notifications/read-all
+
+将当前用户的全部未读通知标为已读。成功返回 200 `{"success": true}`。
 
 ### 搜索
 
