@@ -91,3 +91,10 @@ export const r2CleanupRunsTable = (prefix: string) =>
 /** waker SDK 的 executionId 幂等账本（回调协议 v2，列照 SDK 的 executionLedgerDdl）。 */
 export const wakerExecutionsTable = (prefix: string) =>
   tableName(prefix, "waker_executions")
+
+/**
+ * 站内通知表（规格「Ciki 评论通知」）：
+ * 存储评论和回复通知，包含快照字段与已读状态。
+ */
+export const notificationsTable = (prefix: string) =>
+  tableName(prefix, "notifications")

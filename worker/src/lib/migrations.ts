@@ -36,7 +36,13 @@ import {
   rejection,
   tableExists
 } from "./schema-shape"
-import { migrationsTable, settingsTable, tableName, usersTable } from "./tables"
+import {
+  migrationsTable,
+  notificationsTable,
+  settingsTable,
+  tableName,
+  usersTable
+} from "./tables"
 
 /** 迁移执行时能拿到的东西：库、生效前缀、迁移可用的绑定、以及账本快照。 */
 export interface MigrationContext {
@@ -299,6 +305,45 @@ const SCHEMA_V10: Migration = {
   isApplied: schemaV10Applied
 }
 
+export const NOTIFICATIONS_MIGRATION_NAME = "schema_v11"
+
+/**
+ * `schema_v11` —— 站内通知表（规格「Ciki 评论通知」）：
+ * 包含 id, recipient_id, actor_id, type, page_id, comment_id,
+ * page_title, excerpt, created_at, read_at 及索引。
+ */
+function schemaV11(prefix: string): string {
+  const table = notificationsTable(prefix)
+  return `CREATE TABLE IF NOT EXISTS ${table} (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  recipient_id INTEGER NOT NULL,
+  actor_id     INTEGER NOT NULL,
+  type         TEXT NOT NULL,
+  page_id      INTEGER NOT NULL,
+  comment_id   INTEGER NOT NULL,
+  page_title   TEXT NOT NULL DEFAULT '',
+  excerpt      TEXT NOT NULL DEFAULT '',
+  created_at   TEXT NOT NULL,
+  read_at      TEXT
+);
+CREATE INDEX IF NOT EXISTS ${prefix}notifications_recipient_read
+  ON ${table}(recipient_id, read_at);
+CREATE INDEX IF NOT EXISTS ${prefix}notifications_recipient_created
+  ON ${table}(recipient_id, created_at)`
+}
+
+async function schemaV11Applied(ctx: MigrationContext): Promise<boolean> {
+  const { db, prefix, applied } = ctx
+  if (applied.has(NOTIFICATIONS_MIGRATION_NAME)) return true
+  return tableExists(db, notificationsTable(prefix))
+}
+
+const SCHEMA_V11: Migration = {
+  name: NOTIFICATIONS_MIGRATION_NAME,
+  sql: "",
+  isApplied: schemaV11Applied
+}
+
 export function getMigrations(
   prefix: string,
   language: Language = DEFAULT_LANGUAGE
@@ -324,6 +369,7 @@ export function getMigrations(
   return [
     { ...SCHEMA_V1, sql },
     { ...SCHEMA_V9, sql: schemaV9(prefix) },
-    { ...SCHEMA_V10, sql: schemaV10(prefix) }
+    { ...SCHEMA_V10, sql: schemaV10(prefix) },
+    { ...SCHEMA_V11, sql: schemaV11(prefix) }
   ]
 }

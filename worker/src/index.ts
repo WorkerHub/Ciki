@@ -19,6 +19,7 @@ import { publicRoutes } from "./routes/public"
 import { setupRoutes } from "./routes/setup"
 import { pageRoutes } from "./routes/pages"
 import { commentRoutes } from "./routes/comments"
+import { notificationRoutes } from "./routes/notifications"
 import { spaceRoutes } from "./routes/spaces"
 import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
@@ -126,6 +127,7 @@ app.route("/api/pages", pageRoutes)
 // 经 isCommentWriteRoute 走 commentAuthMiddleware 实现 Session + write 令牌并行鉴权；
 // 列表等只读端点继续走 authMiddleware 会话拦截。
 app.route("/api/pages", commentRoutes)
+app.route("/api/notifications", notificationRoutes)
 app.route("/api/spaces", spaceRoutes)
 app.route("/api/search", searchRoutes)
 app.route("/api/files", fileRoutes)
