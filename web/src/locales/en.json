@@ -1345,6 +1345,8 @@
       "docs": "Pages",
       "comments": "Comments"
     },
+    "agentOf": "'s Agent",
+    "deletedUserAgent": "Deleted User's Agent",
     "empty": {
       "title": "No activity yet",
       "description": "This author has no activity you have access to."

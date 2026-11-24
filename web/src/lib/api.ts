@@ -546,6 +546,7 @@ export interface UserProfile {
   commentCount: number
   isAgent: boolean
   ownerName: string | null
+  ownerId: number | null
   createdAt: string
 }
 

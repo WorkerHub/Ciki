@@ -1329,6 +1329,8 @@
       "docs": "文档",
       "comments": "评论"
     },
+    "agentOf": " 的 Agent",
+    "deletedUserAgent": "已注销用户的 Agent",
     "empty": {
       "title": "暂无动态",
       "description": "该作者尚未产生你有权查看的任何动态。"
