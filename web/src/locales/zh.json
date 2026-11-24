@@ -1191,6 +1191,22 @@
       "description": "删除后无法恢复。"
     }
   },
+  "notifications": {
+    "title": "通知",
+    "bell": "通知",
+    "unreadCount": "{{count}} 条未读",
+    "empty": "暂无通知",
+    "markAllRead": "全部标为已读",
+    "viewAll": "查看全部",
+    "commented": "评论了文档",
+    "replied": "回复了你的评论",
+    "pageDeleted": "目标文档已被删除",
+    "commentDeleted": "目标评论已被删除",
+    "loadFailed": "通知加载失败",
+    "prevPage": "上一页",
+    "nextPage": "下一页",
+    "pageInfo": "第 {{page}} 页"
+  },
   "help": {
     "title": "粘贴与编辑说明",
     "description": "直接把其他文档里的内容选中复制，粘到编辑器里即可。结构会尽量保真，少数源侧限制无法恢复。",

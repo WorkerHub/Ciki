@@ -78,3 +78,8 @@ export function adminEmailPath(): string {
 export function adminOthersPath(): string {
   return "/admin/others"
 }
+
+/** 站内通知历史页 `/notifications`。 */
+export function notificationsPath(): string {
+  return "/notifications"
+}
