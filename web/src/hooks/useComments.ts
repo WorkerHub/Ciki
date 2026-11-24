@@ -36,13 +36,15 @@ export function useComments(pageId: number) {
     setError("")
     try {
       const list = await commentsApi.list(pageId)
-      if (mine !== seq.current) return
-      setData(list)
+      if (mine !== seq.current) return null
+      setData(list ? { ...list } : null)
       setStatus("ready")
+      return list
     } catch (loadError: unknown) {
-      if (mine !== seq.current) return
+      if (mine !== seq.current) return null
       setStatus("error")
       setError(describeApiError(loadError))
+      return null
     }
   }, [pageId])
 

@@ -6,6 +6,18 @@ import { CommentSection } from "@/components/comments/CommentSection"
 import { i18n } from "@/i18n"
 import { ApiError, type CommentDto, type CommentThread } from "@/lib/api"
 
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), {
+    error: vi.fn(),
+    success: vi.fn(),
+    info: vi.fn(),
+    warning: vi.fn(),
+    dismiss: vi.fn()
+  })
+}))
+
+const { toast } = await import("sonner")
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
   return {
@@ -757,6 +769,7 @@ describe("页尾评论区英文界面", () => {
 
 describe("评论定位与高亮（跨页落地与同页跳转双路径）", () => {
   beforeEach(async () => {
+    vi.mocked(toast).mockClear()
     vi.mocked(commentsApi.list).mockReset()
     vi.mocked(commentsApi.create).mockReset()
     vi.mocked(commentsApi.update).mockReset()
@@ -842,6 +855,7 @@ describe("评论定位与高亮（跨页落地与同页跳转双路径）", () =
     await waitFor(() => {
       expect(item(2)?.className).toContain("ring-primary/40")
     })
+    expect(commentsApi.list).toHaveBeenCalledTimes(1)
   })
 
   it("目标评论不存在时给出已删除 toast 提示且不高亮", async () => {
@@ -867,6 +881,135 @@ describe("评论定位与高亮（跨页落地与同页跳转双路径）", () =
     render(<RouterProvider router={router} />)
 
     await screen.findByText("该评论已删除")
+    expect(toast).toHaveBeenCalledWith("目标评论已被删除")
     expect(item(1)?.className).not.toContain("ring-primary/40")
+    expect(commentsApi.list).toHaveBeenCalledTimes(1)
+  })
+
+  it("同页 hash 跳转（本地数据过期）：目标评论在本地缓存中不存在但服务端存在时，自动 refetch 并滚动高亮，不弹假 toast", async () => {
+    // 初始状态：页面仅包含评论 1（模拟停留页面较久，本地数据未包含后续新评论）
+    vi.mocked(commentsApi.list).mockResolvedValueOnce({
+      total: 1,
+      threads: [thread({ id: 1, bodyMd: "旧评论 1", html: "<p>旧评论 1</p>" })]
+    })
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/p/1",
+          element: <CommentSection pageId={1} />
+        }
+      ],
+      { initialEntries: ["/p/1#comment-1"] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await screen.findByText("旧评论 1")
+    await waitFor(() => {
+      expect(item(1)?.className).toContain("ring-primary/40")
+    })
+
+    // 服务端产生新评论 2，后续 refetch 将返回包含评论 2 的最新数据
+    vi.mocked(commentsApi.list).mockResolvedValueOnce({
+      total: 2,
+      threads: [
+        thread({ id: 1, bodyMd: "旧评论 1", html: "<p>旧评论 1</p>" }),
+        thread({ id: 2, bodyMd: "新鲜评论 2", html: "<p>新鲜评论 2</p>" })
+      ]
+    })
+
+    // 同页跳转到评论 2（此时本地 state 尚无评论 2）
+    await act(async () => {
+      await router.navigate("/p/1#comment-2")
+    })
+
+    // 自动触发 refetch，拉取到新鲜数据后在 DOM 渲染并成功高亮
+    await screen.findByText("新鲜评论 2")
+    await waitFor(() => {
+      expect(item(2)?.className).toContain("ring-primary/40")
+    })
+
+    // 绝不触发假 toast「目标评论已被删除」
+    expect(toast).not.toHaveBeenCalledWith("目标评论已被删除")
+    expect(commentsApi.list).toHaveBeenCalledTimes(2)
+  })
+
+  it("同页 hash 跳转（评论已被删除）：目标评论在本地与服务端均不存在时，refetch 确认后提示已删除且不高亮", async () => {
+    // 初始状态：页面仅包含评论 1
+    vi.mocked(commentsApi.list).mockResolvedValueOnce({
+      total: 1,
+      threads: [thread({ id: 1, bodyMd: "评论 1", html: "<p>评论 1</p>" })]
+    })
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/p/1",
+          element: <CommentSection pageId={1} />
+        }
+      ],
+      { initialEntries: ["/p/1#comment-1"] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await screen.findByText("评论 1")
+    await waitFor(() => {
+      expect(item(1)?.className).toContain("ring-primary/40")
+    })
+
+    // 服务端也依然只有评论 1（目标评论 999 确认不存在或已被硬删除）
+    vi.mocked(commentsApi.list).mockResolvedValueOnce({
+      total: 1,
+      threads: [thread({ id: 1, bodyMd: "评论 1", html: "<p>评论 1</p>" })]
+    })
+
+    // 同页跳转到不存在的评论 999
+    await act(async () => {
+      await router.navigate("/p/1#comment-999")
+    })
+
+    // 经 refetch 确认目标评论不存在，给出 toast 且不高亮
+    await waitFor(() => {
+      expect(toast).toHaveBeenCalledWith("目标评论已被删除")
+    })
+    expect(item(1)?.className).not.toContain("ring-primary/40")
+    expect(commentsApi.list).toHaveBeenCalledTimes(2)
+  })
+
+  it("同页 hash 跳转（refetch 失败）：网络异常时复位 refetchedRef，不弹假 toast「目标评论已被删除」", async () => {
+    // 初始状态：页面仅包含评论 1
+    vi.mocked(commentsApi.list).mockResolvedValueOnce({
+      total: 1,
+      threads: [thread({ id: 1, bodyMd: "评论 1", html: "<p>评论 1</p>" })]
+    })
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/p/1",
+          element: <CommentSection pageId={1} />
+        }
+      ],
+      { initialEntries: ["/p/1#comment-1"] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await screen.findByText("评论 1")
+    await waitFor(() => {
+      expect(item(1)?.className).toContain("ring-primary/40")
+    })
+
+    // 模拟同页跳转到评论 2 时网络失败
+    vi.mocked(commentsApi.list).mockRejectedValueOnce(
+      new Error("Network failure")
+    )
+
+    await act(async () => {
+      await router.navigate("/p/1#comment-2")
+    })
+
+    // 验证：即使 reload 失败，也绝不能直接判定评论被删除而弹假 toast
+    expect(toast).not.toHaveBeenCalledWith("目标评论已被删除")
+    expect(commentsApi.list).toHaveBeenCalledTimes(2)
   })
 })
