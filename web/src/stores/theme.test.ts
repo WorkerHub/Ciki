@@ -20,8 +20,9 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
   beforeEach(() => {
     document.documentElement.className = ""
     document.documentElement.removeAttribute("data-mode")
+    document.documentElement.removeAttribute("data-theme")
     localStorage.clear()
-    useThemeStore.setState({ theme: "auto" })
+    useThemeStore.setState({ theme: "auto", style: "nova" })
   })
 
   it("深色档：写 .dark、data-mode 与 color-scheme，并持久化", () => {
@@ -59,5 +60,56 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     setSystemDark(true)
     useThemeStore.getState().syncSystem()
     expect(isDark()).toBe(true)
+  })
+
+  it("风格切换：切至纸面写 data-theme=paper 并持久化，切回 Nova 写 data-theme=nova", () => {
+    useThemeStore.getState().setStyle("paper")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
+    expect(localStorage.getItem("ciki-theme")).toContain('"style":"paper"')
+
+    useThemeStore.getState().setStyle("nova")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    expect(localStorage.getItem("ciki-theme")).toContain('"style":"nova"')
+  })
+
+  it("2 主题 × 2 模式矩阵：各组合下属性、meta theme-color 与类名准确落定", () => {
+    let meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) {
+      meta = document.createElement("meta")
+      meta.setAttribute("name", "theme-color")
+      document.head.appendChild(meta)
+    }
+
+    // 1. Nova 浅色
+    useThemeStore.getState().setStyle("nova")
+    useThemeStore.getState().setTheme("light")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#ffffff")
+
+    // 2. Nova 深色
+    useThemeStore.getState().setStyle("nova")
+    useThemeStore.getState().setTheme("dark")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#0a0a0a")
+
+    // 3. 纸面 浅色
+    useThemeStore.getState().setStyle("paper")
+    useThemeStore.getState().setTheme("light")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#f7f4ee")
+
+    // 4. 纸面 深色
+    useThemeStore.getState().setStyle("paper")
+    useThemeStore.getState().setTheme("dark")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#0b0c0e")
   })
 })

@@ -18,6 +18,11 @@
     "retry": "Retry",
     "theme": {
       "label": "Theme",
+      "styleLabel": "Style",
+      "style": {
+        "nova": "Nova",
+        "paper": "Paper"
+      },
       "auto": {
         "label": "Auto",
         "hint": "Follow the system appearance"

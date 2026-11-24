@@ -18,6 +18,11 @@
     "retry": "重试",
     "theme": {
       "label": "主题",
+      "styleLabel": "风格",
+      "style": {
+        "nova": "Nova",
+        "paper": "纸面"
+      },
       "auto": {
         "label": "自动",
         "hint": "跟随系统外观切换"

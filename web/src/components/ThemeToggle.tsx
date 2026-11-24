@@ -2,7 +2,12 @@ import { Monitor, Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { THEME_OPTIONS, type Theme } from "@/lib/theme"
+import {
+  THEME_OPTIONS,
+  THEME_STYLE_OPTIONS,
+  type Theme,
+  type ThemeStyle
+} from "@/lib/theme"
 import { useThemeStore } from "@/stores/theme"
 
 const ICONS = {
@@ -10,6 +15,31 @@ const ICONS = {
   light: Sun,
   dark: Moon
 } as const
+
+/** 设置页里的主题风格选择（Nova / 纸面，极简两个选项、无说明文字）。 */
+export function ThemeStyleSegmented() {
+  const { t } = useTranslation()
+  const style = useThemeStore((state) => state.style)
+  const setStyle = useThemeStore((state) => state.setStyle)
+  return (
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      value={style}
+      onValueChange={(value) => {
+        if (value) setStyle(value as ThemeStyle)
+      }}
+      aria-label={t("common.theme.styleLabel")}
+    >
+      {THEME_STYLE_OPTIONS.map((option) => (
+        <ToggleGroupItem key={option.value} value={option.value}>
+          {t(option.labelKey)}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+}
 
 /** 设置页里的三档选择（明示「自动」的含义）。 */
 export function ThemeSegmented() {

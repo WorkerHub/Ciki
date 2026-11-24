@@ -25,11 +25,14 @@
         const root = document.documentElement
         const meta = document.querySelector('meta[name="theme-color"]')
         let theme = "auto"
+        let style = "nova"
         try {
           const stored = localStorage.getItem("ciki-theme")
           if (stored) {
             try {
-              theme = JSON.parse(stored)?.state?.theme ?? stored
+              const parsed = JSON.parse(stored)
+              theme = parsed?.state?.theme ?? parsed
+              style = parsed?.state?.style ?? "nova"
             } catch {
               theme = stored
             }
@@ -38,15 +41,24 @@
           // localStorage 被禁用时按浅色走，不阻塞渲染
         }
         if (theme !== "light" && theme !== "dark") theme = "auto"
+        if (style !== "paper") style = "nova"
         const dark =
           theme === "dark" ||
           (theme === "auto" &&
             window.matchMedia("(prefers-color-scheme: dark)").matches)
+        root.setAttribute("data-theme", style)
         root.classList.toggle("dark", dark)
         // Kumo 的明暗由 [data-mode] + color-scheme 驱动，shadcn 令牌用 .dark 类。
         root.setAttribute("data-mode", dark ? "dark" : "light")
         root.style.colorScheme = dark ? "dark" : "light"
-        if (meta) meta.setAttribute("content", dark ? "#0a0a0a" : "#ffffff")
+        if (meta) {
+          const colors = {
+            nova: { light: "#ffffff", dark: "#0a0a0a" },
+            paper: { light: "#f7f4ee", dark: "#0b0c0e" }
+          }
+          const themeColors = colors[style] || colors.nova
+          meta.setAttribute("content", dark ? themeColors.dark : themeColors.light)
+        }
       })()
     </script>
   </head>
