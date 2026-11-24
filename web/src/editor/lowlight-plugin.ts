@@ -41,10 +41,11 @@ export function getDecorations({
     let from = block.pos + 1
     const language = block.node.attrs.language || defaultLanguage
 
-    const nodes =
-      language && lowlight.registered(language)
+    const nodes = language
+      ? lowlight.registered(language)
         ? getHighlightNodes(lowlight.highlight(language, block.node.textContent))
         : []
+      : getHighlightNodes(lowlight.highlightAuto(block.node.textContent))
 
     parseNodes(nodes).forEach((node) => {
       const to = from + node.text.length
@@ -82,7 +83,7 @@ export function WikiLowlightPlugin({
           lowlight,
           defaultLanguage
         }),
-      apply: (transaction, decorationSet, _oldState, newState) => {
+      apply: (transaction, decorationSet, oldState, newState) => {
         if (transaction.getMeta("lowlight")) {
           return getDecorations({
             doc: newState.doc,
@@ -92,12 +93,37 @@ export function WikiLowlightPlugin({
           })
         }
         if (!transaction.docChanged) return decorationSet
-        return getDecorations({
-          doc: transaction.doc,
-          name,
-          lowlight,
-          defaultLanguage
-        })
+
+        const oldNodeName = oldState.selection.$head.parent.type.name
+        const newNodeName = newState.selection.$head.parent.type.name
+        const oldNodes = findChildren(oldState.doc, (node) => node.type.name === name)
+        const newNodes = findChildren(newState.doc, (node) => node.type.name === name)
+
+        if (
+          [oldNodeName, newNodeName].includes(name) ||
+          newNodes.length !== oldNodes.length ||
+          transaction.steps.some((step: any) => {
+            return (
+              step.from !== undefined &&
+              step.to !== undefined &&
+              oldNodes.some((node) => {
+                return (
+                  node.pos >= step.from &&
+                  node.pos + node.node.nodeSize <= step.to
+                )
+              })
+            )
+          })
+        ) {
+          return getDecorations({
+            doc: transaction.doc,
+            name,
+            lowlight,
+            defaultLanguage
+          })
+        }
+
+        return decorationSet.map(transaction.mapping, transaction.doc)
       }
     },
     props: {

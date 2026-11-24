@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest"
 import { loadLanguage, lowlight } from "./lowlight"
 
 describe("lowlight 语言包拆分与按需加载", () => {
-  it("主路径初始已注册常用核心语言（JavaScript, TypeScript, Python, Bash, SQL, JSON, XML, CSS, Markdown, YAML）", () => {
+  it("主路径初始已注册常用核心语言（含 Shell、Bash、JavaScript 等）", () => {
     expect(lowlight.registered("javascript")).toBe(true)
     expect(lowlight.registered("typescript")).toBe(true)
     expect(lowlight.registered("python")).toBe(true)
     expect(lowlight.registered("bash")).toBe(true)
+    expect(lowlight.registered("shell")).toBe(true)
     expect(lowlight.registered("sql")).toBe(true)
     expect(lowlight.registered("json")).toBe(true)
     expect(lowlight.registered("xml")).toBe(true)
@@ -46,8 +47,14 @@ describe("lowlight 语言包拆分与按需加载", () => {
     expect(res).toEqual({ type: "root", children: [] })
   })
 
-  it("highlightAuto 降级为空结果，避免误识别为无关语言而产生错误高亮", () => {
-    const autoRes = lowlight.highlightAuto("random text or code")
-    expect(autoRes).toEqual({ type: "root", children: [] })
+  it("未标注语言的代码块保留 highlightAuto 自动推断，且具备安全异常兜底", () => {
+    const autoRes = lowlight.highlightAuto("const answer = 42;")
+    expect(autoRes.type).toBe("root")
+    expect(autoRes.children.length).toBeGreaterThan(0)
+
+    // 即使入参异常或解析异常，也不抛出错误
+    expect(() => {
+      lowlight.highlightAuto("")
+    }).not.toThrow()
   })
 })

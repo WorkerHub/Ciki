@@ -22,8 +22,9 @@ export default defineConfig({
             return "prosemirror"
           }
           if (
-            id.includes("node_modules/highlight.js") ||
-            id.includes("node_modules/lowlight")
+            id.includes("node_modules/lowlight") ||
+            (id.includes("node_modules/highlight.js") &&
+              !id.includes("/languages/"))
           ) {
             return "highlight"
           }

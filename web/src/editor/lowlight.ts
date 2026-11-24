@@ -5,12 +5,13 @@ import javascript from "highlight.js/lib/languages/javascript"
 import json from "highlight.js/lib/languages/json"
 import markdown from "highlight.js/lib/languages/markdown"
 import python from "highlight.js/lib/languages/python"
+import shell from "highlight.js/lib/languages/shell"
 import sql from "highlight.js/lib/languages/sql"
 import typescript from "highlight.js/lib/languages/typescript"
 import xml from "highlight.js/lib/languages/xml"
 import yaml from "highlight.js/lib/languages/yaml"
 
-/** 主路径只注册最高频的 10 种核心语言，其余按需加载，大幅缩减初始 chunk 体积 */
+/** 主路径只注册最高频的核心语言（含交互式 shell），其余按需加载，大幅缩减初始 chunk 体积 */
 const initialLanguages = {
   bash,
   css,
@@ -18,6 +19,7 @@ const initialLanguages = {
   json,
   markdown,
   python,
+  shell,
   sql,
   typescript,
   xml,
@@ -29,7 +31,6 @@ export const lowlight = createLowlight(initialLanguages)
 /** 常见语言别名映射 */
 const LANGUAGE_ALIASES: Record<string, string> = {
   sh: "bash",
-  shell: "bash",
   zsh: "bash",
   js: "javascript",
   ts: "typescript",
@@ -87,7 +88,12 @@ export async function loadLanguage(
   if (lowlight.registered(normalized)) return true
 
   const targetLang = LANGUAGE_ALIASES[normalized] ?? normalized
-  if (lowlight.registered(targetLang)) return true
+  if (lowlight.registered(targetLang)) {
+    if (targetLang !== normalized && !lowlight.registered(normalized)) {
+      lowlight.registerAlias(targetLang, normalized)
+    }
+    return true
+  }
 
   const loader = DYNAMIC_LOADERS[targetLang]
   if (!loader) return false
@@ -100,7 +106,7 @@ export async function loadLanguage(
       const mod = await loader()
       const syntax = mod.default || mod
       lowlight.register(targetLang, syntax)
-      if (targetLang !== normalized) {
+      if (targetLang !== normalized && !lowlight.registered(normalized)) {
         lowlight.registerAlias(targetLang, normalized)
       }
       return true
@@ -118,7 +124,7 @@ export async function loadLanguage(
 /**
  * 安全兜底：
  * 1. highlight: 遇到未注册语言或解析异常时安全返回空结构，不抛错；
- * 2. highlightAuto: 默认返回空结构，避免未注册语言被误识别为其他语言而产生混乱高亮。
+ * 2. highlightAuto: 捕获异常，确保推断失败时不抛错，安全返回空结构。
  */
 const rawHighlight = lowlight.highlight.bind(lowlight)
 lowlight.highlight = (lang: string, code: string) => {
@@ -132,4 +138,11 @@ lowlight.highlight = (lang: string, code: string) => {
   return { type: "root", children: [] }
 }
 
-lowlight.highlightAuto = () => ({ type: "root", children: [] })
+const rawHighlightAuto = lowlight.highlightAuto.bind(lowlight)
+lowlight.highlightAuto = (code: string) => {
+  try {
+    return rawHighlightAuto(code)
+  } catch {
+    return { type: "root", children: [] }
+  }
+}
