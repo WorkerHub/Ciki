@@ -1,9 +1,9 @@
 /**
  * 文件上传的单一入口：类型白名单（图片按魔数、场景 JSON 按白名单预检消毒）、
- * 图片 ≤10MB / 场景 JSON ≤2MB、落 R2。
+ * 通用图片 ≤10MB / 场景 JSON ≤2MB / 头像图片 ≤2MB、落 R2。
  *
  * `/api/files`、`/api/import/files` 与 `/api/me/avatar` 共用同一份实现（规格
- * §12.1 / §1：头像专用口与导入都不复刻一套校验，口径与 /api/files 完全一致）；
+ * §12.1 / §1：头像专用口与导入都不复刻一套校验，口径与 /api/files 一致，头像类别单独收紧上限为 2MB）；
  * 上传者 id 与类别由调用方传入，两者一起写进 R2 的 customMetadata。
  */
 import type { Context } from "hono"
@@ -13,6 +13,7 @@ import { sanitizeExcalidrawSceneJson } from "./excalidraw-sanitize"
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 export const MAX_SCENE_BYTES = 2 * 1024 * 1024
+export const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 export const MAX_EMBED_BYTES = 1024 * 1024
 
 /** embed 下发的 Content-Type（含字符集，规格 §2 要求逐字带上）。 */
@@ -118,6 +119,13 @@ export type UploadCategory = "avatars" | "pages" | "imports"
 export const UPLOAD_KEY_RE =
   /^(?:(?:avatars|pages|imports)\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp|json)$/
 
+/**
+ * 头像 key 形状：严格必须以 `avatars/` 为前缀（UUID.扩展名，仅限图片）。
+ * `PUT /api/me/profile` 的 avatarKey 兼容字段只接受此形状，挡掉 pages/imports 或存量平铺 key。
+ */
+export const AVATAR_KEY_RE =
+  /^avatars\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp)$/
+
 export interface ImageType {
   mime: string
   ext: string
@@ -170,10 +178,11 @@ export type UploadRead =
  */
 export async function readUpload(
   c: Context<HonoEnv>,
-  allowJson = true
+  allowJson = true,
+  maxBytes = MAX_UPLOAD_BYTES
 ): Promise<UploadRead> {
   const declared = Number.parseInt(c.req.header("content-length") ?? "0", 10)
-  if (declared > MAX_UPLOAD_BYTES + 1024 * 1024) {
+  if (declared > maxBytes + 1024 * 1024) {
     return {
       ok: false,
       response: c.json({ error: "File too large", code: "FILE_TOO_LARGE" }, 413)
@@ -238,7 +247,7 @@ export async function readUpload(
     }
   }
 
-  if (file.size > MAX_UPLOAD_BYTES) {
+  if (file.size > maxBytes) {
     return {
       ok: false,
       response: c.json({ error: "File too large", code: "FILE_TOO_LARGE" }, 413)
@@ -292,9 +301,10 @@ export async function readUpload(
 
 export async function readImageUpload(
   c: Context<HonoEnv>,
-  allowJson = true
+  allowJson = true,
+  maxBytes = MAX_UPLOAD_BYTES
 ): Promise<UploadRead> {
-  return readUpload(c, allowJson)
+  return readUpload(c, allowJson, maxBytes)
 }
 
 /** 落盘后的元数据：普通上传的响应体就是这个形状。 */
@@ -317,7 +327,8 @@ export async function storeImageUpload(
   category: UploadCategory
 ): Promise<UploadStored> {
   const allowJson = category !== "avatars"
-  const read = await readUpload(c, allowJson)
+  const maxBytes = category === "avatars" ? MAX_AVATAR_BYTES : MAX_UPLOAD_BYTES
+  const read = await readUpload(c, allowJson, maxBytes)
   if (!read.ok) return read
 
   const { bytes, type } = read
