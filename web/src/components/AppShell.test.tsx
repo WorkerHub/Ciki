@@ -579,6 +579,60 @@ describe("应用外壳：顶栏、账号菜单、侧栏与正文宽度", () => {
       window.matchMedia = original
     }
   })
+
+  it("/users 路由归入系统页：无侧栏、正文列顶部含「返回文档」按钮、移动端无抽屉入口", async () => {
+    // 1. 直达 /users/1：无侧栏，正文列流式居中，「返回文档」回退「/」
+    const { container, unmount } = renderShell("/users/1")
+    expect(container.querySelector("[data-sidebar-collapsed]")).toBeNull()
+    expect(container.querySelector("#sidebar")).toBeNull()
+    const backButton = screen.getByRole("link", { name: "返回文档" })
+    expect(backButton).toBeInTheDocument()
+    expect(backButton).toHaveAttribute("href", "/")
+    const systemWrapper = screen.getByText("页面内容").parentElement
+    expect(systemWrapper).toHaveClass("max-w-[1400px]", "mx-auto")
+    expect(systemWrapper?.contains(backButton)).toBe(true)
+    unmount()
+
+    // 2. 从文档页 /p/101 进入 /users/1：「返回文档」按钮返回 /p/101
+    const router = createMemoryRouter(
+      [
+        {
+          element: <AppShell />,
+          children: [
+            { path: "p/:id", element: <div>文档内容</div> },
+            { path: "users/:id", element: <div>作者主页内容</div> }
+          ]
+        }
+      ],
+      { initialEntries: ["/p/101"] }
+    )
+    const routed = render(<RouterProvider router={router} />)
+    router.navigate("/users/1")
+    await screen.findByText("作者主页内容")
+    const dynamicBackButton = screen.getByRole("link", { name: "返回文档" })
+    expect(dynamicBackButton).toHaveAttribute("href", "/p/101")
+    routed.unmount()
+
+    // 3. 移动端：无抽屉菜单入口
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false
+    })) as unknown as typeof window.matchMedia
+    try {
+      const mobile = renderShell("/users/1")
+      expect(screen.queryByRole("button", { name: "打开页面树" })).toBeNull()
+      mobile.unmount()
+    } finally {
+      window.matchMedia = original
+    }
+  })
 })
 
 /** 英文界面：外壳与导航文案全走 locale，中文一个字都不留。 */

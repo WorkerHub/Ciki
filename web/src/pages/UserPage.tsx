@@ -14,8 +14,12 @@ import { UserAvatar } from "@/components/UserAvatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger
+} from "@/components/ui/hover-card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatAgentAuthor } from "@/lib/agent-display"
 import {
   ApiError,
   describeApiError,
@@ -25,9 +29,9 @@ import {
   type UserProfile
 } from "@/lib/api"
 import { formatDate, formatRelative } from "@/lib/format"
-import { pagePath, parseIdParam } from "@/lib/routes"
+import { pagePath, parseIdParam, userPath } from "@/lib/routes"
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 10
 
 function getActivityTypeConfig(
   type: UserActivityType,
@@ -72,6 +76,7 @@ export function UserPage() {
   const [notFound, setNotFound] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const [hoverCardOpen, setHoverCardOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
     if (userId === null) {
@@ -194,11 +199,7 @@ export function UserPage() {
     )
   }
 
-  const author = formatAgentAuthor({
-    name: profile.username,
-    isAgent: profile.isAgent,
-    ownerName: profile.ownerName
-  })
+  const hasOwner = Boolean(profile.ownerName?.trim() && profile.ownerId != null)
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
@@ -304,16 +305,58 @@ export function UserPage() {
                 className="size-20 text-2xl"
               />
               <div className="space-y-1 w-full min-w-0">
-                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  <h1 className="font-heading text-lg font-semibold tracking-tight break-words">
-                    {author.displayName}
-                  </h1>
-                  {author.showAgentBadge ? (
-                    <Badge variant="secondary" className="text-xs">
-                      Agent
-                    </Badge>
-                  ) : null}
-                </div>
+                {profile.isAgent ? (
+                  <HoverCard
+                    open={hoverCardOpen}
+                    onOpenChange={setHoverCardOpen}
+                  >
+                    <HoverCardTrigger asChild>
+                      <button
+                        type="button"
+                        className="inline-flex cursor-pointer flex-wrap items-center justify-center gap-1.5 focus-visible:outline-hidden"
+                        onClick={() => setHoverCardOpen((prev) => !prev)}
+                        onTouchEnd={(e) => {
+                          e.preventDefault()
+                          setHoverCardOpen((prev) => !prev)
+                        }}
+                      >
+                        <h1 className="font-heading text-lg font-semibold tracking-tight break-words">
+                          {profile.username}
+                        </h1>
+                        <Badge variant="secondary" className="text-xs">
+                          Agent
+                        </Badge>
+                      </button>
+                    </HoverCardTrigger>
+                    <HoverCardContent
+                      align="center"
+                      sideOffset={6}
+                      className="w-auto max-w-xs text-center text-sm"
+                    >
+                      {hasOwner ? (
+                        <p className="text-sm text-foreground">
+                          <Link
+                            to={userPath(profile.ownerId!)}
+                            className="font-medium text-foreground underline underline-offset-4 hover:text-primary"
+                          >
+                            {profile.ownerName?.trim()}
+                          </Link>
+                          <span>{t("user.agentOf")}</span>
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {t("user.deletedUserAgent")}
+                        </p>
+                      )}
+                    </HoverCardContent>
+                  </HoverCard>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                    <h1 className="font-heading text-lg font-semibold tracking-tight break-words">
+                      {profile.username}
+                    </h1>
+                  </div>
+                )}
                 {profile.bio ? (
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words pt-1">
                     {profile.bio}

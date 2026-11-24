@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react"
+import { fireEvent } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Link, MemoryRouter, Route, Routes } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -32,6 +33,7 @@ const mockUser: UserProfile = {
   commentCount: 3,
   isAgent: false,
   ownerName: null,
+  ownerId: null,
   createdAt: "2026-11-20T08:00:00.000Z"
 }
 
@@ -78,8 +80,9 @@ function renderPage(userId = "1") {
 }
 
 describe("UserPage 作者主页", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks()
+    await i18n.changeLanguage("zh")
   })
 
   it("正确渲染个人卡（头像、用户名、简介、加入时间、文档与评论数）与动态流三类事件", async () => {
@@ -87,6 +90,11 @@ describe("UserPage 作者主页", () => {
     vi.mocked(usersApi.getActivity).mockResolvedValue(mockActivity)
 
     renderPage("1")
+
+    expect(usersApi.getActivity).toHaveBeenCalledWith(1, {
+      page: 1,
+      limit: 10
+    })
 
     expect(
       await screen.findByRole("heading", { name: "alice" })
@@ -128,14 +136,16 @@ describe("UserPage 作者主页", () => {
     expect(createLink).toHaveAttribute("href", "/p/101")
   })
 
-  it("Agent 用户带归属人时正确展示归属人格式", async () => {
+  it("Agent 用户展示纯用户名、Agent 徽标与归属人浮层链接", async () => {
+    const user = userEvent.setup()
     vi.mocked(usersApi.getProfile).mockResolvedValue({
       ...mockUser,
       id: 2,
       username: "helper-bot",
       bio: "",
       isAgent: true,
-      ownerName: "alice"
+      ownerName: "alice",
+      ownerId: 10
     })
     vi.mocked(usersApi.getActivity).mockResolvedValue({
       events: [],
@@ -145,20 +155,57 @@ describe("UserPage 作者主页", () => {
     renderPage("2")
 
     expect(
-      await screen.findByRole("heading", {
-        name: "helper-bot（alice 的 Agent）"
-      })
+      await screen.findByRole("heading", { name: "helper-bot" })
     ).toBeInTheDocument()
+    expect(screen.getByText("Agent")).toBeInTheDocument()
+
+    // 点击唤出浮层（移动端点按或点击），展示归属人链接与「 的 Agent」
+    const trigger = screen.getByRole("button", { name: /helper-bot.*Agent/ })
+    await user.click(trigger)
+
+    const ownerLink = await screen.findByRole("link", { name: "alice" })
+    expect(ownerLink).toBeInTheDocument()
+    expect(ownerLink).toHaveAttribute("href", "/users/10")
+    expect(screen.getByText(/的 Agent/)).toBeInTheDocument()
   })
 
-  it("Agent 用户无归属人时展示 Agent 徽标", async () => {
+  it("Agent 用户支持移动端 touchEnd 点按唤出浮层", async () => {
+    vi.mocked(usersApi.getProfile).mockResolvedValue({
+      ...mockUser,
+      id: 2,
+      username: "helper-bot",
+      bio: "",
+      isAgent: true,
+      ownerName: "alice",
+      ownerId: 10
+    })
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
+      hasMore: false
+    })
+
+    renderPage("2")
+
+    const trigger = await screen.findByRole("button", {
+      name: /helper-bot.*Agent/
+    })
+    fireEvent.touchEnd(trigger)
+
+    const ownerLink = await screen.findByRole("link", { name: "alice" })
+    expect(ownerLink).toBeInTheDocument()
+    expect(ownerLink).toHaveAttribute("href", "/users/10")
+  })
+
+  it("Agent 用户无归属人或 ownerId 缺失时回落纯文本「已注销用户的 Agent」", async () => {
+    const user = userEvent.setup()
     vi.mocked(usersApi.getProfile).mockResolvedValue({
       ...mockUser,
       id: 3,
       username: "orphan-bot",
       bio: "",
       isAgent: true,
-      ownerName: null
+      ownerName: null,
+      ownerId: null
     })
     vi.mocked(usersApi.getActivity).mockResolvedValue({
       events: [],
@@ -171,6 +218,33 @@ describe("UserPage 作者主页", () => {
       await screen.findByRole("heading", { name: "orphan-bot" })
     ).toBeInTheDocument()
     expect(screen.getByText("Agent")).toBeInTheDocument()
+
+    const trigger = screen.getByRole("button", { name: /orphan-bot.*Agent/ })
+    await user.click(trigger)
+
+    expect(await screen.findByText("已注销用户的 Agent")).toBeInTheDocument()
+    expect(
+      screen.queryByRole("link", { name: /已注销用户的 Agent/ })
+    ).toBeNull()
+  })
+
+  it("人类用户不显示 Agent 徽标与浮层触发器", async () => {
+    vi.mocked(usersApi.getProfile).mockResolvedValue({
+      ...mockUser,
+      isAgent: false
+    })
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
+      hasMore: false
+    })
+
+    renderPage("1")
+
+    expect(
+      await screen.findByRole("heading", { name: "alice" })
+    ).toBeInTheDocument()
+    expect(screen.queryByText("Agent")).toBeNull()
+    expect(screen.queryByRole("button", { name: /alice.*Agent/ })).toBeNull()
   })
 
   it("动态流为空时展示空态", async () => {
@@ -251,8 +325,17 @@ describe("UserPage 作者主页", () => {
     const loadMoreButton = screen.getByRole("button", { name: "显示更多" })
     expect(loadMoreButton).toBeInTheDocument()
 
+    expect(usersApi.getActivity).toHaveBeenNthCalledWith(1, 1, {
+      page: 1,
+      limit: 10
+    })
+
     await user.click(loadMoreButton)
 
+    expect(usersApi.getActivity).toHaveBeenNthCalledWith(2, 1, {
+      page: 2,
+      limit: 10
+    })
     expect(await screen.findByText("第二页文档")).toBeInTheDocument()
     expect(screen.getByText("第一页文档")).toBeInTheDocument()
     expect(screen.queryByRole("button", { name: "显示更多" })).toBeNull()
@@ -346,6 +429,53 @@ describe("UserPage 作者主页", () => {
     expect(screen.getByText("Pages")).toBeInTheDocument()
     expect(screen.getByText("Comments")).toBeInTheDocument()
     expect(screen.getByText("No activity yet")).toBeInTheDocument()
+  })
+
+  it("英文环境下展示 Agent 归属人浮层与已注销状态文本", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    vi.mocked(usersApi.getProfile).mockResolvedValue({
+      ...mockUser,
+      id: 2,
+      username: "helper-bot",
+      bio: "",
+      isAgent: true,
+      ownerName: "alice",
+      ownerId: 10
+    })
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
+      hasMore: false
+    })
+
+    const { unmount } = renderPage("2")
+
+    expect(
+      await screen.findByRole("heading", { name: "helper-bot" })
+    ).toBeInTheDocument()
+    const trigger = screen.getByRole("button", { name: /helper-bot.*Agent/ })
+    await user.click(trigger)
+
+    const ownerLink = await screen.findByRole("link", { name: "alice" })
+    expect(ownerLink).toBeInTheDocument()
+    expect(screen.getByText(/'s Agent/)).toBeInTheDocument()
+    unmount()
+
+    vi.mocked(usersApi.getProfile).mockResolvedValue({
+      ...mockUser,
+      id: 3,
+      username: "orphan-bot",
+      bio: "",
+      isAgent: true,
+      ownerName: null,
+      ownerId: null
+    })
+    renderPage("3")
+    const trigger2 = await screen.findByRole("button", {
+      name: /orphan-bot.*Agent/
+    })
+    await user.click(trigger2)
+    expect(await screen.findByText("Deleted User's Agent")).toBeInTheDocument()
   })
 
   it("右栏只展示个人卡，不渲染文档目录 ArticleToc", async () => {

@@ -85,7 +85,8 @@ const SYSTEM_ROUTE_PREFIXES = [
   "/about",
   "/admin",
   "/profile",
-  "/notifications"
+  "/notifications",
+  "/users"
 ]
 
 const SPACE_SYSTEM_SEGMENTS = new Set(["trash", "settings"])
