@@ -14,6 +14,7 @@
       "en": "English"
     },
     "cancel": "取消",
+    "confirm": "确定",
     "save": "保存",
     "retry": "重试",
     "theme": {
@@ -811,7 +812,11 @@
       "title": "头像",
       "description": "PNG / JPG / GIF / WebP，单张不超过 10MB；保存后生效。",
       "change": "更换头像",
-      "select": "选择头像"
+      "select": "选择头像",
+      "cropTitle": "裁剪头像",
+      "cropConfirm": "确定",
+      "decodeFailed": "图片解码失败，请更换图片重试。",
+      "zoomSlider": "缩放选区"
     },
     "bio": {
       "title": "一句话简介",

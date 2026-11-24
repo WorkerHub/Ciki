@@ -119,6 +119,25 @@ if (typeof window !== "undefined") {
       callback(blob)
     }
   }
+  if (!("createImageBitmap" in globalThis)) {
+    const createImageBitmapStub = (
+      _image: unknown,
+      _options?: { imageOrientation?: string }
+    ) => {
+      return Promise.resolve({
+        width: 800,
+        height: 600,
+        close: () => {}
+      } as ImageBitmap)
+    }
+    ;(
+      globalThis as unknown as { createImageBitmap: unknown }
+    ).createImageBitmap = createImageBitmapStub
+    if (typeof window !== "undefined") {
+      ;(window as unknown as { createImageBitmap: unknown }).createImageBitmap =
+        createImageBitmapStub
+    }
+  }
   if (!("Path2D" in globalThis)) {
     class Path2DStub {
       addPath() {}

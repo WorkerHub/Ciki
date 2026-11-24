@@ -152,7 +152,7 @@ describe("个人资料页", () => {
     expect(screen.getByText("可用名字")).toBeInTheDocument()
   })
 
-  it("选头像后保存按钮出现，保存时走头像专用上传口且不提交用户名", async () => {
+  it("选头像后进入裁剪，确认裁剪后进入预览并出现保存按钮，保存时走头像专用上传口且传归一化文件", async () => {
     const browser = userEvent.setup()
     const withAvatar = {
       ...user,
@@ -167,13 +167,24 @@ describe("个人资料页", () => {
     await browser.upload(screen.getByLabelText("选择头像"), file)
     expect(screen.queryByRole("alert")).toBeNull()
 
-    // 选头像后，页面级保存按钮出现
-    const saveBtn = screen.getByRole("button", { name: "保存" })
+    // 选图后先进入裁剪弹窗
+    expect(
+      await screen.findByRole("heading", { name: "裁剪头像" })
+    ).toBeInTheDocument()
+    const confirmCropBtn = screen.getByRole("button", { name: "确定" })
+    await browser.click(confirmCropBtn)
+
+    // 确认裁剪后，弹窗关闭，进入预览，页面级保存按钮出现
+    const saveBtn = await screen.findByRole("button", { name: "保存" })
     expect(saveBtn).toBeInTheDocument()
 
     await browser.click(saveBtn)
 
-    await waitFor(() => expect(meApi.uploadAvatar).toHaveBeenCalledWith(file))
+    // 验证上传的是归一化后的 WebP 文件，而不是原图直接直传
+    await waitFor(() => expect(meApi.uploadAvatar).toHaveBeenCalled())
+    const uploadedFile = vi.mocked(meApi.uploadAvatar).mock.calls[0][0]
+    expect(uploadedFile.type).toBe("image/webp")
+    expect(uploadedFile.name).toBe("avatar.webp")
     // 用户名未改：不调 updateProfile
     expect(meApi.updateProfile).not.toHaveBeenCalled()
     expect(useAuthStore.getState().user?.avatarUrl).toBe(
@@ -184,12 +195,54 @@ describe("个人资料页", () => {
     expect(screen.queryByRole("button", { name: "保存" })).toBeNull()
   })
 
-  it("先选头像又点修改时，两个保存按钮按规格字面并存保留", async () => {
+  it("选头像进入裁剪后点取消，丢弃文件并回退，页面不展示保存按钮", async () => {
     const browser = userEvent.setup()
     render(<ProfilePage />)
 
     const file = new File(["png"], "avatar.png", { type: "image/png" })
     await browser.upload(screen.getByLabelText("选择头像"), file)
+
+    expect(
+      await screen.findByRole("heading", { name: "裁剪头像" })
+    ).toBeInTheDocument()
+    await browser.click(screen.getByRole("button", { name: "取消" }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+    expect(screen.queryByRole("button", { name: "保存" })).toBeNull()
+    expect(meApi.uploadAvatar).not.toHaveBeenCalled()
+  })
+
+  it("头像图片解码失败时拦截并明确报错提示换图，不打开裁剪弹窗且不发请求", async () => {
+    const orig = window.createImageBitmap
+    vi.spyOn(window, "createImageBitmap").mockRejectedValue(
+      new Error("DECODE_ERROR")
+    )
+    const browser = userEvent.setup()
+    render(<ProfilePage />)
+
+    const file = new File(["invalid-bytes"], "broken.png", {
+      type: "image/png"
+    })
+    await browser.upload(screen.getByLabelText("选择头像"), file)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "图片解码失败，请更换图片重试。"
+    )
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(screen.queryByRole("button", { name: "保存" })).toBeNull()
+    expect(meApi.uploadAvatar).not.toHaveBeenCalled()
+    window.createImageBitmap = orig
+  })
+
+  it("先选头像确认裁剪又点修改时，两个保存按钮按规格字面并存保留", async () => {
+    const browser = userEvent.setup()
+    render(<ProfilePage />)
+
+    const file = new File(["png"], "avatar.png", { type: "image/png" })
+    await browser.upload(screen.getByLabelText("选择头像"), file)
+    await browser.click(await screen.findByRole("button", { name: "确定" }))
     expect(screen.getAllByRole("button", { name: "保存" })).toHaveLength(1)
 
     await browser.click(screen.getByRole("button", { name: "修改" }))

@@ -2,6 +2,7 @@ import { UserRound } from "lucide-react"
 import { cn } from "cn"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { AvatarCropDialog } from "@/components/AvatarCropDialog"
 import { displayUsername, UserAvatar } from "@/components/UserAvatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -41,6 +42,8 @@ export function ProfilePage() {
   const [savingAvatar, setSavingAvatar] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [cropOpen, setCropOpen] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const fileInput = useRef<HTMLInputElement>(null)
@@ -76,7 +79,25 @@ export function ProfilePage() {
     }
     setError("")
     setNotice("")
-    setFile(next)
+    setCropFile(next)
+    setCropOpen(true)
+  }
+
+  const handleCropConfirm = (normalizedFile: File) => {
+    setCropOpen(false)
+    setCropFile(null)
+    setFile(normalizedFile)
+  }
+
+  const handleCropCancel = () => {
+    setCropOpen(false)
+    setCropFile(null)
+  }
+
+  const handleCropError = (msg: string) => {
+    setCropOpen(false)
+    setCropFile(null)
+    setError(msg)
   }
 
   const startEditUsername = () => {
@@ -422,6 +443,14 @@ export function ProfilePage() {
           </div>
         ) : null}
       </div>
+
+      <AvatarCropDialog
+        open={cropOpen}
+        file={cropFile}
+        onConfirm={handleCropConfirm}
+        onCancel={handleCropCancel}
+        onError={handleCropError}
+      />
     </div>
   )
 }
