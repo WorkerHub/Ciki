@@ -1390,6 +1390,62 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 按当前设置修剪全部页面（含回收站页面的版本行），200 `{"limit":3,"deleted":42}`，`deleted` 即实际删除数（单条 set-based DELETE，原子）。只删 `page_revisions` 行：`pages` 当前内容、FTS、R2 对象都不动。不限时 409 `{"error":"Revision retention is unlimited","code":"RETENTION_UNLIMITED"}`，一条也不删。重复调用幂等（没有超出上限的版本时 `deleted: 0`）。
 
+### 用户与作者主页（需会话）
+
+读者在文档页点击作者头像或用户名，可进入该作者的公开主页。仅限登录会话访问，不开放公开访问。
+
+#### GET /api/users/:id/profile
+
+返回该用户的公开资料：
+
+```json
+{
+  "id": 1,
+  "username": "alice",
+  "avatarUrl": "/api/files/avatars/alice.png",
+  "isAgent": false,
+  "ownerName": null,
+  "createdAt": "2026-11-24T10:00:00.000Z"
+}
+```
+
+- 字段：`id`（数字 ID）、`username`（用户名）、`avatarUrl`（头像文件地址或 null）、`isAgent`（是否为 Agent 账号）、`ownerName`（归属人用户名，仅 agent 时有值；人类用户或 owner 不存在时为 null）、`createdAt`（注册加入时间）。
+- 绝不返回邮箱（email）、密码哈希（password_hash）、站点角色（role）、邮箱验证状态（email_verified）等敏感字段。
+- 用户不存在或 `:id` 非规范正整数回 404 `{"error":"User not found"}`。
+
+#### GET /api/users/:id/pages
+
+该用户创建的页面列表，**仅含当前查看者有权访问的空间内的页面**（复用现行空间可见性判定，无权空间的页面连标题不得出现）。必须分页，按 `updatedAt` 倒序。
+
+入参（Query 参数）：
+
+- `page`：页码（正整数，缺省 1）
+- `limit`：每页条数（正整数，缺省 20，范围 1–100）
+- `offset`：可选偏移量（传入时优先于 page 计算）
+
+```json
+{
+  "pages": [
+    {
+      "id": 12,
+      "title": "页面标题",
+      "spaceName": "默认空间",
+      "createdAt": "2026-11-24T10:00:00.000Z",
+      "updatedAt": "2026-11-24T10:30:00.000Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20,
+  "hasMore": false
+}
+```
+
+- 空间可见性过滤：站点管理员可见全部空间内该用户创建的页面；非管理员仅可见当前查看者在 `space_members` 中所属空间内该用户创建的页面。
+- 软删除过滤：`deleted_at IS NOT NULL` 的页面排除，不泄露标题且不计入 `total`。
+- 排序：按 `updatedAt` 倒序（相同时按 `id` 倒序稳定分页）。
+- 用户不存在或 `:id` 非规范正整数回 404 `{"error":"User not found"}`。
+
 ### 空间与成员
 
 权限：站点管理员可见/可管理全部空间；普通用户只看得见自己是成员的空间。列表/详情/树/直链/回收站/搜索对非成员一律 404。空间信息与成员管理仅空间 `admin` 或站点管理员可调用（`editor` / `viewer` → 403）。任何登录用户都能建空间，创建者自动成为该空间 `admin`。
@@ -1539,11 +1595,13 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
   "contentText": "…",
   "contentMd": "## 小节\n\n正文",
   "createdBy": 1,
+  "createdById": 1,
   "createdByName": "张三",
   "createdByAvatarUrl": "/api/files/avatars/….png",
   "createdByIsAgent": false,
   "createdByOwnerName": null,
   "updatedBy": 1,
+  "updatedById": 1,
   "updatedByName": "张三",
   "updatedByAvatarUrl": "/api/files/avatars/….png",
   "updatedByIsAgent": false,
@@ -1554,6 +1612,7 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
 ```
 
 - **作者展示信息解析**：详情响应包含 `createdByName`、`createdByAvatarUrl`、`createdByIsAgent`、`createdByOwnerName`、`updatedByName`、`updatedByAvatarUrl`、`updatedByIsAgent`、`updatedByOwnerName` 等字段，保留原数字 `createdBy` 与 `updatedBy`。
+  - 新增 `createdById` 与 `updatedById` 别名（值等同于 `createdBy` 与 `updatedBy`），供前端署名行跳转作者主页；
   - `created_by` / `updated_by` 为 `0`（播种页面）：名字与头像皆为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
   - 用户在 `users` 表已不存在（已被彻底注销删除的用户）：名字回退为 `"已注销用户"`（`DELETED_AUTHOR_NAME`），头像为 `null`，`isAgent` 为 `false`，`ownerName` 为 `null`；
   - 正常用户：名字为 `users.username`，头像为 `user.avatar_key ? "/api/files/" + key : null`，`isAgent` 为布尔值（`user.kind === 'agent'`），`ownerName` 为其 owner 当前显示名（仅当 `isAgent` 为 true 且 owner 账号存在时非空，真人与 owner 注销/不存在时恒为 `null`）。

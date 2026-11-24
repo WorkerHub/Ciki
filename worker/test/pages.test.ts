@@ -24,9 +24,11 @@ interface PageDetail {
   contentJson: string
   contentText: string
   createdBy: number
+  createdById: number
   createdByName: string | null
   createdByAvatarUrl: string | null
   updatedBy: number
+  updatedById: number
   updatedByName: string | null
   updatedByAvatarUrl: string | null
   updatedAt: string
@@ -880,9 +882,11 @@ describe("页面：作者信息解析与回退", () => {
     expect(createRes.status).toBe(201)
     const created = (await createRes.json()) as PageDetail
     expect(created.createdBy).toBe(aliceId)
+    expect(created.createdById).toBe(aliceId)
     expect(created.createdByName).toBe("alice")
     expect(created.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
     expect(created.updatedBy).toBe(aliceId)
+    expect(created.updatedById).toBe(aliceId)
     expect(created.updatedByName).toBe("alice")
     expect(created.updatedByAvatarUrl).toBe("/api/files/avatars/alice.png")
 
@@ -897,9 +901,11 @@ describe("页面：作者信息解析与回退", () => {
     expect(getRes.status).toBe(200)
     const detail = (await getRes.json()) as PageDetail
     expect(detail.createdBy).toBe(aliceId)
+    expect(detail.createdById).toBe(aliceId)
     expect(detail.createdByName).toBe("alice")
     expect(detail.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
     expect(detail.updatedBy).toBe(aliceId)
+    expect(detail.updatedById).toBe(aliceId)
     expect(detail.updatedByName).toBe("alice")
     expect(detail.updatedByAvatarUrl).toBe("/api/files/avatars/alice.png")
 
@@ -917,9 +923,11 @@ describe("页面：作者信息解析与回退", () => {
     }
     expect(jsonDetail.contentJson).toBe(JSON.stringify({ type: "doc" }))
     expect(jsonDetail.createdBy).toBe(aliceId)
+    expect(jsonDetail.createdById).toBe(aliceId)
     expect(jsonDetail.createdByName).toBe("alice")
     expect(jsonDetail.createdByAvatarUrl).toBe("/api/files/avatars/alice.png")
     expect(jsonDetail.updatedBy).toBe(aliceId)
+    expect(jsonDetail.updatedById).toBe(aliceId)
     expect(jsonDetail.updatedByName).toBe("alice")
     expect(jsonDetail.updatedByAvatarUrl).toBe("/api/files/avatars/alice.png")
 
