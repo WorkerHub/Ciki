@@ -20,6 +20,19 @@ import { useComments } from "@/hooks/useComments"
 import { type CommentDto, type CommentThread, commentsApi } from "@/lib/api"
 import { scrollToHeading } from "@/lib/scroll-anchor"
 
+function findCommentInThreads(
+  threads: CommentThread[],
+  commentId: number
+): CommentDto | null {
+  for (const thread of threads) {
+    if (thread.id === commentId) return thread
+    for (const reply of thread.replies) {
+      if (reply.id === commentId) return reply
+    }
+  }
+  return null
+}
+
 /**
  * 阅读页页尾评论区（规格 v1.0 §4）。
  *
@@ -52,53 +65,70 @@ export function CommentSection({ pageId }: { pageId: number }) {
   const hash =
     location.hash || (typeof window !== "undefined" ? window.location.hash : "")
   const hashCheckedRef = useRef<string | null>(null)
+  const refetchedRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (!hasData) return
     if (!hash.startsWith("#comment-")) return
     const key = `${pageId}:${hash}`
     if (hashCheckedRef.current === key) return
-    hashCheckedRef.current = key
 
     const commentId = Number(hash.replace("#comment-", ""))
     if (!commentId || Number.isNaN(commentId)) return
 
-    let targetExists = false
-    for (const thread of data.threads) {
-      if (thread.id === commentId && !thread.deletedAt) {
-        targetExists = true
-        break
-      }
-      for (const reply of thread.replies) {
-        if (reply.id === commentId && !reply.deletedAt) {
-          targetExists = true
-          break
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let rafId: number | undefined
+
+    const executeScrollAndHighlight = () => {
+      hashCheckedRef.current = key
+      refetchedRef.current = null
+      rafId = requestAnimationFrame(() => {
+        const el = document.getElementById(`comment-${commentId}`)
+        if (el) {
+          scrollToHeading(el, { behavior: "smooth" })
+          setHighlightedCommentId(commentId)
+          timer = setTimeout(() => {
+            setHighlightedCommentId(null)
+          }, 2500)
         }
-      }
-      if (targetExists) break
+      })
     }
 
-    if (!targetExists) {
+    const target = findCommentInThreads(data.threads, commentId)
+    if (target) {
+      hashCheckedRef.current = key
+      refetchedRef.current = null
+      if (target.deletedAt) {
+        setHighlightedCommentId(null)
+        toast(t("notifications.commentDeleted"))
+        return
+      }
+      executeScrollAndHighlight()
+      return () => {
+        if (rafId !== undefined) cancelAnimationFrame(rafId)
+        if (timer) clearTimeout(timer)
+      }
+    }
+
+    if (refetchedRef.current === key) {
+      hashCheckedRef.current = key
+      setHighlightedCommentId(null)
       toast(t("notifications.commentDeleted"))
       return
     }
 
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const rafId = requestAnimationFrame(() => {
-      const el = document.getElementById(`comment-${commentId}`)
-      if (el) {
-        scrollToHeading(el, { behavior: "smooth" })
-        setHighlightedCommentId(commentId)
-        timer = setTimeout(() => {
-          setHighlightedCommentId(null)
-        }, 2500)
+    refetchedRef.current = key
+    void reload().catch(() => {
+      if (refetchedRef.current === key) {
+        refetchedRef.current = null
       }
     })
+
     return () => {
-      cancelAnimationFrame(rafId)
+      if (rafId !== undefined) cancelAnimationFrame(rafId)
       if (timer) clearTimeout(timer)
     }
-  }, [hasData, data, pageId, hash, t])
+  }, [hasData, data, pageId, hash, reload, t])
 
   const preview = (bodyMd: string) =>
     commentsApi.preview(pageId, bodyMd).then((result) => result.html)
