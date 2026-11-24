@@ -1,0 +1,45 @@
+{
+  "results": [
+    {
+      "id": "E1",
+      "name": "en 环境：作者主页词条（Joined/Documents）",
+      "verdict": "不通过",
+      "detail": "h1=bob-renamed Joined=true Documents=false 列表数=2"
+    },
+    {
+      "id": "E2",
+      "name": "en 环境：agent 主页归属人形态",
+      "verdict": "不通过",
+      "detail": "h1=bob-bot (bob-renamed's Agent)"
+    },
+    {
+      "id": "E3",
+      "name": "en 环境：署名行词条（Created/Last edited）",
+      "verdict": "通过",
+      "detail": "meta=\"Bbob-renamedCreated 11/24/2026·AaliceLast edited 11/24/2026\""
+    }
+  ],
+  "consoleErrors": []
+}{
+  "results": [
+    {
+      "id": "E1",
+      "name": "en 环境：作者主页词条（Joined/Documents）",
+      "verdict": "通过",
+      "detail": "h1=bob-renamed Joined=true Documents=true 列表数=2"
+    },
+    {
+      "id": "E2",
+      "name": "en 环境：agent 主页归属人形态",
+      "verdict": "通过",
+      "detail": "h1=bob-bot (bob-renamed's Agent)"
+    },
+    {
+      "id": "E3",
+      "name": "en 环境：署名行词条（Created/Last edited）",
+      "verdict": "通过",
+      "detail": "meta=\"Bbob-renamedCreated 11/24/2026·AaliceLast edited 11/24/2026\""
+    }
+  ],
+  "consoleErrors": []
+}
