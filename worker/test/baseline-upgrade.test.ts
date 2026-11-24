@@ -142,7 +142,7 @@ function withoutEmailSettings(
       (row as { key?: string }).key !== "resend_config"
   )
   next.users = (next.users ?? []).map((row) => {
-    const { kind, owner_user_id, ...rest } = row as Record<string, unknown>
+    const { kind, owner_user_id, bio, ...rest } = row as Record<string, unknown>
     return rest
   })
   return next
@@ -259,6 +259,7 @@ describe("最终形态存量库 → 单条 schema_v1：只动账本", () => {
     expect(userColumns).toContain("username")
     expect(userColumns).toContain("kind")
     expect(userColumns).toContain("owner_user_id")
+    expect(userColumns).toContain("bio")
 
     const userRows = db.db
       .prepare(`SELECT kind, owner_user_id FROM ${tableName(PREFIX, "users")}`)
@@ -348,7 +349,8 @@ describe("全新库与幂等", () => {
       "schema_v1",
       "schema_v9",
       "schema_v10",
-      "schema_v11"
+      "schema_v11",
+      "schema_v12"
     ])
 
     const tables = tableNames(context)

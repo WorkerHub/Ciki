@@ -88,6 +88,7 @@ function meDto(user: UserRow, twofa: Awaited<ReturnType<typeof twofaSummary>>) {
     email: user.email,
     role: user.role,
     avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null,
+    bio: user.kind === "agent" ? "" : (user.bio ?? ""),
     // 读出口再归一一次：库里若有支持集外的历史值，前端也不会拿到未知语言码。
     language: normalizeLanguage(user.language),
     approvalStatus: user.approval_status,
@@ -118,6 +119,7 @@ meRoutes.put("/profile", async (c) => {
     username?: unknown
     avatarKey?: unknown
     language?: unknown
+    bio?: unknown
   }>(c)
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return c.json({ error: "Invalid request body" }, 400)
@@ -126,7 +128,8 @@ meRoutes.put("/profile", async (c) => {
   const hasUsername = body.username !== undefined
   const hasAvatar = body.avatarKey !== undefined
   const hasLanguage = body.language !== undefined
-  if (!hasUsername && !hasAvatar && !hasLanguage) {
+  const hasBio = body.bio !== undefined
+  if (!hasUsername && !hasAvatar && !hasLanguage && !hasBio) {
     return c.json({ error: "Nothing to update" }, 400)
   }
 
@@ -151,6 +154,21 @@ meRoutes.put("/profile", async (c) => {
       )
     }
     username = normalized
+  }
+
+  let bio: string | undefined
+  if (hasBio) {
+    if (typeof body.bio !== "string") {
+      return c.json({ error: "bio must be a string", code: "INVALID_BIO" }, 400)
+    }
+    const trimmed = body.bio.trim()
+    if (Array.from(trimmed).length > 100) {
+      return c.json(
+        { error: "bio must be at most 100 characters", code: "INVALID_BIO" },
+        400
+      )
+    }
+    bio = trimmed
   }
 
   const prefix = getTablePrefix(c.env)
@@ -190,6 +208,7 @@ meRoutes.put("/profile", async (c) => {
   if (username !== undefined) updates.username = username
   if (avatarKey !== undefined) updates.avatar_key = avatarKey ?? ""
   if (language !== undefined) updates.language = language
+  if (bio !== undefined) updates.bio = bio
   try {
     await updateUser(c.env.DB, prefix, userId, updates)
   } catch (err) {
