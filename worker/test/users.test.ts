@@ -23,6 +23,7 @@ interface ProfileResponse {
   commentCount: number
   isAgent: boolean
   ownerName: string | null
+  ownerId: number | null
   createdAt: string
   email?: unknown
   password_hash?: unknown
@@ -277,6 +278,7 @@ describe("作者主页后端接口：GET /api/users/:id/profile", () => {
     expect(body.commentCount).toBe(0)
     expect(body.isAgent).toBe(false)
     expect(body.ownerName).toBeNull()
+    expect(body.ownerId).toBeNull()
     expect(body.createdAt).toBe(alice!.created_at)
 
     // 冻结契约断言：严格杜绝任何敏感字段
@@ -289,7 +291,7 @@ describe("作者主页后端接口：GET /api/users/:id/profile", () => {
     expect(body.approval_status).toBeUndefined()
   })
 
-  it("Agent 用户返回公开资料，带归属人 ownerName", async () => {
+  it("Agent 用户返回公开资料，带归属人 ownerName 与 ownerId", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const prefix = getTablePrefix(env)
@@ -325,6 +327,7 @@ describe("作者主页后端接口：GET /api/users/:id/profile", () => {
     expect(body.commentCount).toBe(0)
     expect(body.isAgent).toBe(true)
     expect(body.ownerName).toBe(ownerRow.username)
+    expect(body.ownerId).toBe(ownerId)
 
     // 若 agent 的 owner 用户被注销删除，ownerName 安全回落为 null
     await deleteUser(env.DB, prefix, ownerId)
@@ -339,6 +342,7 @@ describe("作者主页后端接口：GET /api/users/:id/profile", () => {
     const bodyAfterDelete = (await resAfterDelete.json()) as ProfileResponse
     expect(bodyAfterDelete.isAgent).toBe(true)
     expect(bodyAfterDelete.ownerName).toBeNull()
+    expect(bodyAfterDelete.ownerId).toBeNull()
   })
 
   it("用户改名后，按数字 id 的旧链接依然可达并返回新用户名（验收标准：Jim 真跑）", async () => {

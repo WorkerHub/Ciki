@@ -1418,11 +1418,12 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "commentCount": 12,
   "isAgent": false,
   "ownerName": null,
+  "ownerId": null,
   "createdAt": "2026-11-24T10:00:00.000Z"
 }
 ```
 
-- 字段：`id`（数字 ID）、`username`（用户名）、`avatarUrl`（头像文件地址或 null）、`bio`（一句话简介，人类用户返回原文，agent 恒空串 `""`）、`docCount`（文档数，按查看者可见口径统计）、`commentCount`（评论数，按查看者可见口径统计）、`isAgent`（是否为 Agent 账号）、`ownerName`（归属人用户名，仅 agent 时有值；人类用户或 owner 不存在时为 null）、`createdAt`（注册加入时间）。
+- 字段：`id`（数字 ID）、`username`（用户名）、`avatarUrl`（头像文件地址或 null）、`bio`（一句话简介，人类用户返回原文，agent 恒空串 `""`）、`docCount`（文档数，按查看者可见口径统计）、`commentCount`（评论数，按查看者可见口径统计）、`isAgent`（是否为 Agent 账号）、`ownerName`（归属人用户名，仅 agent 时有值；人类用户或 owner 不存在时为 null）、`ownerId`（归属人用户 id，仅 agent 时有值；人类用户或 owner 不存在时为 null）、`createdAt`（注册加入时间）。
 - 计数口径：`docCount` 与 `commentCount` 均只统计当前查看者有权访问空间内的文档与评论（站点管理员看全空间；普通用户看所属空间），且已软删除页面（`deleted_at IS NOT NULL`）、已软删除评论及所属页面已软删除的评论均不计入。绝不向无权用户泄露无权空间的数据量。
 - 绝不返回邮箱（email）、密码哈希（password_hash）、站点角色（role）、邮箱验证状态（email_verified）等敏感字段。
 - 用户不存在或 `:id` 非规范正整数回 404 `{"error":"User not found"}`。
