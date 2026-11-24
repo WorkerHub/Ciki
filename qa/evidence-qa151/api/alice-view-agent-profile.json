@@ -1,1 +1,8 @@
-{"id":4,"username":"bob-bot","avatarUrl":null,"isAgent":true,"ownerName":"bob","createdAt":"2026-11-24T04:24:57.930Z"}
+{
+  "id": 4,
+  "username": "bob-bot",
+  "avatarUrl": null,
+  "isAgent": true,
+  "ownerName": "bob",
+  "createdAt": "2026-11-24T04:24:57.930Z"
+}

@@ -1,1 +1,15 @@
-{"pages":[{"id":4,"title":"Agent在共享空间的页面","spaceName":"共享空间","createdAt":"2026-11-24T04:25:13.342Z","updatedAt":"2026-11-24T04:25:13.342Z"}],"total":1,"page":1,"limit":20,"hasMore":false}
+{
+  "pages": [
+    {
+      "id": 4,
+      "title": "Agent在共享空间的页面",
+      "spaceName": "共享空间",
+      "createdAt": "2026-11-24T04:25:13.342Z",
+      "updatedAt": "2026-11-24T04:25:13.342Z"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "limit": 20,
+  "hasMore": false
+}
