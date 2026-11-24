@@ -24,6 +24,7 @@ export interface AuthorProfileDto {
   commentCount: number
   isAgent: boolean
   ownerName: string | null
+  ownerId: number | null
   createdAt: string
 }
 
@@ -63,8 +64,8 @@ export interface AuthorPagesResponse {
  * GET /api/users/:id/profile
  *
  * 公开作者资料（需登录会话）：
- * - 返回 { id, username, avatarUrl, isAgent, ownerName, createdAt }
- * - ownerName 仅 agent 时有值（且 owner 存在时）；人类用户或 owner 不存在时为 null
+ * - 返回 { id, username, avatarUrl, bio, docCount, commentCount, isAgent, ownerName, ownerId, createdAt }
+ * - ownerName 与 ownerId 仅 agent 时有值（且 owner 存在时）；人类用户或 owner 不存在时为 null
  * - 用户不存在或 id 非规范正整数回 404
  * - 绝不返回 email、password_hash、role、email_verified 等敏感字段
  */
@@ -75,7 +76,8 @@ userRoutes.get("/:id/profile", async (c) => {
 
   const row = await c.env.DB.prepare(
     `SELECT u.id, u.username, u.avatar_key, u.kind, u.bio, u.created_at,
-            CASE WHEN u.kind = 'agent' THEN o.username ELSE NULL END AS owner_name
+            CASE WHEN u.kind = 'agent' THEN o.username ELSE NULL END AS owner_name,
+            CASE WHEN u.kind = 'agent' THEN o.id ELSE NULL END AS owner_id
        FROM ${usersTable(prefix)} u
        LEFT JOIN ${usersTable(prefix)} o ON o.id = u.owner_user_id
       WHERE u.id = ?`
@@ -89,6 +91,7 @@ userRoutes.get("/:id/profile", async (c) => {
       bio: string | null
       created_at: string
       owner_name: string | null
+      owner_id: number | null
     }>()
 
   if (!row) return c.json({ error: "User not found" }, 404)
@@ -147,6 +150,7 @@ userRoutes.get("/:id/profile", async (c) => {
     commentCount: commentRow?.total ?? 0,
     isAgent,
     ownerName: isAgent ? (row.owner_name ?? null) : null,
+    ownerId: isAgent ? (row.owner_id ?? null) : null,
     createdAt: row.created_at
   }
 
