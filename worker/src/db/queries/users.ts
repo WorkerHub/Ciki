@@ -16,6 +16,7 @@ export interface UserRow {
   password_hash: string
   username: string
   avatar_key: string
+  bio?: string
   role: "admin" | "user"
   is_active: number
   approval_status: "pending" | "approved" | "rejected"
@@ -367,7 +368,8 @@ const UPDATABLE = new Set([
   "role",
   "username",
   "avatar_key",
-  "language"
+  "language",
+  "bio"
 ])
 
 export async function updateUser(

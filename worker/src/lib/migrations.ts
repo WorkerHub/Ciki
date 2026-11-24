@@ -344,6 +344,34 @@ const SCHEMA_V11: Migration = {
   isApplied: schemaV11Applied
 }
 
+export const USER_BIO_MIGRATION_NAME = "schema_v12"
+
+/**
+ * `schema_v12` —— 用户一句话简介（bio）：
+ * 为 users 表增加 bio 列（TEXT NOT NULL DEFAULT ''）。
+ */
+function schemaV12(prefix: string): string {
+  const users = usersTable(prefix)
+  return `ALTER TABLE ${users} ADD COLUMN bio TEXT NOT NULL DEFAULT ''`
+}
+
+async function schemaV12Applied(ctx: MigrationContext): Promise<boolean> {
+  const { db, prefix, applied } = ctx
+  if (applied.has(USER_BIO_MIGRATION_NAME)) return true
+  if (!(await tableExists(db, usersTable(prefix)))) return false
+  const columns = await db
+    .prepare(`PRAGMA table_info(${usersTable(prefix)})`)
+    .all<{ name: string }>()
+  const colNames = new Set(columns.results.map((c) => c.name))
+  return colNames.has("bio")
+}
+
+const SCHEMA_V12: Migration = {
+  name: USER_BIO_MIGRATION_NAME,
+  sql: "",
+  isApplied: schemaV12Applied
+}
+
 export function getMigrations(
   prefix: string,
   language: Language = DEFAULT_LANGUAGE
@@ -370,6 +398,7 @@ export function getMigrations(
     { ...SCHEMA_V1, sql },
     { ...SCHEMA_V9, sql: schemaV9(prefix) },
     { ...SCHEMA_V10, sql: schemaV10(prefix) },
-    { ...SCHEMA_V11, sql: schemaV11(prefix) }
+    { ...SCHEMA_V11, sql: schemaV11(prefix) },
+    { ...SCHEMA_V12, sql: schemaV12(prefix) }
   ]
 }

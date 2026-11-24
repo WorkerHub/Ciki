@@ -63,6 +63,8 @@
 - `schema_v2`–`schema_v8` 的旧增量定义已清除（含旧 `schema_v6` 的 UUID→整数全表重建路径与旧 `schema_v3` 的令牌合并路径）；升级时账本收敛为单条 `schema_v1`，执行器只认这一条。
 - `schema_v9`：发信服务配置初始化迁移（若已配置过 `smtp_config` 且 host 非空，则将 `email_provider` 键设为 `smtp`，否则保持未配置 `none`）。
 - `schema_v10`：为 `users` 表追加 `kind` 列（`TEXT NOT NULL DEFAULT 'human'`）和 `owner_user_id` 列（`INTEGER DEFAULT NULL`），引入 Agent 账号身份模型与归属关系。
+- `schema_v11`：新增 `notifications` 表及 `(recipient_id, read_at)`、`(recipient_id, created_at)` 索引，支撑评论通知持久化与未读/分页查询。
+- `schema_v12`：为 `users` 表追加 `bio` 列（`TEXT NOT NULL DEFAULT ''`），支持作者主页与个人资料展示一句话简介。
 - 已是当前形态的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本收敛）。
 
 今后结构变化只在末尾追加新的 `schema_vN`（新表/新索引写进本条迁移自己的 sql，不改 `schema_v1` 基线清单），`schema_v1` 不得改名、改内容或调序。
@@ -87,6 +89,7 @@
 | approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                    |
 | email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在结构坍缩（`schema_v1` 之前那版）时已一律置 1                                          |
 | language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。主题等纯前端偏好不进数据库 |
+| bio                    | TEXT NOT NULL DEFAULT ''         | 用户一句话简介（纯文本、上限 100 码点，人类用户可自改，Agent 账号恒为空串）                                                                                                            |
 | kind                   | TEXT NOT NULL DEFAULT 'human'    | 账号类型：`human`（人类用户，默认） / `agent`（Agent 账号）                                                                                                                            |
 | owner_user_id          | INTEGER DEFAULT NULL             | Agent 账号的所有者用户 ID（对应人类用户的 `id`）；人类用户此列固定为 `NULL`                                                                                                            |
 | created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                                                               |
@@ -835,6 +838,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "email": "…",
   "role": "admin",
   "avatarUrl": "/api/files/avatars/<uuid>.png",
+  "bio": "全栈开发者，专注知识库协作",
   "language": "zh",
   "approvalStatus": "approved",
   "createdAt": "2026-11-07T12:00:00.000Z",
@@ -847,19 +851,25 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 }
 ```
 
-`id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。`language` 是界面语言（`zh` / `en`），登录后前端以它为准。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
+`id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。`bio` 是一句话简介（纯文本，人类用户原样输出，Agent 账号恒为空串 `""`）。`language` 是界面语言（`zh` / `en`），登录后前端以它为准。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
 
 #### PUT /api/me/profile
 
 ```json
-{ "username": "观察者", "avatarKey": "<uuid>.png", "language": "en" }
+{
+  "username": "观察者",
+  "avatarKey": "<uuid>.png",
+  "language": "en",
+  "bio": "一句话简介"
+}
 ```
 
-- 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。三个字段互不影响、可单独提交，写入是一次 `UPDATE`：任一字段校验失败整单 400、一行都不写。
+- 字段均可选，但至少给一个，否则 400 `{"error":"Nothing to update"}`；200 返回与 `GET /api/me` 完全相同的对象。各字段互不影响、可单独提交，写入是一次 `UPDATE`：任一字段校验失败整单 400、一行都不写。
 - `username`：trim 后 1–40 个码点、不含控制字符，否则 400 `code:"INVALID_USERNAME"`；**必须唯一（大小写不敏感，`Alice` 与 `alice` 算重名；改成自己当前名字含只改大小写不算撞名）**，撞名 409 `code:"USERNAME_TAKEN"`（并发下由库内唯一索引兜底，同样 409 而非 500）；不自动加后缀。
 - `avatarKey`：**兼容保留，前端不再使用**（改头像走下面的 `POST /api/me/avatar`）。取值必须是本人上传过、且 R2 中仍存在的 key——平铺 `<uuid>.<ext>` 或带已知前缀（`avatars/` / `pages/` / `imports/`）都收；`null` 表示清除头像；其它 400 `code:"INVALID_AVATAR"`。换成新头像后旧对象被删除。
 - `language`：只认精确的 `zh` / `en`（不 trim、不做大小写归一），其它值（含 `null`、数字）400 `{"error":"language must be zh or en","code":"INVALID_LANGUAGE"}`。只带语言不影响 username 与头像。
-- `id` / `email` 只读：传了也不生效（只认上面三个字段）。
+- `bio`：接受可选纯文本，去首尾空白，按 Unicode 码点（`Array.from(str).length`）计上限 100，超长或类型非字符串回 400 `{"error":"...","code":"INVALID_BIO"}`；人类用户原样保存，Agent 账号无资料编辑入口（`bio` 恒为空串 `""`）。
+- `id` / `email` 只读：传了也不生效（只认上面四个字段）。
 
 #### POST /api/me/avatar（需会话）
 
@@ -1403,14 +1413,75 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "id": 1,
   "username": "alice",
   "avatarUrl": "/api/files/avatars/alice.png",
+  "bio": "一句话简介",
+  "docCount": 5,
+  "commentCount": 12,
   "isAgent": false,
   "ownerName": null,
   "createdAt": "2026-11-24T10:00:00.000Z"
 }
 ```
 
-- 字段：`id`（数字 ID）、`username`（用户名）、`avatarUrl`（头像文件地址或 null）、`isAgent`（是否为 Agent 账号）、`ownerName`（归属人用户名，仅 agent 时有值；人类用户或 owner 不存在时为 null）、`createdAt`（注册加入时间）。
+- 字段：`id`（数字 ID）、`username`（用户名）、`avatarUrl`（头像文件地址或 null）、`bio`（一句话简介，人类用户返回原文，agent 恒空串 `""`）、`docCount`（文档数，按查看者可见口径统计）、`commentCount`（评论数，按查看者可见口径统计）、`isAgent`（是否为 Agent 账号）、`ownerName`（归属人用户名，仅 agent 时有值；人类用户或 owner 不存在时为 null）、`createdAt`（注册加入时间）。
+- 计数口径：`docCount` 与 `commentCount` 均只统计当前查看者有权访问空间内的文档与评论（站点管理员看全空间；普通用户看所属空间），且已软删除页面（`deleted_at IS NOT NULL`）、已软删除评论及所属页面已软删除的评论均不计入。绝不向无权用户泄露无权空间的数据量。
 - 绝不返回邮箱（email）、密码哈希（password_hash）、站点角色（role）、邮箱验证状态（email_verified）等敏感字段。
+- 用户不存在或 `:id` 非规范正整数回 404 `{"error":"User not found"}`。
+
+#### GET /api/users/:id/activity
+
+该用户的动态流，**仅含当前查看者有权访问的空间内的文档相关事件**（无权空间的文档标题、评论内容一律不得出现）。
+
+入参（Query 参数）：
+
+- `limit`：每页条数（正整数，缺省 20，范围 1–100）
+- `page`：页码（正整数，缺省 1）
+- `offset`：可选偏移量（传入时优先于 page 计算）
+
+```json
+{
+  "events": [
+    {
+      "id": "revision-42",
+      "type": "page_edited",
+      "pageId": 12,
+      "pageTitle": "页面标题",
+      "spaceName": "默认空间",
+      "createdAt": "2026-11-24T12:00:00.000Z"
+    },
+    {
+      "id": "comment-10",
+      "type": "comment",
+      "pageId": 12,
+      "pageTitle": "页面标题",
+      "spaceName": "默认空间",
+      "commentId": 10,
+      "excerpt": "评论纯文本摘要...",
+      "createdAt": "2026-11-24T11:00:00.000Z"
+    },
+    {
+      "id": "page-12",
+      "type": "page_created",
+      "pageId": 12,
+      "pageTitle": "页面标题",
+      "spaceName": "默认空间",
+      "createdAt": "2026-11-24T10:00:00.000Z"
+    }
+  ],
+  "hasMore": false
+}
+```
+
+- 事件三类：新建文档（`page_created`）、编辑文档（`page_edited`，版本号 `version_no > 1`）、发表评论（`comment`）。
+- 字段说明：
+  - `id`：稳定且区分来源的唯一字符串（如 `"page-12"`、`"revision-42"`、`"comment-10"`）。
+  - `type`：事件类型，`"page_created" | "page_edited" | "comment"`。
+  - `pageId`、`pageTitle`、`spaceName`：所属页面的 ID、标题及空间名称。
+  - `commentId`：仅 `comment` 事件返回，评论的数字 ID（用于前端定位到具体评论）。
+  - `excerpt`：仅 `comment` 事件返回，评论正文转纯文本后截断 100 个 Unicode 码点的摘要。
+  - `createdAt`：事件产生时间（ISO 字符串）。
+- 权限过滤（硬线）：只出现当前查看者有权访问空间内的文档相关事件；无权空间的文档标题、评论内容一律不得出现。
+- 软删除过滤：已软删文档（`deleted_at IS NOT NULL`）排除；已软删评论排除；所属文档已软删的评论亦排除。
+- 排序：合并三类事件按 `createdAt DESC, id DESC` 稳定倒序，保证增量加载与翻页不重不漏。
 - 用户不存在或 `:id` 非规范正整数回 404 `{"error":"User not found"}`。
 
 #### GET /api/users/:id/pages

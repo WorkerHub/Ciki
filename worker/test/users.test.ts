@@ -18,6 +18,9 @@ interface ProfileResponse {
   id: number
   username: string
   avatarUrl: string | null
+  bio: string
+  docCount: number
+  commentCount: number
   isAgent: boolean
   ownerName: string | null
   createdAt: string
@@ -41,6 +44,22 @@ interface PagesResponse {
   total: number
   page: number
   limit: number
+  hasMore: boolean
+}
+
+interface ActivityEvent {
+  id: string
+  type: "page_created" | "page_edited" | "comment"
+  pageId: number
+  pageTitle: string
+  spaceName: string
+  commentId?: number
+  excerpt?: string
+  createdAt: string
+}
+
+interface ActivityResponse {
+  events: ActivityEvent[]
   hasMore: boolean
 }
 
@@ -77,6 +96,107 @@ async function createPage(
     updatedBy: number
     updatedById: number
   }
+}
+
+async function updatePage(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  pageId: number,
+  input: {
+    title: string
+    contentHtml?: string
+    contentText?: string
+  }
+) {
+  const res = await jsonRequest(
+    env,
+    "PUT",
+    `/api/pages/${pageId}`,
+    {
+      title: input.title,
+      contentJson: JSON.stringify({ type: "doc" }),
+      contentHtml: input.contentHtml ?? `<p>${input.title}</p>`,
+      contentText: input.contentText ?? input.title
+    },
+    cookie
+  )
+  expect(res.status).toBe(200)
+  return (await res.json()) as { id: number; title: string }
+}
+
+async function deletePage(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  pageId: number
+) {
+  const res = await jsonRequest(
+    env,
+    "DELETE",
+    `/api/pages/${pageId}`,
+    undefined,
+    cookie
+  )
+  expect(res.status).toBe(200)
+}
+
+async function createSpace(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  name: string
+) {
+  const res = await jsonRequest(env, "POST", "/api/spaces", { name }, cookie)
+  expect(res.status).toBe(201)
+  return (await res.json()) as { id: number; name: string }
+}
+
+async function addSpaceMember(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  spaceId: number,
+  userId: number,
+  role: "admin" | "editor" | "viewer" = "editor"
+) {
+  const res = await jsonRequest(
+    env,
+    "POST",
+    `/api/spaces/${spaceId}/members`,
+    { userId, role },
+    cookie
+  )
+  expect(res.status).toBe(201)
+}
+
+async function createComment(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  pageId: number,
+  bodyMd: string
+) {
+  const res = await jsonRequest(
+    env,
+    "POST",
+    `/api/pages/${pageId}/comments`,
+    { bodyMd },
+    cookie
+  )
+  expect(res.status).toBe(201)
+  return (await res.json()) as { id: number; bodyMd: string }
+}
+
+async function deleteComment(
+  env: Parameters<typeof adminSession>[0],
+  cookie: string,
+  pageId: number,
+  commentId: number
+) {
+  const res = await jsonRequest(
+    env,
+    "DELETE",
+    `/api/pages/${pageId}/comments/${commentId}`,
+    undefined,
+    cookie
+  )
+  expect(res.status).toBe(200)
 }
 
 describe("作者主页后端接口：GET /api/users/:id/profile", () => {
@@ -152,6 +272,9 @@ describe("作者主页后端接口：GET /api/users/:id/profile", () => {
     expect(body.id).toBe(alice!.id)
     expect(body.username).toBe(alice!.username)
     expect(body.avatarUrl).toBe("/api/files/avatars/alice-test.png")
+    expect(body.bio).toBe("")
+    expect(body.docCount).toBe(0)
+    expect(body.commentCount).toBe(0)
     expect(body.isAgent).toBe(false)
     expect(body.ownerName).toBeNull()
     expect(body.createdAt).toBe(alice!.created_at)
@@ -197,6 +320,9 @@ describe("作者主页后端接口：GET /api/users/:id/profile", () => {
     expect(body.id).toBe(agentId)
     expect(body.username).toBe("deploy-agent")
     expect(body.avatarUrl).toBe("/api/files/avatars/agent.png")
+    expect(body.bio).toBe("")
+    expect(body.docCount).toBe(0)
+    expect(body.commentCount).toBe(0)
     expect(body.isAgent).toBe(true)
     expect(body.ownerName).toBe(ownerRow.username)
 
@@ -551,5 +677,657 @@ describe("页面详情读接口补全 id 字段：createdById 与 updatedById", 
     expect(detail.createdById).toBe(adminRow.id)
     expect(detail.updatedBy).toBe(adminRow.id)
     expect(detail.updatedById).toBe(adminRow.id)
+  })
+})
+
+describe("schema_v12 迁移与个人资料 bio 读写与校验", () => {
+  it("schema_v12 迁移：users 表正确添加 bio 列且默认值为空串", async () => {
+    const { db } = await initializedContext()
+    const rawColumns = db.db
+      .prepare("PRAGMA table_info(ciki_users)")
+      .all() as Array<{
+      name: string
+      type: string
+      notnull: number
+      dflt_value: string | null
+    }>
+    const cols = Object.fromEntries(rawColumns.map((c) => [c.name, c]))
+
+    expect(cols.bio).toBeDefined()
+    expect(cols.bio.type.toUpperCase()).toBe("TEXT")
+    expect(cols.bio.notnull).toBe(1)
+    expect(cols.bio.dflt_value).toBe("''")
+  })
+
+  it("PUT /api/me/profile 更新 bio：首尾空白自动 trim，GET /api/me 与 profile 接口同步返回", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+    const adminRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "admin@example.com"
+    ))!
+
+    // 更新 bio（带首尾空白）
+    const updateRes = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { bio: "   全栈工程师 & 文档热爱者 🚀   " },
+      admin
+    )
+    expect(updateRes.status).toBe(200)
+    const updateBody = (await updateRes.json()) as { bio: string }
+    expect(updateBody.bio).toBe("全栈工程师 & 文档热爱者 🚀")
+
+    // GET /api/me 回读
+    const meRes = await jsonRequest(env, "GET", "/api/me", undefined, admin)
+    expect(meRes.status).toBe(200)
+    const meBody = (await meRes.json()) as { bio: string }
+    expect(meBody.bio).toBe("全栈工程师 & 文档热爱者 🚀")
+
+    // GET /api/users/:id/profile 回读
+    const profileRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${adminRow.id}/profile`,
+      undefined,
+      admin
+    )
+    expect(profileRes.status).toBe(200)
+    const profileBody = (await profileRes.json()) as ProfileResponse
+    expect(profileBody.bio).toBe("全栈工程师 & 文档热爱者 🚀")
+  })
+
+  it("PUT /api/me/profile 清空 bio：空串或全空白字符更新后变为 ''", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 先设置
+    await jsonRequest(env, "PUT", "/api/me/profile", { bio: "原简介" }, admin)
+
+    // 全空白字符清空
+    const clearRes = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { bio: "   " },
+      admin
+    )
+    expect(clearRes.status).toBe(200)
+    expect(((await clearRes.json()) as { bio: string }).bio).toBe("")
+
+    // GET /api/me 确认清空
+    const meRes = await jsonRequest(env, "GET", "/api/me", undefined, admin)
+    expect(((await meRes.json()) as { bio: string }).bio).toBe("")
+  })
+
+  it("PUT /api/me/profile 纯文本类型校验：传入非字符串类型回 400 INVALID_BIO", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    for (const badBio of [123, true, null, { text: "hello" }, ["bio"]]) {
+      const res = await jsonRequest(
+        env,
+        "PUT",
+        "/api/me/profile",
+        { bio: badBio },
+        admin
+      )
+      expect(res.status).toBe(400)
+      expect(await res.json()).toMatchObject({ code: "INVALID_BIO" })
+    }
+  })
+
+  it("PUT /api/me/profile 长度校验（Unicode 码点）：恰好 100 码点成功，101 码点回 400 INVALID_BIO", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 100 个 Unicode 字符（含中文字符、emoji 复合字符）
+    const exact100 = "🚀".repeat(50) + "一".repeat(50)
+    expect(Array.from(exact100).length).toBe(100)
+
+    const okRes = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { bio: exact100 },
+      admin
+    )
+    expect(okRes.status).toBe(200)
+    expect(((await okRes.json()) as { bio: string }).bio).toBe(exact100)
+
+    // 101 个字符超长
+    const over100 = `${exact100}X`
+    expect(Array.from(over100).length).toBe(101)
+
+    const failRes = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { bio: over100 },
+      admin
+    )
+    expect(failRes.status).toBe(400)
+    expect(await failRes.json()).toMatchObject({ code: "INVALID_BIO" })
+  })
+})
+
+describe("作者主页个人卡计数（可见口径）：docCount 与 commentCount 权限过滤与软删排除", () => {
+  it("Jim 场景：A 看 B 的作者主页，计数只统计 A 有权空间内的数据，无权空间数量零泄露", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    const aliceCookie = await userSession(env, admin, "author-b@example.com")
+    const bobCookie = await userSession(env, admin, "viewer-a@example.com")
+
+    const aliceRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "author-b@example.com"
+    ))!
+    const bobRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "viewer-a@example.com"
+    ))!
+
+    // 创建两个空间：spaceA (Bob 有权), spaceB (Bob 无权)
+    const spaceA = await createSpace(env, admin, "公开空间A")
+    const spaceB = await createSpace(env, admin, "私密空间B")
+
+    await addSpaceMember(env, admin, spaceA.id, aliceRow.id, "editor")
+    await addSpaceMember(env, admin, spaceA.id, bobRow.id, "editor")
+    await addSpaceMember(env, admin, spaceB.id, aliceRow.id, "editor")
+    // Bob 未加入 spaceB
+
+    // Alice 在 spaceA 创建 2 篇文档、发表 2 条评论
+    const pA1 = await createPage(env, aliceCookie, {
+      title: "文档A1",
+      spaceId: spaceA.id
+    })
+    const pA2 = await createPage(env, aliceCookie, {
+      title: "文档A2",
+      spaceId: spaceA.id
+    })
+    await createComment(env, aliceCookie, pA1.id, "评论A1-1")
+    const cA2 = await createComment(env, aliceCookie, pA2.id, "评论A2-1")
+
+    // Alice 在 spaceB 创建 3 篇文档、发表 3 条评论
+    const pB1 = await createPage(env, aliceCookie, {
+      title: "文档B1",
+      spaceId: spaceB.id
+    })
+    await createPage(env, aliceCookie, {
+      title: "文档B2",
+      spaceId: spaceB.id
+    })
+    await createPage(env, aliceCookie, {
+      title: "文档B3",
+      spaceId: spaceB.id
+    })
+    await createComment(env, aliceCookie, pB1.id, "评论B1-1")
+    await createComment(env, aliceCookie, pB1.id, "评论B1-2")
+    await createComment(env, aliceCookie, pB1.id, "评论B1-3")
+
+    // Bob 查看 Alice 的个人卡：只数 spaceA 内的，无权 spaceB 数量零泄露
+    const bobViewRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/profile`,
+      undefined,
+      bobCookie
+    )
+    expect(bobViewRes.status).toBe(200)
+    const bobView = (await bobViewRes.json()) as ProfileResponse
+    expect(bobView.docCount).toBe(2)
+    expect(bobView.commentCount).toBe(2)
+
+    // 站点管理员查看 Alice 的个人卡：统计全部空间
+    const adminViewRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/profile`,
+      undefined,
+      admin
+    )
+    expect(adminViewRes.status).toBe(200)
+    const adminView = (await adminViewRes.json()) as ProfileResponse
+    expect(adminView.docCount).toBe(5)
+    expect(adminView.commentCount).toBe(5)
+
+    // 软删联动测试：
+    // 1. Alice 软删 spaceA 的文档 pA1 -> Bob 看 docCount 降为 1，pA1 下的评论也被排除，commentCount 降为 1
+    await deletePage(env, aliceCookie, pA1.id)
+    const bobAfterPageDelete = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/users/${aliceRow.id}/profile`,
+        undefined,
+        bobCookie
+      )
+    ).json()) as ProfileResponse
+    expect(bobAfterPageDelete.docCount).toBe(1)
+    expect(bobAfterPageDelete.commentCount).toBe(1)
+
+    // 2. 软删 spaceA 文档 pA2 下的评论 -> commentCount 降为 0
+    await deleteComment(env, aliceCookie, pA2.id, cA2.id)
+
+    const bobAfterCommentDelete = (await (
+      await jsonRequest(
+        env,
+        "GET",
+        `/api/users/${aliceRow.id}/profile`,
+        undefined,
+        bobCookie
+      )
+    ).json()) as ProfileResponse
+    expect(bobAfterCommentDelete.docCount).toBe(1)
+    expect(bobAfterCommentDelete.commentCount).toBe(0)
+  })
+})
+
+describe("作者动态流接口：GET /api/users/:id/activity", () => {
+  it("未登录访问返回 401，非法或不存在的用户 id 返回 404", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 未登录
+    const anonRes = await jsonRequest(env, "GET", "/api/users/1/activity")
+    expect(anonRes.status).toBe(401)
+
+    // 非法 id
+    for (const badId of ["abc", "0", "-1", "01"]) {
+      const res = await jsonRequest(
+        env,
+        "GET",
+        `/api/users/${badId}/activity`,
+        undefined,
+        admin
+      )
+      expect(res.status).toBe(404)
+    }
+
+    // 不存在的用户
+    const notFoundRes = await jsonRequest(
+      env,
+      "GET",
+      "/api/users/999999/activity",
+      undefined,
+      admin
+    )
+    expect(notFoundRes.status).toBe(404)
+  })
+
+  it("合并三类事件：新建文档、编辑文档、发表评论，字段完整性断言", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    const aliceCookie = await userSession(
+      env,
+      admin,
+      "activity-alice@example.com"
+    )
+    const aliceRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "activity-alice@example.com"
+    ))!
+
+    const space = await createSpace(env, admin, "动态流测试空间")
+    await addSpaceMember(env, admin, space.id, aliceRow.id, "editor")
+
+    // 1. 新建文档 -> page_created
+    const page = await createPage(env, aliceCookie, {
+      title: "关于架构设计的思考",
+      spaceId: space.id
+    })
+
+    // 2. 编辑文档（产生 version_no=2）-> page_edited
+    await updatePage(env, aliceCookie, page.id, {
+      title: "关于架构设计的思考（修订版）",
+      contentHtml: "<p>更新正文</p>",
+      contentText: "更新正文"
+    })
+
+    // 3. 发表评论 -> comment
+    const comment = await createComment(
+      env,
+      aliceCookie,
+      page.id,
+      "**强烈推荐** 这套架构方案，测试评论摘要截断。"
+    )
+
+    const res = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity`,
+      undefined,
+      aliceCookie
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as ActivityResponse
+
+    expect(body.hasMore).toBe(false)
+    expect(body.events).toHaveLength(3)
+
+    // 倒序：评论最晚 -> 编辑次之 -> 创建最早
+    const [eComment, eEdit, eCreate] = body.events
+
+    // 评论事件断言
+    expect(eComment.type).toBe("comment")
+    expect(eComment.id).toBe(`comment-${comment.id}`)
+    expect(eComment.pageId).toBe(page.id)
+    expect(eComment.pageTitle).toBe("关于架构设计的思考（修订版）")
+    expect(eComment.spaceName).toBe("动态流测试空间")
+    expect(eComment.commentId).toBe(comment.id)
+    expect(eComment.excerpt).toContain("强烈推荐 这套架构方案")
+    expect(eComment.createdAt).toBeDefined()
+
+    // 编辑事件断言
+    expect(eEdit.type).toBe("page_edited")
+    expect(eEdit.id).toMatch(/^revision-\d+$/)
+    expect(eEdit.pageId).toBe(page.id)
+    expect(eEdit.pageTitle).toBe("关于架构设计的思考（修订版）")
+    expect(eEdit.spaceName).toBe("动态流测试空间")
+    expect(eEdit.commentId).toBeUndefined()
+    expect(eEdit.excerpt).toBeUndefined()
+
+    // 创建事件断言
+    expect(eCreate.type).toBe("page_created")
+    expect(eCreate.id).toBe(`page-${page.id}`)
+    expect(eCreate.pageId).toBe(page.id)
+    expect(eCreate.pageTitle).toBe("关于架构设计的思考（修订版）")
+    expect(eCreate.spaceName).toBe("动态流测试空间")
+    expect(eCreate.commentId).toBeUndefined()
+    expect(eCreate.excerpt).toBeUndefined()
+  })
+
+  it("权限隔离（硬线：Tony 对照核）：只出现查看者有权空间的事件，无权空间的文档标题与评论内容零泄露", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    const aliceCookie = await userSession(
+      env,
+      admin,
+      "alice-writer@example.com"
+    )
+    const bobCookie = await userSession(env, admin, "bob-reader@example.com")
+
+    const aliceRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "alice-writer@example.com"
+    ))!
+    const bobRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "bob-reader@example.com"
+    ))!
+
+    const spacePublic = await createSpace(env, admin, "共享公共空间")
+    const spaceSecret = await createSpace(env, admin, "机密保密空间")
+
+    await addSpaceMember(env, admin, spacePublic.id, aliceRow.id, "editor")
+    await addSpaceMember(env, admin, spacePublic.id, bobRow.id, "editor")
+
+    await addSpaceMember(env, admin, spaceSecret.id, aliceRow.id, "editor")
+    // Bob 绝对不在 spaceSecret 成员中
+
+    // Alice 在公开空间产生事件
+    const publicPage = await createPage(env, aliceCookie, {
+      title: "公开开源文档",
+      spaceId: spacePublic.id
+    })
+    await createComment(env, aliceCookie, publicPage.id, "公开评论讨论")
+
+    // Alice 在私密空间产生事件（绝密）
+    const secretPage = await createPage(env, aliceCookie, {
+      title: "最高机密绝不能被Bob看到",
+      spaceId: spaceSecret.id
+    })
+    await updatePage(env, aliceCookie, secretPage.id, {
+      title: "最高机密修改版",
+      contentHtml: "<p>绝密正文</p>"
+    })
+    await createComment(env, aliceCookie, secretPage.id, "绝密评论内容严禁泄露")
+
+    // Bob 查看 Alice 的动态流
+    const bobRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity`,
+      undefined,
+      bobCookie
+    )
+    expect(bobRes.status).toBe(200)
+    const bobBody = (await bobRes.json()) as ActivityResponse
+
+    // Bob 只能看见公开空间事件
+    expect(bobBody.events.length).toBeGreaterThan(0)
+    for (const ev of bobBody.events) {
+      expect(ev.spaceName).toBe("共享公共空间")
+      expect(ev.pageTitle).not.toContain("最高机密")
+      if (ev.excerpt) {
+        expect(ev.excerpt).not.toContain("绝密评论")
+      }
+    }
+
+    // 站点管理员可查看全部
+    const adminRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity`,
+      undefined,
+      admin
+    )
+    expect(adminRes.status).toBe(200)
+    const adminBody = (await adminRes.json()) as ActivityResponse
+    const secretEvents = adminBody.events.filter(
+      (e) => e.spaceName === "机密保密空间"
+    )
+    expect(secretEvents.length).toBe(3) // 创建、编辑、评论
+  })
+
+  it("软删除过滤：软删文档的全部事件及所属评论排除；软删评论自身排除", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    const aliceCookie = await userSession(
+      env,
+      admin,
+      "softdel-alice@example.com"
+    )
+    const aliceRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "softdel-alice@example.com"
+    ))!
+
+    const space = await createSpace(env, admin, "软删除测试空间")
+    await addSpaceMember(env, admin, space.id, aliceRow.id, "editor")
+
+    // 页面 1：将被软删除
+    const page1 = await createPage(env, aliceCookie, {
+      title: "待软删除文档",
+      spaceId: space.id
+    })
+    await updatePage(env, aliceCookie, page1.id, {
+      title: "待软删除文档（已改）"
+    })
+    await createComment(env, aliceCookie, page1.id, "待软删文档下的评论")
+
+    // 页面 2：保留，但软删其下一条评论
+    const page2 = await createPage(env, aliceCookie, {
+      title: "存活文档",
+      spaceId: space.id
+    })
+    const commentToDel = await createComment(
+      env,
+      aliceCookie,
+      page2.id,
+      "将被删除的评论"
+    )
+    const commentKept = await createComment(
+      env,
+      aliceCookie,
+      page2.id,
+      "保留的评论"
+    )
+
+    // 软删 page1 与 commentToDel
+    await deletePage(env, aliceCookie, page1.id)
+    await deleteComment(env, aliceCookie, page2.id, commentToDel.id)
+
+    const res = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity`,
+      undefined,
+      aliceCookie
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as ActivityResponse
+
+    // 页面 1 的任何事件都不应出现
+    expect(body.events.some((e) => e.pageId === page1.id)).toBe(false)
+
+    // 软删的评论不应出现
+    expect(body.events.some((e) => e.commentId === commentToDel.id)).toBe(false)
+
+    // 保留的事件存在
+    expect(body.events.some((e) => e.commentId === commentKept.id)).toBe(true)
+    expect(
+      body.events.some(
+        (e) => e.type === "page_created" && e.pageId === page2.id
+      )
+    ).toBe(true)
+  })
+
+  it("按 createdAt DESC, unique_id DESC 稳定倒序，分页 limit/offset/page 不重不漏", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    const aliceCookie = await userSession(
+      env,
+      admin,
+      "paging-alice@example.com"
+    )
+    const aliceRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "paging-alice@example.com"
+    ))!
+
+    const space = await createSpace(env, admin, "分页测试空间")
+    await addSpaceMember(env, admin, space.id, aliceRow.id, "editor")
+
+    // 连续创建 5 篇文档
+    for (let i = 1; i <= 5; i++) {
+      await createPage(env, aliceCookie, {
+        title: `批量文档 ${i}`,
+        spaceId: space.id
+      })
+    }
+
+    // 全量读取
+    const allRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity?limit=100`,
+      undefined,
+      aliceCookie
+    )
+    const allBody = (await allRes.json()) as ActivityResponse
+    expect(allBody.events).toHaveLength(5)
+    expect(allBody.hasMore).toBe(false)
+    const allIds = allBody.events.map((e) => e.id)
+
+    // 分页 limit=2
+    const page1Res = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity?limit=2&page=1`,
+      undefined,
+      aliceCookie
+    )
+    const page1 = (await page1Res.json()) as ActivityResponse
+    expect(page1.events).toHaveLength(2)
+    expect(page1.hasMore).toBe(true)
+
+    const page2Res = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity?limit=2&page=2`,
+      undefined,
+      aliceCookie
+    )
+    const page2 = (await page2Res.json()) as ActivityResponse
+    expect(page2.events).toHaveLength(2)
+    expect(page2.hasMore).toBe(true)
+
+    const page3Res = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity?limit=2&page=3`,
+      undefined,
+      aliceCookie
+    )
+    const page3 = (await page3Res.json()) as ActivityResponse
+    expect(page3.events).toHaveLength(1)
+    expect(page3.hasMore).toBe(false)
+
+    // 验证三页拼合无缝对应全量，不重不漏
+    const pagedIds = [
+      ...page1.events.map((e) => e.id),
+      ...page2.events.map((e) => e.id),
+      ...page3.events.map((e) => e.id)
+    ]
+    expect(pagedIds).toEqual(allIds)
+
+    // offset=2 与 page=2 结果完全一致
+    const offsetRes = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity?limit=2&offset=2`,
+      undefined,
+      aliceCookie
+    )
+    const offsetBody = (await offsetRes.json()) as ActivityResponse
+    expect(offsetBody.events.map((e) => e.id)).toEqual(
+      page2.events.map((e) => e.id)
+    )
+  })
+
+  it("空态：作者没有产生事件时返回空列表与 hasMore: false", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    await userSession(env, admin, "empty-alice@example.com")
+    const aliceRow = (await findUserByEmail(
+      env.DB,
+      prefix,
+      "empty-alice@example.com"
+    ))!
+
+    const res = await jsonRequest(
+      env,
+      "GET",
+      `/api/users/${aliceRow.id}/activity`,
+      undefined,
+      admin
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as ActivityResponse
+    expect(body.events).toEqual([])
+    expect(body.hasMore).toBe(false)
   })
 })
