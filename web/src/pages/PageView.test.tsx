@@ -1547,4 +1547,19 @@ describe("阅读页次要操作收进「更多」菜单", () => {
     expect(toolbar?.contains(newChildButton)).toBe(true)
     expect(toolbar?.contains(moreButton)).toBe(true)
   })
+
+  it("正文内容列包含 overflow-x-clip 类以兜底横向溢出，评论区不处于该裁剪容器内", async () => {
+    renderView()
+    await screen.findByText("支付服务部署手册")
+
+    const heading = screen.getByRole("heading", { level: 2, name: /评论/ })
+    const commentSection = heading.closest("section")
+    expect(commentSection).not.toBeNull()
+
+    const readView = document.querySelector(".wiki-content")
+    expect(readView).not.toBeNull()
+    const readViewWrapper = readView?.closest(".min-w-0")
+    expect(readViewWrapper).toHaveClass("overflow-x-clip")
+    expect(readViewWrapper?.contains(commentSection!)).toBe(false)
+  })
 })

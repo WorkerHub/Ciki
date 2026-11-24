@@ -602,7 +602,7 @@ export function PageView() {
 
       {page.contentHtml.trim() ? (
         <div className="flex">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 overflow-x-clip">
             <ReadView
               html={page.contentHtml}
               headingIds={headingIds}
