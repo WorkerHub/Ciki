@@ -817,7 +817,11 @@
       "title": "Avatar",
       "description": "PNG / JPG / GIF / WebP, up to 10MB each; applied after saving.",
       "change": "Change avatar",
-      "select": "Choose an avatar"
+      "select": "Choose an avatar",
+      "cropTitle": "Crop avatar",
+      "cropConfirm": "Confirm",
+      "decodeFailed": "Failed to decode the image. Choose another image.",
+      "zoomSlider": "Zoom selection"
     },
     "bio": {
       "title": "Bio",

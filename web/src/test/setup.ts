@@ -53,6 +53,9 @@ if (typeof window !== "undefined") {
   if (!Element.prototype.hasPointerCapture) {
     Element.prototype.hasPointerCapture = () => false
   }
+  if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = () => {}
+  }
   if (!Element.prototype.releasePointerCapture) {
     Element.prototype.releasePointerCapture = () => {}
   }
@@ -117,6 +120,25 @@ if (typeof window !== "undefined") {
     HTMLCanvasElement.prototype.toBlob = (callback, type = "image/png") => {
       const blob = new Blob(["mock-image-bytes"], { type })
       callback(blob)
+    }
+  }
+  if (!("createImageBitmap" in globalThis)) {
+    const createImageBitmapStub = (
+      _image: unknown,
+      _options?: { imageOrientation?: string }
+    ) => {
+      return Promise.resolve({
+        width: 800,
+        height: 600,
+        close: () => {}
+      } as ImageBitmap)
+    }
+    ;(
+      globalThis as unknown as { createImageBitmap: unknown }
+    ).createImageBitmap = createImageBitmapStub
+    if (typeof window !== "undefined") {
+      ;(window as unknown as { createImageBitmap: unknown }).createImageBitmap =
+        createImageBitmapStub
     }
   }
   if (!("Path2D" in globalThis)) {
