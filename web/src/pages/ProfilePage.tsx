@@ -164,10 +164,6 @@ export function ProfilePage() {
     }
   }
 
-  const isAgent = Boolean(
-    (user as any).isAgent || (user as any).kind === "agent"
-  )
-
   return (
     <div className="max-w-2xl space-y-4">
       <header className="space-y-1">
@@ -307,116 +303,111 @@ export function ProfilePage() {
           </CardContent>
         </Card>
 
-        {!isAgent ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                {t("profile.bio.title")}
-              </CardTitle>
-              <CardDescription>{t("profile.bio.description")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {isEditingBio ? (
-                <form
-                  className="space-y-3"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    void saveBio()
-                  }}
-                >
-                  <div className="space-y-1.5">
-                    <Label htmlFor="profile-bio">
-                      {t("profile.bio.label")}
-                    </Label>
-                    <Textarea
-                      id="profile-bio"
-                      name="bio"
-                      value={bio}
-                      onChange={(event) => setBio(event.target.value)}
-                      placeholder={t("profile.bio.placeholder")}
-                      rows={3}
-                      autoFocus
-                      disabled={savingBio}
-                      aria-invalid={Array.from(bio.trim()).length > 100}
-                      onKeyDown={(event) => {
-                        if (event.key === "Escape") {
-                          event.preventDefault()
-                          cancelEditBio()
-                        } else if (
-                          (event.ctrlKey || event.metaKey) &&
-                          event.key === "Enter"
-                        ) {
-                          event.preventDefault()
-                          void saveBio()
-                        }
-                      }}
-                    />
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      {Array.from(bio.trim()).length > 100 ? (
-                        <span className="text-destructive font-medium">
-                          {t("profile.bio.overLimit")}
-                        </span>
-                      ) : (
-                        <span />
-                      )}
-                      <span
-                        className={cn(
-                          "tabular-nums",
-                          Array.from(bio.trim()).length > 100 &&
-                            "text-destructive font-medium"
-                        )}
-                      >
-                        {Array.from(bio.trim()).length}/100
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={
-                        savingBio || Array.from(bio.trim()).length > 100
+        {/* /profile 仅人类会话可达——后端登录口（auth.ts:375 密码、:649 Passkey）已挡 agent，agent 无资料编辑入口 */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {t("profile.bio.title")}
+            </CardTitle>
+            <CardDescription>{t("profile.bio.description")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {isEditingBio ? (
+              <form
+                className="space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  void saveBio()
+                }}
+              >
+                <div className="space-y-1.5">
+                  <Label htmlFor="profile-bio">{t("profile.bio.label")}</Label>
+                  <Textarea
+                    id="profile-bio"
+                    name="bio"
+                    value={bio}
+                    onChange={(event) => setBio(event.target.value)}
+                    placeholder={t("profile.bio.placeholder")}
+                    rows={3}
+                    autoFocus
+                    disabled={savingBio}
+                    aria-invalid={Array.from(bio.trim()).length > 100}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        event.preventDefault()
+                        cancelEditBio()
+                      } else if (
+                        (event.ctrlKey || event.metaKey) &&
+                        event.key === "Enter"
+                      ) {
+                        event.preventDefault()
+                        void saveBio()
                       }
-                    >
-                      {savingBio ? t("profile.saving") : t("common.save")}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={savingBio}
-                      onClick={cancelEditBio}
-                    >
-                      {t("common.cancel")}
-                    </Button>
-                  </div>
-                </form>
-              ) : (
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <p className="text-sm text-foreground whitespace-pre-wrap break-words flex-1">
-                    {user.bio ? (
-                      user.bio
-                    ) : (
-                      <span className="text-muted-foreground">
-                        {t("profile.bio.empty")}
+                    }}
+                  />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    {Array.from(bio.trim()).length > 100 ? (
+                      <span className="text-destructive font-medium">
+                        {t("profile.bio.overLimit")}
                       </span>
+                    ) : (
+                      <span />
                     )}
-                  </p>
+                    <span
+                      className={cn(
+                        "tabular-nums",
+                        Array.from(bio.trim()).length > 100 &&
+                          "text-destructive font-medium"
+                      )}
+                    >
+                      {Array.from(bio.trim()).length}/100
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={savingBio || Array.from(bio.trim()).length > 100}
+                  >
+                    {savingBio ? t("profile.saving") : t("common.save")}
+                  </Button>
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={startEditBio}
-                    className="shrink-0 self-start"
-                    aria-label={t("profile.bio.edit")}
+                    disabled={savingBio}
+                    onClick={cancelEditBio}
                   >
-                    {t("profile.bio.edit")}
+                    {t("common.cancel")}
                   </Button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ) : null}
+              </form>
+            ) : (
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                <p className="text-sm text-foreground whitespace-pre-wrap break-words flex-1">
+                  {user.bio ? (
+                    user.bio
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {t("profile.bio.empty")}
+                    </span>
+                  )}
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={startEditBio}
+                  className="shrink-0 self-start"
+                  aria-label={t("profile.bio.edit")}
+                >
+                  {t("profile.bio.edit")}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {file ? (
           <div className="flex justify-end">

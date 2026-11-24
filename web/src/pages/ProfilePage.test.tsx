@@ -283,14 +283,6 @@ describe("个人资料页", () => {
     expect(screen.queryByLabelText("一句话简介")).toBeNull()
     expect(screen.getByText("原始简介")).toBeInTheDocument()
   })
-
-  it("Agent 账号不渲染一句话简介编辑卡片", () => {
-    setUser({ ...user, isAgent: true, kind: "agent" } as any)
-    render(<ProfilePage />)
-
-    expect(screen.queryByText("一句话简介")).toBeNull()
-    expect(screen.queryByRole("button", { name: "修改简介" })).toBeNull()
-  })
 })
 
 describe("个人资料页 · 英文界面", () => {
