@@ -1,0 +1,7 @@
+# App 级现场实验日志（修复页 :8906 / 390×844 isMobile / node qa176-app-live-experiment.mjs）
+# 第一步：现状（overflow-x:clip + [overflow-clip-margin:4px]）测发表框左条带聚焦/未聚焦对比
+# 第二步：JS 运行时把画布改为 overflow: clip（双轴，margin 4px 保留）后再测——仅现场实验，未改任何代码
+E(ox:clip,oy:hidden,+margin): [left-4,left) red px = 0 ; [left-8,left-4) red px = 0
+before-clipX: 聚焦/未聚焦左条带相同=true（不同=环画出）    # 环被裁 = 缺陷在修复版仍复现
+after-bothClip: 聚焦/未聚焦左条带相同=false（不同=环画出）  # 双轴 clip 后环画出 = 修复路径可验证
+证据图：probe8-before-clipX-left-{unfocused,focused}.png（全白）/ probe8-after-bothClip-left-{unfocused,focused}.png（聚焦图左缘有环色）

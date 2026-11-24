@@ -1,0 +1,2759 @@
+{
+  "tag": "fix",
+  "port": "8906",
+  "results": [
+    {
+      "id": "D1-m375-light",
+      "name": "页面无异常横向滚动（视口/内滚动容器）",
+      "verdict": "通过",
+      "detail": "docScrollWidth=375/375 scroller={\"scrollW\":375,\"clientW\":375,\"noH\":true}",
+      "overflowX": "clip",
+      "overflowClipMargin": "4px",
+      "canvas": {
+        "left": 16,
+        "right": 359,
+        "top": 68,
+        "width": 343
+      },
+      "textarea": {
+        "left": 16,
+        "right": 359,
+        "top": 1009.38,
+        "width": 343
+      },
+      "taBoxShadow": "none",
+      "taBorderColor": "oklch(0.922 0 0)",
+      "bodyBg": "oklch(1 0 0)",
+      "h1": {
+        "left": 16,
+        "right": 350.58,
+        "top": 99.28,
+        "width": 334.58
+      },
+      "separator": {
+        "left": 16,
+        "right": 359,
+        "top": 764.63,
+        "width": 343
+      },
+      "commentsHeading": {
+        "left": 16,
+        "right": 359,
+        "top": 777.63,
+        "width": 343
+      },
+      "composerBox": {
+        "left": 16,
+        "right": 359,
+        "top": 1009.38,
+        "width": 343
+      },
+      "scroller": {
+        "scrollW": 375,
+        "clientW": 375,
+        "noH": true
+      },
+      "docScrollWidth": 375,
+      "innerWidth": 375,
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 341,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 343,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "D2-m375-light",
+      "name": "宽表格/代码块各自容器内横滚（阻截仍保留）",
+      "verdict": "通过",
+      "detail": "pre 2288/341 ox=auto; table 5638/343 ox=auto",
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 341,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 343,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "A0-m375-light",
+      "name": "发表框未聚焦态无环（正常，不判缺陷）",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(1 0 0) boxShadow=none borderColor=oklch(0.922 0 0)",
+      "structure": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -574,
+          "width": 343
+        },
+        "textarea": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(0.922 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -542.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 122.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 135.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      }
+    },
+    {
+      "id": "A1-m375-light",
+      "name": "发表框聚焦: 左侧环画出（聚焦/未聚焦条带像素不同）",
+      "verdict": "不通过",
+      "detail": "leftRingVisible=false deterministic=true",
+      "leftRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A2-m375-light",
+      "name": "发表框聚焦: 右侧环画出",
+      "verdict": "不通过",
+      "detail": "rightRingVisible=false deterministic=true",
+      "rightRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A3-m375-light",
+      "name": "发表框聚焦环完整（左右均画出 + 截图确定性成立）",
+      "verdict": "不通过",
+      "detail": "overflowClipMargin=4px boxShadow=rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px ta.left=16 canvas.left=16 ta.right=359 canvas.right=359",
+      "focused": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -574,
+          "width": 343
+        },
+        "textarea": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -542.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 122.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 135.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      },
+      "strip": {
+        "leftRingVisible": false,
+        "rightRingVisible": false,
+        "deterministic": true
+      }
+    },
+    {
+      "id": "C1-m375-light",
+      "name": "对齐: 发表框左缘=正文标题/分割线左缘、右缘=分割线右缘",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(1 0 0) h1.left=16 sep L/R=16/359 ta L/R=16/359",
+      "align": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -574,
+          "width": 343
+        },
+        "textarea": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -542.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 122.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 135.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      }
+    },
+    {
+      "id": "B1-m375-light",
+      "name": "回复框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "replyL=true replyR=false clipMargin=4px ta.left=33 ta.right=359 (左缘应比发表框缩进≈17px)",
+      "reply": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -574,
+          "width": 343
+        },
+        "textarea": {
+          "left": 33,
+          "right": 359,
+          "top": 371.02,
+          "width": 326
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -542.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 122.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 135.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 33,
+          "right": 359,
+          "top": 371.02,
+          "width": 326
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      },
+      "strip": {
+        "replyL": true,
+        "replyR": false
+      }
+    },
+    {
+      "id": "B2-m375-light",
+      "name": "编辑框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "editL=true editR=false clipMargin=4px ta.left=60 ta.right=359 (右缘应与发表框同、左缘缩进≈45px)",
+      "edit": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -574,
+          "width": 343
+        },
+        "textarea": {
+          "left": 60,
+          "right": 359,
+          "top": 188.63,
+          "width": 299
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -542.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 122.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 135.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 60,
+          "right": 359,
+          "top": 188.63,
+          "width": 299
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      },
+      "strip": {
+        "editL": true,
+        "editR": false
+      }
+    },
+    {
+      "id": "E1-m375-light",
+      "name": "预览切换无布局跳动（容器左缘/canvas 宽不变、无横滚）",
+      "verdict": "通过",
+      "detail": "composer.left 16 -> 16; canvas.width 343 -> 343; docScrollWidth=375/375",
+      "before": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -574,
+          "width": 343
+        },
+        "textarea": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -542.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 122.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 135.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 359,
+          "top": 367.38,
+          "width": 343
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      },
+      "after": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -536,
+          "width": 343
+        },
+        "textarea": null,
+        "taBoxShadow": null,
+        "taBorderColor": null,
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -504.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 160.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 173.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 359,
+          "top": 405.38,
+          "width": 343
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      }
+    },
+    {
+      "id": "E2-m375-light",
+      "name": "收起预览回到输入态: composer 容器位置复原",
+      "verdict": "通过",
+      "detail": "composer.left restored=16 baseline=16",
+      "restore": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 359,
+          "top": -536,
+          "width": 343
+        },
+        "textarea": {
+          "left": 16,
+          "right": 359,
+          "top": 405.38,
+          "width": 343
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(0.922 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -504.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 359,
+          "top": 160.63,
+          "width": 343
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 359,
+          "top": 173.63,
+          "width": 343
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 359,
+          "top": 405.38,
+          "width": 343
+        },
+        "scroller": {
+          "scrollW": 375,
+          "clientW": 375,
+          "noH": true
+        },
+        "docScrollWidth": 375,
+        "innerWidth": 375
+      }
+    },
+    {
+      "id": "D1-m390-light",
+      "name": "页面无异常横向滚动（视口/内滚动容器）",
+      "verdict": "通过",
+      "detail": "docScrollWidth=390/390 scroller={\"scrollW\":390,\"clientW\":390,\"noH\":true}",
+      "overflowX": "clip",
+      "overflowClipMargin": "4px",
+      "canvas": {
+        "left": 16,
+        "right": 374,
+        "top": 68,
+        "width": 358
+      },
+      "textarea": {
+        "left": 16,
+        "right": 374,
+        "top": 1009.38,
+        "width": 358
+      },
+      "taBoxShadow": "none",
+      "taBorderColor": "oklch(0.922 0 0)",
+      "bodyBg": "oklch(1 0 0)",
+      "h1": {
+        "left": 16,
+        "right": 350.58,
+        "top": 99.28,
+        "width": 334.58
+      },
+      "separator": {
+        "left": 16,
+        "right": 374,
+        "top": 764.63,
+        "width": 358
+      },
+      "commentsHeading": {
+        "left": 16,
+        "right": 374,
+        "top": 777.63,
+        "width": 358
+      },
+      "composerBox": {
+        "left": 16,
+        "right": 374,
+        "top": 1009.38,
+        "width": 358
+      },
+      "scroller": {
+        "scrollW": 390,
+        "clientW": 390,
+        "noH": true
+      },
+      "docScrollWidth": 390,
+      "innerWidth": 390,
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 356,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 358,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "D2-m390-light",
+      "name": "宽表格/代码块各自容器内横滚（阻截仍保留）",
+      "verdict": "通过",
+      "detail": "pre 2288/356 ox=auto; table 5638/358 ox=auto",
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 356,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 358,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "A0-m390-light",
+      "name": "发表框未聚焦态无环（正常，不判缺陷）",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(1 0 0) boxShadow=none borderColor=oklch(0.922 0 0)",
+      "structure": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(0.922 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "A1-m390-light",
+      "name": "发表框聚焦: 左侧环画出（聚焦/未聚焦条带像素不同）",
+      "verdict": "不通过",
+      "detail": "leftRingVisible=false deterministic=true",
+      "leftRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A2-m390-light",
+      "name": "发表框聚焦: 右侧环画出",
+      "verdict": "不通过",
+      "detail": "rightRingVisible=false deterministic=true",
+      "rightRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A3-m390-light",
+      "name": "发表框聚焦环完整（左右均画出 + 截图确定性成立）",
+      "verdict": "不通过",
+      "detail": "overflowClipMargin=4px boxShadow=rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px ta.left=16 canvas.left=16 ta.right=374 canvas.right=374",
+      "focused": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "strip": {
+        "leftRingVisible": false,
+        "rightRingVisible": false,
+        "deterministic": true
+      }
+    },
+    {
+      "id": "C1-m390-light",
+      "name": "对齐: 发表框左缘=正文标题/分割线左缘、右缘=分割线右缘",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(1 0 0) h1.left=16 sep L/R=16/374 ta L/R=16/374",
+      "align": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "B1-m390-light",
+      "name": "回复框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "replyL=true replyR=false clipMargin=4px ta.left=33 ta.right=374 (左缘应比发表框缩进≈17px)",
+      "reply": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 33,
+          "right": 374,
+          "top": 434.3,
+          "width": 341
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 33,
+          "right": 374,
+          "top": 434.3,
+          "width": 341
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "strip": {
+        "replyL": true,
+        "replyR": false
+      }
+    },
+    {
+      "id": "B2-m390-light",
+      "name": "编辑框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "editL=true editR=false clipMargin=4px ta.left=60 ta.right=374 (右缘应与发表框同、左缘缩进≈45px)",
+      "edit": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 60,
+          "right": 374,
+          "top": 252.63,
+          "width": 314
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 60,
+          "right": 374,
+          "top": 252.63,
+          "width": 314
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "strip": {
+        "editL": true,
+        "editR": false
+      }
+    },
+    {
+      "id": "E1-m390-light",
+      "name": "预览切换无布局跳动（容器左缘/canvas 宽不变、无横滚）",
+      "verdict": "通过",
+      "detail": "composer.left 16 -> 16; canvas.width 358 -> 358; docScrollWidth=390/390",
+      "before": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "after": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -472,
+          "width": 358
+        },
+        "textarea": null,
+        "taBoxShadow": null,
+        "taBorderColor": null,
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -440.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 224.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 237.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 469.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "E2-m390-light",
+      "name": "收起预览回到输入态: composer 容器位置复原",
+      "verdict": "通过",
+      "detail": "composer.left restored=16 baseline=16",
+      "restore": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -472,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 469.38,
+          "width": 358
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(0.922 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -440.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 224.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 237.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 469.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "D1-m390-dark",
+      "name": "页面无异常横向滚动（视口/内滚动容器）",
+      "verdict": "通过",
+      "detail": "docScrollWidth=390/390 scroller={\"scrollW\":390,\"clientW\":390,\"noH\":true}",
+      "overflowX": "clip",
+      "overflowClipMargin": "4px",
+      "canvas": {
+        "left": 16,
+        "right": 374,
+        "top": 68,
+        "width": 358
+      },
+      "textarea": {
+        "left": 16,
+        "right": 374,
+        "top": 1009.38,
+        "width": 358
+      },
+      "taBoxShadow": "none",
+      "taBorderColor": "oklch(1 0 0 / 0.15)",
+      "bodyBg": "oklch(0.145 0 0)",
+      "h1": {
+        "left": 16,
+        "right": 350.58,
+        "top": 99.28,
+        "width": 334.58
+      },
+      "separator": {
+        "left": 16,
+        "right": 374,
+        "top": 764.63,
+        "width": 358
+      },
+      "commentsHeading": {
+        "left": 16,
+        "right": 374,
+        "top": 777.63,
+        "width": 358
+      },
+      "composerBox": {
+        "left": 16,
+        "right": 374,
+        "top": 1009.38,
+        "width": 358
+      },
+      "scroller": {
+        "scrollW": 390,
+        "clientW": 390,
+        "noH": true
+      },
+      "docScrollWidth": 390,
+      "innerWidth": 390,
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 356,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 358,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "D2-m390-dark",
+      "name": "宽表格/代码块各自容器内横滚（阻截仍保留）",
+      "verdict": "通过",
+      "detail": "pre 2288/356 ox=auto; table 5638/358 ox=auto",
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 356,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 358,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "A0-m390-dark",
+      "name": "发表框未聚焦态无环（正常，不判缺陷）",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(0.145 0 0) boxShadow=none borderColor=oklch(1 0 0 / 0.15)",
+      "structure": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(1 0 0 / 0.15)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "A1-m390-dark",
+      "name": "发表框聚焦: 左侧环画出（聚焦/未聚焦条带像素不同）",
+      "verdict": "不通过",
+      "detail": "leftRingVisible=false deterministic=true",
+      "leftRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A2-m390-dark",
+      "name": "发表框聚焦: 右侧环画出",
+      "verdict": "不通过",
+      "detail": "rightRingVisible=false deterministic=true",
+      "rightRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A3-m390-dark",
+      "name": "发表框聚焦环完整（左右均画出 + 截图确定性成立）",
+      "verdict": "不通过",
+      "detail": "overflowClipMargin=4px boxShadow=rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px ta.left=16 canvas.left=16 ta.right=374 canvas.right=374",
+      "focused": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "strip": {
+        "leftRingVisible": false,
+        "rightRingVisible": false,
+        "deterministic": true
+      }
+    },
+    {
+      "id": "C1-m390-dark",
+      "name": "对齐: 发表框左缘=正文标题/分割线左缘、右缘=分割线右缘",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(0.145 0 0) h1.left=16 sep L/R=16/374 ta L/R=16/374",
+      "align": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "B1-m390-dark",
+      "name": "回复框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "replyL=true replyR=false clipMargin=4px ta.left=33 ta.right=374 (左缘应比发表框缩进≈17px)",
+      "reply": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 33,
+          "right": 374,
+          "top": 434.31,
+          "width": 341
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 33,
+          "right": 374,
+          "top": 434.31,
+          "width": 341
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "strip": {
+        "replyL": true,
+        "replyR": false
+      }
+    },
+    {
+      "id": "B2-m390-dark",
+      "name": "编辑框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "editL=true editR=false clipMargin=4px ta.left=60 ta.right=374 (右缘应与发表框同、左缘缩进≈45px)",
+      "edit": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 60,
+          "right": 374,
+          "top": 252.63,
+          "width": 314
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 60,
+          "right": 374,
+          "top": 252.63,
+          "width": 314
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "strip": {
+        "editL": true,
+        "editR": false
+      }
+    },
+    {
+      "id": "E1-m390-dark",
+      "name": "预览切换无布局跳动（容器左缘/canvas 宽不变、无横滚）",
+      "verdict": "通过",
+      "detail": "composer.left 16 -> 16; canvas.width 358 -> 358; docScrollWidth=390/390",
+      "before": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -510,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -478.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 186.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 199.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 431.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      },
+      "after": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -472,
+          "width": 358
+        },
+        "textarea": null,
+        "taBoxShadow": null,
+        "taBorderColor": null,
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -440.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 224.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 237.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 469.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "E2-m390-dark",
+      "name": "收起预览回到输入态: composer 容器位置复原",
+      "verdict": "通过",
+      "detail": "composer.left restored=16 baseline=16",
+      "restore": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 16,
+          "right": 374,
+          "top": -472,
+          "width": 358
+        },
+        "textarea": {
+          "left": 16,
+          "right": 374,
+          "top": 469.38,
+          "width": 358
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(1 0 0 / 0.15)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 16,
+          "right": 350.58,
+          "top": -440.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 16,
+          "right": 374,
+          "top": 224.63,
+          "width": 358
+        },
+        "commentsHeading": {
+          "left": 16,
+          "right": 374,
+          "top": 237.63,
+          "width": 358
+        },
+        "composerBox": {
+          "left": 16,
+          "right": 374,
+          "top": 469.38,
+          "width": 358
+        },
+        "scroller": {
+          "scrollW": 390,
+          "clientW": 390,
+          "noH": true
+        },
+        "docScrollWidth": 390,
+        "innerWidth": 390
+      }
+    },
+    {
+      "id": "D1-desk-light",
+      "name": "页面无异常横向滚动（视口/内滚动容器）",
+      "verdict": "通过",
+      "detail": "docScrollWidth=1440/1440 scroller={\"scrollW\":1180,\"clientW\":1180,\"noH\":true}",
+      "overflowX": "clip",
+      "overflowClipMargin": "4px",
+      "canvas": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 72,
+        "width": 1131.98
+      },
+      "textarea": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 852.38,
+        "width": 1131.98
+      },
+      "taBoxShadow": "none",
+      "taBorderColor": "oklch(0.922 0 0)",
+      "bodyBg": "oklch(1 0 0)",
+      "h1": {
+        "left": 284.02,
+        "right": 618.59,
+        "top": 103.28,
+        "width": 334.58
+      },
+      "separator": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 633.88,
+        "width": 1131.98
+      },
+      "commentsHeading": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 646.88,
+        "width": 1131.98
+      },
+      "composerBox": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 852.38,
+        "width": 1131.98
+      },
+      "scroller": {
+        "scrollW": 1180,
+        "clientW": 1180,
+        "noH": true
+      },
+      "docScrollWidth": 1440,
+      "innerWidth": 1440,
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 1130,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 1132,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "D2-desk-light",
+      "name": "宽表格/代码块各自容器内横滚（阻截仍保留）",
+      "verdict": "通过",
+      "detail": "pre 2288/1130 ox=auto; table 5638/1132 ox=auto",
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 1130,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 1132,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "A0-desk-light",
+      "name": "发表框未聚焦态无环（正常，不判缺陷）",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(1 0 0) boxShadow=none borderColor=oklch(0.922 0 0)",
+      "structure": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(0.922 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "id": "A1-desk-light",
+      "name": "发表框聚焦: 左侧环画出（聚焦/未聚焦条带像素不同）",
+      "verdict": "不通过",
+      "detail": "leftRingVisible=false deterministic=true",
+      "leftRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A2-desk-light",
+      "name": "发表框聚焦: 右侧环画出",
+      "verdict": "不通过",
+      "detail": "rightRingVisible=false deterministic=true",
+      "rightRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A3-desk-light",
+      "name": "发表框聚焦环完整（左右均画出 + 截图确定性成立）",
+      "verdict": "不通过",
+      "detail": "overflowClipMargin=4px boxShadow=rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px ta.left=284.02 canvas.left=284.02 ta.right=1416 canvas.right=1416",
+      "focused": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "strip": {
+        "leftRingVisible": false,
+        "rightRingVisible": false,
+        "deterministic": true
+      }
+    },
+    {
+      "id": "C1-desk-light",
+      "name": "对齐: 发表框左缘=正文标题/分割线左缘、右缘=分割线右缘",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(1 0 0) h1.left=284.02 sep L/R=284.02/1416 ta L/R=284.02/1416",
+      "align": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "id": "B1-desk-light",
+      "name": "回复框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "replyL=true replyR=false clipMargin=4px ta.left=301.02 ta.right=1416 (左缘应比发表框缩进≈17px)",
+      "reply": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 301.02,
+          "right": 1416,
+          "top": 699.09,
+          "width": 1114.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 301.02,
+          "right": 1416,
+          "top": 699.09,
+          "width": 1114.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "strip": {
+        "replyL": true,
+        "replyR": false
+      }
+    },
+    {
+      "id": "B2-desk-light",
+      "name": "编辑框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "editL=true editR=false clipMargin=4px ta.left=328.02 ta.right=1416 (右缘应与发表框同、左缘缩进≈45px)",
+      "edit": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 328.02,
+          "right": 1416,
+          "top": 543.88,
+          "width": 1087.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 328.02,
+          "right": 1416,
+          "top": 543.88,
+          "width": 1087.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "strip": {
+        "editL": true,
+        "editR": false
+      }
+    },
+    {
+      "id": "E1-desk-light",
+      "name": "预览切换无布局跳动（容器左缘/canvas 宽不变、无横滚）",
+      "verdict": "通过",
+      "detail": "composer.left 284.02 -> 284.02; canvas.width 1131.98 -> 1131.98; docScrollWidth=1440/1440",
+      "before": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.708 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.708 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "after": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -46,
+          "width": 1131.98
+        },
+        "textarea": null,
+        "taBoxShadow": null,
+        "taBorderColor": null,
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -14.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 515.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 528.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 734.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "id": "E2-desk-light",
+      "name": "收起预览回到输入态: composer 容器位置复原",
+      "verdict": "通过",
+      "detail": "composer.left restored=284.02 baseline=284.02",
+      "restore": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -46,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 734.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(0.922 0 0)",
+        "bodyBg": "oklch(1 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -14.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 515.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 528.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 734.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "id": "D1-desk-dark",
+      "name": "页面无异常横向滚动（视口/内滚动容器）",
+      "verdict": "通过",
+      "detail": "docScrollWidth=1440/1440 scroller={\"scrollW\":1180,\"clientW\":1180,\"noH\":true}",
+      "overflowX": "clip",
+      "overflowClipMargin": "4px",
+      "canvas": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 72,
+        "width": 1131.98
+      },
+      "textarea": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 852.38,
+        "width": 1131.98
+      },
+      "taBoxShadow": "none",
+      "taBorderColor": "oklch(1 0 0 / 0.15)",
+      "bodyBg": "oklch(0.145 0 0)",
+      "h1": {
+        "left": 284.02,
+        "right": 618.59,
+        "top": 103.28,
+        "width": 334.58
+      },
+      "separator": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 633.88,
+        "width": 1131.98
+      },
+      "commentsHeading": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 646.88,
+        "width": 1131.98
+      },
+      "composerBox": {
+        "left": 284.02,
+        "right": 1416,
+        "top": 852.38,
+        "width": 1131.98
+      },
+      "scroller": {
+        "scrollW": 1180,
+        "clientW": 1180,
+        "noH": true
+      },
+      "docScrollWidth": 1440,
+      "innerWidth": 1440,
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 1130,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 1132,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "D2-desk-dark",
+      "name": "宽表格/代码块各自容器内横滚（阻截仍保留）",
+      "verdict": "通过",
+      "detail": "pre 2288/1130 ox=auto; table 5638/1132 ox=auto",
+      "pre": {
+        "scrollW": 2288,
+        "clientW": 1130,
+        "overflows": true,
+        "overflowX": "auto"
+      },
+      "table": {
+        "scrollW": 5638,
+        "clientW": 1132,
+        "overflows": true,
+        "overflowX": "auto"
+      }
+    },
+    {
+      "id": "A0-desk-dark",
+      "name": "发表框未聚焦态无环（正常，不判缺陷）",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(0.145 0 0) boxShadow=none borderColor=oklch(1 0 0 / 0.15)",
+      "structure": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(1 0 0 / 0.15)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "id": "A1-desk-dark",
+      "name": "发表框聚焦: 左侧环画出（聚焦/未聚焦条带像素不同）",
+      "verdict": "不通过",
+      "detail": "leftRingVisible=false deterministic=true",
+      "leftRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A2-desk-dark",
+      "name": "发表框聚焦: 右侧环画出",
+      "verdict": "不通过",
+      "detail": "rightRingVisible=false deterministic=true",
+      "rightRingVisible": false,
+      "deterministic": true
+    },
+    {
+      "id": "A3-desk-dark",
+      "name": "发表框聚焦环完整（左右均画出 + 截图确定性成立）",
+      "verdict": "不通过",
+      "detail": "overflowClipMargin=4px boxShadow=rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px ta.left=284.02 canvas.left=284.02 ta.right=1416 canvas.right=1416",
+      "focused": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "strip": {
+        "leftRingVisible": false,
+        "rightRingVisible": false,
+        "deterministic": true
+      }
+    },
+    {
+      "id": "C1-desk-dark",
+      "name": "对齐: 发表框左缘=正文标题/分割线左缘、右缘=分割线右缘",
+      "verdict": "通过",
+      "detail": "bodyBg=oklch(0.145 0 0) h1.left=284.02 sep L/R=284.02/1416 ta L/R=284.02/1416",
+      "align": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "id": "B1-desk-dark",
+      "name": "回复框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "replyL=true replyR=false clipMargin=4px ta.left=301.02 ta.right=1416 (左缘应比发表框缩进≈17px)",
+      "reply": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 301.02,
+          "right": 1416,
+          "top": 699.09,
+          "width": 1114.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 301.02,
+          "right": 1416,
+          "top": 699.09,
+          "width": 1114.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "strip": {
+        "replyL": true,
+        "replyR": false
+      }
+    },
+    {
+      "id": "B2-desk-dark",
+      "name": "编辑框聚焦: 左右环画出",
+      "verdict": "不通过",
+      "detail": "editL=true editR=false clipMargin=4px ta.left=328.02 ta.right=1416 (右缘应与发表框同、左缘缩进≈45px)",
+      "edit": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 328.02,
+          "right": 1416,
+          "top": 543.88,
+          "width": 1087.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 328.02,
+          "right": 1416,
+          "top": 543.88,
+          "width": 1087.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "strip": {
+        "editL": true,
+        "editR": false
+      }
+    },
+    {
+      "id": "E1-desk-dark",
+      "name": "预览切换无布局跳动（容器左缘/canvas 宽不变、无横滚）",
+      "verdict": "通过",
+      "detail": "composer.left 284.02 -> 284.02; canvas.width 1131.98 -> 1131.98; docScrollWidth=1440/1440",
+      "before": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -84,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklab(0.556 0 0 / 0.5) 0px 0px 0px 3px, rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "taBorderColor": "oklch(0.556 0 0)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -52.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 477.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 490.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 696.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      },
+      "after": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -46,
+          "width": 1131.98
+        },
+        "textarea": null,
+        "taBoxShadow": null,
+        "taBorderColor": null,
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -14.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 515.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 528.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 734.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    },
+    {
+      "id": "E2-desk-dark",
+      "name": "收起预览回到输入态: composer 容器位置复原",
+      "verdict": "通过",
+      "detail": "composer.left restored=284.02 baseline=284.02",
+      "restore": {
+        "overflowX": "clip",
+        "overflowClipMargin": "4px",
+        "canvas": {
+          "left": 284.02,
+          "right": 1416,
+          "top": -46,
+          "width": 1131.98
+        },
+        "textarea": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 734.38,
+          "width": 1131.98
+        },
+        "taBoxShadow": "none",
+        "taBorderColor": "oklch(1 0 0 / 0.15)",
+        "bodyBg": "oklch(0.145 0 0)",
+        "h1": {
+          "left": 284.02,
+          "right": 618.59,
+          "top": -14.72,
+          "width": 334.58
+        },
+        "separator": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 515.88,
+          "width": 1131.98
+        },
+        "commentsHeading": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 528.88,
+          "width": 1131.98
+        },
+        "composerBox": {
+          "left": 284.02,
+          "right": 1416,
+          "top": 734.38,
+          "width": 1131.98
+        },
+        "scroller": {
+          "scrollW": 1180,
+          "clientW": 1180,
+          "noH": true
+        },
+        "docScrollWidth": 1440,
+        "innerWidth": 1440
+      }
+    }
+  ],
+  "passCount": 30,
+  "total": 55,
+  "consoleErrors": []
+}

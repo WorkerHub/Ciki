@@ -1,0 +1,24 @@
+# Chromium overflow-clip-margin 最小复现日志（Chromium 159.0.8154.6 / Playwright 1.65.1 / node v26.13.1）
+# 复现容器：外层 div overflow-x:clip [+ overflow-clip-margin:4px]，子 div box-shadow: 0 0 0 3px red
+# A = 有 margin；C = 无 margin。条带 [容器左缘-6, 容器左缘) 中部 8px 截图逐字节对比 + PNG 解码数红像素。
+
+--- qa176-minrepro-margin-vs-no.mjs (probe5) ---
+browser: 159.0.8154.6
+geo: {"A":{"left":68,"right":268,...},"C":{"left":68,"right":268,...}}
+stripA == stripC ? true
+seg[-4,0): A==C ? true
+seg[-8,-4): A==C ? true
+seg[-3,0): A==C ? true
+
+--- qa176-minrepro-variants.mjs (probe6) ---
+geo: {"B":{"ox":"clip","oy":"clip","m":"4px"},"D":{"ox":"clip","oy":"visible","m":"0px","overflowClipMarginLeft":"n/a"}}
+
+--- qa176-png-redcount.mjs (probe7: PNG 解码统计红像素) ---
+probe5-strip-A-withMargin.png: {"w":6,"h":8,"red":0,"white":48,"other":0}   # ox:clip + margin → 环未画出
+probe5-strip-C-noMargin.png:   {"w":6,"h":8,"red":0,"white":48,"other":0}   # ox:clip 无 margin → 对照
+probe6-B-inner.png:            {"w":4,"h":8,"red":24,"white":8,"other":0}   # 双轴 clip + margin → [左缘-4,左缘) 有环
+probe6-B-outer.png:            {"w":4,"h":8,"red":0,"white":32,"other":0}   # [左缘-8,左缘-4) 白（环 3px 在 4px margin 内）
+
+结论：Chromium 159 中 overflow-clip-margin 仅当 overflow 双轴均为 clip 时参与裁剪边计算；
+单轴 overflow-x:clip（overflow-y 仍 visible）时该值进 computed style 但被绘制层忽略。
+长属性 overflow-clip-margin-left/right 未被解析（computed style 中不存在）。
