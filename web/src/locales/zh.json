@@ -1202,8 +1202,7 @@
     "replied": "回复了你的评论",
     "pageDeleted": "目标文档已被删除",
     "commentDeleted": "目标评论已被删除",
-    "targetDeleted": "目标内容已被删除",
-    "loading": "正在加载通知...",
+    "loadFailed": "通知加载失败",
     "prevPage": "上一页",
     "nextPage": "下一页",
     "pageInfo": "第 {{page}} 页"

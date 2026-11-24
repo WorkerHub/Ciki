@@ -92,17 +92,21 @@ export function CommentSection({ pageId }: { pageId: number }) {
       return
     }
 
-    requestAnimationFrame(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const rafId = requestAnimationFrame(() => {
       const el = document.getElementById(`comment-${commentId}`)
       if (el) {
         scrollToHeading(el, { behavior: "smooth" })
         setHighlightedCommentId(commentId)
-        const timer = setTimeout(() => {
+        timer = setTimeout(() => {
           setHighlightedCommentId(null)
         }, 2500)
-        return () => clearTimeout(timer)
       }
     })
+    return () => {
+      cancelAnimationFrame(rafId)
+      if (timer) clearTimeout(timer)
+    }
   }, [hasData, data, pageId, currentHash, t])
 
   const preview = (bodyMd: string) =>

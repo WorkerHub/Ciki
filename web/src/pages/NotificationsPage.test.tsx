@@ -160,6 +160,18 @@ describe("NotificationsPage", () => {
     })
   })
 
+  it("接口报错时渲染错误提示与重试按钮", async () => {
+    vi.mocked(notificationsApi.list).mockRejectedValueOnce(
+      new Error("Network error")
+    )
+    renderWithRouter()
+
+    await waitFor(() => {
+      expect(screen.getByText("通知加载失败")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument()
+    })
+  })
+
   it("点击通知项标记已读并跳转对应评论", async () => {
     const user = userEvent.setup()
     const { router } = renderWithRouter()

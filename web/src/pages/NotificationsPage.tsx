@@ -43,7 +43,7 @@ export function NotificationsPage() {
         const res = await notificationsApi.list({ limit: PAGE_SIZE, offset })
         setItems(res.items)
       } catch {
-        setError(t("notifications.loading"))
+        setError(t("notifications.loadFailed"))
       } finally {
         setLoading(false)
       }

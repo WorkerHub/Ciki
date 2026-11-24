@@ -1218,8 +1218,7 @@
     "replied": "replied to your comment",
     "pageDeleted": "The target document has been deleted",
     "commentDeleted": "The target comment has been deleted",
-    "targetDeleted": "The target content has been deleted",
-    "loading": "Loading notifications...",
+    "loadFailed": "Failed to load notifications",
     "prevPage": "Previous",
     "nextPage": "Next",
     "pageInfo": "Page {{page}}"
