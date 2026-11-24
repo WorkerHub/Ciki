@@ -17,22 +17,32 @@ export interface ThemeDefinition {
   }
 }
 
+export const THEME_META_COLORS: Record<
+  ThemeStyle,
+  { light: string; dark: string }
+> = (typeof window !== "undefined" &&
+  (
+    window as unknown as {
+      __THEME_META_COLORS__?: Record<
+        ThemeStyle,
+        { light: string; dark: string }
+      >
+    }
+  ).__THEME_META_COLORS__) || {
+  nova: { light: "#ffffff", dark: "#0a0a0a" },
+  paper: { light: "#f7f4ee", dark: "#0b0c0e" }
+}
+
 export const THEME_STYLES: ThemeDefinition[] = [
   {
     id: "nova",
     labelKey: "common.theme.style.nova",
-    metaColor: {
-      light: "#ffffff",
-      dark: "#0a0a0a"
-    }
+    metaColor: THEME_META_COLORS.nova
   },
   {
     id: "paper",
     labelKey: "common.theme.style.paper",
-    metaColor: {
-      light: "#f7f4ee",
-      dark: "#0b0c0e"
-    }
+    metaColor: THEME_META_COLORS.paper
   }
 ]
 

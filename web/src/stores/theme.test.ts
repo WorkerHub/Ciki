@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest"
+import { THEME_META_COLORS } from "@/lib/theme"
 import { useThemeStore } from "@/stores/theme"
 
 function setSystemDark(dark: boolean) {
@@ -111,5 +112,12 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
     expect(isDark()).toBe(true)
     expect(meta.getAttribute("content")).toBe("#0b0c0e")
+  })
+
+  it("THEME_META_COLORS 与各主题 light/dark 颜色保持单一真源", () => {
+    expect(THEME_META_COLORS.nova.light).toBe("#ffffff")
+    expect(THEME_META_COLORS.nova.dark).toBe("#0a0a0a")
+    expect(THEME_META_COLORS.paper.light).toBe("#f7f4ee")
+    expect(THEME_META_COLORS.paper.dark).toBe("#0b0c0e")
   })
 })

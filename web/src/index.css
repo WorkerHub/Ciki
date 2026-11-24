@@ -32,14 +32,6 @@
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans-family, "Geist Variable", sans-serif);
-  --font-mono: var(
-    --font-mono-family,
-    ui-monospace,
-    "SF Mono",
-    Menlo,
-    Consolas,
-    monospace
-  );
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -71,13 +63,13 @@
   --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-background: var(--background);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+  --radius-4xl: var(--radius-4xl);
 }
 
 :root {
@@ -105,6 +97,16 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-read-max-width: none;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -118,13 +120,11 @@
 :root,
 html[data-theme="nova"] {
   --font-sans-family: "Geist Variable", sans-serif;
-  --font-mono-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 .dark,
 html[data-theme="nova"].dark {
   --font-sans-family: "Geist Variable", sans-serif;
-  --font-mono-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
@@ -175,6 +175,7 @@ html[data-theme="paper"] {
   --font-mono-family:
     "JetBrains Mono Variable", "PingFang SC", "Noto Sans CJK SC",
     "Source Han Sans SC", "Microsoft YaHei", ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
 
   /* 语义色彩令牌 - 浅版 */
   --background: #f7f4ee;
@@ -183,8 +184,15 @@ html[data-theme="paper"] {
   --card-foreground: #2a2b2f;
   --popover: #f9f7f2;
   --popover-foreground: #2a2b2f;
-  --primary: #e2705a;
-  --primary-foreground: #ffffff;
+  --coral: #e2705a;
+  --coral-deep: #d6624b;
+  --coral-300: #f3bcae;
+  --coral-200: #f7cec0;
+  --coral-100: #fae0d6;
+  --coral-50: #fcece5;
+  --coral-ink: #7c2717;
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-ink);
   --secondary: #e9e3da;
   --secondary-foreground: #434247;
   --muted: #e9e3da;
@@ -199,22 +207,22 @@ html[data-theme="paper"] {
   /* 侧栏令牌 */
   --sidebar: #f7f4ee;
   --sidebar-foreground: #2a2b2f;
-  --sidebar-primary: #e2705a;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-ink);
   --sidebar-accent: #e9e3da;
   --sidebar-accent-foreground: #2a2b2f;
   --sidebar-border: #dfdbd2;
   --sidebar-ring: #f3bcae;
 
   /* 形状与圆角令牌：card 14px / 控件 8px / chip 7px */
-  --radius: 8px;
-  --radius-lg: 8px;
-  --radius-md: 8px;
-  --radius-sm: 7px;
-  --radius-xl: 14px;
   --r-card: 14px;
   --r-ctl: 8px;
   --r-chip: 7px;
+  --radius: 8px;
+  --radius-lg: var(--r-ctl, 8px);
+  --radius-md: var(--r-ctl, 8px);
+  --radius-sm: var(--r-chip, 7px);
+  --radius-xl: var(--r-card, 14px);
 
   /* 暖色调阴影与顶部内高光：色基 #4a3a28 */
   --shadow-card:
@@ -233,15 +241,21 @@ html[data-theme="paper"] {
   --code-bg: #2d2e32;
   --code-fg: #e9e6e0;
   --code-dim: #a3a7b8;
-  --code-gutter: #7c7e87;
   --code-kw: #f08a6d;
   --code-str: #e6c477;
   --code-type: #93cfc6;
   --code-border: rgba(255, 255, 255, 0.08);
 
-  /* 排版令牌微调 */
+  /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.7;
+  --wiki-read-max-width: 860px;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
 }
 
 html[data-theme="paper"].dark {
@@ -252,8 +266,15 @@ html[data-theme="paper"].dark {
   --card-foreground: #f2f0eb;
   --popover: #1a1b1f;
   --popover-foreground: #f2f0eb;
-  --primary: #e8694e;
-  --primary-foreground: #ffffff;
+  --coral: #e8694e;
+  --coral-deep: #f07a5f;
+  --coral-300: #94402e;
+  --coral-200: #6e2f21;
+  --coral-100: #4c2219;
+  --coral-50: #271612;
+  --coral-ink: #f6ab98;
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-ink);
   --secondary: #24262b;
   --secondary-foreground: #c8c5bf;
   --muted: #24262b;
@@ -268,8 +289,8 @@ html[data-theme="paper"].dark {
   /* 侧栏令牌 */
   --sidebar: #141518;
   --sidebar-foreground: #f2f0eb;
-  --sidebar-primary: #e8694e;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-ink);
   --sidebar-accent: #24262b;
   --sidebar-accent-foreground: #f2f0eb;
   --sidebar-border: #26282d;
@@ -291,15 +312,21 @@ html[data-theme="paper"].dark {
   --code-bg: #101114;
   --code-fg: #e9e6e0;
   --code-dim: #9da1b0;
-  --code-gutter: #6c6e77;
   --code-kw: #f08a6d;
   --code-str: #e6c477;
   --code-type: #93cfc6;
   --code-border: rgba(255, 255, 255, 0.08);
 
-  /* 排版令牌微调 */
+  /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.7;
+  --wiki-read-max-width: 860px;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
 }
 
 @layer base {
@@ -320,8 +347,8 @@ html[data-theme="paper"].dark {
  * 的定版（表格按内容定宽、代码块浅色高亮、任务列表勾选态）。
  * ------------------------------------------------------------------ */
 .wiki-content {
-  font-size: 0.9375rem;
-  line-height: 1.75;
+  font-size: var(--wiki-font-size);
+  line-height: var(--wiki-line-height);
   color: var(--foreground);
   word-break: break-word;
 }
@@ -501,14 +528,7 @@ html[data-theme="paper"].dark {
   padding: 0.1em 0.35em;
   border-radius: 0.25rem;
   background: var(--muted);
-  font-family: var(
-    --font-mono-family,
-    ui-monospace,
-    "SF Mono",
-    Menlo,
-    Consolas,
-    monospace
-  );
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.88em;
   word-break: break-word;
 }
@@ -532,14 +552,7 @@ html[data-theme="paper"].dark {
   border-radius: 0;
   background: #f6f8fa;
   color: #24292f;
-  font-family: var(
-    --font-mono-family,
-    ui-monospace,
-    "SF Mono",
-    Menlo,
-    Consolas,
-    monospace
-  );
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.8125rem;
   line-height: 1.6;
   tab-size: 2;
@@ -579,14 +592,7 @@ html[data-theme="paper"].dark {
   border-radius: 0.625rem;
   background: #f6f8fa;
   color: #24292f;
-  font-family: var(
-    --font-mono-family,
-    ui-monospace,
-    "SF Mono",
-    Menlo,
-    Consolas,
-    monospace
-  );
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   font-size: 0.8125rem;
   line-height: 1.6;
   tab-size: 2;
@@ -1056,9 +1062,10 @@ html[data-theme="paper"].dark {
  * 纸面主题组件与正文细节覆盖（置于基础正文样式之后，保证选择器特异性递增）
  * ================================================================== */
 
-/* 纸面主题阴影落地 */
+/* 纸面主题圆角与阴影落地 */
 html[data-theme="paper"] [data-slot="card"],
 html[data-theme="paper"] .bg-card {
+  border-radius: var(--r-card, 14px);
   box-shadow: var(--shadow-card);
 }
 
@@ -1069,6 +1076,17 @@ html[data-theme="paper"] [role="dialog"] {
   box-shadow: var(--shadow-pop);
 }
 
+html[data-theme="paper"] [data-slot="button"],
+html[data-theme="paper"] [data-slot="input"],
+html[data-theme="paper"] [data-slot="select-trigger"] {
+  border-radius: var(--r-ctl, 8px);
+}
+
+html[data-theme="paper"] .chip,
+html[data-theme="paper"] [data-slot="badge"] {
+  border-radius: var(--r-chip, 7px);
+}
+
 html[data-theme="paper"] [data-slot="button"][data-variant="default"] {
   box-shadow: var(--shadow-coral);
 }
@@ -1076,6 +1094,11 @@ html[data-theme="paper"] [data-slot="button"][data-variant="default"] {
 html[data-theme="paper"] [data-slot="button"][data-variant="outline"],
 html[data-theme="paper"] [data-slot="button"][data-variant="secondary"] {
   box-shadow: var(--shadow-ctl);
+}
+
+/* 阅读页正文列宽对齐纸面舒适阅读宽度 */
+html[data-theme="paper"] [data-readview-container] {
+  max-width: var(--wiki-read-max-width, none);
 }
 
 /* 纸纹理：轻微纸张质感，不遮挡交互与可读性 */
