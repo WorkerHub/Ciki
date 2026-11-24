@@ -109,7 +109,7 @@ describe("AvatarCropDialog 组件", () => {
     expect(cropBox).toBeInTheDocument()
   })
 
-  it("单指拖动选区移动位置，双指捏合时隔离拖动且聚拢时选区缩小", async () => {
+  it("单指拖动选区移动位置，双指张开时选区缩小（放大视野），双指捏合时选区放大", async () => {
     const file = new File(["bytes"], "avatar.png", { type: "image/png" })
     render(
       <AvatarCropDialog
@@ -137,22 +137,32 @@ describe("AvatarCropDialog 组件", () => {
     const movedLeft = Number.parseFloat(cropBox.style.left)
     expect(movedLeft).toBeGreaterThanOrEqual(initialLeft)
 
-    // 2. 落下第二指进入捏合（初始两指间距 100）
+    // 2. 落下第二指进入双指手势（初始两指间距 100）
     fireEvent.pointerDown(container, {
       pointerId: 2,
       clientX: 200,
       clientY: 100
     })
 
-    // 双指聚拢捏合（间距缩减为 50）
+    // 双指张开（间距扩大为 150，Zoom In）
+    fireEvent.pointerMove(container, {
+      pointerId: 2,
+      clientX: 250,
+      clientY: 100
+    })
+    const spreadWidth = Number.parseFloat(cropBox.style.width)
+    // 张开手势后选区变小（Zoom In / 放大视野）
+    expect(spreadWidth).toBeLessThan(initialWidth)
+
+    // 双指聚拢捏合（间距缩减为 50，Zoom Out）
     fireEvent.pointerMove(container, {
       pointerId: 2,
       clientX: 150,
       clientY: 100
     })
     const pinchedWidth = Number.parseFloat(cropBox.style.width)
-    // 捏合后选区变小（视野放大）
-    expect(pinchedWidth).toBeLessThan(initialWidth)
+    // 聚拢捏合后选区变大（Zoom Out / 缩小视野）
+    expect(pinchedWidth).toBeGreaterThan(spreadWidth)
 
     // 多指进行中，单指拖动事件被隔离抑制，不发生跳跃
     const beforeDragLeft = cropBox.style.left

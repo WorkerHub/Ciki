@@ -224,8 +224,8 @@ export function AvatarCropDialog({
       const [p1, p2] = Array.from(activePointersRef.current.values())
       const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY)
       if (dist > 0 && pinchStartDistRef.current > 0) {
-        // 手指捏合聚拢（dist 变小）时缩小选区；手指张开（dist 变大）时放大选区
-        const ratio = dist / pinchStartDistRef.current
+        // 双指手势：张开（dist 变大 / Zoom In）缩小选区；捏合（dist 变小 / Zoom Out）放大选区
+        const ratio = pinchStartDistRef.current / dist
         const targetSize = pinchStartSizeRef.current * ratio
         setCropArea((prev) =>
           resizeCropArea(prev, targetSize, width, height, minCropSize)
