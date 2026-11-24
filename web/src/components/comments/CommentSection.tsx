@@ -1,5 +1,6 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 import { CommentComposer } from "@/components/comments/CommentComposer"
 import { CommentItem } from "@/components/comments/CommentItem"
 import {
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { useComments } from "@/hooks/useComments"
 import { type CommentDto, type CommentThread, commentsApi } from "@/lib/api"
+import { scrollToHeading } from "@/lib/scroll-anchor"
 
 /**
  * 阅读页页尾评论区（规格 v1.0 §4）。
@@ -31,6 +33,8 @@ export function CommentSection({ pageId }: { pageId: number }) {
   const { t } = useTranslation()
   const { data, status, error, pending, reload, create, update, remove } =
     useComments(pageId)
+  const total = data?.total ?? 0
+  const hasData = data !== null
   const [topDraft, setTopDraft] = useState("")
   // 顶层输入框复位序号：发表成功后递增，触发 composer 完整重置（回到文本域与初始状态）
   const [topComposerKey, setTopComposerKey] = useState(0)
@@ -40,12 +44,69 @@ export function CommentSection({ pageId }: { pageId: number }) {
   const [replyTo, setReplyTo] = useState<number | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<CommentDto | null>(null)
+  const [highlightedCommentId, setHighlightedCommentId] = useState<
+    number | null
+  >(null)
+  const [currentHash, setCurrentHash] = useState(() =>
+    typeof window !== "undefined" ? window.location.hash : ""
+  )
+  const hashCheckedRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const onHashChange = () => {
+      setCurrentHash(window.location.hash)
+    }
+    window.addEventListener("hashchange", onHashChange)
+    return () => window.removeEventListener("hashchange", onHashChange)
+  }, [])
+
+  useEffect(() => {
+    if (!hasData) return
+    const hash =
+      currentHash || (typeof window !== "undefined" ? window.location.hash : "")
+    if (!hash.startsWith("#comment-")) return
+    const key = `${pageId}:${hash}`
+    if (hashCheckedRef.current === key) return
+    hashCheckedRef.current = key
+
+    const commentId = Number(hash.replace("#comment-", ""))
+    if (!commentId || Number.isNaN(commentId)) return
+
+    let targetExists = false
+    for (const thread of data.threads) {
+      if (thread.id === commentId && !thread.deletedAt) {
+        targetExists = true
+        break
+      }
+      for (const reply of thread.replies) {
+        if (reply.id === commentId && !reply.deletedAt) {
+          targetExists = true
+          break
+        }
+      }
+      if (targetExists) break
+    }
+
+    if (!targetExists) {
+      toast(t("notifications.commentDeleted"))
+      return
+    }
+
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`comment-${commentId}`)
+      if (el) {
+        scrollToHeading(el, { behavior: "smooth" })
+        setHighlightedCommentId(commentId)
+        const timer = setTimeout(() => {
+          setHighlightedCommentId(null)
+        }, 2500)
+        return () => clearTimeout(timer)
+      }
+    })
+  }, [hasData, data, pageId, currentHash, t])
 
   const preview = (bodyMd: string) =>
     commentsApi.preview(pageId, bodyMd).then((result) => result.html)
-
-  const total = data?.total ?? 0
-  const hasData = data !== null
 
   function openReplyBox(threadId: number) {
     // 已经是这条串的回复框就保持原样：别把正在敲的草稿清掉
@@ -104,6 +165,7 @@ export function CommentSection({ pageId }: { pageId: number }) {
         editing={editingId === comment.id}
         editDraft={editDraft}
         pending={pending}
+        highlighted={highlightedCommentId === comment.id}
         onEditDraftChange={setEditDraft}
         onPreview={preview}
         onReply={onReply}

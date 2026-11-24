@@ -709,4 +709,18 @@ describe("页尾评论区英文界面", () => {
     const badges = screen.getAllByText("Agent")
     expect(badges).toHaveLength(1)
   })
+
+  it("URL hash 带 #comment-<id> 时正确渲染对应评论 DOM 锚点", async () => {
+    window.location.hash = "#comment-1"
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [thread({ id: 1 })]
+    })
+    renderSection()
+
+    const targetEl = await screen.findByText("第一行")
+    const commentEl = targetEl.closest("[id='comment-1']")
+    expect(commentEl).toBeInTheDocument()
+    window.location.hash = ""
+  })
 })

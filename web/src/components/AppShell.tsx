@@ -34,6 +34,7 @@ import { PageTree } from "@/components/PageTree"
 import { SearchBox } from "@/components/SearchBox"
 import { SpaceSwitcher } from "@/components/SpaceSwitcher"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
+import { NotificationMenu } from "@/components/NotificationMenu"
 import { displayUsername, UserAvatar } from "@/components/UserAvatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -79,7 +80,13 @@ import { useSpacesStore } from "@/stores/spaces"
  * 空间上下文里的回收站/设置在 `/s/:slug/` 下面，不能按前缀判；搜索页沿用原来的
  * 「带侧栏的分类页」口径（改路径不改版式），`/s/:slug` 本身是空间首页，也带侧栏。
  */
-const SYSTEM_ROUTE_PREFIXES = ["/settings", "/about", "/admin", "/profile"]
+const SYSTEM_ROUTE_PREFIXES = [
+  "/settings",
+  "/about",
+  "/admin",
+  "/profile",
+  "/notifications"
+]
 
 const SPACE_SYSTEM_SEGMENTS = new Set(["trash", "settings"])
 
@@ -518,6 +525,7 @@ export function AppShell() {
 
   const accountActions = (
     <div className="ml-auto flex items-center gap-0.5">
+      <NotificationMenu />
       <ThemeCycleButton />
       <UserMenu />
     </div>
@@ -547,6 +555,7 @@ export function AppShell() {
           <Plus aria-hidden="true" />
         </Button>
       ) : null}
+      <NotificationMenu />
       <ThemeCycleButton />
       <UserMenu />
     </div>
