@@ -71,6 +71,13 @@ export function resolveTitle(
     return node ? node.title.trim() || t("page.untitled") : t("notFound.title")
   }
 
+  const userPage = matchPath("/users/:id", pathname)
+  if (userPage) {
+    const id = parseIdParam(userPage.params.id)
+    if (id === null) return t("notFound.title")
+    return t("user.title")
+  }
+
   if (matchPath("/s/:slug/search", pathname)) return t("search.title")
   if (matchPath("/s/:slug/trash", pathname)) return t("trash.title")
   if (matchPath("/s/:slug/settings", pathname))

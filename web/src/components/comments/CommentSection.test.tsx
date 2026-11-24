@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { MemoryRouter } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { CommentSection } from "@/components/comments/CommentSection"
 import { i18n } from "@/i18n"
@@ -44,7 +45,11 @@ function thread(overrides: Partial<CommentThread> = {}): CommentThread {
 }
 
 function renderSection() {
-  return render(<CommentSection pageId={1} />)
+  return render(
+    <MemoryRouter>
+      <CommentSection pageId={1} />
+    </MemoryRouter>
+  )
 }
 
 function item(id: number) {
@@ -708,6 +713,31 @@ describe("页尾评论区英文界面", () => {
     expect(screen.getByText("bot-2")).toBeInTheDocument()
     const badges = screen.getAllByText("Agent")
     expect(badges).toHaveLength(1)
+  })
+
+  it("评论作者头像与用户名跳转到作者主页 /users/:id", async () => {
+    vi.mocked(commentsApi.list).mockResolvedValue({
+      total: 1,
+      threads: [
+        thread({
+          id: 1,
+          authorId: 42,
+          authorName: "小明"
+        })
+      ]
+    })
+    renderSection()
+
+    const target = await waitFor(() => {
+      const el = item(1)
+      expect(el).not.toBeNull()
+      return el!
+    })
+
+    const links = within(target).getAllByRole("link", { name: "小明" })
+    expect(links).toHaveLength(2)
+    expect(links[0]).toHaveAttribute("href", "/users/42")
+    expect(links[1]).toHaveAttribute("href", "/users/42")
   })
 
   it("URL hash 带 #comment-<id> 时正确渲染对应评论 DOM 锚点", async () => {

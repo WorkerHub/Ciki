@@ -22,6 +22,11 @@ export function pageEditPath(id: number): string {
   return `/p/${id}/edit`
 }
 
+/** 作者主页地址 `/users/<id>`。 */
+export function userPath(id: number): string {
+  return `/users/${id}`
+}
+
 /** 空间首页（页面树根）`/s/<slug>`。 */
 export function spacePath(slug: string): string {
   return `/s/${encodeURIComponent(slug)}`

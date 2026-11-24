@@ -64,7 +64,7 @@ import {
 } from "@/lib/api"
 import { formatDate } from "@/lib/format"
 import { downloadPageMarkdown } from "@/lib/markdown-download"
-import { pageEditPath, pagePath, parseIdParam } from "@/lib/routes"
+import { pageEditPath, pagePath, parseIdParam, userPath } from "@/lib/routes"
 import {
   captureScrollAnchor,
   rememberScrollAnchor,
@@ -87,12 +87,14 @@ function BylineAuthorAvatar({
   username,
   avatarUrl,
   isAgent,
-  ownerName
+  ownerName,
+  userId
 }: {
   username: string
   avatarUrl: string | null
   isAgent?: boolean
   ownerName?: string | null
+  userId?: number | null
 }) {
   const avatar = (
     <UserAvatar
@@ -105,23 +107,44 @@ function BylineAuthorAvatar({
     />
   )
 
+  const tooltipText = isAgent ? formatAgentOwnerTooltip(ownerName) : null
+
   if (!isAgent) {
+    if (userId) {
+      return (
+        <Link
+          to={userPath(userId)}
+          aria-label={username}
+          className="inline-flex rounded-full transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {avatar}
+        </Link>
+      )
+    }
     return avatar
   }
-
-  const tooltipText = formatAgentOwnerTooltip(ownerName)
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type="button"
-            aria-label={username}
-            className="inline-flex rounded-full border-0 bg-transparent p-0 cursor-default focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-          >
-            {avatar}
-          </button>
+          {userId ? (
+            <Link
+              to={userPath(userId)}
+              aria-label={username}
+              className="inline-flex rounded-full border-0 bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {avatar}
+            </Link>
+          ) : (
+            <button
+              type="button"
+              aria-label={username}
+              className="inline-flex rounded-full border-0 bg-transparent p-0 cursor-default focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              {avatar}
+            </button>
+          )}
         </TooltipTrigger>
         <TooltipContent>{tooltipText}</TooltipContent>
       </Tooltip>
@@ -400,8 +423,18 @@ export function PageView() {
                       avatarUrl={page.createdByAvatarUrl}
                       isAgent={page.createdByIsAgent}
                       ownerName={page.createdByOwnerName}
+                      userId={page.createdById ?? page.createdBy}
                     />
-                    <span>{page.createdByName}</span>
+                    {page.createdById || page.createdBy ? (
+                      <Link
+                        to={userPath(page.createdById ?? page.createdBy)}
+                        className="hover:underline hover:text-foreground"
+                      >
+                        {page.createdByName}
+                      </Link>
+                    ) : (
+                      <span>{page.createdByName}</span>
+                    )}
                     {page.createdByIsAgent ? (
                       <Badge variant="secondary" className="text-[10px]">
                         Agent
@@ -424,8 +457,18 @@ export function PageView() {
                       avatarUrl={page.updatedByAvatarUrl}
                       isAgent={page.updatedByIsAgent}
                       ownerName={page.updatedByOwnerName}
+                      userId={page.updatedById ?? page.updatedBy}
                     />
-                    <span>{page.updatedByName}</span>
+                    {page.updatedById || page.updatedBy ? (
+                      <Link
+                        to={userPath(page.updatedById ?? page.updatedBy)}
+                        className="hover:underline hover:text-foreground"
+                      >
+                        {page.updatedByName}
+                      </Link>
+                    ) : (
+                      <span>{page.updatedByName}</span>
+                    )}
                     {page.updatedByIsAgent ? (
                       <Badge variant="secondary" className="text-[10px]">
                         Agent
