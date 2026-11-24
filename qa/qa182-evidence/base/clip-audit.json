@@ -1,0 +1,422 @@
+{
+  "tag": "base",
+  "port": "8907",
+  "combos": {
+    "m375-light": {
+      "canvas": {
+        "overflowX": "clip",
+        "overflowY": "visible"
+      },
+      "canvasKlass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+      "contentWrapper": {
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "contentWrapperKlass": "min-w-0 flex-1",
+      "textareaClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ],
+      "commentSectionClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ]
+    },
+    "m390-light": {
+      "canvas": {
+        "overflowX": "clip",
+        "overflowY": "visible"
+      },
+      "canvasKlass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+      "contentWrapper": {
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "contentWrapperKlass": "min-w-0 flex-1",
+      "textareaClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ],
+      "commentSectionClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ]
+    },
+    "m390-dark": {
+      "canvas": {
+        "overflowX": "clip",
+        "overflowY": "visible"
+      },
+      "canvasKlass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+      "contentWrapper": {
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "contentWrapperKlass": "min-w-0 flex-1",
+      "textareaClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ],
+      "commentSectionClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex min-h-0 flex-1 flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ]
+    },
+    "desk-light": {
+      "canvas": {
+        "overflowX": "clip",
+        "overflowY": "visible"
+      },
+      "canvasKlass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+      "contentWrapper": {
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "contentWrapperKlass": "min-w-0 flex-1",
+      "textareaClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex h-full flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "h-full",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "min-h-0 flex-1",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ],
+      "commentSectionClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex h-full flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "h-full",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "min-h-0 flex-1",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ]
+    },
+    "desk-dark": {
+      "canvas": {
+        "overflowX": "clip",
+        "overflowY": "visible"
+      },
+      "canvasKlass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+      "contentWrapper": {
+        "overflowX": "visible",
+        "overflowY": "visible"
+      },
+      "contentWrapperKlass": "min-w-0 flex-1",
+      "textareaClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex h-full flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "h-full",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "min-h-0 flex-1",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ],
+      "commentSectionClipAncestors": [
+        {
+          "tag": "div",
+          "clipX": "clip",
+          "clipY": "visible",
+          "klass": "mx-auto w-full max-w-[1600px] overflow-x-clip",
+          "marker": "page-canvas"
+        },
+        {
+          "tag": "div",
+          "clipX": "auto",
+          "clipY": "auto",
+          "klass": "min-h-0 flex-1 overflow-y-auto",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "relative flex h-full flex-col overflow-hidden",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "h-full",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "min-h-0 flex-1",
+          "marker": ""
+        },
+        {
+          "tag": "div",
+          "clipX": "hidden",
+          "clipY": "hidden",
+          "klass": "flex h-svh flex-col overflow-hidden bg-background",
+          "marker": ""
+        }
+      ]
+    }
+  }
+}

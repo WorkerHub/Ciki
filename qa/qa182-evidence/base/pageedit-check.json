@@ -1,0 +1,40 @@
+{
+  "tag": "base",
+  "port": "8907",
+  "m390": {
+    "docScrollWidth": 390,
+    "innerWidth": 390,
+    "pageNoH": true,
+    "editorScroll": {
+      "scrollW": 390,
+      "clientW": 390,
+      "noH": true
+    },
+    "tableWrap": {
+      "scrollW": 5640,
+      "clientW": 324,
+      "overflows": true,
+      "overflowX": "auto"
+    },
+    "hasEditor": true,
+    "consoleErrors": []
+  },
+  "desk": {
+    "docScrollWidth": 1440,
+    "innerWidth": 1440,
+    "pageNoH": true,
+    "editorScroll": {
+      "scrollW": 1180,
+      "clientW": 1180,
+      "noH": true
+    },
+    "tableWrap": {
+      "scrollW": 5640,
+      "clientW": 1082,
+      "overflows": true,
+      "overflowX": "auto"
+    },
+    "hasEditor": true,
+    "consoleErrors": []
+  }
+}

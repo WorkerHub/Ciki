@@ -1,0 +1,15 @@
+{
+  "tag": "base",
+  "port": 8907,
+  "servedBundle": "assets/index-Sv1yUk3s.js",
+  "versionStringFound": "v1.0.0-262-8db0e96",
+  "copyGitHead": "8db0e96b4630c1d18c89e9348e269a9d3c611530",
+  "buildInfo": {
+    "version": "v1.0.0-262-8db0e96",
+    "commit": "8db0e96",
+    "commitCount": 262,
+    "builtAt": "2026-11-24T12:27:01.426Z",
+    "timeZone": "Asia/Shanghai",
+    "offset": "+08:00"
+  }
+}

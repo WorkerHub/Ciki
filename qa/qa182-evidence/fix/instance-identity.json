@@ -1,0 +1,15 @@
+{
+  "tag": "fix",
+  "port": 8908,
+  "servedBundle": "assets/index-DqmbIZzZ.js",
+  "versionStringFound": "v1.0.0-265-57084c3",
+  "copyGitHead": "57084c32b1c5412caec6f997dfad0685cfea14fd",
+  "buildInfo": {
+    "version": "v1.0.0-265-57084c3",
+    "commit": "57084c3",
+    "commitCount": 265,
+    "builtAt": "2026-11-24T13:43:26.218Z",
+    "timeZone": "Asia/Shanghai",
+    "offset": "+08:00"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "tag": "base",
+  "port": 8907,
+  "m390": {
+    "wrapper": {
+      "left": 16,
+      "right": 374,
+      "width": 358
+    },
+    "wrapperOverflowX": "visible",
+    "wrapperClipMargin": "0px",
+    "wrapperContainsSection": false,
+    "wrapperContainsTextarea": false,
+    "textarea": {
+      "left": 16,
+      "right": 374,
+      "width": 358
+    },
+    "ringLeftExtent": 13,
+    "ringRightExtent": 377,
+    "section": {
+      "left": 16,
+      "right": 374,
+      "width": 358
+    }
+  },
+  "desk": {
+    "wrapper": {
+      "left": 284.02,
+      "right": 1416,
+      "width": 1131.98
+    },
+    "wrapperOverflowX": "visible",
+    "wrapperClipMargin": "0px",
+    "wrapperContainsSection": false,
+    "wrapperContainsTextarea": false,
+    "textarea": {
+      "left": 284.02,
+      "right": 1416,
+      "width": 1131.98
+    },
+    "ringLeftExtent": 281.02,
+    "ringRightExtent": 1419,
+    "section": {
+      "left": 284.02,
+      "right": 1416,
+      "width": 1131.98
+    }
+  }
+}
