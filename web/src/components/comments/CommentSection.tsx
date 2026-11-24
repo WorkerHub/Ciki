@@ -118,8 +118,8 @@ export function CommentSection({ pageId }: { pageId: number }) {
     }
 
     refetchedRef.current = key
-    void reload().catch(() => {
-      if (refetchedRef.current === key) {
+    void reload().then((list) => {
+      if (refetchedRef.current === key && list === null) {
         refetchedRef.current = null
       }
     })

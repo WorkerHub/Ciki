@@ -855,6 +855,7 @@ describe("评论定位与高亮（跨页落地与同页跳转双路径）", () =
     await waitFor(() => {
       expect(item(2)?.className).toContain("ring-primary/40")
     })
+    expect(commentsApi.list).toHaveBeenCalledTimes(1)
   })
 
   it("目标评论不存在时给出已删除 toast 提示且不高亮", async () => {
@@ -972,6 +973,43 @@ describe("评论定位与高亮（跨页落地与同页跳转双路径）", () =
       expect(toast).toHaveBeenCalledWith("目标评论已被删除")
     })
     expect(item(1)?.className).not.toContain("ring-primary/40")
+    expect(commentsApi.list).toHaveBeenCalledTimes(2)
+  })
+
+  it("同页 hash 跳转（refetch 失败）：网络异常时复位 refetchedRef，不弹假 toast「目标评论已被删除」", async () => {
+    // 初始状态：页面仅包含评论 1
+    vi.mocked(commentsApi.list).mockResolvedValueOnce({
+      total: 1,
+      threads: [thread({ id: 1, bodyMd: "评论 1", html: "<p>评论 1</p>" })]
+    })
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/p/1",
+          element: <CommentSection pageId={1} />
+        }
+      ],
+      { initialEntries: ["/p/1#comment-1"] }
+    )
+    render(<RouterProvider router={router} />)
+
+    await screen.findByText("评论 1")
+    await waitFor(() => {
+      expect(item(1)?.className).toContain("ring-primary/40")
+    })
+
+    // 模拟同页跳转到评论 2 时网络失败
+    vi.mocked(commentsApi.list).mockRejectedValueOnce(
+      new Error("Network failure")
+    )
+
+    await act(async () => {
+      await router.navigate("/p/1#comment-2")
+    })
+
+    // 验证：即使 reload 失败，也绝不能直接判定评论被删除而弹假 toast
+    expect(toast).not.toHaveBeenCalledWith("目标评论已被删除")
     expect(commentsApi.list).toHaveBeenCalledTimes(2)
   })
 })
