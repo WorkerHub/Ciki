@@ -109,6 +109,61 @@ describe("AvatarCropDialog 组件", () => {
     expect(cropBox).toBeInTheDocument()
   })
 
+  it("单指拖动选区移动位置，双指捏合时隔离拖动且聚拢时选区缩小", async () => {
+    const file = new File(["bytes"], "avatar.png", { type: "image/png" })
+    render(
+      <AvatarCropDialog
+        open={true}
+        file={file}
+        onConfirm={vi.fn()}
+        onCancel={vi.fn()}
+        onError={vi.fn()}
+      />
+    )
+
+    const cropBox = await screen.findByTestId("crop-box")
+    const container = cropBox.parentElement!
+    const initialLeft = Number.parseFloat(cropBox.style.left)
+    const initialWidth = Number.parseFloat(cropBox.style.width)
+
+    // 1. 单指按在 container 上并移动
+    fireEvent.pointerDown(container, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100
+    })
+    fireEvent.pointerDown(cropBox, { pointerId: 1, clientX: 100, clientY: 100 })
+    fireEvent.pointerMove(cropBox, { pointerId: 1, clientX: 120, clientY: 100 })
+    const movedLeft = Number.parseFloat(cropBox.style.left)
+    expect(movedLeft).toBeGreaterThanOrEqual(initialLeft)
+
+    // 2. 落下第二指进入捏合（初始两指间距 100）
+    fireEvent.pointerDown(container, {
+      pointerId: 2,
+      clientX: 200,
+      clientY: 100
+    })
+
+    // 双指聚拢捏合（间距缩减为 50）
+    fireEvent.pointerMove(container, {
+      pointerId: 2,
+      clientX: 150,
+      clientY: 100
+    })
+    const pinchedWidth = Number.parseFloat(cropBox.style.width)
+    // 捏合后选区变小（视野放大）
+    expect(pinchedWidth).toBeLessThan(initialWidth)
+
+    // 多指进行中，单指拖动事件被隔离抑制，不发生跳跃
+    const beforeDragLeft = cropBox.style.left
+    fireEvent.pointerMove(cropBox, { pointerId: 1, clientX: 180, clientY: 100 })
+    expect(cropBox.style.left).toBe(beforeDragLeft)
+
+    // 3. 双指抬起
+    fireEvent.pointerUp(container, { pointerId: 1 })
+    fireEvent.pointerUp(container, { pointerId: 2 })
+  })
+
   it("英文界面下展示对应英文文案与按钮", async () => {
     await i18n.changeLanguage("en")
     const file = new File(["bytes"], "avatar.png", { type: "image/png" })

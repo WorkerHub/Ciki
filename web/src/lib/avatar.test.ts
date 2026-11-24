@@ -3,6 +3,7 @@ import {
   clampCropArea,
   cropAndNormalizeAvatar,
   encodeCanvasToWebPOrJpeg,
+  isWebKitOrSafari,
   loadImageSource,
   resizeCropArea
 } from "@/lib/avatar"
@@ -151,6 +152,97 @@ describe("avatar 归一化与裁剪运算", () => {
         globalThis.Image = origImage
         window.createImageBitmap = origCreateImageBitmap
         globalThis.createImageBitmap = origCreateImageBitmap
+      }
+    })
+
+    it("准确识别 Safari / iOS WebKit 环境", () => {
+      const origNavigator = window.navigator
+      const setUa = (ua: string, platform = "MacIntel", maxTouchPoints = 0) => {
+        Object.defineProperty(window, "navigator", {
+          value: { userAgent: ua, platform, maxTouchPoints },
+          configurable: true
+        })
+      }
+
+      try {
+        // iPhone Safari
+        setUa(
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+          "iPhone"
+        )
+        expect(isWebKitOrSafari()).toBe(true)
+
+        // macOS Safari
+        setUa(
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+          "MacIntel",
+          0
+        )
+        expect(isWebKitOrSafari()).toBe(true)
+
+        // macOS Chrome
+        setUa(
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+          "MacIntel",
+          0
+        )
+        expect(isWebKitOrSafari()).toBe(false)
+
+        // Windows Firefox
+        setUa(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+          "Win32",
+          0
+        )
+        expect(isWebKitOrSafari()).toBe(false)
+      } finally {
+        Object.defineProperty(window, "navigator", {
+          value: origNavigator,
+          configurable: true
+        })
+      }
+    })
+
+    it("在 Safari / iOS WebKit 环境下绕过存在缺陷的 createImageBitmap，走 HTMLImageElement", async () => {
+      const origNavigator = window.navigator
+      Object.defineProperty(window, "navigator", {
+        value: {
+          userAgent:
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1",
+          platform: "iPhone",
+          maxTouchPoints: 5
+        },
+        configurable: true
+      })
+
+      const origImage = globalThis.Image
+      class MockSafariImage {
+        naturalWidth = 3024
+        naturalHeight = 4032
+        onload: (() => void) | null = null
+        set src(_val: string) {
+          setTimeout(() => this.onload?.(), 10)
+        }
+      }
+      // @ts-expect-error mock image
+      globalThis.Image = MockSafariImage
+      const bitmapSpy = vi.spyOn(window, "createImageBitmap")
+
+      try {
+        const file = new File(["bytes"], "iphone_portrait.jpg", {
+          type: "image/jpeg"
+        })
+        const res = await loadImageSource(file)
+        // Safari 下不调用有 bug 的 createImageBitmap(blob)
+        expect(bitmapSpy).not.toHaveBeenCalled()
+        expect(res.width).toBe(3024)
+        expect(res.height).toBe(4032)
+      } finally {
+        globalThis.Image = origImage
+        Object.defineProperty(window, "navigator", {
+          value: origNavigator,
+          configurable: true
+        })
       }
     })
   })

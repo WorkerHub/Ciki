@@ -12,14 +12,83 @@ export interface CropArea {
 }
 
 /**
+ * 检查当前运行环境是否为 Safari 或 iOS WebKit。
+ * WebKit 存在未修复 bug 237895（createImageBitmap from Blob 丢失 EXIF 方向），
+ * 因此在 Safari / iOS 下必须改走 HTMLImageElement 以确保 EXIF 方向正确校正。
+ */
+export function isWebKitOrSafari(): boolean {
+  if (typeof navigator === "undefined") return false
+  const ua = navigator.userAgent
+  // iOS 设备（包含 iPadOS 桌面模式请求）
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  // macOS / iOS 上的 Safari（排除 Chrome/CriOS/Android/Edg 等）
+  const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Android|Edg/i.test(ua)
+  return isIOS || isSafari
+}
+
+/**
+ * 通过 HTMLImageElement 解码图片（浏览器原生遵循 image-orientation: from-image）。
+ */
+export function loadViaImageElement(file: File): Promise<DecodedImageSource> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    let settled = false
+
+    const handleSuccess = () => {
+      if (settled) return
+      settled = true
+      URL.revokeObjectURL(url)
+      if (img.naturalWidth <= 0 || img.naturalHeight <= 0) {
+        reject(new Error("DECODE_FAILED"))
+        return
+      }
+      resolve({
+        source: img,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        close: () => {}
+      })
+    }
+
+    const handleError = () => {
+      if (settled) return
+      settled = true
+      URL.revokeObjectURL(url)
+      reject(new Error("DECODE_FAILED"))
+    }
+
+    img.onload = handleSuccess
+    img.onerror = handleError
+    img.src = url
+
+    if (typeof img.decode === "function") {
+      img
+        .decode()
+        .then(handleSuccess)
+        .catch(() => {
+          // img.decode 报错时由 onerror 接管
+        })
+    }
+  })
+}
+
+/**
  * 使用平台原生能力解码图像并校正 EXIF 方向。
- * - 优先调用 createImageBitmap 带 imageOrientation: "from-image"；
+ * - Safari / iOS 下受 WebKit bug 237895 影响，createImageBitmap 会丢 EXIF，优先走 HTMLImageElement；
+ * - 其它环境优先调用 createImageBitmap 带 imageOrientation: "from-image"；
  * - 若环境不支持配置字典则降级无参数 createImageBitmap；
  * - 若均不可用降级 HTMLImageElement；
  * - 解码失败（损坏、零宽高、格式不支持等）明确抛出 DECODE_FAILED 异常，禁止绕过归一化直传。
  * - GIF 天然提取首帧静态图像。
  */
 export async function loadImageSource(file: File): Promise<DecodedImageSource> {
+  if (isWebKitOrSafari()) {
+    return loadViaImageElement(file)
+  }
+
   if (typeof createImageBitmap === "function") {
     try {
       const bitmap = await createImageBitmap(file, {
@@ -57,28 +126,7 @@ export async function loadImageSource(file: File): Promise<DecodedImageSource> {
     }
   }
 
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file)
-    const img = new Image()
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      if (img.naturalWidth <= 0 || img.naturalHeight <= 0) {
-        reject(new Error("DECODE_FAILED"))
-        return
-      }
-      resolve({
-        source: img,
-        width: img.naturalWidth,
-        height: img.naturalHeight,
-        close: () => {}
-      })
-    }
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      reject(new Error("DECODE_FAILED"))
-    }
-    img.src = url
-  })
+  return loadViaImageElement(file)
 }
 
 /**

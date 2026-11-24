@@ -128,7 +128,15 @@ export function AvatarCropDialog({
 
   // 选区拖动事件
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // 双指或多指活动时禁止触发单指拖动
+    if (activePointersRef.current.size > 1) {
+      return
+    }
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId)
+    } catch {
+      // ignore
+    }
     dragStartRef.current = {
       pointerId: e.pointerId,
       clientX: e.clientX,
@@ -139,6 +147,10 @@ export function AvatarCropDialog({
   }
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    // 多指模式下禁用拖动，防止与双指捏合打架
+    if (activePointersRef.current.size > 1) {
+      return
+    }
     if (
       !dragStartRef.current ||
       dragStartRef.current.pointerId !== e.pointerId
@@ -167,7 +179,7 @@ export function AvatarCropDialog({
       dragStartRef.current.pointerId === e.pointerId
     ) {
       try {
-        e.currentTarget.releasePointerCapture(e.pointerId)
+        e.currentTarget.releasePointerCapture?.(e.pointerId)
       } catch {
         // ignore
       }
@@ -184,6 +196,8 @@ export function AvatarCropDialog({
       clientY: e.clientY
     })
     if (activePointersRef.current.size === 2) {
+      // 进入双指捏合后立刻取消单指拖动，避免两指落在 crop-box 时拖拽与捏合冲突
+      dragStartRef.current = null
       const [p1, p2] = Array.from(activePointersRef.current.values())
       pinchStartDistRef.current = Math.hypot(
         p1.clientX - p2.clientX,
@@ -209,9 +223,9 @@ export function AvatarCropDialog({
     ) {
       const [p1, p2] = Array.from(activePointersRef.current.values())
       const dist = Math.hypot(p1.clientX - p2.clientX, p1.clientY - p2.clientY)
-      if (dist > 0) {
-        // 捏合缩小选区（即放大图像），张开放大选区
-        const ratio = pinchStartDistRef.current / dist
+      if (dist > 0 && pinchStartDistRef.current > 0) {
+        // 手指捏合聚拢（dist 变小）时缩小选区；手指张开（dist 变大）时放大选区
+        const ratio = dist / pinchStartDistRef.current
         const targetSize = pinchStartSizeRef.current * ratio
         setCropArea((prev) =>
           resizeCropArea(prev, targetSize, width, height, minCropSize)
@@ -225,6 +239,9 @@ export function AvatarCropDialog({
     if (activePointersRef.current.size < 2) {
       pinchStartDistRef.current = null
       pinchStartSizeRef.current = null
+    }
+    if (activePointersRef.current.size === 0) {
+      dragStartRef.current = null
     }
   }
 
