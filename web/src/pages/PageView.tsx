@@ -131,7 +131,6 @@ function BylineAuthorAvatar({
           {userId ? (
             <Link
               to={userPath(userId)}
-              role="button"
               aria-label={username}
               className="inline-flex rounded-full border-0 bg-transparent p-0 transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >

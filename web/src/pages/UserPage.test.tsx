@@ -233,6 +233,62 @@ describe("UserPage 作者主页", () => {
     expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull()
   })
 
+  it("加载更多失败时保留已有列表与按钮，展示错误提示而不清空页面", async () => {
+    const user = userEvent.setup()
+    vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
+    vi.mocked(usersApi.getPages)
+      .mockResolvedValueOnce({
+        pages: [
+          {
+            id: 101,
+            title: "第一页文档",
+            spaceName: "空间A",
+            createdAt: "2026-11-20T00:00:00.000Z",
+            updatedAt: "2026-11-21T00:00:00.000Z"
+          }
+        ],
+        total: 2,
+        page: 1,
+        limit: 20,
+        hasMore: true
+      })
+      .mockRejectedValueOnce(new ApiError(500, "分页加载超时"))
+      .mockResolvedValueOnce({
+        pages: [
+          {
+            id: 102,
+            title: "第二页文档",
+            spaceName: "空间B",
+            createdAt: "2026-11-19T00:00:00.000Z",
+            updatedAt: "2026-11-20T00:00:00.000Z"
+          }
+        ],
+        total: 2,
+        page: 2,
+        limit: 20,
+        hasMore: false
+      })
+
+    renderPage("1")
+
+    expect(await screen.findByText("第一页文档")).toBeInTheDocument()
+    const loadMoreButton = screen.getByRole("button", { name: "加载更多" })
+    expect(loadMoreButton).toBeInTheDocument()
+
+    await user.click(loadMoreButton)
+
+    expect(screen.getByText("第一页文档")).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: "alice" })).toBeInTheDocument()
+    expect(screen.queryByRole("alert")).toBeNull()
+    expect(await screen.findByText("分页加载超时")).toBeInTheDocument()
+    expect(loadMoreButton).toBeInTheDocument()
+
+    await user.click(loadMoreButton)
+    expect(await screen.findByText("第二页文档")).toBeInTheDocument()
+    expect(screen.queryByText("分页加载超时")).toBeNull()
+    expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull()
+  })
+
   it("网络或服务器异常时展示错误信息与重试按钮", async () => {
     const user = userEvent.setup()
     vi.mocked(usersApi.getProfile)

@@ -3,6 +3,7 @@ import { FileText, UserX } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useParams } from "react-router"
+import { toast } from "sonner"
 import { UserAvatar } from "@/components/UserAvatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +31,7 @@ export function UserPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
@@ -72,6 +74,7 @@ export function UserPage() {
   const handleLoadMore = async () => {
     if (userId === null || loadingMore || !hasMore) return
     setLoadingMore(true)
+    setLoadMoreError(null)
     try {
       const nextPage = page + 1
       const pagesData = await usersApi.getPages(userId, {
@@ -82,7 +85,9 @@ export function UserPage() {
       setPage(nextPage)
       setHasMore(pagesData.hasMore)
     } catch (err) {
-      setError(describeApiError(err))
+      const message = describeApiError(err)
+      setLoadMoreError(message)
+      toast.error(message)
     } finally {
       setLoadingMore(false)
     }
@@ -221,7 +226,7 @@ export function UserPage() {
             </ul>
 
             {hasMore ? (
-              <div className="flex justify-center pt-2">
+              <div className="flex flex-col items-center gap-2 pt-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -230,6 +235,9 @@ export function UserPage() {
                 >
                   {loadingMore ? t("user.loading") : t("user.loadMore")}
                 </Button>
+                {loadMoreError ? (
+                  <p className="text-xs text-destructive">{loadMoreError}</p>
+                ) : null}
               </div>
             ) : null}
           </div>

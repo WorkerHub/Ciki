@@ -1152,8 +1152,8 @@ describe("阅读页标题下署名行", () => {
     expect(screen.queryByText(/(Alice's Agent)/)).toBeNull()
     expect(screen.getByText("Agent")).toBeInTheDocument()
 
-    // N1: 头像触发器 button aria-label 为 username
-    const trigger = screen.getByRole("button", { name: "deploy-bot" })
+    // N1: 头像触发器 link aria-label 为 username
+    const trigger = screen.getByLabelText("deploy-bot")
     // N2: 悬停（hover/pointerMove）与键盘聚焦均能触发同一提示
     fireEvent.pointerMove(trigger)
     expect(await screen.findByText("Alice 的 Agent")).toBeInTheDocument()
@@ -1179,7 +1179,7 @@ describe("阅读页标题下署名行", () => {
     expect(await screen.findByText("deploy-bot")).toBeInTheDocument()
     expect(screen.getByText("Agent")).toBeInTheDocument()
 
-    const trigger = screen.getByRole("button", { name: "deploy-bot" })
+    const trigger = screen.getByLabelText("deploy-bot")
     fireEvent.pointerMove(trigger)
     expect(await screen.findByText("已注销用户的 Agent")).toBeInTheDocument()
   })
@@ -1246,12 +1246,12 @@ describe("阅读页标题下署名行", () => {
     expect(await screen.findByText("deploy-bot")).toBeInTheDocument()
     expect(screen.getByText("sync-agent")).toBeInTheDocument()
 
-    const createdTrigger = screen.getByRole("button", { name: "deploy-bot" })
+    const createdTrigger = screen.getByLabelText("deploy-bot")
     fireEvent.pointerMove(createdTrigger)
     expect(await screen.findByText("Alice's Agent")).toBeInTheDocument()
 
     // S1: 英文下 owner 为 null 时，回落为中文「已注销用户的 Agent」与后端 DELETED_AUTHOR_NAME 一致
-    const updatedTrigger = screen.getByRole("button", { name: "sync-agent" })
+    const updatedTrigger = screen.getByLabelText("sync-agent")
     fireEvent.focus(updatedTrigger)
     expect(await screen.findByText("已注销用户的 Agent")).toBeInTheDocument()
   })
