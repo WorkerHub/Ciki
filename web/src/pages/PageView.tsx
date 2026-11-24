@@ -9,7 +9,7 @@ import {
   RefreshCw,
   Trash2
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate, useParams } from "react-router"
 import { toast } from "sonner"
@@ -54,7 +54,6 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { ReadView } from "@/editor/ReadView"
 import { useSpaceRole } from "@/hooks/useSpaceRole"
 import {
   ApiError,
@@ -82,6 +81,12 @@ import { useSpacesStore } from "@/stores/spaces"
 
 /** 切回标签页自动刷新的节流窗口：短时间内反复切回不重复打接口。 */
 const AUTO_REFRESH_THROTTLE_MS = 10_000
+
+const ReadView = lazy(() =>
+  import("@/editor/ReadView").then((module) => ({
+    default: module.ReadView
+  }))
+)
 
 function BylineAuthorAvatar({
   username,
@@ -603,14 +608,28 @@ export function PageView() {
       {page.contentHtml.trim() ? (
         <div className="flex">
           <div className="min-w-0 flex-1">
-            <ReadView
-              html={page.contentHtml}
-              headingIds={headingIds}
-              onReady={handleContentReady}
-              updateInPlace
-              pageId={page.id}
-              canWrite={canWrite}
-            />
+            <Suspense
+              fallback={
+                <div
+                  className="wiki-content animate-pulse py-4"
+                  data-readview-loading=""
+                >
+                  <div className="h-6 w-1/3 rounded bg-muted/40 mb-4" />
+                  <div className="h-4 w-full rounded bg-muted/30 mb-2" />
+                  <div className="h-4 w-5/6 rounded bg-muted/30 mb-2" />
+                  <div className="h-4 w-2/3 rounded bg-muted/30" />
+                </div>
+              }
+            >
+              <ReadView
+                html={page.contentHtml}
+                headingIds={headingIds}
+                onReady={handleContentReady}
+                updateInPlace
+                pageId={page.id}
+                canWrite={canWrite}
+              />
+            </Suspense>
           </div>
           <ArticleToc items={toc} contentRoot={contentRoot} />
         </div>

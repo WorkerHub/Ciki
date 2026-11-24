@@ -1,5 +1,5 @@
 import { ArrowLeft, Eye, Save, X } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useBlocker, useNavigate, useParams } from "react-router"
 import { ArticleToc } from "@/components/ArticleToc"
@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { ReadView } from "@/editor/ReadView"
 import {
   editorPayload,
   parseContentJson,
@@ -37,6 +36,12 @@ import { canEdit } from "@/lib/space"
 import { extractToc } from "@/lib/toc"
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
+
+const ReadView = lazy(() =>
+  import("@/editor/ReadView").then((module) => ({
+    default: module.ReadView
+  }))
+)
 
 /** 编辑页：标题 + 正文，Ctrl/⌘+S 保存，未保存离开要确认（规格 §2）。 */
 export function PageEdit() {
@@ -486,13 +491,22 @@ export function PageEdit() {
           {previewHtml.trim() ? (
             <div className="flex">
               <div className="min-w-0 flex-1">
-                <ReadView
-                  html={previewHtml}
-                  headingIds={previewHeadingIds}
-                  onReady={setPreviewContentRoot}
-                  pageId={pageId ?? undefined}
-                  canWrite={false}
-                />
+                <Suspense
+                  fallback={
+                    <div className="wiki-content animate-pulse py-4">
+                      <div className="h-6 w-1/3 rounded bg-muted/40 mb-4" />
+                      <div className="h-4 w-full rounded bg-muted/30 mb-2" />
+                    </div>
+                  }
+                >
+                  <ReadView
+                    html={previewHtml}
+                    headingIds={previewHeadingIds}
+                    onReady={setPreviewContentRoot}
+                    pageId={pageId ?? undefined}
+                    canWrite={false}
+                  />
+                </Suspense>
               </div>
               <ArticleToc items={previewToc} contentRoot={previewContentRoot} />
             </div>

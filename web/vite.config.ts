@@ -8,6 +8,27 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src")
+    },
+    dedupe: ["highlight.js"]
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (
+            id.includes("node_modules/prosemirror-") ||
+            id.includes("node_modules/@tiptap/pm")
+          ) {
+            return "prosemirror"
+          }
+          if (
+            id.includes("node_modules/highlight.js") ||
+            id.includes("node_modules/lowlight")
+          ) {
+            return "highlight"
+          }
+        }
+      }
     }
   },
   server: {
