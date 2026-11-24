@@ -1,0 +1,382 @@
+{
+  "new-vs-old/nova-light": {
+    "identicalBytes": false,
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 726,
+      "totalPixels": 1296000,
+      "ratio": 0.00056,
+      "maxDelta": 405,
+      "bbox": {
+        "minX": 70,
+        "minY": 15,
+        "maxX": 285,
+        "maxY": 886
+      },
+      "rowBands": [
+        {
+          "y0": 15,
+          "y1": 17
+        },
+        {
+          "y0": 30,
+          "y1": 33
+        },
+        {
+          "y0": 877,
+          "y1": 886
+        }
+      ]
+    },
+    "tokenDiff": {
+      "__fontSans": {
+        "new": "\"Geist Variable\", sans-serif",
+        "old": ""
+      },
+      "__dataTheme": {
+        "new": "nova",
+        "old": null
+      }
+    },
+    "bytes": {
+      "new": 94597,
+      "old": 94472
+    }
+  },
+  "new-vs-old/nova-dark": {
+    "identicalBytes": false,
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 712,
+      "totalPixels": 1296000,
+      "ratio": 0.000549,
+      "maxDelta": 414,
+      "bbox": {
+        "minX": 70,
+        "minY": 877,
+        "maxX": 167,
+        "maxY": 886
+      },
+      "rowBands": [
+        {
+          "y0": 877,
+          "y1": 886
+        }
+      ]
+    },
+    "tokenDiff": {
+      "__fontSans": {
+        "new": "\"Geist Variable\", sans-serif",
+        "old": ""
+      },
+      "__dataTheme": {
+        "new": "nova",
+        "old": null
+      }
+    },
+    "bytes": {
+      "new": 95734,
+      "old": 95660
+    }
+  },
+  "new-vs-old/paper-light": {
+    "identicalBytes": false,
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 1295995,
+      "totalPixels": 1296000,
+      "ratio": 0.999996,
+      "maxDelta": 696,
+      "bbox": {
+        "minX": 0,
+        "minY": 0,
+        "maxX": 1439,
+        "maxY": 899
+      },
+      "rowBands": [
+        {
+          "y0": 0,
+          "y1": 899
+        }
+      ]
+    },
+    "tokenDiff": {
+      "--background": {
+        "new": "#f7f4ee",
+        "old": "oklch(100% 0 0)"
+      },
+      "--foreground": {
+        "new": "#2a2b2f",
+        "old": "oklch(14.5% 0 0)"
+      },
+      "--card": {
+        "new": "#f9f7f2",
+        "old": "oklch(100% 0 0)"
+      },
+      "--card-foreground": {
+        "new": "#2a2b2f",
+        "old": "oklch(14.5% 0 0)"
+      },
+      "--popover": {
+        "new": "#f9f7f2",
+        "old": "oklch(100% 0 0)"
+      },
+      "--primary": {
+        "new": "#e2705a",
+        "old": "oklch(20.5% 0 0)"
+      },
+      "--primary-foreground": {
+        "new": "#7c2717",
+        "old": "oklch(98.5% 0 0)"
+      },
+      "--secondary": {
+        "new": "#e9e3da",
+        "old": "oklch(97% 0 0)"
+      },
+      "--muted": {
+        "new": "#e9e3da",
+        "old": "oklch(97% 0 0)"
+      },
+      "--muted-foreground": {
+        "new": "#77746f",
+        "old": "oklch(55.6% 0 0)"
+      },
+      "--accent": {
+        "new": "#e9e3da",
+        "old": "oklch(97% 0 0)"
+      },
+      "--border": {
+        "new": "#dfdbd2",
+        "old": "oklch(92.2% 0 0)"
+      },
+      "--input": {
+        "new": "#dfdbd2",
+        "old": "oklch(92.2% 0 0)"
+      },
+      "--ring": {
+        "new": "#f3bcae",
+        "old": "oklch(70.8% 0 0)"
+      },
+      "--radius": {
+        "new": "8px",
+        "old": ".625rem"
+      },
+      "__bodyBg": {
+        "new": "rgb(247, 244, 238)",
+        "old": "oklch(1 0 0)"
+      },
+      "__bodyFg": {
+        "new": "rgb(42, 43, 47)",
+        "old": "oklch(0.145 0 0)"
+      },
+      "__fontSans": {
+        "new": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+        "old": ""
+      },
+      "__fontMono": {
+        "new": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+        "old": ""
+      },
+      "__dataTheme": {
+        "new": "paper",
+        "old": null
+      }
+    },
+    "bytes": {
+      "new": 516353,
+      "old": 94476
+    }
+  },
+  "new-vs-old/paper-dark": {
+    "identicalBytes": false,
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 1222947,
+      "totalPixels": 1296000,
+      "ratio": 0.943632,
+      "maxDelta": 728,
+      "bbox": {
+        "minX": 0,
+        "minY": 0,
+        "maxX": 1439,
+        "maxY": 899
+      },
+      "rowBands": [
+        {
+          "y0": 0,
+          "y1": 899
+        }
+      ]
+    },
+    "tokenDiff": {
+      "--background": {
+        "new": "#0b0c0e",
+        "old": "oklch(14.5% 0 0)"
+      },
+      "--foreground": {
+        "new": "#f2f0eb",
+        "old": "oklch(98.5% 0 0)"
+      },
+      "--card": {
+        "new": "#1a1b1f",
+        "old": "oklch(20.5% 0 0)"
+      },
+      "--card-foreground": {
+        "new": "#f2f0eb",
+        "old": "oklch(98.5% 0 0)"
+      },
+      "--popover": {
+        "new": "#1a1b1f",
+        "old": "oklch(20.5% 0 0)"
+      },
+      "--primary": {
+        "new": "#e8694e",
+        "old": "oklch(92.2% 0 0)"
+      },
+      "--primary-foreground": {
+        "new": "#f6ab98",
+        "old": "oklch(20.5% 0 0)"
+      },
+      "--secondary": {
+        "new": "#24262b",
+        "old": "oklch(26.9% 0 0)"
+      },
+      "--muted": {
+        "new": "#24262b",
+        "old": "oklch(26.9% 0 0)"
+      },
+      "--muted-foreground": {
+        "new": "#908d87",
+        "old": "oklch(70.8% 0 0)"
+      },
+      "--accent": {
+        "new": "#24262b",
+        "old": "oklch(26.9% 0 0)"
+      },
+      "--border": {
+        "new": "#26282d",
+        "old": "oklch(100% 0 0/.1)"
+      },
+      "--input": {
+        "new": "#26282d",
+        "old": "oklch(100% 0 0/.15)"
+      },
+      "--ring": {
+        "new": "#94402e",
+        "old": "oklch(55.6% 0 0)"
+      },
+      "--radius": {
+        "new": "8px",
+        "old": ".625rem"
+      },
+      "__bodyBg": {
+        "new": "rgb(11, 12, 14)",
+        "old": "oklch(0.145 0 0)"
+      },
+      "__bodyFg": {
+        "new": "rgb(242, 240, 235)",
+        "old": "oklch(0.985 0 0)"
+      },
+      "__fontSans": {
+        "new": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+        "old": ""
+      },
+      "__fontMono": {
+        "new": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+        "old": ""
+      },
+      "__dataTheme": {
+        "new": "paper",
+        "old": null
+      }
+    },
+    "bytes": {
+      "new": 122955,
+      "old": 95660
+    }
+  },
+  "new-vs-prod/nova-light": {
+    "identicalBytes": false,
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 24898,
+      "totalPixels": 1296000,
+      "ratio": 0.019211,
+      "maxDelta": 738,
+      "bbox": {
+        "minX": 527,
+        "minY": 18,
+        "maxX": 1421,
+        "maxY": 880
+      },
+      "rowBands": [
+        {
+          "y0": 18,
+          "y1": 33
+        },
+        {
+          "y0": 223,
+          "y1": 252
+        },
+        {
+          "y0": 268,
+          "y1": 287
+        },
+        {
+          "y0": 316,
+          "y1": 648
+        },
+        {
+          "y0": 871,
+          "y1": 880
+        }
+      ]
+    },
+    "tokenDiff": {}
+  },
+  "new-vs-prod/nova-dark": {
+    "identicalBytes": false,
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 130620,
+      "totalPixels": 1296000,
+      "ratio": 0.100787,
+      "maxDelta": 720,
+      "bbox": {
+        "minX": 527,
+        "minY": 18,
+        "maxX": 1420,
+        "maxY": 880
+      },
+      "rowBands": [
+        {
+          "y0": 18,
+          "y1": 33
+        },
+        {
+          "y0": 223,
+          "y1": 252
+        },
+        {
+          "y0": 268,
+          "y1": 287
+        },
+        {
+          "y0": 316,
+          "y1": 648
+        },
+        {
+          "y0": 871,
+          "y1": 880
+        }
+      ]
+    },
+    "tokenDiff": {}
+  }
+}

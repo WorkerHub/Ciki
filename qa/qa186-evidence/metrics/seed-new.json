@@ -1,0 +1,64 @@
+{
+  "base": "http://127.0.0.1:9311",
+  "createdRaw": {
+    "id": 1,
+    "space_id": 1,
+    "parent_id": null,
+    "sort_order": 0,
+    "title": "纸面验收样例",
+    "updated_at": "2026-11-24T16:37:25.111Z"
+  },
+  "cmtRaw": {
+    "id": 1,
+    "parentId": null,
+    "authorId": 2,
+    "authorName": "qa-reader",
+    "authorAvatarUrl": null,
+    "isAgent": false,
+    "ownerName": null,
+    "bodyMd": "这是一条 QA 评论，用于检查评论区在纸面浅/暗下的观感。English comment too.",
+    "html": "<p>这是一条 QA 评论，用于检查评论区在纸面浅/暗下的观感。English comment too.</p>\n",
+    "createdAt": "2026-11-24T16:37:25.149Z",
+    "editedAt": null,
+    "deletedAt": null,
+    "canEdit": true,
+    "canDelete": true
+  },
+  "replyRaw": {
+    "id": 2,
+    "parentId": 1,
+    "authorId": 2,
+    "authorName": "qa-reader",
+    "authorAvatarUrl": null,
+    "isAgent": false,
+    "ownerName": null,
+    "bodyMd": "QA 回复：验证回复层级下的排版与气泡底色。",
+    "html": "<p>QA 回复：验证回复层级下的排版与气泡底色。</p>\n",
+    "createdAt": "2026-11-24T16:37:25.157Z",
+    "editedAt": null,
+    "deletedAt": null,
+    "canEdit": true,
+    "canDelete": true
+  },
+  "registerStatus": 409,
+  "adminId": 1,
+  "adminUsername": "qa-admin",
+  "pageId": 1,
+  "childPageId": 2,
+  "commentId": 1,
+  "replyId": 2,
+  "keys": {
+    "previewKey": "pages/17b72446-00a8-4413-8f80-7d64d8572e17.png",
+    "sceneKey": "pages/e3db927c-e90a-4dd4-8bdf-d55936e0bd47.json",
+    "embedKey": "embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html"
+  },
+  "statuses": {
+    "upPng": 201,
+    "upScene": 201,
+    "upEmbed": 201,
+    "created": 201,
+    "cmt": 201,
+    "reply": 201,
+    "child": 201
+  }
+}

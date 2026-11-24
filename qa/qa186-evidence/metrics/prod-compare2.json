@@ -1,0 +1,46 @@
+{
+  "nova-light": {
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 37940,
+      "totalPixels": 1296000,
+      "ratio": 0.029275,
+      "maxDelta": 738,
+      "bbox": {
+        "minX": 527,
+        "minY": 223,
+        "maxX": 912,
+        "maxY": 880
+      }
+    },
+    "tokenDiff": {},
+    "metaDiff": {},
+    "footer": {
+      "local": "Ciki · v1.0.0-280-0e061d3",
+      "prod": "Ciki · v1.0.0-281-c7ddc22"
+    }
+  },
+  "nova-dark": {
+    "diff": {
+      "width": 1440,
+      "height": 900,
+      "diffPixels": 91463,
+      "totalPixels": 1296000,
+      "ratio": 0.070573,
+      "maxDelta": 720,
+      "bbox": {
+        "minX": 527,
+        "minY": 223,
+        "maxX": 912,
+        "maxY": 880
+      }
+    },
+    "tokenDiff": {},
+    "metaDiff": {},
+    "footer": {
+      "local": "Ciki · v1.0.0-280-0e061d3",
+      "prod": "Ciki · v1.0.0-281-c7ddc22"
+    }
+  }
+}

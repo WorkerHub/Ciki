@@ -1,0 +1,86 @@
+{
+  "prod": "https://ciki.pama.workers.dev",
+  "combos": {
+    "paper-light": {
+      "dataTheme": "paper",
+      "dataMode": "light",
+      "darkClass": false,
+      "bodyBg": "rgb(247, 244, 238)",
+      "bodyFg": "rgb(42, 43, 47)",
+      "bodyFont": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "fontSans": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "fontMono": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+      "background": "#f7f4ee",
+      "foreground": "#2a2b2f",
+      "card": "#f9f7f2",
+      "primary": "#e2705a",
+      "border": "#dfdbd2",
+      "radius": "8px",
+      "appVersion": null
+    },
+    "paper-dark": {
+      "dataTheme": "paper",
+      "dataMode": "dark",
+      "darkClass": true,
+      "bodyBg": "rgb(11, 12, 14)",
+      "bodyFg": "rgb(242, 240, 235)",
+      "bodyFont": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "fontSans": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "fontMono": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+      "background": "#0b0c0e",
+      "foreground": "#f2f0eb",
+      "card": "#1a1b1f",
+      "primary": "#e8694e",
+      "border": "#26282d",
+      "radius": "8px",
+      "appVersion": null
+    },
+    "nova-light": {
+      "dataTheme": "nova",
+      "dataMode": "light",
+      "darkClass": false,
+      "bodyBg": "oklch(1 0 0)",
+      "bodyFg": "oklch(0.145 0 0)",
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "fontSans": "\"Geist Variable\", sans-serif",
+      "fontMono": "",
+      "background": "oklch(100% 0 0)",
+      "foreground": "oklch(14.5% 0 0)",
+      "card": "oklch(100% 0 0)",
+      "primary": "oklch(20.5% 0 0)",
+      "border": "oklch(92.2% 0 0)",
+      "radius": ".625rem",
+      "appVersion": null
+    },
+    "nova-dark": {
+      "dataTheme": "nova",
+      "dataMode": "dark",
+      "darkClass": true,
+      "bodyBg": "oklch(0.145 0 0)",
+      "bodyFg": "oklch(0.985 0 0)",
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "fontSans": "\"Geist Variable\", sans-serif",
+      "fontMono": "",
+      "background": "oklch(14.5% 0 0)",
+      "foreground": "oklch(98.5% 0 0)",
+      "card": "oklch(20.5% 0 0)",
+      "primary": "oklch(92.2% 0 0)",
+      "border": "oklch(100% 0 0/.1)",
+      "radius": ".625rem",
+      "appVersion": null
+    }
+  },
+  "assets": [
+    "/assets/index-DjUTElR9.js",
+    "/assets/index-DFYPoKDG.css"
+  ],
+  "deployedCss": {
+    "href": "/assets/index-DFYPoKDG.css",
+    "bytes": 255896,
+    "hasPaperLight": true,
+    "hasPaperDark": true,
+    "hasPaperFontStack": true,
+    "hasTextureRule": false,
+    "hasNovaGeist": true
+  }
+}

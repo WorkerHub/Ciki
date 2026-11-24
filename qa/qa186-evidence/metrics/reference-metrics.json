@@ -1,0 +1,40 @@
+{
+  "light": {
+    "title": "大 O 表示法 · Algo Lab",
+    "bg": "rgb(247, 244, 238)",
+    "fg": "rgb(42, 43, 47)",
+    "contrast": 12.88,
+    "bodyFontFamily": "\"Inter Variable\", Inter, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "bodyFontSize": "15px",
+    "h1FontFamily": "\"Inter Variable\", Inter, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "h1Size": "30px",
+    "h1Weight": "800",
+    "pFontFamily": "\"Inter Variable\", Inter, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "pFontSize": "14.2px",
+    "pLineHeight": "21px",
+    "preBg": "rgb(45, 46, 50)",
+    "preFg": "rgb(233, 230, 224)",
+    "preFontFamily": "\"JetBrains Mono Variable\", \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", monospace",
+    "preBorder": "rgb(233, 230, 224)",
+    "pageHeight": 900
+  },
+  "dark": {
+    "title": "大 O 表示法 · Algo Lab",
+    "bg": "rgb(11, 12, 14)",
+    "fg": "rgb(242, 240, 235)",
+    "contrast": 17.18,
+    "bodyFontFamily": "\"Inter Variable\", Inter, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "bodyFontSize": "15px",
+    "h1FontFamily": "\"Inter Variable\", Inter, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "h1Size": "30px",
+    "h1Weight": "800",
+    "pFontFamily": "\"Inter Variable\", Inter, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "pFontSize": "14.2px",
+    "pLineHeight": "21px",
+    "preBg": "rgb(16, 17, 20)",
+    "preFg": "rgb(233, 230, 224)",
+    "preFontFamily": "\"JetBrains Mono Variable\", \"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, \"PingFang SC\", \"Hiragino Sans GB\", \"Microsoft YaHei UI\", \"Microsoft YaHei\", \"Noto Sans SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", monospace",
+    "preBorder": "rgb(233, 230, 224)",
+    "pageHeight": 900
+  }
+}

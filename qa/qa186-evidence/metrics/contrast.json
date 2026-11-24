@@ -1,0 +1,138 @@
+{
+  "nova-light": {
+    "bodyBg": "oklch(1 0 0)",
+    "bodyFg": "oklch(0.145 0 0)",
+    "items": {
+      "para": {
+        "fg": "oklch(0.145 0 0)",
+        "bg": "oklch(1 0 0)",
+        "contrast": null,
+        "fontFamily": "\"Geist Variable\", sans-serif"
+      },
+      "code": {
+        "fg": "rgb(36, 41, 47)",
+        "bg": "rgb(246, 248, 250)",
+        "contrast": 13.76,
+        "fontFamily": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace"
+      },
+      "tableHeader": {
+        "fg": "oklch(0.145 0 0)",
+        "bg": "oklch(0.97 0 0)",
+        "contrast": null
+      },
+      "tableCell": {
+        "fg": "oklch(0.145 0 0)",
+        "bg": "oklch(1 0 0)",
+        "contrast": null
+      },
+      "quote": {
+        "fg": "oklch(0.145 0 0 / 0.85)",
+        "bg": "oklch(0.97 0 0 / 0.45)",
+        "border": "oklch(0.922 0 0)",
+        "contrast": null
+      }
+    }
+  },
+  "nova-dark": {
+    "bodyBg": "oklch(0.145 0 0)",
+    "bodyFg": "oklch(0.985 0 0)",
+    "items": {
+      "para": {
+        "fg": "oklch(0.985 0 0)",
+        "bg": "oklch(0.145 0 0)",
+        "contrast": null,
+        "fontFamily": "\"Geist Variable\", sans-serif"
+      },
+      "code": {
+        "fg": "rgb(230, 237, 243)",
+        "bg": "rgb(22, 27, 34)",
+        "contrast": 14.64,
+        "fontFamily": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace"
+      },
+      "tableHeader": {
+        "fg": "oklch(0.985 0 0)",
+        "bg": "oklch(0.269 0 0)",
+        "contrast": null
+      },
+      "tableCell": {
+        "fg": "oklch(0.985 0 0)",
+        "bg": "oklch(0.145 0 0)",
+        "contrast": null
+      },
+      "quote": {
+        "fg": "oklch(0.985 0 0 / 0.85)",
+        "bg": "oklch(0.269 0 0 / 0.45)",
+        "border": "oklch(1 0 0 / 0.1)",
+        "contrast": null
+      }
+    }
+  },
+  "paper-light": {
+    "bodyBg": "rgb(247, 244, 238)",
+    "bodyFg": "rgb(42, 43, 47)",
+    "items": {
+      "para": {
+        "fg": "rgb(42, 43, 47)",
+        "bg": "rgb(247, 244, 238)",
+        "contrast": 12.88,
+        "fontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif"
+      },
+      "code": {
+        "fg": "rgb(233, 230, 224)",
+        "bg": "rgb(45, 46, 50)",
+        "contrast": 10.89,
+        "fontFamily": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace"
+      },
+      "tableHeader": {
+        "fg": "rgb(42, 43, 47)",
+        "bg": "rgb(233, 227, 218)",
+        "contrast": 11.09
+      },
+      "tableCell": {
+        "fg": "rgb(42, 43, 47)",
+        "bg": "rgb(247, 244, 238)",
+        "contrast": 12.88
+      },
+      "quote": {
+        "fg": "rgb(42, 43, 47)",
+        "bg": "rgb(233, 227, 218)",
+        "border": "rgb(226, 112, 90)",
+        "contrast": 11.09
+      }
+    }
+  },
+  "paper-dark": {
+    "bodyBg": "rgb(11, 12, 14)",
+    "bodyFg": "rgb(242, 240, 235)",
+    "items": {
+      "para": {
+        "fg": "rgb(242, 240, 235)",
+        "bg": "rgb(11, 12, 14)",
+        "contrast": 17.18,
+        "fontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif"
+      },
+      "code": {
+        "fg": "rgb(233, 230, 224)",
+        "bg": "rgb(16, 17, 20)",
+        "contrast": 15.16,
+        "fontFamily": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace"
+      },
+      "tableHeader": {
+        "fg": "rgb(242, 240, 235)",
+        "bg": "rgb(36, 38, 43)",
+        "contrast": 13.29
+      },
+      "tableCell": {
+        "fg": "rgb(242, 240, 235)",
+        "bg": "rgb(11, 12, 14)",
+        "contrast": 17.18
+      },
+      "quote": {
+        "fg": "rgb(242, 240, 235)",
+        "bg": "rgb(36, 38, 43)",
+        "border": "rgb(232, 105, 78)",
+        "contrast": 13.29
+      }
+    }
+  }
+}

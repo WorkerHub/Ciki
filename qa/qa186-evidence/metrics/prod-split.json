@@ -1,0 +1,6 @@
+{
+  "note": "登录页「卡片以外区域」与「卡片内区域」分开统计的像素差（本地 0e061d3 vs 生产 c7ddc22）",
+  "cardBBox": { "minX": 527, "maxX": 912, "minY": 223, "maxY": 880 },
+  "nova-light": { "insideCardDiffPixels": 37940, "outsideCardDiffPixels": 0, "outsideMaxChannelDelta": 0, "cardContentReason": "本地显示 SMTP 未配置提示+账号请联系管理员；生产显示「还没有账号？注册」；另有版本串差异" },
+  "nova-dark": { "insideCardDiffPixels": 91463, "outsideCardDiffPixels": 0, "outsideMaxChannelDelta": 0, "cardContentReason": "同上" }
+}

@@ -1,0 +1,290 @@
+[
+  {
+    "step": "default",
+    "label": "默认（首次访问）",
+    "dataTheme": "nova",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#ffffff",
+    "bodyBg": "oklch(1 0 0)",
+    "stored": null,
+    "pressed": {
+      "Nova": "true",
+      "纸面": "false",
+      "自动": "true",
+      "浅色": "false",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "ui-paper",
+    "label": "设置页点击「纸面」",
+    "dataTheme": "paper",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#f7f4ee",
+    "bodyBg": "rgb(247, 244, 238)",
+    "stored": "{\"state\":{\"theme\":\"auto\",\"style\":\"paper\"},\"version\":0}",
+    "pressed": {
+      "Nova": "false",
+      "纸面": "true",
+      "自动": "true",
+      "浅色": "false",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "ui-dark",
+    "label": "设置页点击「深色」",
+    "dataTheme": "paper",
+    "dataMode": "dark",
+    "darkClass": true,
+    "colorScheme": "dark",
+    "metaThemeColor": "#0b0c0e",
+    "bodyBg": "rgb(11, 12, 14)",
+    "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}",
+    "pressed": {
+      "Nova": "false",
+      "纸面": "true",
+      "自动": "false",
+      "浅色": "false",
+      "深色": "true"
+    }
+  },
+  {
+    "step": "after-reload",
+    "label": "刷新后（纸面 + 深色）",
+    "dataTheme": "paper",
+    "dataMode": "dark",
+    "darkClass": true,
+    "colorScheme": "dark",
+    "metaThemeColor": "#0b0c0e",
+    "bodyBg": "rgb(11, 12, 14)",
+    "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}",
+    "pressed": {
+      "Nova": "false",
+      "纸面": "true",
+      "自动": "false",
+      "浅色": "false",
+      "深色": "true"
+    }
+  },
+  {
+    "step": "paper-light-reload",
+    "label": "刷新后（纸面 + 浅色）",
+    "dataTheme": "paper",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#f7f4ee",
+    "bodyBg": "rgb(247, 244, 238)",
+    "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}",
+    "pressed": {
+      "Nova": "false",
+      "纸面": "true",
+      "自动": "false",
+      "浅色": "true",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "ui-nova",
+    "label": "设置页点击「Nova」",
+    "dataTheme": "nova",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#ffffff",
+    "bodyBg": "oklch(1 0 0)",
+    "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}",
+    "pressed": {
+      "Nova": "true",
+      "纸面": "false",
+      "自动": "false",
+      "浅色": "true",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "auto-system-light",
+    "label": "自动模式 + 系统浅色",
+    "dataTheme": "nova",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#ffffff",
+    "bodyBg": "oklch(1 0 0)",
+    "stored": "{\"state\":{\"theme\":\"auto\",\"style\":\"nova\"},\"version\":0}",
+    "pressed": {
+      "Nova": "true",
+      "纸面": "false",
+      "自动": "true",
+      "浅色": "false",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "auto-system-dark",
+    "label": "自动模式 + 系统切深色",
+    "dataTheme": "nova",
+    "dataMode": "dark",
+    "darkClass": true,
+    "colorScheme": "dark",
+    "metaThemeColor": "#0a0a0a",
+    "bodyBg": "oklch(0.145 0 0)",
+    "stored": "{\"state\":{\"theme\":\"auto\",\"style\":\"nova\"},\"version\":0}",
+    "pressed": {
+      "Nova": "true",
+      "纸面": "false",
+      "自动": "true",
+      "浅色": "false",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "auto-system-light-again",
+    "label": "自动模式 + 系统切回浅色",
+    "dataTheme": "nova",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#ffffff",
+    "bodyBg": "oklch(1 0 0)",
+    "stored": "{\"state\":{\"theme\":\"auto\",\"style\":\"nova\"},\"version\":0}",
+    "pressed": {
+      "Nova": "true",
+      "纸面": "false",
+      "自动": "true",
+      "浅色": "false",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "paper-auto-system-dark",
+    "label": "纸面 + 自动 + 系统深色",
+    "dataTheme": "paper",
+    "dataMode": "dark",
+    "darkClass": true,
+    "colorScheme": "dark",
+    "metaThemeColor": "#0b0c0e",
+    "bodyBg": "rgb(11, 12, 14)",
+    "stored": "{\"state\":{\"theme\":\"auto\",\"style\":\"paper\"},\"version\":0}",
+    "pressed": {
+      "Nova": "false",
+      "纸面": "true",
+      "自动": "true",
+      "浅色": "false",
+      "深色": "false"
+    }
+  },
+  {
+    "step": "topbar-cycle",
+    "states": [
+      {
+        "label": "顶栏循环前 0",
+        "dataTheme": "paper",
+        "dataMode": "dark",
+        "darkClass": true,
+        "colorScheme": "dark",
+        "metaThemeColor": "#0b0c0e",
+        "bodyBg": "rgb(11, 12, 14)",
+        "stored": "{\"state\":{\"theme\":\"auto\",\"style\":\"paper\"},\"version\":0}",
+        "pressed": {
+          "Nova": "false",
+          "纸面": "true",
+          "自动": "true",
+          "浅色": "false",
+          "深色": "false"
+        }
+      },
+      {
+        "label": "顶栏循环前 1",
+        "dataTheme": "paper",
+        "dataMode": "light",
+        "darkClass": false,
+        "colorScheme": "light",
+        "metaThemeColor": "#f7f4ee",
+        "bodyBg": "rgb(247, 244, 238)",
+        "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}",
+        "pressed": {
+          "Nova": "false",
+          "纸面": "true",
+          "自动": "false",
+          "浅色": "true",
+          "深色": "false"
+        }
+      },
+      {
+        "label": "顶栏循环前 2",
+        "dataTheme": "paper",
+        "dataMode": "dark",
+        "darkClass": true,
+        "colorScheme": "dark",
+        "metaThemeColor": "#0b0c0e",
+        "bodyBg": "rgb(11, 12, 14)",
+        "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}",
+        "pressed": {
+          "Nova": "false",
+          "纸面": "true",
+          "自动": "false",
+          "浅色": "false",
+          "深色": "true"
+        }
+      },
+      {
+        "label": "顶栏循环前 3",
+        "dataTheme": "paper",
+        "dataMode": "dark",
+        "darkClass": true,
+        "colorScheme": "dark",
+        "metaThemeColor": "#0b0c0e",
+        "bodyBg": "rgb(11, 12, 14)",
+        "stored": "{\"state\":{\"theme\":\"auto\",\"style\":\"paper\"},\"version\":0}",
+        "pressed": {
+          "Nova": "false",
+          "纸面": "true",
+          "自动": "true",
+          "浅色": "false",
+          "深色": "false"
+        }
+      },
+      {
+        "label": "顶栏循环后",
+        "dataTheme": "paper",
+        "dataMode": "light",
+        "darkClass": false,
+        "colorScheme": "light",
+        "metaThemeColor": "#f7f4ee",
+        "bodyBg": "rgb(247, 244, 238)",
+        "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}",
+        "pressed": {
+          "Nova": "false",
+          "纸面": "true",
+          "自动": "false",
+          "浅色": "true",
+          "深色": "false"
+        }
+      }
+    ]
+  },
+  {
+    "step": "cycle-after-reload",
+    "label": "顶栏循环后刷新",
+    "dataTheme": "paper",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#f7f4ee",
+    "bodyBg": "rgb(247, 244, 238)",
+    "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}",
+    "pressed": {
+      "Nova": "false",
+      "纸面": "true",
+      "自动": "false",
+      "浅色": "true",
+      "深色": "false"
+    }
+  }
+]

@@ -1,0 +1,1794 @@
+{
+  "nova-light": {
+    "combo": {
+      "style": "nova",
+      "mode": "light"
+    },
+    "surfaces": {
+      "home": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "oklch(1 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 417,
+              "left": 362
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 471,
+              "left": 424
+            }
+          ],
+          "bodyBg": "oklch(1 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read-full": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 417,
+              "left": 362
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 471,
+              "left": 424
+            }
+          ],
+          "bodyBg": "oklch(1 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-built_in",
+              "right": 402,
+              "left": 355
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 434,
+              "left": 379
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 488,
+              "left": 441
+            }
+          ],
+          "bodyBg": "oklch(1 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "返回阅读",
+              "w": 92,
+              "h": 40
+            }
+          ]
+        }
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 417,
+              "left": 362
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 471,
+              "left": 424
+            }
+          ],
+          "bodyBg": "oklch(1 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "notifications": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "oklch(1 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "oklch(1 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            }
+          ]
+        }
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  },
+  "nova-dark": {
+    "combo": {
+      "style": "nova",
+      "mode": "dark"
+    },
+    "surfaces": {
+      "home": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "oklch(0.145 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 417,
+              "left": 362
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 471,
+              "left": 424
+            }
+          ],
+          "bodyBg": "oklch(0.145 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read-full": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 417,
+              "left": 362
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 471,
+              "left": 424
+            }
+          ],
+          "bodyBg": "oklch(0.145 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-built_in",
+              "right": 402,
+              "left": 355
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 434,
+              "left": 379
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 488,
+              "left": 441
+            }
+          ],
+          "bodyBg": "oklch(0.145 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "返回阅读",
+              "w": 92,
+              "h": 40
+            }
+          ]
+        }
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 417,
+              "left": 362
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 471,
+              "left": 424
+            }
+          ],
+          "bodyBg": "oklch(0.145 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "notifications": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "oklch(0.145 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "oklch(0.145 0 0)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 106,
+              "h": 28
+            }
+          ]
+        }
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  },
+  "paper-light": {
+    "combo": {
+      "style": "paper",
+      "mode": "light"
+    },
+    "surfaces": {
+      "home": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "rgb(247, 244, 238)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 415,
+              "left": 361
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 470,
+              "left": 423
+            }
+          ],
+          "bodyBg": "rgb(247, 244, 238)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read-full": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 415,
+              "left": 361
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 470,
+              "left": 423
+            }
+          ],
+          "bodyBg": "rgb(247, 244, 238)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-built_in",
+              "right": 401,
+              "left": 354
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 432,
+              "left": 378
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 487,
+              "left": 440
+            }
+          ],
+          "bodyBg": "rgb(247, 244, 238)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "返回阅读",
+              "w": 92,
+              "h": 40
+            }
+          ]
+        }
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 415,
+              "left": 361
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 470,
+              "left": 423
+            }
+          ],
+          "bodyBg": "rgb(247, 244, 238)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "notifications": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "rgb(247, 244, 238)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "rgb(247, 244, 238)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：浅色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            }
+          ]
+        }
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  },
+  "paper-dark": {
+    "combo": {
+      "style": "paper",
+      "mode": "dark"
+    },
+    "surfaces": {
+      "home": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "rgb(11, 12, 14)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 415,
+              "left": 361
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 470,
+              "left": 423
+            }
+          ],
+          "bodyBg": "rgb(11, 12, 14)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "read-full": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 415,
+              "left": 361
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 470,
+              "left": 423
+            }
+          ],
+          "bodyBg": "rgb(11, 12, 14)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-built_in",
+              "right": 401,
+              "left": 354
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 432,
+              "left": 378
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 487,
+              "left": 440
+            }
+          ],
+          "bodyBg": "rgb(11, 12, 14)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "返回阅读",
+              "w": 92,
+              "h": 40
+            }
+          ]
+        }
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 415,
+              "left": 361
+            },
+            {
+              "tag": "SPAN",
+              "cls": "hljs-title class_",
+              "right": 470,
+              "left": 423
+            }
+          ],
+          "bodyBg": "rgb(11, 12, 14)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "打开页面树",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "搜索",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "新建页面",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            },
+            {
+              "label": "刷新",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "子页面",
+              "w": 79,
+              "h": 28
+            },
+            {
+              "label": "更多",
+              "w": 28,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "notifications": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "rgb(11, 12, 14)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            }
+          ]
+        }
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "layout": {
+          "innerWidth": 390,
+          "docScrollWidth": 390,
+          "horizontalOverflow": false,
+          "overflowing": [],
+          "bodyBg": "rgb(11, 12, 14)",
+          "fontSize": "16px",
+          "touchTargets": [
+            {
+              "label": "通知",
+              "w": 28,
+              "h": 28
+            },
+            {
+              "label": "主题：深色，点击切换",
+              "w": 40,
+              "h": 40
+            },
+            {
+              "label": "账号菜单",
+              "w": 107,
+              "h": 28
+            }
+          ]
+        }
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  }
+}

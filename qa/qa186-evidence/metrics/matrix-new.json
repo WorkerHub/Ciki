@@ -1,0 +1,946 @@
+{
+  "nova-light": {
+    "combo": {
+      "style": "nova",
+      "mode": "light"
+    },
+    "surfaces": {
+      "read": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": {
+          "tokens": {
+            "--background": "oklch(100% 0 0)",
+            "--foreground": "oklch(14.5% 0 0)",
+            "--card": "oklch(100% 0 0)",
+            "--card-foreground": "oklch(14.5% 0 0)",
+            "--muted": "oklch(97% 0 0)",
+            "--muted-foreground": "oklch(55.6% 0 0)",
+            "--primary": "oklch(20.5% 0 0)",
+            "--primary-foreground": "oklch(98.5% 0 0)",
+            "--border": "oklch(92.2% 0 0)",
+            "--ring": "oklch(70.8% 0 0)",
+            "--radius": ".625rem"
+          },
+          "bodyBg": "oklch(1 0 0)",
+          "bodyFg": "oklch(0.145 0 0)",
+          "bodyFontFamily": "\"Geist Variable\", sans-serif",
+          "paraFontFamily": "\"Geist Variable\", sans-serif",
+          "paraFontSize": "15px",
+          "paraColor": "oklch(0.145 0 0)",
+          "paraBg": "oklch(1 0 0)",
+          "paraContrast": null,
+          "code": {
+            "bg": "rgb(246, 248, 250)",
+            "fg": "rgb(36, 41, 47)",
+            "fontFamily": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+            "contrast": 13.76,
+            "keyword": "rgb(215, 58, 73)",
+            "string": "rgb(3, 47, 98)",
+            "comment": null,
+            "headerBg": "rgb(246, 248, 250)",
+            "border": "rgb(36, 41, 47)"
+          },
+          "table": {
+            "headerBg": "oklch(0.97 0 0)",
+            "headerFg": "oklch(0.145 0 0)",
+            "cellFg": "oklch(0.145 0 0)",
+            "border": "oklch(0.922 0 0)",
+            "borderCell": "oklch(0.922 0 0)",
+            "headerContrast": null,
+            "cellContrast": null
+          },
+          "canvas": {
+            "border": "oklch(0.922 0 0)",
+            "borderWidth": "0px",
+            "bg": "rgba(0, 0, 0, 0)",
+            "radius": "6px",
+            "w": 480,
+            "h": 240
+          },
+          "embed": {
+            "border": "oklab(0.922 0 0 / 0.5)",
+            "borderWidth": "1px",
+            "radius": "8px",
+            "h": 200
+          },
+          "quote": {
+            "bg": "oklch(0.97 0 0 / 0.45)",
+            "border": "oklch(0.922 0 0)",
+            "fg": "oklch(0.145 0 0 / 0.85)"
+          },
+          "inlineCode": null,
+          "texture": {
+            "bodyBackgroundImage": "none",
+            "wikiBackgroundImage": "none",
+            "htmlBackgroundImage": "none"
+          }
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-panel": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-page": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "author": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-users": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-spaces": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-site": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-security": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-email": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-others": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "bodyBg": "oklch(1 0 0)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  },
+  "nova-dark": {
+    "combo": {
+      "style": "nova",
+      "mode": "dark"
+    },
+    "surfaces": {
+      "read": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": {
+          "tokens": {
+            "--background": "oklch(14.5% 0 0)",
+            "--foreground": "oklch(98.5% 0 0)",
+            "--card": "oklch(20.5% 0 0)",
+            "--card-foreground": "oklch(98.5% 0 0)",
+            "--muted": "oklch(26.9% 0 0)",
+            "--muted-foreground": "oklch(70.8% 0 0)",
+            "--primary": "oklch(92.2% 0 0)",
+            "--primary-foreground": "oklch(20.5% 0 0)",
+            "--border": "oklch(100% 0 0/.1)",
+            "--ring": "oklch(55.6% 0 0)",
+            "--radius": ".625rem"
+          },
+          "bodyBg": "oklch(0.145 0 0)",
+          "bodyFg": "oklch(0.985 0 0)",
+          "bodyFontFamily": "\"Geist Variable\", sans-serif",
+          "paraFontFamily": "\"Geist Variable\", sans-serif",
+          "paraFontSize": "15px",
+          "paraColor": "oklch(0.985 0 0)",
+          "paraBg": "oklch(0.145 0 0)",
+          "paraContrast": null,
+          "code": {
+            "bg": "rgb(22, 27, 34)",
+            "fg": "rgb(230, 237, 243)",
+            "fontFamily": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+            "contrast": 14.64,
+            "keyword": "rgb(255, 123, 114)",
+            "string": "rgb(165, 214, 255)",
+            "comment": null,
+            "headerBg": "rgb(22, 27, 34)",
+            "border": "rgb(230, 237, 243)"
+          },
+          "table": {
+            "headerBg": "oklch(0.269 0 0)",
+            "headerFg": "oklch(0.985 0 0)",
+            "cellFg": "oklch(0.985 0 0)",
+            "border": "oklch(1 0 0 / 0.1)",
+            "borderCell": "oklch(1 0 0 / 0.1)",
+            "headerContrast": null,
+            "cellContrast": null
+          },
+          "canvas": {
+            "border": "oklch(1 0 0 / 0.1)",
+            "borderWidth": "0px",
+            "bg": "rgba(0, 0, 0, 0)",
+            "radius": "6px",
+            "w": 480,
+            "h": 240
+          },
+          "embed": {
+            "border": "oklab(1 0 0 / 0.05)",
+            "borderWidth": "1px",
+            "radius": "8px",
+            "h": 200
+          },
+          "quote": {
+            "bg": "oklch(0.269 0 0 / 0.45)",
+            "border": "oklch(1 0 0 / 0.1)",
+            "fg": "oklch(0.985 0 0 / 0.85)"
+          },
+          "inlineCode": null,
+          "texture": {
+            "bodyBackgroundImage": "none",
+            "wikiBackgroundImage": "none",
+            "htmlBackgroundImage": "none"
+          }
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-panel": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-page": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "author": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-users": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-spaces": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-site": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-security": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-email": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-others": {
+        "attrs": {
+          "dataTheme": "nova",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0a0a0a",
+          "bodyBg": "oklch(0.145 0 0)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+        },
+        "metrics": null
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  },
+  "paper-light": {
+    "combo": {
+      "style": "paper",
+      "mode": "light"
+    },
+    "surfaces": {
+      "read": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": {
+          "tokens": {
+            "--background": "#f7f4ee",
+            "--foreground": "#2a2b2f",
+            "--card": "#f9f7f2",
+            "--card-foreground": "#2a2b2f",
+            "--muted": "#e9e3da",
+            "--muted-foreground": "#77746f",
+            "--primary": "#e2705a",
+            "--primary-foreground": "#7c2717",
+            "--border": "#dfdbd2",
+            "--ring": "#f3bcae",
+            "--radius": "8px"
+          },
+          "bodyBg": "rgb(247, 244, 238)",
+          "bodyFg": "rgb(42, 43, 47)",
+          "bodyFontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+          "paraFontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+          "paraFontSize": "15px",
+          "paraColor": "rgb(42, 43, 47)",
+          "paraBg": "rgb(247, 244, 238)",
+          "paraContrast": 12.88,
+          "code": {
+            "bg": "rgb(45, 46, 50)",
+            "fg": "rgb(233, 230, 224)",
+            "fontFamily": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+            "contrast": 10.89,
+            "keyword": "rgb(240, 138, 109)",
+            "string": "rgb(230, 196, 119)",
+            "comment": null,
+            "headerBg": "rgb(45, 46, 50)",
+            "border": "rgb(233, 230, 224)"
+          },
+          "table": {
+            "headerBg": "rgb(233, 227, 218)",
+            "headerFg": "rgb(42, 43, 47)",
+            "cellFg": "rgb(42, 43, 47)",
+            "border": "rgb(223, 219, 210)",
+            "borderCell": "rgb(223, 219, 210)",
+            "headerContrast": 11.09,
+            "cellContrast": 12.88
+          },
+          "canvas": {
+            "border": "rgb(223, 219, 210)",
+            "borderWidth": "0px",
+            "bg": "rgba(0, 0, 0, 0)",
+            "radius": "6px",
+            "w": 480,
+            "h": 240
+          },
+          "embed": {
+            "border": "oklab(0.892072 0.000754386 0.0129184 / 0.5)",
+            "borderWidth": "1px",
+            "radius": "8px",
+            "h": 200
+          },
+          "quote": {
+            "bg": "rgb(233, 227, 218)",
+            "border": "rgb(226, 112, 90)",
+            "fg": "rgb(42, 43, 47)"
+          },
+          "inlineCode": null,
+          "texture": {
+            "bodyBackgroundImage": "none",
+            "wikiBackgroundImage": "none",
+            "htmlBackgroundImage": "none"
+          }
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-panel": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-page": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "author": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-users": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-spaces": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-site": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-security": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-email": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-others": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "bodyBg": "rgb(247, 244, 238)",
+          "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  },
+  "paper-dark": {
+    "combo": {
+      "style": "paper",
+      "mode": "dark"
+    },
+    "surfaces": {
+      "read": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": {
+          "tokens": {
+            "--background": "#0b0c0e",
+            "--foreground": "#f2f0eb",
+            "--card": "#1a1b1f",
+            "--card-foreground": "#f2f0eb",
+            "--muted": "#24262b",
+            "--muted-foreground": "#908d87",
+            "--primary": "#e8694e",
+            "--primary-foreground": "#f6ab98",
+            "--border": "#26282d",
+            "--ring": "#94402e",
+            "--radius": "8px"
+          },
+          "bodyBg": "rgb(11, 12, 14)",
+          "bodyFg": "rgb(242, 240, 235)",
+          "bodyFontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+          "paraFontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+          "paraFontSize": "15px",
+          "paraColor": "rgb(242, 240, 235)",
+          "paraBg": "rgb(11, 12, 14)",
+          "paraContrast": 17.18,
+          "code": {
+            "bg": "rgb(16, 17, 20)",
+            "fg": "rgb(233, 230, 224)",
+            "fontFamily": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+            "contrast": 15.16,
+            "keyword": "rgb(240, 138, 109)",
+            "string": "rgb(230, 196, 119)",
+            "comment": null,
+            "headerBg": "rgb(16, 17, 20)",
+            "border": "rgb(233, 230, 224)"
+          },
+          "table": {
+            "headerBg": "rgb(36, 38, 43)",
+            "headerFg": "rgb(242, 240, 235)",
+            "cellFg": "rgb(242, 240, 235)",
+            "border": "rgb(38, 40, 45)",
+            "borderCell": "rgb(38, 40, 45)",
+            "headerContrast": 13.29,
+            "cellContrast": 17.18
+          },
+          "canvas": {
+            "border": "rgb(38, 40, 45)",
+            "borderWidth": "0px",
+            "bg": "rgba(0, 0, 0, 0)",
+            "radius": "6px",
+            "w": 480,
+            "h": 240
+          },
+          "embed": {
+            "border": "oklab(0.276852 -0.000269398 -0.0096357 / 0.5)",
+            "borderWidth": "1px",
+            "radius": "8px",
+            "h": 200
+          },
+          "quote": {
+            "bg": "rgb(36, 38, 43)",
+            "border": "rgb(232, 105, 78)",
+            "fg": "rgb(242, 240, 235)"
+          },
+          "inlineCode": null,
+          "texture": {
+            "bodyBackgroundImage": "none",
+            "wikiBackgroundImage": "none",
+            "htmlBackgroundImage": "none"
+          }
+        }
+      },
+      "edit": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "comments": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-panel": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "notif-page": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "author": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "settings": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-users": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-spaces": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-site": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-security": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-email": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      },
+      "admin-others": {
+        "attrs": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "bodyBg": "rgb(11, 12, 14)",
+          "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+        },
+        "metrics": null
+      }
+    },
+    "errors": [
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.",
+      "Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+    ]
+  }
+}

@@ -1,0 +1,378 @@
+{
+  "nova-light": {
+    "theme": {
+      "dataTheme": "nova",
+      "dataMode": "light",
+      "darkClass": false,
+      "colorScheme": "light",
+      "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"nova\"},\"version\":0}"
+    },
+    "texture": {
+      "afterContent": "none",
+      "afterBgImage": "none",
+      "afterOpacity": "1",
+      "afterBlend": "normal",
+      "afterPointerEvents": "auto",
+      "afterZIndex": "auto",
+      "beforeBgImage": "none"
+    },
+    "fonts": {
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "widths": {
+        "bodyStack": 449.796875,
+        "pingfang": 449.796875,
+        "notoCjk": 449.796875,
+        "interOnly": 449.796875,
+        "systemSans": 449.796875
+      },
+      "fontsAvail": {
+        "interLatin": false,
+        "interCJK": true,
+        "pingfangCJK": true,
+        "jbMonoLatin": false
+      },
+      "mono": {
+        "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+        "widthI": 78.28125,
+        "widthW": 78.28125,
+        "widthM": 78.28125,
+        "whiteSpace": "pre",
+        "fontSize": "13px",
+        "lineHeight": "20.8px",
+        "monospace": true
+      }
+    },
+    "colors": {
+      "bodyBg": "oklch(1 0 0)",
+      "bodyFg": "oklch(0.145 0 0)",
+      "paraFg": "oklch(0.145 0 0)",
+      "paraBg": "oklch(1 0 0)",
+      "paraFont": "\"Geist Variable\", sans-serif",
+      "paraFontSize": "15px",
+      "paraLineHeight": "26.25px",
+      "codeBg": "rgb(246, 248, 250)",
+      "codeFg": "rgb(36, 41, 47)",
+      "codeFont": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+      "tableThBg": "oklch(0.97 0 0)",
+      "tableThFg": "oklch(0.145 0 0)",
+      "tableTdFg": "oklch(0.145 0 0)",
+      "tableBorder": "oklch(0.922 0 0)",
+      "quoteBg": "oklch(0.97 0 0 / 0.45)",
+      "quoteFg": "oklch(0.145 0 0 / 0.85)"
+    },
+    "contrast": {
+      "para": 1,
+      "code": 13.76,
+      "tableTh": 1,
+      "tableCell": 1,
+      "quote": 1
+    },
+    "blocks": {
+      "codeBlocks": 1,
+      "tables": 1,
+      "canvasBlocks": 0,
+      "embeds": 1,
+      "canvasImgSrc": null,
+      "canvasImgNatural": null,
+      "iframeSrc": "/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+      "iframeBox": {
+        "w": 1131.984375,
+        "h": 200,
+        "border": "1px solid oklab(0.922 0 0 / 0.5)",
+        "radius": "8px",
+        "bg": "oklch(1 0 0)"
+      }
+    },
+    "frames": [
+      {
+        "url": "http://127.0.0.1:9311/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+        "bodyBg": "rgb(255, 255, 255)",
+        "bodyFg": "rgb(42, 43, 47)",
+        "text": "Embed 块内容 · 中文与 English",
+        "dataTheme": null
+      }
+    ]
+  },
+  "nova-dark": {
+    "theme": {
+      "dataTheme": "nova",
+      "dataMode": "dark",
+      "darkClass": true,
+      "colorScheme": "dark",
+      "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"nova\"},\"version\":0}"
+    },
+    "texture": {
+      "afterContent": "none",
+      "afterBgImage": "none",
+      "afterOpacity": "1",
+      "afterBlend": "normal",
+      "afterPointerEvents": "auto",
+      "afterZIndex": "auto",
+      "beforeBgImage": "none"
+    },
+    "fonts": {
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "widths": {
+        "bodyStack": 449.796875,
+        "pingfang": 449.796875,
+        "notoCjk": 449.796875,
+        "interOnly": 449.796875,
+        "systemSans": 449.796875
+      },
+      "fontsAvail": {
+        "interLatin": false,
+        "interCJK": true,
+        "pingfangCJK": true,
+        "jbMonoLatin": false
+      },
+      "mono": {
+        "fontFamily": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace",
+        "widthI": 78.28125,
+        "widthW": 78.28125,
+        "widthM": 78.28125,
+        "whiteSpace": "pre",
+        "fontSize": "13px",
+        "lineHeight": "20.8px",
+        "monospace": true
+      }
+    },
+    "colors": {
+      "bodyBg": "oklch(0.145 0 0)",
+      "bodyFg": "oklch(0.985 0 0)",
+      "paraFg": "oklch(0.985 0 0)",
+      "paraBg": "oklch(0.145 0 0)",
+      "paraFont": "\"Geist Variable\", sans-serif",
+      "paraFontSize": "15px",
+      "paraLineHeight": "26.25px",
+      "codeBg": "rgb(22, 27, 34)",
+      "codeFg": "rgb(230, 237, 243)",
+      "codeFont": "ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+      "tableThBg": "oklch(0.269 0 0)",
+      "tableThFg": "oklch(0.985 0 0)",
+      "tableTdFg": "oklch(0.985 0 0)",
+      "tableBorder": "oklch(1 0 0 / 0.1)",
+      "quoteBg": "oklch(0.269 0 0 / 0.45)",
+      "quoteFg": "oklch(0.985 0 0 / 0.85)"
+    },
+    "contrast": {
+      "para": 1,
+      "code": 14.64,
+      "tableTh": 1,
+      "tableCell": 1,
+      "quote": 1
+    },
+    "blocks": {
+      "codeBlocks": 1,
+      "tables": 1,
+      "canvasBlocks": 0,
+      "embeds": 1,
+      "canvasImgSrc": null,
+      "canvasImgNatural": null,
+      "iframeSrc": "/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+      "iframeBox": {
+        "w": 1131.984375,
+        "h": 200,
+        "border": "1px solid oklab(1 0 0 / 0.05)",
+        "radius": "8px",
+        "bg": "oklch(0.145 0 0)"
+      }
+    },
+    "frames": [
+      {
+        "url": "http://127.0.0.1:9311/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+        "bodyBg": "rgb(255, 255, 255)",
+        "bodyFg": "rgb(42, 43, 47)",
+        "text": "Embed 块内容 · 中文与 English",
+        "dataTheme": null
+      }
+    ]
+  },
+  "paper-light": {
+    "theme": {
+      "dataTheme": "paper",
+      "dataMode": "light",
+      "darkClass": false,
+      "colorScheme": "light",
+      "stored": "{\"state\":{\"theme\":\"light\",\"style\":\"paper\"},\"version\":0}"
+    },
+    "texture": {
+      "afterContent": "\"\"",
+      "afterBgImage": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000",
+      "afterOpacity": "0.55",
+      "afterBlend": "multiply",
+      "afterPointerEvents": "none",
+      "afterZIndex": "9999",
+      "beforeBgImage": "none"
+    },
+    "fonts": {
+      "bodyFont": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "widths": {
+        "bodyStack": 449.796875,
+        "pingfang": 449.796875,
+        "notoCjk": 449.796875,
+        "interOnly": 449.796875,
+        "systemSans": 449.796875
+      },
+      "fontsAvail": {
+        "interLatin": true,
+        "interCJK": true,
+        "pingfangCJK": true,
+        "jbMonoLatin": true
+      },
+      "mono": {
+        "fontFamily": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+        "widthI": 78,
+        "widthW": 78,
+        "widthM": 78,
+        "whiteSpace": "pre",
+        "fontSize": "13px",
+        "lineHeight": "20.8px",
+        "monospace": true
+      }
+    },
+    "colors": {
+      "bodyBg": "rgb(247, 244, 238)",
+      "bodyFg": "rgb(42, 43, 47)",
+      "paraFg": "rgb(42, 43, 47)",
+      "paraBg": "rgb(247, 244, 238)",
+      "paraFont": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "paraFontSize": "15px",
+      "paraLineHeight": "25.5px",
+      "codeBg": "rgb(45, 46, 50)",
+      "codeFg": "rgb(233, 230, 224)",
+      "codeFont": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+      "tableThBg": "rgb(233, 227, 218)",
+      "tableThFg": "rgb(42, 43, 47)",
+      "tableTdFg": "rgb(42, 43, 47)",
+      "tableBorder": "rgb(223, 219, 210)",
+      "quoteBg": "rgb(233, 227, 218)",
+      "quoteFg": "rgb(42, 43, 47)"
+    },
+    "contrast": {
+      "para": 12.88,
+      "code": 10.89,
+      "tableTh": 11.09,
+      "tableCell": 12.88,
+      "quote": 11.09
+    },
+    "blocks": {
+      "codeBlocks": 1,
+      "tables": 1,
+      "canvasBlocks": 0,
+      "embeds": 1,
+      "canvasImgSrc": null,
+      "canvasImgNatural": null,
+      "iframeSrc": "/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+      "iframeBox": {
+        "w": 860,
+        "h": 200,
+        "border": "1px solid oklab(0.892072 0.000754386 0.0129184 / 0.5)",
+        "radius": "8px",
+        "bg": "rgb(247, 244, 238)"
+      }
+    },
+    "frames": [
+      {
+        "url": "http://127.0.0.1:9311/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+        "bodyBg": "rgb(255, 255, 255)",
+        "bodyFg": "rgb(42, 43, 47)",
+        "text": "Embed 块内容 · 中文与 English",
+        "dataTheme": null
+      }
+    ]
+  },
+  "paper-dark": {
+    "theme": {
+      "dataTheme": "paper",
+      "dataMode": "dark",
+      "darkClass": true,
+      "colorScheme": "dark",
+      "stored": "{\"state\":{\"theme\":\"dark\",\"style\":\"paper\"},\"version\":0}"
+    },
+    "texture": {
+      "afterContent": "\"\"",
+      "afterBgImage": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000",
+      "afterOpacity": "0.22",
+      "afterBlend": "soft-light",
+      "afterPointerEvents": "none",
+      "afterZIndex": "9999",
+      "beforeBgImage": "none"
+    },
+    "fonts": {
+      "bodyFont": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "widths": {
+        "bodyStack": 449.796875,
+        "pingfang": 449.796875,
+        "notoCjk": 449.796875,
+        "interOnly": 449.796875,
+        "systemSans": 449.796875
+      },
+      "fontsAvail": {
+        "interLatin": true,
+        "interCJK": true,
+        "pingfangCJK": true,
+        "jbMonoLatin": true
+      },
+      "mono": {
+        "fontFamily": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+        "widthI": 78,
+        "widthW": 78,
+        "widthM": 78,
+        "whiteSpace": "pre",
+        "fontSize": "13px",
+        "lineHeight": "20.8px",
+        "monospace": true
+      }
+    },
+    "colors": {
+      "bodyBg": "rgb(11, 12, 14)",
+      "bodyFg": "rgb(242, 240, 235)",
+      "paraFg": "rgb(242, 240, 235)",
+      "paraBg": "rgb(11, 12, 14)",
+      "paraFont": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "paraFontSize": "15px",
+      "paraLineHeight": "25.5px",
+      "codeBg": "rgb(16, 17, 20)",
+      "codeFg": "rgb(233, 230, 224)",
+      "codeFont": "\"JetBrains Mono Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", ui-monospace, monospace",
+      "tableThBg": "rgb(36, 38, 43)",
+      "tableThFg": "rgb(242, 240, 235)",
+      "tableTdFg": "rgb(242, 240, 235)",
+      "tableBorder": "rgb(38, 40, 45)",
+      "quoteBg": "rgb(36, 38, 43)",
+      "quoteFg": "rgb(242, 240, 235)"
+    },
+    "contrast": {
+      "para": 17.18,
+      "code": 15.16,
+      "tableTh": 13.29,
+      "tableCell": 17.18,
+      "quote": 13.29
+    },
+    "blocks": {
+      "codeBlocks": 1,
+      "tables": 1,
+      "canvasBlocks": 0,
+      "embeds": 1,
+      "canvasImgSrc": null,
+      "canvasImgNatural": null,
+      "iframeSrc": "/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+      "iframeBox": {
+        "w": 860,
+        "h": 200,
+        "border": "1px solid oklab(0.276852 -0.000269398 -0.0096357 / 0.5)",
+        "radius": "8px",
+        "bg": "rgb(11, 12, 14)"
+      }
+    },
+    "frames": [
+      {
+        "url": "http://127.0.0.1:9311/api/files/embeds/4755b268-97f4-4e98-bc86-b30a97803ca6.html",
+        "bodyBg": "rgb(255, 255, 255)",
+        "bodyFg": "rgb(42, 43, 47)",
+        "text": "Embed 块内容 · 中文与 English",
+        "dataTheme": null
+      }
+    ]
+  }
+}

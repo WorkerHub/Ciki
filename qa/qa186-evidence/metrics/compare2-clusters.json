@@ -1,0 +1,10 @@
+{
+  "note": "nova-light/read 新旧版本逐像素差异簇（本地 0e061d3 vs 旧基线 2ff6d0d）",
+  "totalDiffPixels": 726,
+  "clusters": [
+    { "count": 378, "bbox": { "minX": 116, "minY": 877, "maxX": 167, "maxY": 886 }, "reason": "页脚版本串 v1.0.0-280-0e061d3 vs v1.0.0-279-2ff6d0d（字形不同）" },
+    { "count": 341, "bbox": { "minX": 70, "minY": 877, "maxX": 114, "maxY": 886 }, "reason": "页脚版本串" },
+    { "count": 4, "bbox": { "minX": 284, "minY": 30, "maxX": 285, "maxY": 33 }, "reason": "侧栏右缘 ±1 灰阶抗锯齿（242 vs 243）" },
+    { "count": 3, "bbox": { "minX": 285, "minY": 15, "maxX": 285, "maxY": 17 }, "reason": "侧栏右缘 ±1 灰阶抗锯齿" }
+  ]
+}

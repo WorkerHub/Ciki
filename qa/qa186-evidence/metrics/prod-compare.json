@@ -1,0 +1,134 @@
+{
+  "nova-light": {
+    "local": {
+      "url": "/login",
+      "dataTheme": "nova",
+      "dataMode": "light",
+      "dark": false,
+      "bodyBg": "oklch(1 0 0)",
+      "bodyFg": "oklch(0.145 0 0)",
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "tokens": {
+        "--background": "oklch(100% 0 0)",
+        "--foreground": "oklch(14.5% 0 0)",
+        "--card": "oklch(100% 0 0)",
+        "--primary": "oklch(20.5% 0 0)",
+        "--primary-foreground": "oklch(98.5% 0 0)",
+        "--secondary": "oklch(97% 0 0)",
+        "--muted": "oklch(97% 0 0)",
+        "--muted-foreground": "oklch(55.6% 0 0)",
+        "--accent": "oklch(97% 0 0)",
+        "--border": "oklch(92.2% 0 0)",
+        "--ring": "oklch(70.8% 0 0)",
+        "--radius": ".625rem",
+        "--font-sans-family": "\"Geist Variable\", sans-serif",
+        "--font-mono-family": ""
+      },
+      "submitBtn": {
+        "bg": "oklch(0.205 0 0)",
+        "fg": "oklch(0.985 0 0)",
+        "radius": "8px"
+      },
+      "footer": "账号请联系管理员开通。 |  | Ciki · v1.0.0-280-0e061d3"
+    },
+    "prod": {
+      "url": "/login",
+      "dataTheme": "nova",
+      "dataMode": "light",
+      "dark": false,
+      "bodyBg": "oklch(1 0 0)",
+      "bodyFg": "oklch(0.145 0 0)",
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "tokens": {
+        "--background": "oklch(100% 0 0)",
+        "--foreground": "oklch(14.5% 0 0)",
+        "--card": "oklch(100% 0 0)",
+        "--primary": "oklch(20.5% 0 0)",
+        "--primary-foreground": "oklch(98.5% 0 0)",
+        "--secondary": "oklch(97% 0 0)",
+        "--muted": "oklch(97% 0 0)",
+        "--muted-foreground": "oklch(55.6% 0 0)",
+        "--accent": "oklch(97% 0 0)",
+        "--border": "oklch(92.2% 0 0)",
+        "--ring": "oklch(70.8% 0 0)",
+        "--radius": ".625rem",
+        "--font-sans-family": "\"Geist Variable\", sans-serif",
+        "--font-mono-family": ""
+      },
+      "submitBtn": {
+        "bg": "oklch(0.205 0 0)",
+        "fg": "oklch(0.985 0 0)",
+        "radius": "8px"
+      },
+      "footer": "还没有账号？注册 |  | Ciki · v1.0.0-281-c7ddc22"
+    },
+    "identicalBytes": false,
+    "tokenDiff": {}
+  },
+  "nova-dark": {
+    "local": {
+      "url": "/login",
+      "dataTheme": "nova",
+      "dataMode": "dark",
+      "dark": true,
+      "bodyBg": "oklch(0.145 0 0)",
+      "bodyFg": "oklch(0.985 0 0)",
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "tokens": {
+        "--background": "oklch(14.5% 0 0)",
+        "--foreground": "oklch(98.5% 0 0)",
+        "--card": "oklch(20.5% 0 0)",
+        "--primary": "oklch(92.2% 0 0)",
+        "--primary-foreground": "oklch(20.5% 0 0)",
+        "--secondary": "oklch(26.9% 0 0)",
+        "--muted": "oklch(26.9% 0 0)",
+        "--muted-foreground": "oklch(70.8% 0 0)",
+        "--accent": "oklch(26.9% 0 0)",
+        "--border": "oklch(100% 0 0/.1)",
+        "--ring": "oklch(55.6% 0 0)",
+        "--radius": ".625rem",
+        "--font-sans-family": "\"Geist Variable\", sans-serif",
+        "--font-mono-family": ""
+      },
+      "submitBtn": {
+        "bg": "oklch(0.922 0 0)",
+        "fg": "oklch(0.205 0 0)",
+        "radius": "8px"
+      },
+      "footer": "账号请联系管理员开通。 |  | Ciki · v1.0.0-280-0e061d3"
+    },
+    "prod": {
+      "url": "/login",
+      "dataTheme": "nova",
+      "dataMode": "dark",
+      "dark": true,
+      "bodyBg": "oklch(0.145 0 0)",
+      "bodyFg": "oklch(0.985 0 0)",
+      "bodyFont": "\"Geist Variable\", sans-serif",
+      "tokens": {
+        "--background": "oklch(14.5% 0 0)",
+        "--foreground": "oklch(98.5% 0 0)",
+        "--card": "oklch(20.5% 0 0)",
+        "--primary": "oklch(92.2% 0 0)",
+        "--primary-foreground": "oklch(20.5% 0 0)",
+        "--secondary": "oklch(26.9% 0 0)",
+        "--muted": "oklch(26.9% 0 0)",
+        "--muted-foreground": "oklch(70.8% 0 0)",
+        "--accent": "oklch(26.9% 0 0)",
+        "--border": "oklch(100% 0 0/.1)",
+        "--ring": "oklch(55.6% 0 0)",
+        "--radius": ".625rem",
+        "--font-sans-family": "\"Geist Variable\", sans-serif",
+        "--font-mono-family": ""
+      },
+      "submitBtn": {
+        "bg": "oklch(0.922 0 0)",
+        "fg": "oklch(0.205 0 0)",
+        "radius": "8px"
+      },
+      "footer": "还没有账号？注册 |  | Ciki · v1.0.0-281-c7ddc22"
+    },
+    "identicalBytes": false,
+    "tokenDiff": {}
+  }
+}
