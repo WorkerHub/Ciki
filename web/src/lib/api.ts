@@ -240,6 +240,8 @@ export interface Me extends User {
   avatarUrl: string | null
   approvalStatus: ApprovalStatus
   createdAt: string
+  /** 一句话简介（纯文本、上限 100 码点，人类用户可自改，Agent 账号恒为空串）。 */
+  bio?: string
   /**
    * 界面语言偏好（规格 §2.7）。A1 之前的后端没有这个字段，
    * 读不到时前端保持本机选择，所以这里按可选处理。
@@ -539,9 +541,36 @@ export interface UserProfile {
   id: number
   username: string
   avatarUrl: string | null
+  bio: string
+  docCount: number
+  commentCount: number
   isAgent: boolean
   ownerName: string | null
   createdAt: string
+}
+
+export type UserActivityType = "page_created" | "page_edited" | "comment"
+
+export interface UserActivityEvent {
+  id: string
+  type: UserActivityType
+  pageId: number
+  pageTitle: string
+  spaceName: string
+  commentId?: number
+  excerpt?: string
+  createdAt: string
+}
+
+export interface UserActivityResponse {
+  events: UserActivityEvent[]
+  hasMore: boolean
+}
+
+export interface UserActivityQuery {
+  page?: number
+  limit?: number
+  offset?: number
 }
 
 /**
@@ -1091,6 +1120,7 @@ export const meApi = {
     username?: string
     avatarKey?: string | null
     language?: Language
+    bio?: string
   }) => api.put<Me>("/me/profile", patch),
   /**
    * 头像专用上传口（规格 §1）：落 avatars/，服务端同请求里换掉本人头像并删旧图；
@@ -1325,6 +1355,17 @@ export const spacesApi = {
 
 export const usersApi = {
   getProfile: (id: number) => api.get<UserProfile>(`/users/${id}/profile`),
+  getActivity: (id: number, params?: UserActivityQuery) => {
+    const search = new URLSearchParams()
+    if (params?.page) search.set("page", String(params.page))
+    if (params?.limit) search.set("limit", String(params.limit))
+    if (params?.offset !== undefined)
+      search.set("offset", String(params.offset))
+    const qs = search.toString()
+    return api.get<UserActivityResponse>(
+      `/users/${id}/activity${qs ? `?${qs}` : ""}`
+    )
+  },
   getPages: (id: number, params?: UserPagesQuery) => {
     const search = new URLSearchParams()
     if (params?.page) search.set("page", String(params.page))
@@ -1501,6 +1542,7 @@ export const ERROR_TEXT_CODES = new Set<string>([
   "FILE_TOO_LARGE",
   // 个人资料
   "INVALID_USERNAME",
+  "INVALID_BIO",
   // username 必须唯一，撞名 409：只说结果，不解释唯一索引之类的实现机制
   "USERNAME_TAKEN",
   "INVALID_AVATAR",
