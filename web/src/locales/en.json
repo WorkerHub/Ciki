@@ -814,6 +814,15 @@
       "change": "Change avatar",
       "select": "Choose an avatar"
     },
+    "bio": {
+      "title": "Bio",
+      "description": "Introduce yourself in brief. Plain text, up to 100 characters.",
+      "label": "Bio",
+      "placeholder": "Write a brief bio…",
+      "empty": "No bio yet.",
+      "edit": "Edit bio",
+      "overLimit": "Bio must be at most 100 characters."
+    },
     "info": {
       "title": "Displayed information",
       "username": "Username",
@@ -1323,12 +1332,22 @@
   "user": {
     "title": "Author Profile",
     "joinedAt": "Joined {{time}}",
+    "activityTitle": "Activity",
     "pagesTitle": "Pages",
-    "loadMore": "Load more",
+    "loadMore": "Show more",
     "loading": "Loading…",
+    "types": {
+      "pageCreated": "Created a page",
+      "pageEdited": "Edited a page",
+      "comment": "Commented"
+    },
+    "stats": {
+      "docs": "Pages",
+      "comments": "Comments"
+    },
     "empty": {
-      "title": "No pages yet",
-      "description": "This author has not created any pages you have access to."
+      "title": "No activity yet",
+      "description": "This author has no activity you have access to."
     },
     "notFound": {
       "title": "User not found",
@@ -1377,6 +1396,7 @@
     "PAYLOAD_TOO_LARGE": "The content or image exceeds the per-save limit. Trim it and try again.",
     "FILE_TOO_LARGE": "The image is over 10MB; compress it and upload again.",
     "INVALID_USERNAME": "That username is not valid. Check it and try again.",
+    "INVALID_BIO": "Invalid bio or exceeds 100 characters.",
     "USERNAME_TAKEN": "That username is taken. Choose another one.",
     "INVALID_AVATAR": "That avatar is not valid; upload it again.",
     "INVALID_LANGUAGE": "Unsupported language. Choose Chinese or English.",

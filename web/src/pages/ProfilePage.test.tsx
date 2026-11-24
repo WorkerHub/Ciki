@@ -209,6 +209,88 @@ describe("个人资料页", () => {
     expect(meApi.uploadAvatar).not.toHaveBeenCalled()
     expect(screen.queryByRole("button", { name: "保存" })).toBeNull()
   })
+
+  it("默认展示一句话简介，点「修改简介」进入编辑态并展示 Textarea 与字符数", async () => {
+    setUser({ ...user, bio: "热爱开源与知识库构建" })
+    const browser = userEvent.setup()
+    render(<ProfilePage />)
+
+    expect(screen.getByText("一句话简介")).toBeInTheDocument()
+    expect(screen.getByText("热爱开源与知识库构建")).toBeInTheDocument()
+    const editBioBtn = screen.getByRole("button", { name: "修改简介" })
+    expect(editBioBtn).toBeInTheDocument()
+    expect(screen.queryByLabelText("一句话简介")).toBeNull()
+
+    await browser.click(editBioBtn)
+
+    const textarea = screen.getByLabelText("一句话简介")
+    expect(textarea).toBeInTheDocument()
+    expect(textarea).toHaveValue("热爱开源与知识库构建")
+    expect(screen.getByText("10/100")).toBeInTheDocument()
+  })
+
+  it("简介修改并保存成功后回写 store 与通知，成功返回展示态", async () => {
+    const browser = userEvent.setup()
+    const updated = { ...user, bio: "全栈开发者，专注协同软件" }
+    vi.mocked(meApi.updateProfile).mockResolvedValue(updated)
+    render(<ProfilePage />)
+
+    await browser.click(screen.getByRole("button", { name: "修改简介" }))
+    const textarea = screen.getByLabelText("一句话简介")
+    await browser.clear(textarea)
+    await browser.type(textarea, "  全栈开发者，专注协同软件  ")
+
+    const saveBtn = screen.getByRole("button", { name: "保存" })
+    await browser.click(saveBtn)
+
+    await waitFor(() =>
+      expect(meApi.updateProfile).toHaveBeenCalledWith({
+        bio: "全栈开发者，专注协同软件"
+      })
+    )
+    expect(screen.getByRole("status")).toHaveTextContent("个人资料已保存")
+    expect(useAuthStore.getState().user?.bio).toBe("全栈开发者，专注协同软件")
+    expect(screen.queryByLabelText("一句话简介")).toBeNull()
+    expect(screen.getByText("全栈开发者，专注协同软件")).toBeInTheDocument()
+  })
+
+  it("简介超过 100 码点时展示超长提示并禁用保存按钮", async () => {
+    const browser = userEvent.setup()
+    render(<ProfilePage />)
+
+    await browser.click(screen.getByRole("button", { name: "修改简介" }))
+    const textarea = screen.getByLabelText("一句话简介")
+    const longBio = "字".repeat(101)
+    await browser.type(textarea, longBio)
+
+    expect(screen.getByText("简介不能超过 100 个字符。")).toBeInTheDocument()
+    expect(screen.getByText("101/100")).toBeInTheDocument()
+    const saveBtn = screen.getByRole("button", { name: "保存" })
+    expect(saveBtn).toBeDisabled()
+  })
+
+  it("取消简介编辑丢弃修改、恢复原值并返回展示态", async () => {
+    setUser({ ...user, bio: "原始简介" })
+    const browser = userEvent.setup()
+    render(<ProfilePage />)
+
+    await browser.click(screen.getByRole("button", { name: "修改简介" }))
+    const textarea = screen.getByLabelText("一句话简介")
+    await browser.type(textarea, "想改但取消")
+    await browser.click(screen.getByRole("button", { name: "取消" }))
+
+    expect(meApi.updateProfile).not.toHaveBeenCalled()
+    expect(screen.queryByLabelText("一句话简介")).toBeNull()
+    expect(screen.getByText("原始简介")).toBeInTheDocument()
+  })
+
+  it("Agent 账号不渲染一句话简介编辑卡片", () => {
+    setUser({ ...user, isAgent: true, kind: "agent" } as any)
+    render(<ProfilePage />)
+
+    expect(screen.queryByText("一句话简介")).toBeNull()
+    expect(screen.queryByRole("button", { name: "修改简介" })).toBeNull()
+  })
 })
 
 describe("个人资料页 · 英文界面", () => {
@@ -235,5 +317,9 @@ describe("个人资料页 · 英文界面", () => {
     expect(screen.getByLabelText("Username")).toHaveValue("小明")
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument()
+
+    // 验证 Bio 卡片在英文环境下的呈现
+    expect(screen.getByText("Bio")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Edit bio" })).toBeInTheDocument()
   })
 })

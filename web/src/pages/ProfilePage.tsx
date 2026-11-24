@@ -1,4 +1,5 @@
 import { UserRound } from "lucide-react"
+import { cn } from "cn"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { displayUsername, UserAvatar } from "@/components/UserAvatar"
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { describeApiError, meApi } from "@/lib/api"
 import {
   ACCEPT_IMAGE_ATTR,
@@ -33,6 +35,9 @@ export function ProfilePage() {
   const [isEditingUsername, setIsEditingUsername] = useState(false)
   const [username, setUsername] = useState(user ? displayUsername(user) : "")
   const [savingUsername, setSavingUsername] = useState(false)
+  const [isEditingBio, setIsEditingBio] = useState(false)
+  const [bio, setBio] = useState(user?.bio ?? "")
+  const [savingBio, setSavingBio] = useState(false)
   const [savingAvatar, setSavingAvatar] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
@@ -49,6 +54,12 @@ export function ProfilePage() {
     setPreview(url)
     return () => URL.revokeObjectURL(url)
   }, [file])
+
+  useEffect(() => {
+    if (!isEditingBio && user) {
+      setBio(user.bio ?? "")
+    }
+  }, [user, isEditingBio])
 
   if (!user) return null
 
@@ -78,6 +89,40 @@ export function ProfilePage() {
     setUsername(displayUsername(user))
     setError("")
     setIsEditingUsername(false)
+  }
+
+  const startEditBio = () => {
+    setBio(user.bio ?? "")
+    setError("")
+    setIsEditingBio(true)
+  }
+
+  const cancelEditBio = () => {
+    setBio(user.bio ?? "")
+    setError("")
+    setIsEditingBio(false)
+  }
+
+  const saveBio = async () => {
+    const trimmed = bio.trim()
+    if (Array.from(trimmed).length > 100) {
+      setError(t("profile.bio.overLimit"))
+      return
+    }
+    setSavingBio(true)
+    setError("")
+    setNotice("")
+    try {
+      const updated = await meApi.updateProfile({ bio: trimmed })
+      setUser(updated)
+      setBio(updated.bio ?? "")
+      setIsEditingBio(false)
+      setNotice(t("profile.saved"))
+    } catch (saveError) {
+      setError(describeApiError(saveError))
+    } finally {
+      setSavingBio(false)
+    }
   }
 
   const saveUsername = async () => {
@@ -118,6 +163,10 @@ export function ProfilePage() {
       setSavingAvatar(false)
     }
   }
+
+  const isAgent = Boolean(
+    (user as any).isAgent || (user as any).kind === "agent"
+  )
 
   return (
     <div className="max-w-2xl space-y-4">
@@ -257,6 +306,117 @@ export function ProfilePage() {
             </dl>
           </CardContent>
         </Card>
+
+        {!isAgent ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {t("profile.bio.title")}
+              </CardTitle>
+              <CardDescription>{t("profile.bio.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isEditingBio ? (
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    void saveBio()
+                  }}
+                >
+                  <div className="space-y-1.5">
+                    <Label htmlFor="profile-bio">
+                      {t("profile.bio.label")}
+                    </Label>
+                    <Textarea
+                      id="profile-bio"
+                      name="bio"
+                      value={bio}
+                      onChange={(event) => setBio(event.target.value)}
+                      placeholder={t("profile.bio.placeholder")}
+                      rows={3}
+                      autoFocus
+                      disabled={savingBio}
+                      aria-invalid={Array.from(bio.trim()).length > 100}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") {
+                          event.preventDefault()
+                          cancelEditBio()
+                        } else if (
+                          (event.ctrlKey || event.metaKey) &&
+                          event.key === "Enter"
+                        ) {
+                          event.preventDefault()
+                          void saveBio()
+                        }
+                      }}
+                    />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      {Array.from(bio.trim()).length > 100 ? (
+                        <span className="text-destructive font-medium">
+                          {t("profile.bio.overLimit")}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <span
+                        className={cn(
+                          "tabular-nums",
+                          Array.from(bio.trim()).length > 100 &&
+                            "text-destructive font-medium"
+                        )}
+                      >
+                        {Array.from(bio.trim()).length}/100
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={
+                        savingBio || Array.from(bio.trim()).length > 100
+                      }
+                    >
+                      {savingBio ? t("profile.saving") : t("common.save")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={savingBio}
+                      onClick={cancelEditBio}
+                    >
+                      {t("common.cancel")}
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <p className="text-sm text-foreground whitespace-pre-wrap break-words flex-1">
+                    {user.bio ? (
+                      user.bio
+                    ) : (
+                      <span className="text-muted-foreground">
+                        {t("profile.bio.empty")}
+                      </span>
+                    )}
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={startEditBio}
+                    className="shrink-0 self-start"
+                    aria-label={t("profile.bio.edit")}
+                  >
+                    {t("profile.bio.edit")}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {file ? (
           <div className="flex justify-end">

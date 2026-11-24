@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter, Route, Routes } from "react-router"
+import { Link, MemoryRouter, Route, Routes } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "@/i18n"
 import {
   ApiError,
   usersApi,
-  type UserPagesResponse,
+  type UserActivityResponse,
   type UserProfile
 } from "@/lib/api"
 import { UserPage } from "./UserPage"
@@ -17,6 +17,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
     ...actual,
     usersApi: {
       getProfile: vi.fn(),
+      getActivity: vi.fn(),
       getPages: vi.fn()
     }
   }
@@ -26,31 +27,43 @@ const mockUser: UserProfile = {
   id: 1,
   username: "alice",
   avatarUrl: "/avatars/alice.png",
+  bio: "专注系统架构与前端体验",
+  docCount: 5,
+  commentCount: 3,
   isAgent: false,
   ownerName: null,
   createdAt: "2026-11-20T08:00:00.000Z"
 }
 
-const mockPages: UserPagesResponse = {
-  pages: [
+const mockActivity: UserActivityResponse = {
+  events: [
     {
-      id: 101,
-      title: "产品路线图",
-      spaceName: "产品设计",
-      createdAt: "2026-11-21T08:00:00.000Z",
-      updatedAt: "2026-11-22T10:00:00.000Z"
+      id: "revision-102",
+      type: "page_edited",
+      pageId: 102,
+      pageTitle: "技术方案",
+      spaceName: "研发团队",
+      createdAt: "2026-11-23T11:00:00.000Z"
     },
     {
-      id: 102,
-      title: "技术方案",
-      spaceName: "研发团队",
-      createdAt: "2026-11-21T09:00:00.000Z",
-      updatedAt: "2026-11-23T11:00:00.000Z"
+      id: "comment-201",
+      type: "comment",
+      pageId: 101,
+      pageTitle: "产品路线图",
+      spaceName: "产品设计",
+      commentId: 201,
+      excerpt: "这个里程碑排期很合理，赞同按此推进。",
+      createdAt: "2026-11-22T09:00:00.000Z"
+    },
+    {
+      id: "page-101",
+      type: "page_created",
+      pageId: 101,
+      pageTitle: "产品路线图",
+      spaceName: "产品设计",
+      createdAt: "2026-11-21T08:00:00.000Z"
     }
   ],
-  total: 2,
-  page: 1,
-  limit: 20,
   hasMore: false
 }
 
@@ -69,24 +82,50 @@ describe("UserPage 作者主页", () => {
     vi.clearAllMocks()
   })
 
-  it("正确渲染用户公开信息与页面列表", async () => {
+  it("正确渲染个人卡（头像、用户名、简介、加入时间、文档与评论数）与动态流三类事件", async () => {
     vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
-    vi.mocked(usersApi.getPages).mockResolvedValue(mockPages)
+    vi.mocked(usersApi.getActivity).mockResolvedValue(mockActivity)
 
     renderPage("1")
 
     expect(
       await screen.findByRole("heading", { name: "alice" })
     ).toBeInTheDocument()
+    expect(screen.getByText("专注系统架构与前端体验")).toBeInTheDocument()
     expect(screen.getByText("加入于 2026-11-20")).toBeInTheDocument()
+    expect(screen.getByText("5")).toBeInTheDocument()
+    expect(screen.getByText("3")).toBeInTheDocument()
+    expect(screen.getByText("文档")).toBeInTheDocument()
+    expect(screen.getByText("评论")).toBeInTheDocument()
 
-    expect(screen.getByText("产品路线图")).toBeInTheDocument()
-    expect(screen.getByText("产品设计")).toBeInTheDocument()
+    // 动态流标题
+    expect(screen.getByText("动态")).toBeInTheDocument()
+
+    // 三类事件
+    expect(screen.getByText("编辑了文档")).toBeInTheDocument()
     expect(screen.getByText("技术方案")).toBeInTheDocument()
     expect(screen.getByText("研发团队")).toBeInTheDocument()
 
-    const link = screen.getByRole("link", { name: /产品路线图/ })
-    expect(link).toHaveAttribute("href", "/p/101")
+    expect(screen.getByText("发表了评论")).toBeInTheDocument()
+    expect(
+      screen.getByText("这个里程碑排期很合理，赞同按此推进。")
+    ).toBeInTheDocument()
+
+    expect(screen.getByText("新建了文档")).toBeInTheDocument()
+
+    // 链接与评论定位
+    const editLink = screen.getByRole("link", { name: /编辑了文档.*技术方案/ })
+    expect(editLink).toHaveAttribute("href", "/p/102")
+
+    const commentLink = screen.getByRole("link", {
+      name: /发表了评论.*产品路线图/
+    })
+    expect(commentLink).toHaveAttribute("href", "/p/101#comment-201")
+
+    const createLink = screen.getByRole("link", {
+      name: /新建了文档.*产品路线图/
+    })
+    expect(createLink).toHaveAttribute("href", "/p/101")
   })
 
   it("Agent 用户带归属人时正确展示归属人格式", async () => {
@@ -94,14 +133,12 @@ describe("UserPage 作者主页", () => {
       ...mockUser,
       id: 2,
       username: "helper-bot",
+      bio: "",
       isAgent: true,
       ownerName: "alice"
     })
-    vi.mocked(usersApi.getPages).mockResolvedValue({
-      pages: [],
-      total: 0,
-      page: 1,
-      limit: 20,
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
       hasMore: false
     })
 
@@ -119,14 +156,12 @@ describe("UserPage 作者主页", () => {
       ...mockUser,
       id: 3,
       username: "orphan-bot",
+      bio: "",
       isAgent: true,
       ownerName: null
     })
-    vi.mocked(usersApi.getPages).mockResolvedValue({
-      pages: [],
-      total: 0,
-      page: 1,
-      limit: 20,
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
       hasMore: false
     })
 
@@ -138,21 +173,18 @@ describe("UserPage 作者主页", () => {
     expect(screen.getByText("Agent")).toBeInTheDocument()
   })
 
-  it("页面列表为空时展示空态", async () => {
+  it("动态流为空时展示空态", async () => {
     vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
-    vi.mocked(usersApi.getPages).mockResolvedValue({
-      pages: [],
-      total: 0,
-      page: 1,
-      limit: 20,
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
       hasMore: false
     })
 
     renderPage("1")
 
-    expect(await screen.findByText("暂无公开文档")).toBeInTheDocument()
+    expect(await screen.findByText("暂无动态")).toBeInTheDocument()
     expect(
-      screen.getByText("该作者尚未创建任何你有权查看的文档。")
+      screen.getByText("该作者尚未产生你有权查看的任何动态。")
     ).toBeInTheDocument()
   })
 
@@ -160,11 +192,8 @@ describe("UserPage 作者主页", () => {
     vi.mocked(usersApi.getProfile).mockRejectedValue(
       new ApiError(404, "User not found")
     )
-    vi.mocked(usersApi.getPages).mockResolvedValue({
-      pages: [],
-      total: 0,
-      page: 1,
-      limit: 20,
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
       hasMore: false
     })
 
@@ -185,94 +214,86 @@ describe("UserPage 作者主页", () => {
     expect(usersApi.getProfile).not.toHaveBeenCalled()
   })
 
-  it("支持点击「加载更多」按钮分页拉取下一页文档", async () => {
+  it("支持点击「显示更多」按钮分页拉取下一页动态", async () => {
     const user = userEvent.setup()
     vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
-    vi.mocked(usersApi.getPages)
+    vi.mocked(usersApi.getActivity)
       .mockResolvedValueOnce({
-        pages: [
+        events: [
           {
-            id: 101,
-            title: "第一页文档",
+            id: "page-101",
+            type: "page_created",
+            pageId: 101,
+            pageTitle: "第一页文档",
             spaceName: "空间A",
-            createdAt: "2026-11-20T00:00:00.000Z",
-            updatedAt: "2026-11-21T00:00:00.000Z"
+            createdAt: "2026-11-20T00:00:00.000Z"
           }
         ],
-        total: 2,
-        page: 1,
-        limit: 20,
         hasMore: true
       })
       .mockResolvedValueOnce({
-        pages: [
+        events: [
           {
-            id: 102,
-            title: "第二页文档",
+            id: "page-102",
+            type: "page_created",
+            pageId: 102,
+            pageTitle: "第二页文档",
             spaceName: "空间B",
-            createdAt: "2026-11-19T00:00:00.000Z",
-            updatedAt: "2026-11-20T00:00:00.000Z"
+            createdAt: "2026-11-19T00:00:00.000Z"
           }
         ],
-        total: 2,
-        page: 2,
-        limit: 20,
         hasMore: false
       })
 
     renderPage("1")
 
     expect(await screen.findByText("第一页文档")).toBeInTheDocument()
-    const loadMoreButton = screen.getByRole("button", { name: "加载更多" })
+    const loadMoreButton = screen.getByRole("button", { name: "显示更多" })
     expect(loadMoreButton).toBeInTheDocument()
 
     await user.click(loadMoreButton)
 
     expect(await screen.findByText("第二页文档")).toBeInTheDocument()
     expect(screen.getByText("第一页文档")).toBeInTheDocument()
-    expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "显示更多" })).toBeNull()
   })
 
-  it("加载更多失败时保留已有列表与按钮，展示错误提示而不清空页面", async () => {
+  it("显示更多失败时保留已有列表与按钮，展示错误提示而不清空页面", async () => {
     const user = userEvent.setup()
     vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
-    vi.mocked(usersApi.getPages)
+    vi.mocked(usersApi.getActivity)
       .mockResolvedValueOnce({
-        pages: [
+        events: [
           {
-            id: 101,
-            title: "第一页文档",
+            id: "page-101",
+            type: "page_created",
+            pageId: 101,
+            pageTitle: "第一页文档",
             spaceName: "空间A",
-            createdAt: "2026-11-20T00:00:00.000Z",
-            updatedAt: "2026-11-21T00:00:00.000Z"
+            createdAt: "2026-11-20T00:00:00.000Z"
           }
         ],
-        total: 2,
-        page: 1,
-        limit: 20,
         hasMore: true
       })
       .mockRejectedValueOnce(new ApiError(500, "分页加载超时"))
       .mockResolvedValueOnce({
-        pages: [
+        events: [
           {
-            id: 102,
-            title: "第二页文档",
+            id: "page-102",
+            type: "page_created",
+            pageId: 102,
+            pageTitle: "第二页文档",
             spaceName: "空间B",
-            createdAt: "2026-11-19T00:00:00.000Z",
-            updatedAt: "2026-11-20T00:00:00.000Z"
+            createdAt: "2026-11-19T00:00:00.000Z"
           }
         ],
-        total: 2,
-        page: 2,
-        limit: 20,
         hasMore: false
       })
 
     renderPage("1")
 
     expect(await screen.findByText("第一页文档")).toBeInTheDocument()
-    const loadMoreButton = screen.getByRole("button", { name: "加载更多" })
+    const loadMoreButton = screen.getByRole("button", { name: "显示更多" })
     expect(loadMoreButton).toBeInTheDocument()
 
     await user.click(loadMoreButton)
@@ -286,7 +307,7 @@ describe("UserPage 作者主页", () => {
     await user.click(loadMoreButton)
     expect(await screen.findByText("第二页文档")).toBeInTheDocument()
     expect(screen.queryByText("分页加载超时")).toBeNull()
-    expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull()
+    expect(screen.queryByRole("button", { name: "显示更多" })).toBeNull()
   })
 
   it("网络或服务器异常时展示错误信息与重试按钮", async () => {
@@ -294,7 +315,7 @@ describe("UserPage 作者主页", () => {
     vi.mocked(usersApi.getProfile)
       .mockRejectedValueOnce(new Error("网络故障"))
       .mockResolvedValueOnce(mockUser)
-    vi.mocked(usersApi.getPages).mockResolvedValue(mockPages)
+    vi.mocked(usersApi.getActivity).mockResolvedValue(mockActivity)
 
     renderPage("1")
 
@@ -310,11 +331,8 @@ describe("UserPage 作者主页", () => {
   it("英文环境下展示正确的双语翻译", async () => {
     await i18n.changeLanguage("en")
     vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
-    vi.mocked(usersApi.getPages).mockResolvedValue({
-      pages: [],
-      total: 0,
-      page: 1,
-      limit: 20,
+    vi.mocked(usersApi.getActivity).mockResolvedValue({
+      events: [],
       hasMore: false
     })
 
@@ -324,7 +342,61 @@ describe("UserPage 作者主页", () => {
       await screen.findByRole("heading", { name: "alice" })
     ).toBeInTheDocument()
     expect(screen.getByText("Joined 11/20/2026")).toBeInTheDocument()
+    expect(screen.getByText("Activity")).toBeInTheDocument()
     expect(screen.getByText("Pages")).toBeInTheDocument()
-    expect(screen.getByText("No pages yet")).toBeInTheDocument()
+    expect(screen.getByText("Comments")).toBeInTheDocument()
+    expect(screen.getByText("No activity yet")).toBeInTheDocument()
+  })
+
+  it("右栏只展示个人卡，不渲染文档目录 ArticleToc", async () => {
+    vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
+    vi.mocked(usersApi.getActivity).mockResolvedValue(mockActivity)
+
+    renderPage("1")
+
+    expect(
+      await screen.findByRole("heading", { name: "alice" })
+    ).toBeInTheDocument()
+    // 验证页面内不包含 ArticleToc（无论是 data-toc 属性还是目录导航标签）
+    expect(screen.queryByLabelText("目录")).toBeNull()
+    expect(screen.queryByLabelText("Table of contents")).toBeNull()
+    expect(document.querySelector("[data-article-toc]")).toBeNull()
+  })
+
+  it("从带目录文档页点击作者链接进入作者主页，右栏只展示个人卡，不残留或渲染 ArticleToc", async () => {
+    const user = userEvent.setup()
+    vi.mocked(usersApi.getProfile).mockResolvedValue(mockUser)
+    vi.mocked(usersApi.getActivity).mockResolvedValue(mockActivity)
+
+    render(
+      <MemoryRouter initialEntries={["/p/101"]}>
+        <Routes>
+          <Route
+            path="/p/:id"
+            element={
+              <div>
+                <nav aria-label="Table of contents" data-article-toc>
+                  <span>文档目录内容</span>
+                </nav>
+                <Link to="/users/1">alice</Link>
+              </div>
+            }
+          />
+          <Route path="/users/:id" element={<UserPage />} />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    expect(screen.getByLabelText("Table of contents")).toBeInTheDocument()
+    const authorLink = screen.getByRole("link", { name: "alice" })
+    await user.click(authorLink)
+
+    expect(
+      await screen.findByRole("heading", { name: "alice" })
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText("Table of contents")).toBeNull()
+    expect(document.querySelector("[data-article-toc]")).toBeNull()
+    expect(screen.getByText("5")).toBeInTheDocument()
+    expect(screen.getByText("3")).toBeInTheDocument()
   })
 })

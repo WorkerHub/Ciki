@@ -808,6 +808,15 @@
       "change": "更换头像",
       "select": "选择头像"
     },
+    "bio": {
+      "title": "一句话简介",
+      "description": "介绍一下你自己，纯文本，最多 100 字。",
+      "label": "一句话简介",
+      "placeholder": "填写一句话简介…",
+      "empty": "尚未设置一句话简介。",
+      "edit": "修改简介",
+      "overLimit": "简介不能超过 100 个字符。"
+    },
     "info": {
       "title": "显示信息",
       "username": "用户名",
@@ -1307,12 +1316,22 @@
   "user": {
     "title": "作者主页",
     "joinedAt": "加入于 {{time}}",
+    "activityTitle": "动态",
     "pagesTitle": "文档",
-    "loadMore": "加载更多",
+    "loadMore": "显示更多",
     "loading": "加载中…",
+    "types": {
+      "pageCreated": "新建了文档",
+      "pageEdited": "编辑了文档",
+      "comment": "发表了评论"
+    },
+    "stats": {
+      "docs": "文档",
+      "comments": "评论"
+    },
     "empty": {
-      "title": "暂无公开文档",
-      "description": "该作者尚未创建任何你有权查看的文档。"
+      "title": "暂无动态",
+      "description": "该作者尚未产生你有权查看的任何动态。"
     },
     "notFound": {
       "title": "用户不存在",
@@ -1356,6 +1375,7 @@
     "PAYLOAD_TOO_LARGE": "内容或图片超过了单次保存上限，请精简后重试。",
     "FILE_TOO_LARGE": "图片超过 10MB，请压缩后再上传。",
     "INVALID_USERNAME": "用户名不合法，请检查后重试。",
+    "INVALID_BIO": "一句话简介格式不正确或超过 100 字。",
     "USERNAME_TAKEN": "这个用户名已经有人用了，请换一个。",
     "INVALID_AVATAR": "头像无效，请重新上传。",
     "INVALID_LANGUAGE": "语言不受支持，只支持中文和英文。",
