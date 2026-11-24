@@ -10,6 +10,7 @@ import type { CommentDto } from "@/lib/api"
 import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDateTime, formatRelative } from "@/lib/format"
 import { userPath } from "@/lib/routes"
+import { cn } from "@/lib/utils"
 
 interface CommentItemProps {
   comment: CommentDto
@@ -17,6 +18,7 @@ interface CommentItemProps {
   editing: boolean
   editDraft: string
   pending: boolean
+  highlighted?: boolean
   onEditDraftChange: (value: string) => void
   onPreview: (bodyMd: string) => Promise<string>
   onReply: () => void
@@ -37,6 +39,7 @@ export function CommentItem({
   editing,
   editDraft,
   pending,
+  highlighted,
   onEditDraftChange,
   onPreview,
   onReply,
@@ -53,7 +56,14 @@ export function CommentItem({
     ownerName: comment.ownerName
   })
   return (
-    <div data-comment-id={comment.id} className="flex gap-3">
+    <div
+      id={`comment-${comment.id}`}
+      data-comment-id={comment.id}
+      className={cn(
+        "flex gap-3 transition-all duration-700",
+        highlighted && "rounded-lg bg-primary/10 p-2 ring-2 ring-primary/40"
+      )}
+    >
       {comment.authorId ? (
         <Link
           to={userPath(comment.authorId)}

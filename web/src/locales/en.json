@@ -1207,6 +1207,22 @@
       "description": "This cannot be undone."
     }
   },
+  "notifications": {
+    "title": "Notifications",
+    "bell": "Notifications",
+    "unreadCount": "{{count}} unread",
+    "empty": "No notifications",
+    "markAllRead": "Mark all as read",
+    "viewAll": "View all",
+    "commented": "commented on document",
+    "replied": "replied to your comment",
+    "pageDeleted": "The target document has been deleted",
+    "commentDeleted": "The target comment has been deleted",
+    "loadFailed": "Failed to load notifications",
+    "prevPage": "Previous",
+    "nextPage": "Next",
+    "pageInfo": "Page {{page}}"
+  },
   "help": {
     "title": "Pasting and editing",
     "description": "Select the content you want in other documents, copy it and paste it into the editor. Structure is kept as faithfully as possible; a few source-side limits cannot be undone.",

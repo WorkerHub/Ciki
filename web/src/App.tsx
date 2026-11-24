@@ -79,6 +79,11 @@ const UserPage = lazy(() =>
     default: module.UserPage
   }))
 )
+const NotificationsPage = lazy(() =>
+  import("@/pages/NotificationsPage").then((module) => ({
+    default: module.NotificationsPage
+  }))
+)
 const SearchPage = lazy(() =>
   import("@/pages/SearchPage").then((module) => ({
     default: module.SearchPage
@@ -190,6 +195,7 @@ export const routes: RouteObject[] = [
           { path: "profile", element: <ProfilePage /> },
           { path: "settings", element: <SettingsPage /> },
           { path: "about", element: <AboutPage /> },
+          { path: "notifications", element: <NotificationsPage /> },
           {
             path: "admin",
             element: (

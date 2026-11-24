@@ -5,7 +5,9 @@ import {
   adminApi,
   authApi,
   describeApiError,
+  isNotificationRead,
   meApi,
+  notificationsApi,
   pagesApi
 } from "@/lib/api"
 import { describeWebAuthnError, extractChallenge } from "@/lib/webauthn"
@@ -921,5 +923,149 @@ describe("authApi.passkeyLogin：免密登录端点与 challenge 提取", () => 
       "chal-ghi"
     )
     expect(extractChallenge({})).toBeUndefined()
+  })
+})
+
+describe("notificationsApi：站内通知契约与规范化", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("list 端点支持 limit & offset 查询参数，并对数组回执做规范化", async () => {
+    const mockItems = [
+      {
+        id: 1,
+        actorId: 2,
+        actorName: "Alice",
+        actorAvatarUrl: null,
+        type: "comment" as const,
+        pageId: 10,
+        commentId: 20,
+        pageTitle: "测试页",
+        excerpt: "摘要",
+        read: false,
+        readAt: null,
+        createdAt: "2026-11-24T00:00:00.000Z"
+      }
+    ]
+    const fetchMock = stubFetch(
+      new Response(JSON.stringify(mockItems), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    )
+
+    const result = await notificationsApi.list({ limit: 10, offset: 20 })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "/api/notifications?limit=10&offset=20"
+    )
+    expect(result.items).toHaveLength(1)
+    expect(result.items[0].actorName).toBe("Alice")
+  })
+
+  it("list 端点对包装对象（items 或 notifications）做规范化", async () => {
+    stubFetch(
+      new Response(JSON.stringify({ items: [], total: 0 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    )
+    const result = await notificationsApi.list()
+    expect(result.items).toEqual([])
+    expect(result.total).toBe(0)
+  })
+
+  it("unreadCount 支持对象回执与裸数字回执", async () => {
+    stubFetch(
+      new Response(JSON.stringify({ count: 4, unreadCount: 4 }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    )
+    const res1 = await notificationsApi.unreadCount()
+    expect(res1.count).toBe(4)
+
+    stubFetch(
+      new Response("7", {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      })
+    )
+    const res2 = await notificationsApi.unreadCount()
+    expect(res2.count).toBe(7)
+  })
+
+  it("markRead 与 markAllRead 调用对应 POST 端点", async () => {
+    const calls: { url: string; method?: string }[] = []
+    for (const run of [
+      () => notificationsApi.markRead(42),
+      () => notificationsApi.markAllRead()
+    ]) {
+      const fetchMock = stubFetch(
+        new Response(JSON.stringify({ success: true }), { status: 200 })
+      )
+      await run()
+      calls.push({
+        url: fetchMock.mock.calls[0][0],
+        method: fetchMock.mock.calls[0][1]?.method
+      })
+    }
+
+    expect(calls).toEqual([
+      { url: "/api/notifications/42/read", method: "POST" },
+      { url: "/api/notifications/read-all", method: "POST" }
+    ])
+  })
+
+  it("isNotificationRead 正确判断 read 与 readAt 状态", () => {
+    expect(
+      isNotificationRead({
+        id: 1,
+        actorId: 1,
+        actorName: "A",
+        actorAvatarUrl: null,
+        type: "comment",
+        pageId: 1,
+        commentId: 1,
+        pageTitle: "P",
+        excerpt: "",
+        read: true,
+        readAt: null,
+        createdAt: ""
+      })
+    ).toBe(true)
+    expect(
+      isNotificationRead({
+        id: 1,
+        actorId: 1,
+        actorName: "A",
+        actorAvatarUrl: null,
+        type: "comment",
+        pageId: 1,
+        commentId: 1,
+        pageTitle: "P",
+        excerpt: "",
+        read: false,
+        readAt: "2026-11-24T00:00:00.000Z",
+        createdAt: ""
+      })
+    ).toBe(true)
+    expect(
+      isNotificationRead({
+        id: 1,
+        actorId: 1,
+        actorName: "A",
+        actorAvatarUrl: null,
+        type: "comment",
+        pageId: 1,
+        commentId: 1,
+        pageTitle: "P",
+        excerpt: "",
+        read: false,
+        readAt: null,
+        createdAt: ""
+      })
+    ).toBe(false)
   })
 })

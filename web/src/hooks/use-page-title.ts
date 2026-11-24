@@ -25,6 +25,7 @@ const STATIC_TITLE_KEYS: Record<string, string> = {
   "/profile": "profile.title",
   "/settings": "settings.title",
   "/about": "about.title",
+  "/notifications": "notifications.title",
   "/admin": "admin.title",
   "/admin/users": "admin.title",
   "/admin/spaces": "admin.title",

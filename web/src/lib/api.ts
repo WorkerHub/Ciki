@@ -643,6 +643,33 @@ export interface CommentList {
   threads: CommentThread[]
 }
 
+export type NotificationType = "comment" | "reply"
+
+export interface NotificationDto {
+  id: number
+  recipientId?: number
+  actorId: number
+  actorName: string
+  actorAvatarUrl: string | null
+  type: NotificationType
+  pageId: number
+  commentId: number
+  pageTitle: string
+  excerpt: string
+  read?: boolean
+  readAt?: string | null
+  createdAt: string
+}
+
+export function isNotificationRead(notification: NotificationDto): boolean {
+  return notification.read === true || Boolean(notification.readAt)
+}
+
+export interface NotificationListResult {
+  items: NotificationDto[]
+  total?: number
+}
+
 export interface SearchResult {
   pageId: number
   title: string
@@ -1226,6 +1253,48 @@ export const commentsApi = {
     api.post<{ html: string }>(`/pages/${pageId}/comments/preview`, {
       bodyMd
     })
+}
+
+export const notificationsApi = {
+  list: async (params?: {
+    limit?: number
+    offset?: number
+  }): Promise<NotificationListResult> => {
+    const searchParams = new URLSearchParams()
+    if (params?.limit !== undefined) {
+      searchParams.set("limit", String(params.limit))
+    }
+    if (params?.offset !== undefined) {
+      searchParams.set("offset", String(params.offset))
+    }
+    const query = searchParams.toString()
+    const path = query ? `/notifications?${query}` : "/notifications"
+    const res = await api.get<
+      | NotificationDto[]
+      | {
+          items?: NotificationDto[]
+          notifications?: NotificationDto[]
+          total?: number
+        }
+    >(path)
+    if (Array.isArray(res)) {
+      return { items: res }
+    }
+    return {
+      items: res.items ?? res.notifications ?? [],
+      total: res.total
+    }
+  },
+  unreadCount: async (): Promise<{ count: number }> => {
+    const res = await api.get<
+      { count?: number; unreadCount?: number } | number
+    >("/notifications/unread-count")
+    if (typeof res === "number") return { count: res }
+    return { count: res.count ?? res.unreadCount ?? 0 }
+  },
+  markRead: (id: number) =>
+    api.post<{ success: boolean }>(`/notifications/${id}/read`),
+  markAllRead: () => api.post<{ success: boolean }>("/notifications/read-all")
 }
 
 export const searchApi = {

@@ -7,6 +7,7 @@ import {
   adminSitePath,
   adminSpacesPath,
   adminUsersPath,
+  notificationsPath,
   pageEditPath,
   pagePath,
   parseIdParam,
@@ -69,5 +70,11 @@ describe("系统管理路由出口", () => {
     expect(adminSecurityPath()).toBe("/admin/security")
     expect(adminEmailPath()).toBe("/admin/email")
     expect(adminOthersPath()).toBe("/admin/others")
+  })
+})
+
+describe("通知历史路由出口", () => {
+  it("生成 /notifications 路径", () => {
+    expect(notificationsPath()).toBe("/notifications")
   })
 })
