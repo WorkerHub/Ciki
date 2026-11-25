@@ -16,6 +16,7 @@ export interface ThemeState {
   style: ThemeStyle
   resolved: "light" | "dark"
   migratedAt: number | null
+  modeMigratedAt: number | null
   setMode: (mode: ThemeMode) => void
   setStyle: (style: ThemeStyle) => void
   markMigrated: (timestamp?: number) => void
@@ -27,6 +28,7 @@ export interface PersistedThemeState {
   mode: ThemeMode
   style: ThemeStyle
   migratedAt: number | null
+  modeMigratedAt: number | null
 }
 
 export interface ThemeMigrationResult {
@@ -64,7 +66,8 @@ export function migrateThemeStorage(
       state: {
         mode,
         style: DEFAULT_THEME_STYLE,
-        migratedAt: now
+        migratedAt: null,
+        modeMigratedAt: now
       }
     }
   }
@@ -90,12 +93,17 @@ export function migrateThemeStorage(
       stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
     const migratedAt =
       typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
+    const modeMigratedAt =
+      typeof stateObj.modeMigratedAt === "number"
+        ? stateObj.modeMigratedAt
+        : null
     return {
       migrated: false,
       state: {
         mode,
         style,
-        migratedAt
+        migratedAt,
+        modeMigratedAt
       }
     }
   }
@@ -107,14 +115,16 @@ export function migrateThemeStorage(
       rawTheme === "light" || rawTheme === "dark" ? rawTheme : "auto"
     const style: ThemeStyle =
       stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+    // 严格保留既有账号风格迁移标记 migratedAt（若原为 null 则保持 null，严禁破坏 syncAccountTheme）
     const migratedAt =
-      typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : now
+      typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
     return {
       migrated: true,
       state: {
         mode,
         style,
-        migratedAt
+        migratedAt,
+        modeMigratedAt: now
       }
     }
   }
@@ -124,12 +134,15 @@ export function migrateThemeStorage(
     stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
   const migratedAt =
     typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
+  const modeMigratedAt =
+    typeof stateObj.modeMigratedAt === "number" ? stateObj.modeMigratedAt : null
   return {
     migrated: false,
     state: {
       mode: "auto",
       style,
-      migratedAt
+      migratedAt,
+      modeMigratedAt
     }
   }
 }
@@ -141,6 +154,7 @@ export const useThemeStore = create<ThemeState>()(
       style: DEFAULT_THEME_STYLE,
       resolved: resolveMode("auto"),
       migratedAt: null,
+      modeMigratedAt: null,
       setMode: (mode) => {
         const safeMode: ThemeMode =
           mode === "light" || mode === "dark" ? mode : "auto"
@@ -206,7 +220,8 @@ export const useThemeStore = create<ThemeState>()(
       partialize: (state) => ({
         mode: state.mode,
         style: state.style,
-        migratedAt: state.migratedAt
+        migratedAt: state.migratedAt,
+        modeMigratedAt: state.modeMigratedAt
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
@@ -216,6 +231,7 @@ export const useThemeStore = create<ThemeState>()(
         if (!state.style || (state.style !== "nova" && state.style !== "paper"))
           state.style = DEFAULT_THEME_STYLE
         if (state.migratedAt === undefined) state.migratedAt = null
+        if (state.modeMigratedAt === undefined) state.modeMigratedAt = null
         state.resolved = applyTheme(state.mode, state.style)
       }
     }

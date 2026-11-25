@@ -42,6 +42,22 @@ function setSystemDark(dark: boolean) {
 
 const isDark = () => document.documentElement.classList.contains("dark")
 
+const baseUser: Me = {
+  id: 1,
+  email: "test@example.com",
+  username: "testuser",
+  role: "user",
+  approvalStatus: "approved",
+  createdAt: "2026-11-25T00:00:00.000Z",
+  avatarUrl: null,
+  twofa: {
+    totpEnabled: false,
+    passkeyEnabled: false,
+    passkeyCount: 0,
+    emailOtpEnabled: false
+  }
+}
+
 describe("主题三档（亮 / 暗 / 自动）", () => {
   beforeEach(() => {
     document.documentElement.className = ""
@@ -310,22 +326,6 @@ describe("纸面主题按钮覆盖层与令牌契约", () => {
 })
 
 describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
-  const baseUser: Me = {
-    id: 1,
-    email: "test@example.com",
-    username: "testuser",
-    role: "user",
-    approvalStatus: "approved",
-    createdAt: "2026-11-25T00:00:00.000Z",
-    avatarUrl: null,
-    twofa: {
-      totpEnabled: false,
-      passkeyEnabled: false,
-      passkeyCount: 0,
-      emailOtpEnabled: false
-    }
-  }
-
   beforeEach(() => {
     document.documentElement.className = ""
     document.documentElement.removeAttribute("data-mode")
@@ -513,7 +513,8 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
     expect(resAuto.migrated).toBe(true)
     expect(resAuto.state.mode).toBe("auto")
     expect(resAuto.state.style).toBe("nova")
-    expect(resAuto.state.migratedAt).toBe(fixedTime)
+    expect(resAuto.state.migratedAt).toBeNull()
+    expect(resAuto.state.modeMigratedAt).toBe(fixedTime)
 
     // 2. theme: light
     const resLight = migrateThemeStorage(
@@ -526,7 +527,8 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
     expect(resLight.migrated).toBe(true)
     expect(resLight.state.mode).toBe("light")
     expect(resLight.state.style).toBe("paper")
-    expect(resLight.state.migratedAt).toBe(fixedTime)
+    expect(resLight.state.migratedAt).toBeNull()
+    expect(resLight.state.modeMigratedAt).toBe(fixedTime)
 
     // 3. theme: dark
     const resDark = migrateThemeStorage(
@@ -539,19 +541,35 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
     expect(resDark.migrated).toBe(true)
     expect(resDark.state.mode).toBe("dark")
     expect(resDark.state.style).toBe("paper")
-    expect(resDark.state.migratedAt).toBe(fixedTime)
+    expect(resDark.state.migratedAt).toBeNull()
+    expect(resDark.state.modeMigratedAt).toBe(fixedTime)
 
     // 4. 兼容非 state 包装的旧对象与非法值回退 auto
     const resRaw = migrateThemeStorage({ theme: "invalid" }, fixedTime)
     expect(resRaw.migrated).toBe(true)
     expect(resRaw.state.mode).toBe("auto")
-    expect(resRaw.state.migratedAt).toBe(fixedTime)
+    expect(resRaw.state.migratedAt).toBeNull()
+    expect(resRaw.state.modeMigratedAt).toBe(fixedTime)
 
     // 5. 兼容裸字符串
     const resString = migrateThemeStorage("dark", fixedTime)
     expect(resString.migrated).toBe(true)
     expect(resString.state.mode).toBe("dark")
-    expect(resString.state.migratedAt).toBe(fixedTime)
+    expect(resString.state.migratedAt).toBeNull()
+    expect(resString.state.modeMigratedAt).toBe(fixedTime)
+
+    // 6. 若旧结构已有账号风格迁移标记 migratedAt，迁移 mode 时完整保留其数值
+    const resWithAccountMigrated = migrateThemeStorage(
+      JSON.stringify({
+        state: { theme: "dark", style: "paper", migratedAt: 1732500000000 },
+        version: 0
+      }),
+      fixedTime
+    )
+    expect(resWithAccountMigrated.migrated).toBe(true)
+    expect(resWithAccountMigrated.state.mode).toBe("dark")
+    expect(resWithAccountMigrated.state.migratedAt).toBe(1732500000000)
+    expect(resWithAccountMigrated.state.modeMigratedAt).toBe(fixedTime)
   })
 
   it("无旧字段：不搬运，mode 回退 auto，migrated 为 false 且不覆盖原有标记", () => {
@@ -567,6 +585,7 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
     expect(resOnlyStyle.state.mode).toBe("auto")
     expect(resOnlyStyle.state.style).toBe("paper")
     expect(resOnlyStyle.state.migratedAt).toBeNull()
+    expect(resOnlyStyle.state.modeMigratedAt).toBeNull()
 
     // 空结构
     const resEmpty = migrateThemeStorage({}, fixedTime)
@@ -574,12 +593,14 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
     expect(resEmpty.state.mode).toBe("auto")
     expect(resEmpty.state.style).toBe("nova")
     expect(resEmpty.state.migratedAt).toBeNull()
+    expect(resEmpty.state.modeMigratedAt).toBeNull()
 
     // null / 异常输入
     const resNull = migrateThemeStorage(null, fixedTime)
     expect(resNull.migrated).toBe(false)
     expect(resNull.state.mode).toBe("auto")
     expect(resNull.state.migratedAt).toBeNull()
+    expect(resNull.state.modeMigratedAt).toBeNull()
   })
 
   it("已迁移结构：保持现有 mode 与 style，保留原有 migratedAt，migrated 为 false", () => {
@@ -598,6 +619,7 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
     expect(resMigrated.state.mode).toBe("dark")
     expect(resMigrated.state.style).toBe("paper")
     expect(resMigrated.state.migratedAt).toBe(1732500000000)
+    expect(resMigrated.state.modeMigratedAt).toBeNull()
   })
 })
 
@@ -627,7 +649,8 @@ describe("localStorage 水合迁移与回写（Jim 验收项 1）", () => {
     expect(useThemeStore.getState().mode).toBe("dark")
     expect(useThemeStore.getState().style).toBe("paper")
     expect(useThemeStore.getState().resolved).toBe("dark")
-    expect(useThemeStore.getState().migratedAt).toBeTruthy()
+    expect(useThemeStore.getState().modeMigratedAt).toBeTruthy()
+    expect(useThemeStore.getState().migratedAt).toBeNull()
     expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
     expect(document.documentElement.classList.contains("dark")).toBe(true)
 
@@ -636,7 +659,8 @@ describe("localStorage 水合迁移与回写（Jim 验收项 1）", () => {
     expect(updatedStorage).toBeTruthy()
     expect(updatedStorage).toContain('"mode":"dark"')
     expect(updatedStorage).toContain('"style":"paper"')
-    expect(updatedStorage).toContain('"migratedAt":')
+    expect(updatedStorage).toContain('"modeMigratedAt":')
+    expect(updatedStorage).toContain('"migratedAt":null')
     expect(updatedStorage).not.toContain('"theme":')
 
     // 3. 模拟用户刷新页面（再次触发水合）
@@ -644,6 +668,40 @@ describe("localStorage 水合迁移与回写（Jim 验收项 1）", () => {
     expect(useThemeStore.getState().mode).toBe("dark")
     expect(useThemeStore.getState().style).toBe("paper")
     expect(localStorage.getItem("ciki-theme")).not.toContain('"theme":')
+  })
+
+  it("旧结构未同步过账号风格（本地 paper + 无 migratedAt）：水合进行 mode 迁移后，migratedAt 保持为 null，syncAccountTheme 正常触发回写服务端并更新账号与本地标记", async () => {
+    // 用户本地之前选了 paper，明暗为 dark，且从未同步过账号风格（migratedAt 缺失或为 null）
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { theme: "dark", style: "paper" },
+        version: 0
+      })
+    )
+
+    // 1. 水合触发 mode 迁移
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().mode).toBe("dark")
+    expect(useThemeStore.getState().style).toBe("paper")
+    // 核心断言：modeMigratedAt 已标记，但账号风格的 migratedAt 仍为 null，未被污染
+    expect(useThemeStore.getState().modeMigratedAt).toBeTruthy()
+    expect(useThemeStore.getState().migratedAt).toBeNull()
+
+    // 2. 用户登录，服务端返回默认 nova 风格
+    const userWithNova: Me = { ...baseUser, themeStyle: "nova" }
+    const updatedUser: Me = { ...baseUser, themeStyle: "paper" }
+    vi.mocked(meApi.updateThemeStyle).mockResolvedValue(updatedUser)
+
+    // 3. 执行账号主题同步
+    await syncAccountTheme(userWithNova)
+
+    // 必须正常触发回写，绝不被误判为已迁移而丢失 paper 偏好
+    expect(meApi.updateThemeStyle).toHaveBeenCalledTimes(1)
+    expect(meApi.updateThemeStyle).toHaveBeenCalledWith("paper")
+    expect(useAuthStore.getState().user?.themeStyle).toBe("paper")
+    expect(useThemeStore.getState().style).toBe("paper")
+    expect(useThemeStore.getState().migratedAt).toBeTruthy()
   })
 })
 

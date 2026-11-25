@@ -2103,7 +2103,7 @@ CSP sandbox 强制 opaque origin（即便用户顶层打开 URL 亦无法访问�
   | ---------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
   | **产品语义**                 | 产品「主题」（设置页「主题」、跟账号走）                         | 「外观模式」/ 明暗（跟随系统 / 浅色 / 深色）                                              |
   | **代码与协议**               | `style`（`ThemeStyle = "nova" \| "paper"`）/ `users.theme_style` | `mode`（`ThemeMode = "auto" \| "light" \| "dark"`，解析后 `resolved: "light" \| "dark"`） |
-  | **DOM 契约（宿主 & Embed）** | `html[data-theme="nova" \| "paper"]`                             | `html.dark`（暗色切 class）/ `[data-mode="light" \| "dark"]`                              |
+  | **DOM 契约（宿主 & Embed）** | `html[data-theme="nova" \| "paper"]`                             | `html.dark`（暗色切 class）；`[data-mode="light" \| "dark"]`（仅宿主）                    |
 
 - **安全边界不变**：注入脚本采用独立作用域与异常自吞，不得影响原文件自身脚本的执行。注入脚本走现行 CSP（`script-src 'unsafe-inline'` 已放行），不新增任何 CSP 指令或 iframe 权限（不加 allow-same-origin 等）。父页仅处理本 iframe 来源且类型匹配的消息，非法消息或恶意狂发数值均有严格钳制与丢弃机制。
 
