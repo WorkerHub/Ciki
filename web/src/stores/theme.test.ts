@@ -1,3 +1,5 @@
+import fs from "node:fs"
+import path from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
 import { THEME_META_COLORS } from "@/lib/theme"
 import { useThemeStore } from "@/stores/theme"
@@ -119,5 +121,16 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(THEME_META_COLORS.nova.dark).toBe("#0a0a0a")
     expect(THEME_META_COLORS.paper.light).toBe("#f7f4ee")
     expect(THEME_META_COLORS.paper.dark).toBe("#0b0c0e")
+  })
+
+  it("纸面与 Nova 阅读版式一致：无正文列宽封顶且清理死令牌", () => {
+    const cssContent = fs.readFileSync(
+      path.resolve(import.meta.dirname, "../index.css"),
+      "utf-8"
+    )
+    expect(cssContent).not.toContain("--wiki-read-max-width")
+    expect(cssContent).not.toMatch(
+      /\[data-readview-container\]\s*\{[^}]*max-width/
+    )
   })
 })
