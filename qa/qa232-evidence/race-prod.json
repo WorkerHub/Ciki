@@ -1,0 +1,134 @@
+{
+  "origin": "prod",
+  "pageId": 410,
+  "delayMs": 300,
+  "reloads": 12,
+  "results": [
+    {
+      "run": 1,
+      "distinct": [
+        "正文"
+      ],
+      "n": 183,
+      "firstAt": 2057,
+      "lastAt": 5069,
+      "ok": true
+    },
+    {
+      "run": 2,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2117,
+      "lastAt": 5119,
+      "ok": true
+    },
+    {
+      "run": 3,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 1792,
+      "lastAt": 4800,
+      "ok": true
+    },
+    {
+      "run": 4,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2161,
+      "lastAt": 5174,
+      "ok": true
+    },
+    {
+      "run": 5,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 1742,
+      "lastAt": 4758,
+      "ok": true
+    },
+    {
+      "run": 6,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 1996,
+      "lastAt": 5003,
+      "ok": true
+    },
+    {
+      "run": 7,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 1525,
+      "lastAt": 4529,
+      "ok": true
+    },
+    {
+      "run": 8,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2347,
+      "lastAt": 5361,
+      "ok": true
+    },
+    {
+      "run": 9,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2099,
+      "lastAt": 5116,
+      "ok": true
+    },
+    {
+      "run": 10,
+      "distinct": [
+        "正文"
+      ],
+      "n": 183,
+      "firstAt": 1892,
+      "lastAt": 4905,
+      "ok": true
+    },
+    {
+      "run": 11,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2462,
+      "lastAt": 5469,
+      "ok": true
+    },
+    {
+      "run": 12,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2402,
+      "lastAt": 5411,
+      "ok": true
+    }
+  ],
+  "hookCheck": {
+    "baseMs": 1023,
+    "hookedMs": 303,
+    "delayMs": 300,
+    "hookProven": true
+  }
+}

@@ -1,0 +1,347 @@
+{
+  "origin": "prod",
+  "baseUrl": "https://ciki.oneboy.app",
+  "pageId": 410,
+  "reloads": 10,
+  "checks": [
+    {
+      "name": "UI 真实登录",
+      "ok": true,
+      "detail": "landed=https://ciki.oneboy.app/"
+    },
+    {
+      "name": "重载采样#1",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=182 首见=3528ms 末见=6531ms"
+    },
+    {
+      "name": "重载采样#2",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=183 首见=2186ms 末见=5201ms"
+    },
+    {
+      "name": "重载采样#3",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=182 首见=2192ms 末见=5202ms"
+    },
+    {
+      "name": "重载采样#4",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=182 首见=3068ms 末见=6072ms"
+    },
+    {
+      "name": "重载采样#5",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=182 首见=2341ms 末见=5348ms"
+    },
+    {
+      "name": "重载采样#6",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=182 首见=1596ms 末见=4596ms"
+    },
+    {
+      "name": "重载采样#7",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=183 首见=1737ms 末见=4743ms"
+    },
+    {
+      "name": "重载采样#8",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=182 首见=1759ms 末见=4761ms"
+    },
+    {
+      "name": "重载采样#9",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=182 首见=1335ms 末见=4347ms"
+    },
+    {
+      "name": "重载采样#10",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=183 首见=1558ms 末见=4573ms"
+    },
+    {
+      "name": "口径1 初始标签稳定一致（全部重载）",
+      "ok": true,
+      "detail": "10 次 distinct=[[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"]]"
+    },
+    {
+      "name": "主题 light 生效",
+      "ok": true,
+      "detail": "data-mode=light（初始 light）"
+    },
+    {
+      "name": "light 主题初始标签",
+      "ok": true,
+      "detail": "distinct=[\"正文\"]"
+    },
+    {
+      "name": "口径2a 点进正文→正文",
+      "ok": true,
+      "detail": "label=正文"
+    },
+    {
+      "name": "口径2b 点进标题2→标题 2",
+      "ok": true,
+      "detail": "label=标题 2"
+    },
+    {
+      "name": "口径2c 切标题3→标签跟随+文档h3",
+      "ok": true,
+      "detail": "label=标题 3 h3=true"
+    },
+    {
+      "name": "口径2d 切回正文→标签跟随+h3还原",
+      "ok": true,
+      "detail": "label=正文 h3Gone=true"
+    },
+    {
+      "name": "下拉恢复首块为标题 2",
+      "ok": true,
+      "detail": "{\"h2\":true,\"h3\":false} label=标题 2"
+    },
+    {
+      "name": "口径3a ⌘S 保存内容落库",
+      "ok": true,
+      "detail": "contentText 含 R1=true"
+    },
+    {
+      "name": "口径3b 保存生成版本",
+      "ok": true,
+      "detail": "revisions=4"
+    },
+    {
+      "name": "口径3c 保存按钮回阅读页",
+      "ok": true,
+      "detail": "https://ciki.oneboy.app/p/410"
+    },
+    {
+      "name": "口径3d 阅读页呈现保存内容",
+      "ok": true,
+      "detail": "R1=true R2=true"
+    },
+    {
+      "name": "主题 dark 生效",
+      "ok": true,
+      "detail": "data-mode=dark"
+    },
+    {
+      "name": "dark 主题初始标签",
+      "ok": true,
+      "detail": "distinct=[\"正文\"]"
+    },
+    {
+      "name": "dark 主题点进标题→标题 2",
+      "ok": true,
+      "detail": "label=标题 2"
+    }
+  ],
+  "apiLog": [
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "POST /api/auth/refresh",
+    "POST /api/auth/login",
+    "GET /api/me",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages",
+    "PUT /api/pages/410",
+    "GET /api/pages",
+    "PUT /api/pages/410",
+    "GET /api/pages",
+    "GET /api/pages/410",
+    "GET /api/pages/410/comments",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/spaces",
+    "GET /api/pages/410",
+    "GET /api/pages"
+  ],
+  "reloadResults": [
+    {
+      "run": 1,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 3528,
+      "lastAt": 6531,
+      "noToolbar": false
+    },
+    {
+      "run": 2,
+      "distinct": [
+        "正文"
+      ],
+      "n": 183,
+      "firstAt": 2186,
+      "lastAt": 5201,
+      "noToolbar": false
+    },
+    {
+      "run": 3,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2192,
+      "lastAt": 5202,
+      "noToolbar": false
+    },
+    {
+      "run": 4,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 3068,
+      "lastAt": 6072,
+      "noToolbar": false
+    },
+    {
+      "run": 5,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 2341,
+      "lastAt": 5348,
+      "noToolbar": false
+    },
+    {
+      "run": 6,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 1596,
+      "lastAt": 4596,
+      "noToolbar": false
+    },
+    {
+      "run": 7,
+      "distinct": [
+        "正文"
+      ],
+      "n": 183,
+      "firstAt": 1737,
+      "lastAt": 4743,
+      "noToolbar": false
+    },
+    {
+      "run": 8,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 1759,
+      "lastAt": 4761,
+      "noToolbar": false
+    },
+    {
+      "run": 9,
+      "distinct": [
+        "正文"
+      ],
+      "n": 182,
+      "firstAt": 1335,
+      "lastAt": 4347,
+      "noToolbar": false
+    },
+    {
+      "run": 10,
+      "distinct": [
+        "正文"
+      ],
+      "n": 183,
+      "firstAt": 1558,
+      "lastAt": 4573,
+      "noToolbar": false
+    }
+  ],
+  "revisionCount": 4,
+  "darkBodyBg": "oklch(0.145 0 0)"
+}
