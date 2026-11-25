@@ -1105,6 +1105,7 @@ html[data-theme="paper"] [data-slot="button"][data-variant="secondary"] {
 
 html[data-theme="paper"] [data-slot="button"][data-variant="secondary"]:hover,
 html[data-theme="paper"] [data-slot="button"][data-variant="secondary"]:active {
+  background-color: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
   border-color: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
 }
 
@@ -1112,8 +1113,19 @@ html[data-theme="paper"] [data-slot="button"][data-variant="outline"] {
   box-shadow: var(--shadow-ctl);
 }
 
-html[data-theme="paper"] [data-slot="button"]:focus-visible {
+html[data-theme="paper"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="paper"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible {
   border-color: var(--ring);
+}
+
+html[data-theme="paper"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="paper"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible,
+html[data-theme="paper"]
+  [data-slot="button"][data-variant="outline"]:focus-visible {
   box-shadow:
     var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
     var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),

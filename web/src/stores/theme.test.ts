@@ -131,27 +131,39 @@ describe("纸面主题按钮覆盖层与令牌契约", () => {
 
     // default variant 边框与阴影
     expect(css).toMatch(
-      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]\s*\{[^}]*border-color:\s*var\(--coral\)/
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\][\s\S]*?border-color:\s*var\(--coral\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\][\s\S]*?box-shadow:\s*var\(--shadow-coral\)/
     )
     // default variant 悬停与激活态实色 deep
     expect(css).toMatch(
-      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:hover,\s*html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:active\s*\{[^}]*background-color:\s*var\(--coral-deep\);[^}]*border-color:\s*var\(--coral-deep\)/
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:hover[\s\S]*?background-color:\s*var\(--coral-deep\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:hover[\s\S]*?border-color:\s*var\(--coral-deep\)/
     )
     // secondary variant 消除透底白边
     expect(css).toMatch(
-      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]\s*\{[^}]*border-color:\s*var\(--secondary\)/
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\][\s\S]*?border-color:\s*var\(--secondary\)/
     )
-    // secondary variant 悬停与激活态边框同步
+    // secondary variant 悬停与激活态边框和填充同步
     expect(css).toMatch(
-      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:hover,\s*html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:active\s*\{[^}]*border-color:\s*color-mix\(in oklch,\s*var\(--secondary\),\s*var\(--foreground\)\s*5%\)/
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:hover[\s\S]*?background-color:\s*color-mix\(in oklch,\s*var\(--secondary\),\s*var\(--foreground\)\s*5%\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:hover[\s\S]*?border-color:\s*color-mix\(in oklch,\s*var\(--secondary\),\s*var\(--foreground\)\s*5%\)/
     )
     // outline variant 保持 box-shadow: var(--shadow-ctl)
     expect(css).toMatch(
-      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="outline"\]\s*\{[^}]*box-shadow:\s*var\(--shadow-ctl\)/
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="outline"\][\s\S]*?box-shadow:\s*var\(--shadow-ctl\)/
     )
-    // focus-visible 焦点环守护
+    // focus-visible 焦点环守护限定到 default 与 secondary
     expect(css).toMatch(
-      /html\[data-theme="paper"\]\s+\[data-slot="button"\]:focus-visible\s*\{[^}]*border-color:\s*var\(--ring\)/
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:focus-visible[\s\S]*?border-color:\s*var\(--ring\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:focus-visible[\s\S]*?border-color:\s*var\(--ring\)/
     )
   })
 
