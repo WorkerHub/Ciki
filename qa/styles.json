@@ -1,0 +1,352 @@
+[
+  {
+    "name": "paper-light-default-新建页面",
+    "box": {
+      "x": 711.21875,
+      "y": 9.5,
+      "width": 92.234375,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "rgb(226, 112, 90)",
+      "border": "rgb(226, 112, 90)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.22) 0px 1px 0px 0px inset, rgba(160, 60, 40, 0.28) 0px 1px 2px 0px, rgba(212, 95, 72, 0.45) 0px 4px 10px -4px",
+      "color": "rgb(124, 39, 23)"
+    },
+    "hoverStyle": {
+      "background": "rgb(214, 98, 75)",
+      "border": "rgb(214, 98, 75)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.22) 0px 1px 0px 0px inset, rgba(160, 60, 40, 0.28) 0px 1px 2px 0px, rgba(212, 95, 72, 0.45) 0px 4px 10px -4px",
+      "color": "rgb(124, 39, 23)"
+    }
+  },
+  {
+    "name": "paper-light-outline-新建页面",
+    "box": {
+      "x": 68.984375,
+      "y": 426,
+      "width": 92.234375,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "rgb(247, 244, 238)",
+      "border": "rgb(223, 219, 210)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(74, 58, 40, 0.05) 0px 1px 2px 0px",
+      "color": "oklch(0.205 0 none)"
+    },
+    "hoverStyle": {
+      "background": "rgb(233, 227, 218)",
+      "border": "rgb(223, 219, 210)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(74, 58, 40, 0.05) 0px 1px 2px 0px",
+      "color": "rgb(42, 43, 47)"
+    }
+  },
+  {
+    "name": "paper-light-secondary-我已保存",
+    "box": {
+      "x": 1136.609375,
+      "y": 554.84375,
+      "width": 67.015625,
+      "height": 24
+    },
+    "restStyle": {
+      "background": "rgb(233, 227, 218)",
+      "border": "rgb(233, 227, 218)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(74, 58, 40, 0.05) 0px 1px 2px 0px",
+      "color": "rgb(67, 66, 71)"
+    },
+    "hoverStyle": {
+      "background": "oklch(0.88663 0.0134512 none)",
+      "border": "oklch(0.88663 0.0134512 none)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(74, 58, 40, 0.05) 0px 1px 2px 0px",
+      "color": "rgb(67, 66, 71)"
+    }
+  },
+  {
+    "name": "paper-light-outline-复制Token",
+    "box": {
+      "x": 1137.5,
+      "y": 518.84375,
+      "width": 66.125,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "rgb(247, 244, 238)",
+      "border": "rgb(223, 219, 210)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(74, 58, 40, 0.05) 0px 1px 2px 0px",
+      "color": "rgb(42, 43, 47)"
+    },
+    "hoverStyle": {
+      "background": "rgb(233, 227, 218)",
+      "border": "rgb(223, 219, 210)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.8) 0px 1px 0px 0px inset, rgba(74, 58, 40, 0.05) 0px 1px 2px 0px",
+      "color": "rgb(42, 43, 47)"
+    }
+  },
+  {
+    "name": "paper-dark-default-新建页面",
+    "box": {
+      "x": 711.21875,
+      "y": 9.5,
+      "width": 92.234375,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "rgb(232, 105, 78)",
+      "border": "rgb(232, 105, 78)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.5) 0px 1px 2px 0px, rgba(232, 105, 78, 0.5) 0px 6px 16px -6px",
+      "color": "rgb(246, 171, 152)"
+    },
+    "hoverStyle": {
+      "background": "rgb(240, 122, 95)",
+      "border": "rgb(240, 122, 95)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.5) 0px 1px 2px 0px, rgba(232, 105, 78, 0.5) 0px 6px 16px -6px",
+      "color": "rgb(246, 171, 152)"
+    }
+  },
+  {
+    "name": "paper-dark-outline-新建页面",
+    "box": {
+      "x": 68.984375,
+      "y": 426,
+      "width": 92.234375,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "oklab(0.276852 -0.000269398 -0.0096357 / 0.3)",
+      "border": "rgb(38, 40, 45)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+      "color": "oklch(0.97 0 none)"
+    },
+    "hoverStyle": {
+      "background": "oklab(0.276852 -0.000269398 -0.0096357 / 0.5)",
+      "border": "rgb(38, 40, 45)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+      "color": "rgb(242, 240, 235)"
+    }
+  },
+  {
+    "name": "paper-dark-secondary-我已保存",
+    "box": {
+      "x": 1136.609375,
+      "y": 554.84375,
+      "width": 67.015625,
+      "height": 24
+    },
+    "restStyle": {
+      "background": "rgb(36, 38, 43)",
+      "border": "rgb(36, 38, 43)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+      "color": "rgb(200, 197, 191)"
+    },
+    "hoverStyle": {
+      "background": "oklch(0.302962 0.00958031 none)",
+      "border": "oklch(0.302962 0.00958031 none)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+      "color": "rgb(200, 197, 191)"
+    }
+  },
+  {
+    "name": "paper-dark-outline-复制Token",
+    "box": {
+      "x": 1137.5,
+      "y": 518.84375,
+      "width": 66.125,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "oklab(0.276852 -0.000269398 -0.0096357 / 0.3)",
+      "border": "rgb(38, 40, 45)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+      "color": "rgb(242, 240, 235)"
+    },
+    "hoverStyle": {
+      "background": "oklab(0.276852 -0.000269398 -0.0096357 / 0.5)",
+      "border": "rgb(38, 40, 45)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "rgba(255, 255, 255, 0.05) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.4) 0px 1px 2px 0px",
+      "color": "rgb(242, 240, 235)"
+    }
+  },
+  {
+    "name": "nova-prod-light-登录按钮",
+    "box": {
+      "x": 469,
+      "y": 448.25,
+      "width": 342,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "oklch(0.205 0 0)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.985 0 0)"
+    },
+    "hoverStyle": {
+      "background": "oklab(0.205 0 0 / 0.8)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.985 0 0)"
+    }
+  },
+  {
+    "name": "nova-prod-dark-登录按钮",
+    "box": {
+      "x": 469,
+      "y": 448.25,
+      "width": 342,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "oklch(0.922 0 0)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.205 0 0)"
+    },
+    "hoverStyle": {
+      "background": "oklab(0.922 0 0 / 0.8)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.205 0 0)"
+    }
+  },
+  {
+    "name": "nova-fix-light-登录按钮",
+    "box": {
+      "x": 469,
+      "y": 416.25,
+      "width": 342,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "oklch(0.205 0 0)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.985 0 0)"
+    },
+    "hoverStyle": {
+      "background": "oklab(0.205 0 0 / 0.8)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.985 0 0)"
+    }
+  },
+  {
+    "name": "nova-fix-dark-登录按钮",
+    "box": {
+      "x": 469,
+      "y": 416.25,
+      "width": 342,
+      "height": 28
+    },
+    "restStyle": {
+      "background": "oklch(0.922 0 0)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.205 0 0)"
+    },
+    "hoverStyle": {
+      "background": "oklab(0.922 0 0 / 0.8)",
+      "border": "rgba(0, 0, 0, 0)",
+      "borderStyle": "solid",
+      "borderWidth": "1px",
+      "boxShadow": "none",
+      "color": "oklch(0.205 0 0)"
+    }
+  },
+  {
+    "name": "ref-light-primary-Learn",
+    "box": {
+      "x": 205.875,
+      "y": 12,
+      "width": 110.828125,
+      "height": 39
+    },
+    "restStyle": {
+      "background": "rgb(226, 112, 90)",
+      "border": "rgb(255, 255, 255)",
+      "borderStyle": "none",
+      "borderWidth": "0px",
+      "boxShadow": "rgba(255, 255, 255, 0.22) 0px 1px 0px 0px inset, rgba(160, 60, 40, 0.28) 0px 1px 2px 0px, rgba(212, 95, 72, 0.45) 0px 4px 10px -4px",
+      "color": "rgb(255, 255, 255)"
+    },
+    "hoverStyle": {
+      "background": "rgb(226, 112, 90)",
+      "border": "rgb(255, 255, 255)",
+      "borderStyle": "none",
+      "borderWidth": "0px",
+      "boxShadow": "rgba(255, 255, 255, 0.22) 0px 1px 0px 0px inset, rgba(160, 60, 40, 0.28) 0px 1px 2px 0px, rgba(212, 95, 72, 0.45) 0px 4px 10px -4px",
+      "color": "rgb(255, 255, 255)"
+    }
+  },
+  {
+    "name": "ref-dark-primary-Learn",
+    "box": {
+      "x": 205.875,
+      "y": 12,
+      "width": 110.828125,
+      "height": 39
+    },
+    "restStyle": {
+      "background": "rgb(232, 105, 78)",
+      "border": "rgb(255, 255, 255)",
+      "borderStyle": "none",
+      "borderWidth": "0px",
+      "boxShadow": "rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.5) 0px 1px 2px 0px, rgba(232, 105, 78, 0.5) 0px 6px 16px -6px",
+      "color": "rgb(255, 255, 255)"
+    },
+    "hoverStyle": {
+      "background": "rgb(232, 105, 78)",
+      "border": "rgb(255, 255, 255)",
+      "borderStyle": "none",
+      "borderWidth": "0px",
+      "boxShadow": "rgba(255, 255, 255, 0.18) 0px 1px 0px 0px inset, rgba(0, 0, 0, 0.5) 0px 1px 2px 0px, rgba(232, 105, 78, 0.5) 0px 6px 16px -6px",
+      "color": "rgb(255, 255, 255)"
+    }
+  }
+]

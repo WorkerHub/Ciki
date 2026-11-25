@@ -1,0 +1,682 @@
+{
+ "paper-light-default-新建页面-rest": {
+  "rect": [
+   42,
+   28,
+   319,
+   112
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   240,
+   232,
+   225
+  ],
+  "ring_bottom": [
+   222,
+   110,
+   88
+  ],
+  "fill_left_pad": [
+   222,
+   110,
+   88
+  ],
+  "fill_upper": [
+   223,
+   110,
+   88
+  ],
+  "gap_top_vs_fill": 101.0,
+  "gap_bottom_vs_fill": 0.0
+ },
+ "paper-light-default-新建页面-hover": {
+  "rect": [
+   42,
+   28,
+   319,
+   112
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   240,
+   232,
+   225
+  ],
+  "ring_bottom": [
+   211,
+   96,
+   74
+  ],
+  "fill_left_pad": [
+   211,
+   96,
+   74
+  ],
+  "fill_upper": [
+   211,
+   96,
+   74
+  ],
+  "gap_top_vs_fill": 114.3,
+  "gap_bottom_vs_fill": 0.0
+ },
+ "paper-dark-default-新建页面-rest": {
+  "rect": [
+   42,
+   28,
+   319,
+   112
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   15,
+   12,
+   14
+  ],
+  "ring_bottom": [
+   232,
+   105,
+   78
+  ],
+  "fill_left_pad": [
+   232,
+   105,
+   78
+  ],
+  "fill_upper": [
+   232,
+   105,
+   78
+  ],
+  "gap_top_vs_fill": -117.3,
+  "gap_bottom_vs_fill": 0.0
+ },
+ "paper-dark-default-新建页面-hover": {
+  "rect": [
+   42,
+   28,
+   319,
+   112
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   15,
+   12,
+   14
+  ],
+  "ring_bottom": [
+   240,
+   122,
+   95
+  ],
+  "fill_left_pad": [
+   240,
+   122,
+   95
+  ],
+  "fill_upper": [
+   240,
+   122,
+   95
+  ],
+  "gap_top_vs_fill": -132.3,
+  "gap_bottom_vs_fill": 0.0
+ },
+ "paper-light-secondary-我已保存-rest": {
+  "rect": [
+   42,
+   42,
+   243,
+   114
+  ],
+  "size": [
+   285,
+   156
+  ],
+  "ring_top": [
+   230,
+   223,
+   214
+  ],
+  "ring_bottom": [
+   229,
+   223,
+   214
+  ],
+  "fill_left_pad": [
+   230,
+   223,
+   214
+  ],
+  "fill_upper": [
+   229,
+   223,
+   214
+  ],
+  "gap_top_vs_fill": 0.0,
+  "gap_bottom_vs_fill": -0.2
+ },
+ "paper-light-secondary-我已保存-hover": {
+  "rect": [
+   42,
+   42,
+   243,
+   114
+  ],
+  "size": [
+   285,
+   156
+  ],
+  "ring_top": [
+   223,
+   211,
+   213
+  ],
+  "ring_bottom": [
+   222,
+   210,
+   213
+  ],
+  "fill_left_pad": [
+   223,
+   210,
+   213
+  ],
+  "fill_upper": [
+   223,
+   211,
+   213
+  ],
+  "gap_top_vs_fill": 0.7,
+  "gap_bottom_vs_fill": -0.2
+ },
+ "paper-dark-secondary-我已保存-rest": {
+  "rect": [
+   42,
+   42,
+   243,
+   114
+  ],
+  "size": [
+   285,
+   156
+  ],
+  "ring_top": [
+   36,
+   38,
+   43
+  ],
+  "ring_bottom": [
+   36,
+   38,
+   43
+  ],
+  "fill_left_pad": [
+   36,
+   38,
+   43
+  ],
+  "fill_upper": [
+   36,
+   38,
+   43
+  ],
+  "gap_top_vs_fill": 0.0,
+  "gap_bottom_vs_fill": 0.0
+ },
+ "paper-dark-secondary-我已保存-hover": {
+  "rect": [
+   42,
+   42,
+   243,
+   114
+  ],
+  "size": [
+   285,
+   156
+  ],
+  "ring_top": [
+   51,
+   45,
+   46
+  ],
+  "ring_bottom": [
+   51,
+   45,
+   46
+  ],
+  "fill_left_pad": [
+   51,
+   45,
+   46
+  ],
+  "fill_upper": [
+   51,
+   45,
+   46
+  ],
+  "gap_top_vs_fill": 0.0,
+  "gap_bottom_vs_fill": 0.0
+ },
+ "paper-light-outline-新建页面-rest": {
+  "rect": [
+   42,
+   42,
+   319,
+   126
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   219,
+   215,
+   205
+  ],
+  "ring_bottom": [
+   220,
+   215,
+   206
+  ],
+  "fill_left_pad": [
+   244,
+   240,
+   234
+  ],
+  "fill_upper": [
+   243,
+   240,
+   233
+  ],
+  "gap_top_vs_fill": -25.3,
+  "gap_bottom_vs_fill": -25.0
+ },
+ "paper-light-outline-新建页面-hover": {
+  "rect": [
+   42,
+   42,
+   319,
+   126
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   219,
+   215,
+   205
+  ],
+  "ring_bottom": [
+   220,
+   215,
+   206
+  ],
+  "fill_left_pad": [
+   230,
+   223,
+   214
+  ],
+  "fill_upper": [
+   229,
+   223,
+   214
+  ],
+  "gap_top_vs_fill": -8.7,
+  "gap_bottom_vs_fill": -8.4
+ },
+ "paper-dark-outline-新建页面-rest": {
+  "rect": [
+   42,
+   42,
+   319,
+   126
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   38,
+   40,
+   45
+  ],
+  "ring_bottom": [
+   38,
+   40,
+   45
+  ],
+  "fill_left_pad": [
+   27,
+   28,
+   30
+  ],
+  "fill_upper": [
+   27,
+   28,
+   30
+  ],
+  "gap_top_vs_fill": 12.0,
+  "gap_bottom_vs_fill": 12.0
+ },
+ "paper-dark-outline-新建页面-hover": {
+  "rect": [
+   42,
+   42,
+   319,
+   126
+  ],
+  "size": [
+   360,
+   168
+  ],
+  "ring_top": [
+   38,
+   40,
+   45
+  ],
+  "ring_bottom": [
+   38,
+   40,
+   45
+  ],
+  "fill_left_pad": [
+   30,
+   31,
+   34
+  ],
+  "fill_upper": [
+   30,
+   31,
+   34
+  ],
+  "gap_top_vs_fill": 8.9,
+  "gap_bottom_vs_fill": 8.9
+ },
+ "paper-light-outline-复制Token-rest": {
+  "rect": [
+   42,
+   42,
+   240,
+   126
+  ],
+  "size": [
+   282,
+   168
+  ],
+  "ring_top": [
+   220,
+   216,
+   206
+  ],
+  "ring_bottom": [
+   220,
+   216,
+   206
+  ],
+  "fill_left_pad": [
+   243,
+   240,
+   233
+  ],
+  "fill_upper": [
+   244,
+   240,
+   233
+  ],
+  "gap_top_vs_fill": -24.0,
+  "gap_bottom_vs_fill": -24.0
+ },
+ "paper-light-outline-复制Token-hover": {
+  "rect": [
+   42,
+   42,
+   240,
+   126
+  ],
+  "size": [
+   282,
+   168
+  ],
+  "ring_top": [
+   220,
+   216,
+   206
+  ],
+  "ring_bottom": [
+   220,
+   216,
+   206
+  ],
+  "fill_left_pad": [
+   229,
+   223,
+   214
+  ],
+  "fill_upper": [
+   230,
+   223,
+   214
+  ],
+  "gap_top_vs_fill": -7.5,
+  "gap_bottom_vs_fill": -7.5
+ },
+ "paper-dark-outline-复制Token-rest": {
+  "rect": [
+   42,
+   42,
+   240,
+   126
+  ],
+  "size": [
+   282,
+   168
+  ],
+  "ring_top": [
+   38,
+   40,
+   45
+  ],
+  "ring_bottom": [
+   38,
+   40,
+   45
+  ],
+  "fill_left_pad": [
+   29,
+   30,
+   35
+  ],
+  "fill_upper": [
+   29,
+   30,
+   35
+  ],
+  "gap_top_vs_fill": 9.8,
+  "gap_bottom_vs_fill": 9.8
+ },
+ "paper-dark-outline-复制Token-hover": {
+  "rect": [
+   42,
+   42,
+   240,
+   126
+  ],
+  "size": [
+   282,
+   168
+  ],
+  "ring_top": [
+   38,
+   40,
+   45
+  ],
+  "ring_bottom": [
+   38,
+   40,
+   45
+  ],
+  "fill_left_pad": [
+   32,
+   33,
+   38
+  ],
+  "fill_upper": [
+   32,
+   33,
+   38
+  ],
+  "gap_top_vs_fill": 6.8,
+  "gap_bottom_vs_fill": 6.8
+ },
+ "ref-light-primary-Learn-rest": {
+  "rect": [
+   42,
+   36,
+   374,
+   153
+  ],
+  "size": [
+   414,
+   201
+  ],
+  "ring_top": [
+   228,
+   140,
+   124
+  ],
+  "ring_bottom": [
+   223,
+   110,
+   89
+  ],
+  "fill_left_pad": [
+   222,
+   110,
+   88
+  ],
+  "fill_upper": [
+   222,
+   110,
+   88
+  ],
+  "gap_top_vs_fill": 25.4,
+  "gap_bottom_vs_fill": 0.3
+ },
+ "ref-light-primary-Learn-hover": {
+  "rect": [
+   42,
+   36,
+   374,
+   153
+  ],
+  "size": [
+   414,
+   201
+  ],
+  "ring_top": [
+   228,
+   140,
+   124
+  ],
+  "ring_bottom": [
+   223,
+   110,
+   89
+  ],
+  "fill_left_pad": [
+   222,
+   110,
+   88
+  ],
+  "fill_upper": [
+   222,
+   110,
+   88
+  ],
+  "gap_top_vs_fill": 25.4,
+  "gap_bottom_vs_fill": 0.3
+ },
+ "ref-dark-primary-Learn-rest": {
+  "rect": [
+   42,
+   36,
+   374,
+   153
+  ],
+  "size": [
+   414,
+   201
+  ],
+  "ring_top": [
+   236,
+   132,
+   109
+  ],
+  "ring_bottom": [
+   232,
+   105,
+   78
+  ],
+  "fill_left_pad": [
+   232,
+   105,
+   78
+  ],
+  "fill_upper": [
+   232,
+   105,
+   78
+  ],
+  "gap_top_vs_fill": 22.3,
+  "gap_bottom_vs_fill": 0.0
+ },
+ "ref-dark-primary-Learn-hover": {
+  "rect": [
+   42,
+   36,
+   374,
+   153
+  ],
+  "size": [
+   414,
+   201
+  ],
+  "ring_top": [
+   236,
+   132,
+   109
+  ],
+  "ring_bottom": [
+   232,
+   105,
+   78
+  ],
+  "fill_left_pad": [
+   232,
+   105,
+   78
+  ],
+  "fill_upper": [
+   232,
+   105,
+   78
+  ],
+  "gap_top_vs_fill": 22.3,
+  "gap_bottom_vs_fill": 0.0
+ }
+}
