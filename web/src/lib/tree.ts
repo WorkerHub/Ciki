@@ -131,6 +131,7 @@ export function countNodes(nodes: PageNode[]): number {
 /**
  * 拖拽落点投影：只保留同级排序，取消拖动改层级（改层级走「移动」对话框）。
  * 落点恒为现父级同级内，over 行若不在同一父级则返回 null。
+ * 横向位移改层级手势已废弃，位移参数保留仅为兼容，不再参与落点计算。
  */
 export function projectDrop(
   rows: TreeRow[],
@@ -179,12 +180,7 @@ export function dropFromDragEnd(
   event: DragEndLike
 ): DropTarget | null {
   if (!event.over) return null
-  return projectDrop(
-    rows,
-    Number(event.active.id),
-    Number(event.over.id),
-    event.delta.x
-  )
+  return projectDrop(rows, Number(event.active.id), Number(event.over.id))
 }
 
 /** 把落点换算成「画在哪一行、缩进多少」，简化为固定本层深度单线。 */

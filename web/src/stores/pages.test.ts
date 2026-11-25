@@ -43,6 +43,8 @@ describe("pages store: movePage / movePageTo 乐观更新", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(pagesApi.tree).mockResolvedValue(initialTree)
+    vi.mocked(pagesApi.move).mockResolvedValue({ success: true })
     usePagesStore.setState({
       tree: initialTree,
       spaceId: 1,
@@ -180,5 +182,68 @@ describe("pages store: movePage / movePageTo 乐观更新", () => {
     await p
     expect(pagesApi.move).toHaveBeenCalledWith(4, null, 0, 2)
     expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([1, 5])
+  })
+
+  it("连续拖放中第 1 笔成功、第 2 笔失败：只回滚第 2 笔，保留第 1 笔成果", async () => {
+    let resolveMove1: () => void = () => {}
+    const delayedMove1 = new Promise<{ success: true }>((resolve) => {
+      resolveMove1 = () => resolve({ success: true })
+    })
+
+    vi.mocked(pagesApi.move)
+      .mockReturnValueOnce(delayedMove1)
+      .mockRejectedValueOnce(new Error("Move 2 Failed"))
+
+    // 服务端最终态为第 1 笔成功后的树：[5, 1, 4]
+    vi.mocked(pagesApi.tree).mockResolvedValue([
+      node(5, "C", 0),
+      node(1, "A", 1, [node(2, "A1", 0, [], 1), node(3, "A2", 1, [], 1)]),
+      node(4, "B", 2)
+    ])
+
+    // 第 1 笔移动：C(5) 移到首位 -> [5, 1, 4]
+    const p1 = usePagesStore.getState().movePage(5, null, 0)
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([5, 1, 4])
+
+    // 第 2 笔移动：B(4) 移到首位 -> [4, 5, 1]
+    const p2 = usePagesStore.getState().movePage(4, null, 0)
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([4, 5, 1])
+
+    // 第 1 笔成功
+    resolveMove1()
+    await p1
+
+    // 第 2 笔失败被 reject
+    await expect(p2).rejects.toThrow("Move 2 Failed")
+
+    // 关键断言：第 2 笔失败只回滚第 2 笔，不抹掉第 1 笔成果，最终收敛为第 1 笔成功态
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([5, 1, 4])
+  })
+
+  it("移动在途期间切换空间：旧空间收敛拉取不得覆盖新空间树", async () => {
+    let resolveMove: () => void = () => {}
+    const delayedMove = new Promise<{ success: true }>((resolve) => {
+      resolveMove = () => resolve({ success: true })
+    })
+    vi.mocked(pagesApi.move).mockReturnValueOnce(delayedMove)
+
+    // 在空间 1 发起移动
+    const movePromise = usePagesStore.getState().movePage(5, null, 0)
+
+    // 在途期间用户切换到空间 2
+    const space2Tree = [node(100, "Space2 Root", 0)]
+    vi.mocked(pagesApi.tree).mockResolvedValue(space2Tree)
+    await usePagesStore.getState().load(2)
+
+    expect(usePagesStore.getState().spaceId).toBe(2)
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([100])
+
+    // 旧空间 1 的移动响应返回
+    resolveMove()
+    await movePromise
+
+    // 关键断言：旧空间 1 的收敛拉取被空间校验守卫拦截，新空间 2 的树保持完整未被覆盖
+    expect(usePagesStore.getState().spaceId).toBe(2)
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([100])
   })
 })

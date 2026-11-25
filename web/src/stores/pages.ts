@@ -55,7 +55,6 @@ interface PagesState {
 export const usePagesStore = create<PagesState>((set, get) => {
   let moveQueue: Promise<void> = Promise.resolve()
   let pendingMoves = 0
-  let baselineTree: PageNode[] | null = null
 
   const repairOrder = async (parentIds: (number | null)[]) => {
     for (const parentId of parentIds) {
@@ -74,7 +73,6 @@ export const usePagesStore = create<PagesState>((set, get) => {
     const switching = next !== get().spaceId
     if (switching) {
       pendingMoves = 0
-      baselineTree = null
     }
     set({
       loading: true,
@@ -160,11 +158,7 @@ export const usePagesStore = create<PagesState>((set, get) => {
       const currentSpace = get().spaceId
       const beforeNode = findNode(get().tree, id)
       const beforeParentId = beforeNode?.parentId ?? null
-
-      if (pendingMoves === 0) {
-        baselineTree = get().tree
-      }
-      const rollbackTree = baselineTree ?? get().tree
+      const previousTree = get().tree
 
       // 1. 同步乐观更新本地树结构，同帧呈现新顺序
       set({ tree: placeNodeInTree(get().tree, id, parentId, sortOrder) })
@@ -175,32 +169,34 @@ export const usePagesStore = create<PagesState>((set, get) => {
       // 2. 后台同步任务串行排队，避免并发踩踏
       const task = (async () => {
         await moveQueue.catch(() => {})
+        let moveFailed = false
 
         try {
           await pagesApi.move(id, parentId, sortOrder)
           await repairOrder([parentId, beforeParentId])
         } catch (error) {
-          // 同步失败（网络异常/接口报错），回滚到拖放前顺序
-          set({ tree: rollbackTree })
-          pendingMoves = 0
-          baselineTree = null
+          moveFailed = true
+          // 本笔同步失败，回滚到本次拖放前的顺序（若期间切空间则不覆写新空间树）
+          if (get().spaceId === currentSpace) {
+            set({ tree: previousTree })
+          }
           throw error
         } finally {
           if (pendingMoves > 0) {
             pendingMoves--
           }
-        }
-
-        // 3. 所有排队的移动都完成后，收敛拉取服务端最终态
-        if (pendingMoves === 0) {
-          baselineTree = null
-          try {
-            const finalTree = await pagesApi.tree(currentSpace)
-            if (pendingMoves === 0) {
-              set({ tree: finalTree })
+          // 3. 所有排队的移动都完成后，收敛拉取服务端最终态
+          if (pendingMoves === 0 && !moveFailed) {
+            try {
+              if (get().spaceId === currentSpace) {
+                const finalTree = await pagesApi.tree(currentSpace)
+                if (pendingMoves === 0 && get().spaceId === currentSpace) {
+                  set({ tree: finalTree })
+                }
+              }
+            } catch {
+              // 收敛拉取网络偶发失败不覆盖本地成功的乐观状态
             }
-          } catch {
-            // 收敛拉取网络偶发失败不覆盖本地成功的乐观状态
           }
         }
       })()
@@ -214,11 +210,7 @@ export const usePagesStore = create<PagesState>((set, get) => {
       const isSameSpace = targetSpaceId === currentSpace
       const beforeNode = findNode(get().tree, id)
       const beforeParentId = beforeNode?.parentId ?? null
-
-      if (pendingMoves === 0) {
-        baselineTree = get().tree
-      }
-      const rollbackTree = baselineTree ?? get().tree
+      const previousTree = get().tree
 
       // 1. 同步乐观更新：同空间落位，跨空间从当前树移出
       if (isSameSpace) {
@@ -233,30 +225,32 @@ export const usePagesStore = create<PagesState>((set, get) => {
       // 2. 后台同步任务串行排队
       const task = (async () => {
         await moveQueue.catch(() => {})
+        let moveFailed = false
 
         try {
           await pagesApi.move(id, parentId, sortOrder, targetSpaceId)
           await repairOrder([parentId, beforeParentId])
         } catch (error) {
-          set({ tree: rollbackTree })
-          pendingMoves = 0
-          baselineTree = null
+          moveFailed = true
+          if (get().spaceId === currentSpace) {
+            set({ tree: previousTree })
+          }
           throw error
         } finally {
           if (pendingMoves > 0) {
             pendingMoves--
           }
-        }
-
-        if (pendingMoves === 0) {
-          baselineTree = null
-          try {
-            const finalTree = await pagesApi.tree(currentSpace)
-            if (pendingMoves === 0) {
-              set({ tree: finalTree })
+          if (pendingMoves === 0 && !moveFailed) {
+            try {
+              if (get().spaceId === currentSpace) {
+                const finalTree = await pagesApi.tree(currentSpace)
+                if (pendingMoves === 0 && get().spaceId === currentSpace) {
+                  set({ tree: finalTree })
+                }
+              }
+            } catch {
+              // 忽略收敛拉取的偶发网络错误
             }
-          } catch {
-            // 忽略收敛拉取的偶发网络错误
           }
         }
       })()
