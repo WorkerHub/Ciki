@@ -8,7 +8,7 @@ import {
   ShieldCheck
 } from "lucide-react"
 import QRCode from "qrcode"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { AgentAccountsCard } from "@/components/AgentAccountsCard"
 import { ApiTokensCard } from "@/components/ApiTokensCard"
@@ -136,6 +136,13 @@ export function SettingsPage() {
   const [selectedLanguage, setSelectedLanguage] =
     useState<Language>(effectiveLanguage)
   const [savingLanguage, setSavingLanguage] = useState(false)
+  const isSavingLanguageRef = useRef(false)
+
+  useEffect(() => {
+    if (!isSavingLanguageRef.current) {
+      setSelectedLanguage(effectiveLanguage)
+    }
+  }, [effectiveLanguage])
 
   const hasLanguageChanged = selectedLanguage !== effectiveLanguage
 
@@ -284,6 +291,7 @@ export function SettingsPage() {
     setError("")
     setNoticeKey("")
     setSavingLanguage(true)
+    isSavingLanguageRef.current = true
     await changeLanguage(selectedLanguage)
     try {
       setUser(await meApi.updateProfile({ language: selectedLanguage }))
@@ -292,6 +300,7 @@ export function SettingsPage() {
       setError(describeApiError(languageError))
     } finally {
       setSavingLanguage(false)
+      isSavingLanguageRef.current = false
     }
   }
 

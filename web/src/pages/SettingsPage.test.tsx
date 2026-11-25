@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
@@ -538,6 +538,35 @@ describe("界面语言", () => {
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("zh")
     expect(screen.getByText("语言")).toBeInTheDocument()
     expect(saveBtn).toBeEnabled()
+  })
+
+  it("外部（如账号语言覆盖）更新生效语言时自动重同步暂存，避免保存按钮被误启用", async () => {
+    await i18n.changeLanguage("en")
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    const card = screen
+      .getByText("Language")
+      .closest<HTMLElement>('[data-slot="card"]')!
+    const saveBtn = within(card).getByRole("button", { name: "Save" })
+    expect(saveBtn).toBeDisabled()
+
+    // 模拟冷启动后 RootGate 用账号语言异步覆盖 i18n
+    await act(async () => {
+      await i18n.changeLanguage("zh")
+    })
+
+    const updatedCard = screen
+      .getByText("语言")
+      .closest<HTMLElement>('[data-slot="card"]')!
+    const updatedSaveBtn = within(updatedCard).getByRole("button", {
+      name: "保存"
+    })
+    expect(updatedSaveBtn).toBeDisabled()
+    expect(screen.getByRole("radio", { name: "中文" })).toHaveAttribute(
+      "data-state",
+      "on"
+    )
   })
   it("不再在设置页底部显示退出登录按钮", () => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
