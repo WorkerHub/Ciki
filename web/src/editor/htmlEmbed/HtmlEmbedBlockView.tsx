@@ -1,12 +1,13 @@
 import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
 import { AlertCircle, Code2, Loader2, RefreshCw, Trash2 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { describeApiError } from "@/lib/api"
 import { uploadEmbed } from "@/lib/upload"
+import { useThemeStore } from "@/stores/theme"
 import {
   DEFAULT_HTML_EMBED_HEIGHT,
   MAX_HTML_EMBED_MANUAL_HEIGHT,
@@ -16,6 +17,8 @@ import {
 } from "./extension"
 import {
   CIKI_EMBED_HEIGHT_MESSAGE_TYPE,
+  CIKI_EMBED_THEME_MESSAGE_TYPE,
+  type CikiEmbedThemeMessage,
   type HtmlEmbedNodeAttrs
 } from "./types"
 
@@ -31,6 +34,8 @@ export function HtmlEmbedBlockView({
   const { key, name, height } = attrs
   const fixedHeight = clampManualHtmlEmbedHeight(height)
   const isAuto = fixedHeight === null
+  const resolved = useThemeStore((state) => state.resolved)
+  const style = useThemeStore((state) => state.style)
 
   const [autoHeight, setAutoHeight] = useState<number>(
     DEFAULT_HTML_EMBED_HEIGHT
@@ -117,6 +122,23 @@ export function HtmlEmbedBlockView({
       window.removeEventListener("message", handleMessage)
     }
   }, [editor.isEditable, fixedHeight])
+
+  // 阅读态：向 iframe contentWindow 下发当前主题与风格
+  const sendThemeMessage = useCallback(() => {
+    const iframe = iframeRef.current
+    if (!iframe?.contentWindow) return
+    const message: CikiEmbedThemeMessage = {
+      type: CIKI_EMBED_THEME_MESSAGE_TYPE,
+      theme: resolved,
+      style
+    }
+    iframe.contentWindow.postMessage(message, "*")
+  }, [resolved, style])
+
+  useEffect(() => {
+    if (editor.isEditable) return
+    sendThemeMessage()
+  }, [editor.isEditable, sendThemeMessage])
 
   const commitHeight = (val: string) => {
     const trimmed = val.trim()
@@ -215,7 +237,7 @@ export function HtmlEmbedBlockView({
       >
         <iframe
           ref={iframeRef}
-          src={`/api/files/${key}`}
+          src={`/api/files/${key}?theme=${encodeURIComponent(resolved)}&style=${encodeURIComponent(style)}`}
           sandbox="allow-scripts"
           referrerPolicy="no-referrer"
           loading="lazy"
@@ -226,6 +248,7 @@ export function HtmlEmbedBlockView({
             height: `${displayHeight}px`,
             display: "block"
           }}
+          onLoad={sendThemeMessage}
           onError={() => setHasError(true)}
           data-html-embed-iframe=""
         />

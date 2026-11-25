@@ -1,6 +1,6 @@
 import { Editor } from "@tiptap/core"
 import { EditorContent, useEditor } from "@tiptap/react"
-import { act, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useEffect } from "react"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
@@ -10,6 +10,7 @@ import { createExtensions, type EditorMode } from "@/editor/extensions"
 import { ReadView } from "@/editor/ReadView"
 import { api } from "@/lib/api"
 import { MAX_EMBED_BYTES, validateEmbedFile } from "@/lib/upload"
+import { useThemeStore } from "@/stores/theme"
 import {
   DEFAULT_HTML_EMBED_HEIGHT,
   MAX_HTML_EMBED_AUTO_HEIGHT,
@@ -20,7 +21,10 @@ import {
   clampHtmlEmbedHeight,
   clampManualHtmlEmbedHeight
 } from "./extension"
-import { CIKI_EMBED_HEIGHT_MESSAGE_TYPE } from "./types"
+import {
+  CIKI_EMBED_HEIGHT_MESSAGE_TYPE,
+  CIKI_EMBED_THEME_MESSAGE_TYPE
+} from "./types"
 import { installTiptapJsdomShims } from "@/test/tiptap-jsdom"
 
 const EMBED_KEY = "embeds/0f3c1a2b-4d5e-4f60-8a9b-0c1d2e3f4a5b.html"
@@ -86,6 +90,8 @@ describe("htmlEmbed 节点契约与规范", () => {
   afterEach(() => {
     cleanupEditors()
     vi.restoreAllMocks()
+    useThemeStore.getState().setTheme("auto")
+    useThemeStore.getState().setStyle("nova")
   })
 
   it("1. 节点解析：div[data-type='html-embed'] 正确解析为 htmlEmbed 节点及各 attrs", () => {
@@ -640,5 +646,136 @@ describe("htmlEmbed 节点契约与规范", () => {
       .content?.find((node) => node.type === "htmlEmbed")
     expect(embedNode).toBeDefined()
     expect(embedNode?.attrs?.height).toBeNull()
+  })
+
+  it("13. 阅读态主题跟随：iframe src 拼参，load 与主题 store 变化双路下发 ciki-embed-theme", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+    useThemeStore.getState().setTheme("dark")
+    useThemeStore.getState().setStyle("paper")
+
+    const { container } = render(<ReadView html={EMBED_HTML} />)
+
+    const iframe = await waitFor(() => {
+      const el = container.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+
+    // 1. 首帧参数：src 携带 theme=dark 与 style=paper
+    expect(iframe.src).toContain("theme=dark")
+    expect(iframe.src).toContain("style=paper")
+
+    // Mock contentWindow.postMessage
+    const postMessageSpy = vi.fn()
+    Object.defineProperty(iframe, "contentWindow", {
+      value: { postMessage: postMessageSpy },
+      configurable: true
+    })
+
+    // 2. iframe load 事件触发主题下发
+    fireEvent.load(iframe)
+    expect(postMessageSpy).toHaveBeenCalledWith(
+      {
+        type: CIKI_EMBED_THEME_MESSAGE_TYPE,
+        theme: "dark",
+        style: "paper"
+      },
+      "*"
+    )
+
+    postMessageSpy.mockClear()
+
+    // 3. 主题 store 变化重发：切为 light / nova
+    await act(async () => {
+      useThemeStore.getState().setTheme("light")
+      useThemeStore.getState().setStyle("nova")
+    })
+
+    await waitFor(() => {
+      expect(postMessageSpy).toHaveBeenCalledWith(
+        {
+          type: CIKI_EMBED_THEME_MESSAGE_TYPE,
+          theme: "light",
+          style: "nova"
+        },
+        "*"
+      )
+    })
+
+    // 4. 固定高度与自动高度均下发
+    const AUTO_HTML = `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="${EMBED_NAME}"></div>`
+    const { container: autoContainer } = render(<ReadView html={AUTO_HTML} />)
+    const autoIframe = await waitFor(() => {
+      const el = autoContainer.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+    const autoPostMessageSpy = vi.fn()
+    Object.defineProperty(autoIframe, "contentWindow", {
+      value: { postMessage: autoPostMessageSpy },
+      configurable: true
+    })
+    fireEvent.load(autoIframe)
+    expect(autoPostMessageSpy).toHaveBeenCalledWith(
+      {
+        type: CIKI_EMBED_THEME_MESSAGE_TYPE,
+        theme: "light",
+        style: "nova"
+      },
+      "*"
+    )
+  })
+
+  it("14. 同页多个嵌入独立下发主题且互不干扰", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+    useThemeStore.getState().setTheme("dark")
+    useThemeStore.getState().setStyle("nova")
+
+    const TWO_EMBEDS_HTML = `
+      <div data-type="html-embed" data-key="embeds/11111111-1111-1111-1111-111111111111.html" data-name="first.html"></div>
+      <div data-type="html-embed" data-key="embeds/22222222-2222-2222-2222-222222222222.html" data-name="second.html"></div>
+    `
+    const { container } = render(<ReadView html={TWO_EMBEDS_HTML} />)
+
+    const iframes = await waitFor(() => {
+      const els = container.querySelectorAll("iframe[data-html-embed-iframe]")
+      expect(els.length).toBe(2)
+      return Array.from(els) as HTMLIFrameElement[]
+    })
+
+    const spy1 = vi.fn()
+    const spy2 = vi.fn()
+    Object.defineProperty(iframes[0], "contentWindow", {
+      value: { postMessage: spy1 },
+      configurable: true
+    })
+    Object.defineProperty(iframes[1], "contentWindow", {
+      value: { postMessage: spy2 },
+      configurable: true
+    })
+
+    fireEvent.load(iframes[0])
+    fireEvent.load(iframes[1])
+
+    expect(spy1).toHaveBeenCalledWith(
+      {
+        type: CIKI_EMBED_THEME_MESSAGE_TYPE,
+        theme: "dark",
+        style: "nova"
+      },
+      "*"
+    )
+    expect(spy2).toHaveBeenCalledWith(
+      {
+        type: CIKI_EMBED_THEME_MESSAGE_TYPE,
+        theme: "dark",
+        style: "nova"
+      },
+      "*"
+    )
   })
 })

@@ -14,3 +14,12 @@ export interface CikiEmbedHeightMessage {
   type: typeof CIKI_EMBED_HEIGHT_MESSAGE_TYPE
   height: number
 }
+
+/** 主题下发消息类型（父→子）：与注入脚本逐字一致（冻结） */
+export const CIKI_EMBED_THEME_MESSAGE_TYPE = "ciki-embed-theme" as const
+
+export interface CikiEmbedThemeMessage {
+  type: typeof CIKI_EMBED_THEME_MESSAGE_TYPE
+  theme: "light" | "dark"
+  style: "nova" | "paper"
+}

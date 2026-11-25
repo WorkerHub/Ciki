@@ -33,7 +33,7 @@ export const EMBED_CONTENT_SECURITY_POLICY =
   "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
 
 /**
- * embed 下发注入的高度上报脚本。
+ * embed 下发注入的高度上报与主题跟随脚本。
  *
  * 协议约定（规格 §1/§2/§5）：
  * 1. 独立作用域（IIFE）+ 异常自吞，绝不影响原文件自身脚本执行；
@@ -41,7 +41,9 @@ export const EMBED_CONTENT_SECURITY_POLICY =
  * 3. 页面就绪后（立即执行 + DOMContentLoaded / load）上报一次；
  * 4. 用 ResizeObserver 持续监听 documentElement 与 body 的尺寸变化持续上报；
  * 5. 经 window.parent.postMessage 发给父页，消息体形如 `{ type: "ciki-embed-height", height: <number> }`；
- * 6. 走既有 CSP（script-src 'unsafe-inline'），不新增任何权限。
+ * 6. 启动时读取 location.search 的 theme 与 style 参数，合法时立即设置 documentElement 的 data-theme 与 data-theme-style；
+ * 7. 监听 message：仅接受 event.source === window.parent 且 type === "ciki-embed-theme" 的合法消息并更新 dataset；
+ * 8. 走既有 CSP（script-src 'unsafe-inline'），不新增任何权限。
  */
 export const EMBED_HEIGHT_REPORTER_SCRIPT = `<script>
 (function() {
@@ -56,6 +58,43 @@ export const EMBED_HEIGHT_REPORTER_SCRIPT = `<script>
         }
       } catch (_) {}
     };
+
+    var applyTheme = function(theme, style) {
+      try {
+        var de = document.documentElement;
+        if (!de) return;
+        var changed = false;
+        if (theme === "light" || theme === "dark") {
+          if (de.dataset.theme !== theme) {
+            de.dataset.theme = theme;
+            changed = true;
+          }
+        }
+        if (style === "nova" || style === "paper") {
+          if (de.dataset.themeStyle !== style) {
+            de.dataset.themeStyle = style;
+            changed = true;
+          }
+        }
+        if (changed) send();
+      } catch (_) {}
+    };
+
+    try {
+      var params = new URLSearchParams(window.location.search);
+      applyTheme(params.get("theme"), params.get("style"));
+    } catch (_) {}
+
+    window.addEventListener("message", function(event) {
+      try {
+        if (event.source !== window.parent) return;
+        var data = event.data;
+        if (!data || typeof data !== "object") return;
+        if (data.type !== "ciki-embed-theme") return;
+        applyTheme(data.theme, data.style);
+      } catch (_) {}
+    });
+
     send();
     var ro = null;
     if (typeof ResizeObserver === "function") {
