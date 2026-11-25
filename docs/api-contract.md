@@ -2081,12 +2081,23 @@ CSP sandbox 强制 opaque origin（即便用户顶层打开 URL 亦无法访问�
 
 - **下发注入**：embed 文件经带会话路径（`GET /api/files/:key`）下发时，在响应内容末尾（`</body>` 闭合标签前；无 body 标签时追加到文件末尾）临时注入一小段高度上报脚本。注入只发生在下发响应里，R2 存储的原文件不改，页面导出 zip 里的 HTML 产物仍为原文件逐字字节。
   - 实现细节与已知边界：注入位置在原字符串上使用大小写不敏感正则匹配最后一个 `</body>`，避免 Unicode 字符转小写时码元长度变化导致切片错位；若原文件内联 JS 字符串或 HTML 注释中出现 `</body>` 为字符串切片口径的既有边界；因实际下发内容已包含注入脚本，embed 下发响应不透传 R2 底层原文件的 `ETag`。
-- **上报协议**：注入脚本在沙箱 iframe 内量取内容实际高度（去视口项，只报内容高：`Math.max(document.documentElement.offsetHeight, document.body.offsetHeight, document.body.scrollHeight)`），页面加载完成（及 `DOMContentLoaded` / `load`）上报一次，并使用 `ResizeObserver` 监听内容尺寸变化持续上报。经 `window.parent.postMessage` 发给父页，消息体形如：
+- **通信协议与主题跟随**：postMessage 通信仅限两个冻结消息类型（高度上报、主题下发），不做其他控制接口：
+  1. **高度上报（子→父）**：注入脚本在沙箱 iframe 内量取内容实际高度（去视口项，只报内容高：`Math.max(document.documentElement.offsetHeight, document.body.offsetHeight, document.body.scrollHeight)`），页面加载完成（及 `DOMContentLoaded` / `load`）上报一次，并使用 `ResizeObserver` 监听内容尺寸变化持续上报。经 `window.parent.postMessage` 发给父页，消息体形如：
 
   ```json
   { "type": "ciki-embed-height", "height": 480 }
   ```
-- **安全边界不变**：注入脚本采用独立作用域与异常自吞，不得影响原文件自身脚本的执行。注入脚本走现行 CSP（`script-src 'unsafe-inline'` 已放行），不新增任何 CSP 指令或 iframe 权限。上报内容仅为一个数字，父页除来源校验与数值钳制外不处理任何其他消息；固定高度路径不受上报干扰。
+
+  父页只在自动高度模式下 clamp 200–4000 后应用高度；固定高度模式不受干扰。
+  2. **主题下发（父→子）**：父页在阅读态下，iframe 的 `src` 追加 `?theme=<resolved>&style=<style>` 参数（`theme` 为已解析的 `"light" | "dark"`，`style` 为 `"nova" | "paper"`），确保首帧即按当前主题渲染、无亮色闪烁；iframe `load` 时向其 `contentWindow` 发送一次主题消息，且主题 store 的 `resolved` 或 `style` 变化时重发（`targetOrigin: "*"`）：
+
+  ```json
+  { "type": "ciki-embed-theme", "theme": "light", "style": "nova" }
+  ```
+
+  子页注入脚本在启动时解析 URL 参数并同步设置 `document.documentElement.dataset.theme` 与 `dataset.themeStyle`；同时监听父页 postMessage（严格校验 `event.source === window.parent` 及合法值），实时更新上述 dataset。
+- **作者契约**：注入脚本已自动维护 `data-theme`（`"light" | "dark"`）与 `data-theme-style`（`"nova" | "paper"`）属性，嵌入内容作者只需按 `[data-theme="dark"]` 等选择器编写 CSS 变量即可无缝跟随站点主题切换；作者亦可自行监听 `ciki-embed-theme` 消息实现更细粒度的动效或逻辑切换。不监听、未写暗色 CSS 的旧嵌入页面行为完全不变。
+- **安全边界不变**：注入脚本采用独立作用域与异常自吞，不得影响原文件自身脚本的执行。注入脚本走现行 CSP（`script-src 'unsafe-inline'` 已放行），不新增任何 CSP 指令或 iframe 权限（不加 allow-same-origin 等）。父页仅处理本 iframe 来源且类型匹配的消息，非法消息或恶意狂发数值均有严格钳制与丢弃机制。
 
 `key` 可含一个类别前缀（`avatars/` / `pages/` / `imports/`），也可以是存量的平铺 key；未知前缀、多级前缀、大写 hex、`svg` 或其它形状一律 404。不存在 404；未登录 401 + no-store。
 

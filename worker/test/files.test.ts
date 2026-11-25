@@ -595,4 +595,118 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
     expect(res.status).toBe(200)
     expect(res.headers.get("etag")).toBeNull()
   })
+
+  it("Embed 下发注入主题跟随逻辑：URL 参数解析与父级消息监听", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml =
+      "<!DOCTYPE html><html><body><div id='app'>Content</div></body></html>"
+    const key = "embeds/77777777-8888-9999-aaaa-bbbbbbbbbbbb.html"
+    await r2.put(key, new TextEncoder().encode(rawHtml), {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const html = await res.text()
+
+    // 1. 验证启动阶段解析 query 参数并设置 dataset 的逻辑
+    expect(html).toContain(
+      "var params = new URLSearchParams(window.location.search)"
+    )
+    expect(html).toContain(
+      'applyTheme(params.get("theme"), params.get("style"))'
+    )
+    expect(html).toContain("de.dataset.theme = theme")
+    expect(html).toContain("de.dataset.themeStyle = style")
+
+    // 2. 验证消息监听：来源必须是 window.parent，类型必须是 ciki-embed-theme
+    expect(html).toContain("event.source !== window.parent")
+    expect(html).toContain('data.type !== "ciki-embed-theme"')
+
+    // 3. 验证取值范围白名单：theme 仅限 light/dark，style 仅限 nova/paper
+    expect(html).toContain('theme === "light" || theme === "dark"')
+    expect(html).toContain('style === "nova" || style === "paper"')
+  })
+
+  it("注入脚本在真实 DOM 环境执行：首屏 query 应用与父级 message 动态切换", async () => {
+    const { Window } = await import("happy-dom")
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml =
+      "<!DOCTYPE html><html><head></head><body><h1>Anim</h1></body></html>"
+    const key = "embeds/88888888-9999-aaaa-bbbb-cccccccccccc.html"
+    await r2.put(key, new TextEncoder().encode(rawHtml), {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    const html = await res.text()
+
+    // 模拟带着 ?theme=dark&style=paper 打开 iframe
+    const parentWindow = {} as unknown as Window
+    const window = new Window({
+      url: `https://example.com/api/files/${key}?theme=dark&style=paper`
+    })
+    ;(window as unknown as { parent: unknown }).parent = parentWindow
+    window.document.write(html)
+    const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/i)
+    expect(scriptMatch).not.toBeNull()
+    window.eval(scriptMatch![1])
+
+    const docEl = window.document.documentElement
+    expect(docEl.dataset.theme).toBe("dark")
+    expect(docEl.dataset.themeStyle).toBe("paper")
+
+    // 模拟 window.parent 发送合法的切换消息
+    window.dispatchEvent(
+      new window.MessageEvent("message", {
+        source: parentWindow,
+        data: {
+          type: "ciki-embed-theme",
+          theme: "light",
+          style: "nova"
+        }
+      })
+    )
+    expect(docEl.dataset.theme).toBe("light")
+    expect(docEl.dataset.themeStyle).toBe("nova")
+
+    // 模拟非 parent 来源的伪造消息：严格被忽略
+    const fakeWindow = {} as unknown as Window
+    window.dispatchEvent(
+      new window.MessageEvent("message", {
+        source: fakeWindow,
+        data: {
+          type: "ciki-embed-theme",
+          theme: "dark",
+          style: "paper"
+        }
+      })
+    )
+    expect(docEl.dataset.theme).toBe("light")
+    expect(docEl.dataset.themeStyle).toBe("nova")
+
+    // 模拟非法取值的主题消息：严格被忽略
+    window.dispatchEvent(
+      new window.MessageEvent("message", {
+        source: parentWindow,
+        data: {
+          type: "ciki-embed-theme",
+          theme: "cyberpunk",
+          style: "neon"
+        }
+      })
+    )
+    expect(docEl.dataset.theme).toBe("light")
+    expect(docEl.dataset.themeStyle).toBe("nova")
+  })
 })
