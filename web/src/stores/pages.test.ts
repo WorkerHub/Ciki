@@ -246,4 +246,41 @@ describe("pages store: movePage / movePageTo 乐观更新", () => {
     expect(usePagesStore.getState().spaceId).toBe(2)
     expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([100])
   })
+
+  it("连续快速拖放两笔全失败（断网场景）：按序回滚后最终恢复初始顺序，不复活失败笔", async () => {
+    vi.mocked(pagesApi.move)
+      .mockRejectedValueOnce(new Error("Network Error 1"))
+      .mockRejectedValueOnce(new Error("Network Error 2"))
+    // 断网时收敛拉取 pagesApi.tree 同样抛错
+    vi.mocked(pagesApi.tree).mockRejectedValue(new Error("Network Offline"))
+
+    // 初始顺序为 [1, 4, 5]
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([1, 4, 5])
+
+    // 第 1 笔：把 5 移到首位 -> [5, 1, 4]
+    const p1 = usePagesStore.getState().movePage(5, null, 0)
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([5, 1, 4])
+
+    // 第 2 笔：把 4 移到首位 -> [4, 5, 1]
+    const p2 = usePagesStore.getState().movePage(4, null, 0)
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([4, 5, 1])
+
+    await expect(p1).rejects.toThrow("Network Error 1")
+    await expect(p2).rejects.toThrow("Network Error 2")
+
+    // 关键断言：两笔全失败后，最终本地树精准回滚回初始顺序 [1, 4, 5]，绝不把第 1 笔失败位移复活
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([1, 4, 5])
+  })
+
+  it("接口报错但网络在：末笔失败后仍走收敛拉取，校准为服务端最终态", async () => {
+    vi.mocked(pagesApi.move).mockRejectedValueOnce(new Error("403 Forbidden"))
+    vi.mocked(pagesApi.tree).mockResolvedValueOnce(initialTree)
+
+    const p = usePagesStore.getState().movePage(5, null, 0)
+    await expect(p).rejects.toThrow("403 Forbidden")
+
+    // 校验收敛拉取被正常调用，本地树与服务端最终态严格一致
+    expect(pagesApi.tree).toHaveBeenCalledWith(1)
+    expect(usePagesStore.getState().tree.map((n) => n.id)).toEqual([1, 4, 5])
+  })
 })

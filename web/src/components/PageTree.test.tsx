@@ -544,6 +544,7 @@ describe("目录树自动展开到当前文档与滚动可见", () => {
     vi.mocked(pagesApi.move).mockRejectedValueOnce(
       new Error("网络异常，移动失败")
     )
+    vi.mocked(pagesApi.tree).mockRejectedValueOnce(new Error("网络异常"))
 
     renderTree()
 
