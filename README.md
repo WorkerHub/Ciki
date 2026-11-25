@@ -198,7 +198,7 @@ CI 按顺序跑这六条；其中 `check:deploy` 会在部署前确认 D1 / R2 /
 
 ```
 .github/workflows/   CI（校验）与 Deploy（部署）
-docs/                API 契约与数据模型
+docs/                接口契约、本地 QA 与生产清理口径
 scripts/             部署期配置解析（表前缀三态、secrets.json、wrangler.toml 占位符）
 web/                 React + Vite 前端（构建产物 web/dist 由 Worker 托管）
 worker/              Hono Worker（D1 / R2 / 静态资源三类绑定）
@@ -222,6 +222,8 @@ web/src/pages/         阅读/编辑/搜索/回收站/设置/关于/系统管理
 - 导入接口 `/api/import/*` 只认 `Authorization: Bearer <浏览器插件凭证>`，不接受会话 Cookie。Ciki助手用它查可写空间与父页、检查同名页、上传图片和写页面；凭证在设置页「浏览器插件」卡生成，可建多份、逐个吊销，明文只显示一次。
 - 读写接口 `/api/read/*`（空间列表、页面树、全文搜索、取单页）与 `/api/write/*`（建页、改页、移动、软删、图片上传）只认 API Token：读接口收只读与读写两种，写接口只收读写。Token 在设置页「API Token」卡创建：类型选只读 / 读写（创建后固定）、可建多支、可按 Token 设空间范围（可见范围 = 成员权限 ∩ Token 范围，只能收窄）、可逐个吊销；库内只存哈希，明文只显示一次。请求体与错误码见契约文档。
 - 图片经 `/api/files/:key` 读取，必须带登录会话，不提供公开直链。
+
+QA 与运维口径文档：本地真跑与浏览器验收（起实例、造数、主题注入、DOM 与截图坑、升级验收）见 [`docs/qa-local-testing.md`](docs/qa-local-testing.md)；生产凭证、R2 清理实操与测后清理顺序见 [`docs/qa-production-ops.md`](docs/qa-production-ops.md)。
 
 ## 许可证
 

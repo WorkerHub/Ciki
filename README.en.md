@@ -198,7 +198,7 @@ CI runs these six in order. `check:deploy` confirms before deployment that all t
 
 ```
 .github/workflows/   CI (checks) and Deploy (deployment)
-docs/                API contract and data model
+docs/                API contract, local QA and production cleanup notes
 scripts/             Deploy-time config resolution (table prefix states, secrets.json, wrangler.toml placeholders)
 web/                 React + Vite frontend (build output web/dist served by the Worker)
 worker/              Hono Worker (D1 / R2 / static asset bindings)
@@ -222,6 +222,8 @@ The complete API, fields, error codes and migration notes live in [`docs/api-con
 - The import endpoints under `/api/import/*` accept only `Authorization: Bearer <browser extension credential>`, never a session cookie. Ciki Helper uses them to list writable spaces and parent pages, check for same-title pages, upload images and write pages. Create the credential in the Settings "Browser extension" card; you can hold several and revoke them one by one, and the plaintext is shown only once.
 - The read and write endpoints — `/api/read/*` (space list, page tree, full-text search, single page) and `/api/write/*` (create, edit, move, soft-delete, image upload) — accept only API Tokens: the read endpoints take read-only and read-write Tokens, the write endpoints only read-write ones. Create Tokens in the Settings "API Token" card: pick read-only or read-write (fixed after creation), hold several, scope each to spaces (visible range = member permissions ∩ Token scope, narrowing only), revoke them one by one; only hashes are stored, and the plaintext is shown only once. Request bodies and error codes are in the contract.
 - Images are served from `/api/files/:key` and require a login session; there are no public links.
+
+QA and ops notes: for local runs and browser acceptance (standing up an instance, seeding data, theme injection, DOM and screenshot pitfalls, upgrade acceptance) see [`docs/qa-local-testing.md`](docs/qa-local-testing.md); for production credentials, R2 cleanup practice and post-test cleanup order see [`docs/qa-production-ops.md`](docs/qa-production-ops.md).
 
 ## License
 
