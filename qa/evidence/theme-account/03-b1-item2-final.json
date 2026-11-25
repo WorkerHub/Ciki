@@ -1,0 +1,25 @@
+{
+  "browser": "browser1",
+  "url": "http://127.0.0.1:9464/settings",
+  "themeState": {
+    "dataTheme": "paper",
+    "dataMode": "light",
+    "darkClass": false,
+    "colorScheme": "light",
+    "metaThemeColor": "#f7f4ee",
+    "localStorage": {
+      "state": {
+        "theme": "auto",
+        "style": "paper"
+      },
+      "version": 0
+    },
+    "cycleBtnPresent": false,
+    "cycleBtnLabel": null
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+  ],
+  "pageErrors": []
+}

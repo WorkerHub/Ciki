@@ -1,0 +1,148 @@
+{
+  "accountBefore": "nova",
+  "invalidProbes": [
+    {
+      "desc": "\"dark\"",
+      "sent": {
+        "themeStyle": "dark"
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "\"PAPER\"（大小写）",
+      "sent": {
+        "themeStyle": "PAPER"
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "\"Paper\"（大小写）",
+      "sent": {
+        "themeStyle": "Paper"
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "\"paper \"（尾随空格）",
+      "sent": {
+        "themeStyle": "paper "
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "\"\"（空串）",
+      "sent": {
+        "themeStyle": ""
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "\"paperx\"",
+      "sent": {
+        "themeStyle": "paperx"
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "null",
+      "sent": {
+        "themeStyle": null
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "123（数字）",
+      "sent": {
+        "themeStyle": 123
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "true（布尔）",
+      "sent": {
+        "themeStyle": true
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    },
+    {
+      "desc": "缺字段 {}",
+      "sent": {},
+      "status": 400,
+      "code": "INVALID_THEME_STYLE",
+      "respBody": {
+        "error": "themeStyle must be nova or paper",
+        "code": "INVALID_THEME_STYLE"
+      }
+    }
+  ],
+  "allInvalidRejected": true,
+  "valueAfterInvalid": "nova",
+  "valueUnchanged": true,
+  "compatKeyStyle": {
+    "note": "style 为端点声明的兼容键（worker/src/routes/me.ts:256 注释、:268 实现），非缺陷；取值仍受 nova|paper 白名单约束",
+    "bad": {
+      "sent": {
+        "style": "dark"
+      },
+      "status": 400,
+      "code": "INVALID_THEME_STYLE"
+    },
+    "ok": {
+      "sent": {
+        "style": "paper"
+      },
+      "status": 200,
+      "themeStyle": "paper"
+    }
+  },
+  "valueAfterCompat": "paper",
+  "finalReset": {
+    "status": 200,
+    "themeStyle": "nova"
+  }
+}

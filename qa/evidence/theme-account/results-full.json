@@ -1,0 +1,2285 @@
+{
+  "results": [
+    {
+      "name": "项1-a 未登录 /login 风格=默认(nova/light)、无 JS 异常",
+      "pass": true,
+      "detail": {
+        "loggedOut": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": [],
+        "consoleErrors": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ]
+      }
+    },
+    {
+      "name": "项1-b 登录后默认 nova（html+localStorage 空+服务端 nova）",
+      "pass": true,
+      "detail": {
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null,
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        },
+        "server": "nova"
+      }
+    },
+    {
+      "name": "项1-c 设置页主题卡片结构（无亮暗控件）",
+      "pass": true,
+      "detail": {
+        "found": true,
+        "title": "主题",
+        "buttons": [
+          {
+            "text": "Nova",
+            "pressed": "on",
+            "disabled": false
+          },
+          {
+            "text": "纸面",
+            "pressed": "off",
+            "disabled": false
+          },
+          {
+            "text": "保存",
+            "pressed": null,
+            "disabled": true
+          }
+        ],
+        "hasLightDarkControl": false,
+        "accountHint": true,
+        "cardText": "主题Nova纸面保存当前账号：qa-jim-theme@example.com"
+      }
+    },
+    {
+      "name": "项1-d 保存纸面成功（UI 提示+html+镜像+PUT 200+服务端 paper）",
+      "pass": true,
+      "detail": {
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        },
+        "put": {
+          "method": "PUT",
+          "path": "/api/me/theme",
+          "post": "{\"themeStyle\":\"paper\"}",
+          "status": 200,
+          "respBody": {
+            "id": 1,
+            "username": "qa-jim-theme",
+            "email": "qa-jim-theme@example.com",
+            "role": "admin",
+            "avatarUrl": null,
+            "bio": "",
+            "themeStyle": "paper",
+            "language": "zh",
+            "approvalStatus": "approved",
+            "createdAt": "2026-11-25T02:19:34.501Z",
+            "twofa": {
+              "totpEnabled": false,
+              "passkeyEnabled": false,
+              "passkeyCount": 0,
+              "emailOtpEnabled": false
+            }
+          }
+        },
+        "server": "paper"
+      }
+    },
+    {
+      "name": "项1-e 刷新后仍为纸面（本地持久）",
+      "pass": true,
+      "detail": {
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        }
+      }
+    },
+    {
+      "name": "项1-f 浏览器2 登录自动应用纸面（未碰设置页）",
+      "pass": true,
+      "detail": {
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        },
+        "server": "paper"
+      }
+    },
+    {
+      "name": "项2-a 浏览器2 设置页显示服务端当前值 paper",
+      "pass": true,
+      "detail": {
+        "found": true,
+        "title": "主题",
+        "buttons": [
+          {
+            "text": "Nova",
+            "pressed": "off",
+            "disabled": false
+          },
+          {
+            "text": "纸面",
+            "pressed": "on",
+            "disabled": false
+          },
+          {
+            "text": "保存",
+            "pressed": null,
+            "disabled": true
+          }
+        ],
+        "hasLightDarkControl": false,
+        "accountHint": true,
+        "cardText": "主题Nova纸面保存当前账号：qa-jim-theme@example.com"
+      }
+    },
+    {
+      "name": "项2-b 浏览器2 改回 Nova 保存成功（服务端 nova）",
+      "pass": true,
+      "detail": {
+        "put": {
+          "method": "PUT",
+          "path": "/api/me/theme",
+          "post": "{\"themeStyle\":\"nova\"}",
+          "status": 200,
+          "respBody": {
+            "id": 1,
+            "username": "qa-jim-theme",
+            "email": "qa-jim-theme@example.com",
+            "role": "admin",
+            "avatarUrl": null,
+            "bio": "",
+            "themeStyle": "nova",
+            "language": "zh",
+            "approvalStatus": "approved",
+            "createdAt": "2026-11-25T02:19:34.501Z",
+            "twofa": {
+              "totpEnabled": false,
+              "passkeyEnabled": false,
+              "passkeyCount": 0,
+              "emailOtpEnabled": false
+            }
+          }
+        },
+        "server": "nova"
+      }
+    },
+    {
+      "name": "项2-c 浏览器1 刷新后变回 Nova（服务端为准）",
+      "pass": false,
+      "detail": {
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        },
+        "serverAfterReload": "paper",
+        "putDuringReload": [
+          {
+            "method": "PUT",
+            "path": "/api/me/theme",
+            "post": "{\"themeStyle\":\"paper\"}",
+            "status": 200,
+            "respBody": {
+              "id": 1,
+              "username": "qa-jim-theme",
+              "email": "qa-jim-theme@example.com",
+              "role": "admin",
+              "avatarUrl": null,
+              "bio": "",
+              "themeStyle": "paper",
+              "language": "zh",
+              "approvalStatus": "approved",
+              "createdAt": "2026-11-25T02:19:34.501Z",
+              "twofa": {
+                "totpEnabled": false,
+                "passkeyEnabled": false,
+                "passkeyCount": 0,
+                "emailOtpEnabled": false
+              }
+            }
+          }
+        ],
+        "note": "刷新期间发生 PUT 回写 → 服务端为准被破坏"
+      }
+    },
+    {
+      "name": "项3-a 顶栏循环按钮在各页可用（9 页扫描）",
+      "pass": true,
+      "detail": [
+        {
+          "page": "/s/space-1",
+          "finalUrl": "/p/1",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/p/1",
+          "finalUrl": "/p/1",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/settings",
+          "finalUrl": "/settings",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/profile",
+          "finalUrl": "/profile",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/notifications",
+          "finalUrl": "/notifications",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/search",
+          "finalUrl": "/search",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/trash",
+          "finalUrl": "/trash",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/about",
+          "finalUrl": "/about",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        },
+        {
+          "page": "/admin",
+          "finalUrl": "/admin/users",
+          "present": true,
+          "label": "主题：自动（跟随系统），点击切换"
+        }
+      ]
+    },
+    {
+      "name": "项3-b B1 顶栏循环切暗（auto→浅→深，aria/类名正确）",
+      "pass": true,
+      "detail": {
+        "afterLight": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "light",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：浅色，点击切换"
+        },
+        "afterDark": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：深色，点击切换"
+        }
+      }
+    },
+    {
+      "name": "项3-c B2 亮暗不跟随（含刷新后）",
+      "pass": true,
+      "detail": {
+        "b2": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        },
+        "b2Reload": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        }
+      }
+    },
+    {
+      "name": "项3-d auto 正确跟随系统（暗→暗、亮→亮）",
+      "pass": true,
+      "detail": {
+        "autoDark": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        },
+        "backLight": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "light",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：浅色，点击切换"
+        }
+      }
+    },
+    {
+      "name": "项3-e 亮暗切换不写服务端（PUT=0 且值不变）",
+      "pass": true,
+      "detail": {
+        "puts": [],
+        "serverBefore": "paper",
+        "serverEnd": "paper"
+      }
+    },
+    {
+      "name": "项3-f 设置页：顶栏循环按钮在、卡片内无亮暗控件",
+      "pass": true,
+      "detail": {
+        "cycleBtn": true,
+        "card": {
+          "title": "主题",
+          "hasLightDarkControl": false,
+          "buttons": [
+            {
+              "text": "Nova",
+              "pressed": "off",
+              "disabled": false
+            },
+            {
+              "text": "纸面",
+              "pressed": "on",
+              "disabled": false
+            },
+            {
+              "text": "保存",
+              "pressed": null,
+              "disabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "项4-a 服务端已复位为 nova",
+      "pass": true,
+      "detail": {
+        "resetResp": "nova",
+        "server": "nova"
+      }
+    },
+    {
+      "name": "项4-b B3 预置本地 paper 镜像并即时生效（未登录）",
+      "pass": true,
+      "detail": {
+        "preLogin": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "项4-c 登录后自动回写 paper 并应用（PUT 200 + html + 服务端）",
+      "pass": true,
+      "detail": {
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#f7f4ee",
+          "localStorage": {
+            "state": {
+              "theme": "auto",
+              "style": "paper"
+            },
+            "version": 0
+          },
+          "cycleBtnPresent": true,
+          "cycleBtnLabel": "主题：自动（跟随系统），点击切换"
+        },
+        "put": {
+          "method": "PUT",
+          "path": "/api/me/theme",
+          "post": "{\"themeStyle\":\"paper\"}",
+          "status": 200,
+          "respBody": {
+            "id": 1,
+            "username": "qa-jim-theme",
+            "email": "qa-jim-theme@example.com",
+            "role": "admin",
+            "avatarUrl": null,
+            "bio": "",
+            "themeStyle": "paper",
+            "language": "zh",
+            "approvalStatus": "approved",
+            "createdAt": "2026-11-25T02:19:34.501Z",
+            "twofa": {
+              "totpEnabled": false,
+              "passkeyEnabled": false,
+              "passkeyCount": 0,
+              "emailOtpEnabled": false
+            }
+          }
+        },
+        "server": "paper"
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /login",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /login",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /about",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /about",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /notifications",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /notifications",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /search",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /search",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /trash",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /trash",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /admin",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /admin",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /settings",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /settings",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /s/space-1",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /s/space-1",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C1 未登录打开 /p/1",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "nova",
+          "dataMode": "light",
+          "darkClass": false,
+          "colorScheme": "light",
+          "metaThemeColor": "#ffffff",
+          "localStorage": null
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项5 C2 未登录打开 /p/1",
+      "pass": true,
+      "detail": {
+        "finalPath": "/login",
+        "redirected": true,
+        "themeState": {
+          "dataTheme": "paper",
+          "dataMode": "dark",
+          "darkClass": true,
+          "colorScheme": "dark",
+          "metaThemeColor": "#0b0c0e",
+          "localStorage": {
+            "state": {
+              "theme": "dark",
+              "style": "paper"
+            },
+            "version": 0
+          }
+        },
+        "pageErrors": []
+      }
+    },
+    {
+      "name": "项6-a 非法 themeStyle 全部 400 INVALID_THEME_STYLE",
+      "pass": false,
+      "detail": [
+        {
+          "desc": "\"dark\"",
+          "sent": {
+            "themeStyle": "dark"
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "\"PAPER\"",
+          "sent": {
+            "themeStyle": "PAPER"
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "\"paper \"（尾随空格）",
+          "sent": {
+            "themeStyle": "paper "
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "\"Paper\"（大小写）",
+          "sent": {
+            "themeStyle": "Paper"
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "\"\"（空串）",
+          "sent": {
+            "themeStyle": ""
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "\"paperx\"",
+          "sent": {
+            "themeStyle": "paperx"
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "null",
+          "sent": {
+            "themeStyle": null
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "123（数字）",
+          "sent": {
+            "themeStyle": 123
+          },
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "缺字段",
+          "sent": {},
+          "status": 400,
+          "respBody": {
+            "error": "themeStyle must be nova or paper",
+            "code": "INVALID_THEME_STYLE"
+          }
+        },
+        {
+          "desc": "{\"style\":\"paper\"} 错键名（值用 style 传）",
+          "sent": {
+            "style": "paper"
+          },
+          "status": 200,
+          "respBody": {
+            "id": 1,
+            "username": "qa-jim-theme",
+            "email": "qa-jim-theme@example.com",
+            "role": "admin",
+            "avatarUrl": null,
+            "bio": "",
+            "themeStyle": "paper",
+            "language": "zh",
+            "approvalStatus": "approved",
+            "createdAt": "2026-11-25T02:19:34.501Z",
+            "twofa": {
+              "totpEnabled": false,
+              "passkeyEnabled": false,
+              "passkeyCount": 0,
+              "emailOtpEnabled": false
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "项6-b 非法请求后账号值不变",
+      "pass": true,
+      "detail": {
+        "before": "paper",
+        "after": "paper"
+      }
+    },
+    {
+      "name": "项6-c 别名端点行为一致（合法 200 生效 / 非法 400）",
+      "pass": true,
+      "detail": {
+        "aliasOk": {
+          "status": 200,
+          "themeStyle": "paper"
+        },
+        "aliasBad": {
+          "status": 400,
+          "code": "INVALID_THEME_STYLE"
+        }
+      }
+    },
+    {
+      "name": "项6-d 测试收尾：账号复位 nova",
+      "pass": true,
+      "detail": {
+        "final": "nova"
+      }
+    }
+  ],
+  "net": {
+    "b1": [
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 401,
+        "respBody": {
+          "error": "Unauthorized"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/refresh",
+        "post": null,
+        "status": 401
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "post": "{\"email\":\"qa-jim-theme@example.com\",\"password\":\"aSjOgJvj8lRgzpcYXpy83RLRi5QmT6Mu\"}",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1/comments",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1/comments",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1/comments",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/tokens",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/import-tokens",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/agents",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/sessions",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/admin/users",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1/comments",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/tokens",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/import-tokens",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/agents",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me/sessions",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      }
+    ],
+    "b2": [
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 401,
+        "respBody": {
+          "error": "Unauthorized"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/refresh",
+        "post": null,
+        "status": 401
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "post": "{\"email\":\"qa-jim-theme@example.com\",\"password\":\"aSjOgJvj8lRgzpcYXpy83RLRi5QmT6Mu\"}",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1/comments",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1/comments",
+        "post": null,
+        "status": 200
+      }
+    ],
+    "b3": [
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 401
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/refresh",
+        "post": null,
+        "status": 401
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 401,
+        "respBody": {
+          "error": "Unauthorized"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/refresh",
+        "post": null,
+        "status": 401
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 401,
+        "respBody": {
+          "error": "Unauthorized"
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/auth/config",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/setup/state",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/refresh",
+        "post": null
+      },
+      {
+        "method": "POST",
+        "path": "/api/auth/login",
+        "post": "{\"email\":\"qa-jim-theme@example.com\",\"password\":\"aSjOgJvj8lRgzpcYXpy83RLRi5QmT6Mu\"}",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "nova",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "PUT",
+        "path": "/api/me/theme",
+        "post": "{\"themeStyle\":\"paper\"}",
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      },
+      {
+        "method": "GET",
+        "path": "/api/notifications/unread-count",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/spaces",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/pages/1/comments",
+        "post": null,
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/api/me",
+        "post": null,
+        "status": 200,
+        "respBody": {
+          "id": 1,
+          "username": "qa-jim-theme",
+          "email": "qa-jim-theme@example.com",
+          "role": "admin",
+          "avatarUrl": null,
+          "bio": "",
+          "themeStyle": "paper",
+          "language": "zh",
+          "approvalStatus": "approved",
+          "createdAt": "2026-11-25T02:19:34.501Z",
+          "twofa": {
+            "totpEnabled": false,
+            "passkeyEnabled": false,
+            "passkeyCount": 0,
+            "emailOtpEnabled": false
+          }
+        }
+      }
+    ]
+  }
+}
