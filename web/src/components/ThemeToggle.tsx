@@ -24,12 +24,13 @@ export function ThemeStyleSegmented({
   disabled
 }: ThemeStyleSegmentedProps) {
   const { t } = useTranslation()
+  const safeValue: ThemeStyle = value === "paper" ? "paper" : "nova"
   return (
     <ToggleGroup
       type="single"
       variant="outline"
       size="sm"
-      value={value}
+      value={safeValue}
       disabled={disabled}
       onValueChange={(val) => {
         if (val) onChange(val as ThemeStyle)
@@ -50,14 +51,16 @@ export function ThemeCycleButton() {
   const { t } = useTranslation()
   const theme = useThemeStore((state) => state.theme)
   const setTheme = useThemeStore((state) => state.setTheme)
-  const Icon = ICONS[theme]
+  const currentTheme: Theme =
+    theme === "light" || theme === "dark" ? theme : "auto"
+  const Icon = ICONS[currentTheme]
   const order: Theme[] = ["auto", "light", "dark"]
   const label: Record<Theme, string> = {
     auto: t("common.theme.cycle.auto"),
     light: t("common.theme.cycle.light"),
     dark: t("common.theme.cycle.dark")
   }
-  const hint = t("common.theme.cycle.switch", { label: label[theme] })
+  const hint = t("common.theme.cycle.switch", { label: label[currentTheme] })
   return (
     <Button
       type="button"
@@ -66,7 +69,7 @@ export function ThemeCycleButton() {
       title={hint}
       aria-label={hint}
       onClick={() => {
-        const index = order.indexOf(theme)
+        const index = order.indexOf(currentTheme)
         setTheme(order[(index + 1) % order.length])
       }}
     >

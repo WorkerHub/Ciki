@@ -66,6 +66,7 @@
 - `schema_v11`：新增 `notifications` 表及 `(recipient_id, read_at)`、`(recipient_id, created_at)` 索引，支撑评论通知持久化与未读/分页查询。
 - `schema_v12`：为 `users` 表追加 `bio` 列（`TEXT NOT NULL DEFAULT ''`），支持作者主页与个人资料展示一句话简介。
 - `schema_v13`：为 `users` 表追加 `theme_style` 列（`TEXT NOT NULL DEFAULT 'nova'`），支持主题风格（Nova / 纸面）与用户账号绑定同步。
+- `schema_v14`：为 `passkey_credentials` 表追加 `name` 列（`TEXT NOT NULL DEFAULT ''`，存量行按创建时间顺序回填「Passkey 1」「Passkey 2」…），为 `user_2fa` 表追加 `totp_name` 列（`TEXT NOT NULL DEFAULT ''`，存量已启用 TOTP 回填「TOTP」），支撑 Passkey 与 TOTP 自定义命名、展示与改名。
 - 已是当前形态的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本收敛）。
 
 今后结构变化只在末尾追加新的 `schema_vN`（新表/新索引写进本条迁移自己的 sql，不改 `schema_v1` 基线清单），`schema_v1` 不得改名、改内容或调序。
@@ -847,14 +848,17 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "createdAt": "2026-11-07T12:00:00.000Z",
   "twofa": {
     "totpEnabled": false,
+    "totpName": null,
     "passkeyEnabled": false,
     "passkeyCount": 0,
+    "passkeys": [],
     "emailOtpEnabled": false
   }
 }
 ```
 
 `id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。`bio` 是一句话简介（纯文本，人类用户原样输出，Agent 账号恒为空串 `""`）。`language` 是界面语言（`zh` / `en`），登录后前端以它为准。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
+`twofa` 扩展字段：`totpName`（开启时回显名字，未自定义时为 `"TOTP"`，未开启时为 `null`）；`passkeys` 为凭证列表数组（每项包含 `name`、`createdAt`、`lastUsedAt`、`credentialId`）。
 `themeStyle` 是主题风格（`nova` / `paper`，默认 `nova`），登录后前端以它为准；历史或非法值归一化兜底 `nova`；Agent 账号不作特殊处理（默认 `nova`）。
 
 #### PUT /api/me/profile
@@ -945,18 +949,19 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 ### 2FA 管理（均需会话）
 
-| 端点                                          | 请求体                          | 响应                                                                                             |
-| --------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `POST /api/auth/2fa/totp/setup`               | `password?`（见下）             | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，待确认密钥以密文存挑战行）            |
-| `POST /api/auth/2fa/totp/enable`              | `{"code":"123456","password"?}` | `{"success":true}`；消费挑战行、解密校验后把密文落 `user_2fa`，并把当前受限会话标记清零          |
-| `POST /api/auth/2fa/totp/disable`             | `{"password":"…"}`              | `{"success":true}`，清空密文与开关                                                               |
-| `POST /api/auth/2fa/passkey/register/options` | `password?`（见下）             | WebAuthn 注册 options（写 `passkey_register` 挑战行）                                            |
-| `POST /api/auth/2fa/passkey/register/verify`  | WebAuthn response + `password?` | `{"success":true}`；消费挑战行、插 `passkey_credentials`，并把受限会话标记清零                   |
-| `DELETE /api/auth/2fa/passkey/:credentialId`  | `{"password":"…"}`              | `{"success":true}`；删除该凭证行                                                                 |
-| `POST /api/auth/2fa/passkey/disable`          | `{"password":"…"}`              | `{"success":true}`；删除该用户全部凭证                                                           |
-| `POST /api/auth/2fa/email-otp/send-verify`    | `password?`（见下）             | `{"success":true,"cooldownSeconds":60,"expiresInSeconds":600}`；向账号邮箱发 `2fa_enable` 验证码 |
-| `POST /api/auth/2fa/email-otp/enable`         | `{"code":"123456","password"?}` | `{"success":true}`；消费 `2fa_enable` 验证码后置 `email_otp_enabled=1`，并清受限会话标记         |
-| `POST /api/auth/2fa/email-otp/disable`        | `{"password":"…"}`              | `{"success":true}`；置 `email_otp_enabled=0` 并删除未用的 `2fa_enable` 验证码                    |
+| 端点                                          | 请求体                                    | 响应                                                                                                         |
+| --------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `POST /api/auth/2fa/totp/setup`               | `password?`, `name?`                      | `{"secret":"BASE32","uri":"otpauth://…"}`（明文只回这一次，可填自定义名字作为 otpauth label，留空为邮箱）    |
+| `POST /api/auth/2fa/totp/enable`              | `{"code":"123456","name"?,"password"?}`   | `{"success":true}`；消费挑战行、解密校验后把密文与 totp_name 落 `user_2fa`，并把当前受限会话标记清零         |
+| `POST /api/auth/2fa/totp/disable`             | `{"password":"…"}`                        | `{"success":true}`，清空密文与开关                                                                           |
+| `POST /api/auth/2fa/passkey/register/options` | `password?`（见下）                       | WebAuthn 注册 options（写 `passkey_register` 挑战行）                                                        |
+| `POST /api/auth/2fa/passkey/register/verify`  | WebAuthn response + `name?` + `password?` | `{"success":true}`；消费挑战行、插 `passkey_credentials`（带名字，留空默认 Passkey N），并把受限会话标记清零 |
+| `PATCH /api/auth/2fa/passkey/:credentialId`   | `{"name":"…"}`                            | `{"success":true,"name":"…"}`；Passkey 改名（trim 后 1–50 字符；仅需登录会话，不要求密码重认证）             |
+| `DELETE /api/auth/2fa/passkey/:credentialId`  | `{"password":"…"}`                        | `{"success":true}`；删除该凭证行                                                                             |
+| `POST /api/auth/2fa/passkey/disable`          | `{"password":"…"}`                        | `{"success":true}`；删除该用户全部凭证                                                                       |
+| `POST /api/auth/2fa/email-otp/send-verify`    | `password?`（见下）                       | `{"success":true,"cooldownSeconds":60,"expiresInSeconds":600}`；向账号邮箱发 `2fa_enable` 验证码             |
+| `POST /api/auth/2fa/email-otp/enable`         | `{"code":"123456","password"?}`           | `{"success":true}`；消费 `2fa_enable` 验证码后置 `email_otp_enabled=1`，并清受限会话标记                     |
+| `POST /api/auth/2fa/email-otp/disable`        | `{"password":"…"}`                        | `{"success":true}`；置 `email_otp_enabled=0` 并删除未用的 `2fa_enable` 验证码                                |
 
 **密码重认证规则（新增/启用因子）**：账号**已有任何因子**（`totp_enabled` 为真、存在 `passkey_credentials` 行，或 `email_otp_enabled=1`）时，上表六个「新增/启用」端点（`totp/setup`、`totp/enable`、`passkey/register/options`、`passkey/register/verify`、`email-otp/send-verify`、`email-otp/enable`）必须带 `password`；缺密码 400 `{"error":"Password required"}`、密码错 403 `{"error":"Password is incorrect"}`、失败 5 次/5 分钟 429 `{"error":"Too many requests","code":"RATE_LIMITED"}`，成功清零。**没有任何因子时免密码**（首次设置、刚用密码登录过的账号直接走会话）。前端可用 `GET /api/me` 的 `twofa.totpEnabled` / `twofa.passkeyCount` / `twofa.emailOtpEnabled` 判断是否需要弹密码框。关闭 TOTP、删除/关闭 passkey、关闭邮箱验证码始终要求 `password`。
 

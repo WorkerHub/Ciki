@@ -373,7 +373,8 @@ describe("Agent 认证与登录阻断", () => {
       credentialId: credId,
       publicKey: "dummy-public-key",
       counter: 0,
-      transports: "[]"
+      transports: "[]",
+      name: "Agent Passkey"
     })
 
     // 尝试 Passkey 登录

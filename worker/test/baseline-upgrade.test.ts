@@ -148,6 +148,14 @@ function withoutEmailSettings(
     >
     return rest
   })
+  next.passkey_credentials = (next.passkey_credentials ?? []).map((row) => {
+    const { name, ...rest } = row as Record<string, unknown>
+    return rest
+  })
+  next.user_2fa = (next.user_2fa ?? []).map((row) => {
+    const { totp_name, ...rest } = row as Record<string, unknown>
+    return rest
+  })
   return next
 }
 
@@ -354,7 +362,8 @@ describe("全新库与幂等", () => {
       "schema_v10",
       "schema_v11",
       "schema_v12",
-      "schema_v13"
+      "schema_v13",
+      "schema_v14"
     ])
 
     const tables = tableNames(context)
