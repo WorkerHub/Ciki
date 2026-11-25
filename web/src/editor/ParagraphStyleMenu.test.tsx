@@ -163,7 +163,7 @@ describe("段落样式下拉", () => {
     const editor = makeEditor("<h2>文首标题</h2><p>正文内容</p>")
     render(<ParagraphStyleMenu editor={editor} />)
     const trigger = screen.getByRole("combobox", { name: "段落样式" })
-    // 首挂即正文：tx: 0 哨兵阻断 0 > -1 恒真路径，防止首挂直接反映文首标题（#229 打回项）
+    // 哨兵初值 0 使首挂 tx(0) > baseline.tx(0) 为 false → 首挂即正文，防止直接反映文首标题（#229 验收打回项）
     expect(trigger).toHaveTextContent(/^正文$/)
 
     // 首笔事务落定（用户交互或光标定位）后如实反映选区

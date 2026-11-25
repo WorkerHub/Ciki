@@ -48,6 +48,8 @@ export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
   // 以「当前实例至少发生过一笔事务」作为落定信号：
   // 哨兵初值记为 tx:0，仅当 tx > baseline.tx 时才算落定（首挂 0 > 0 为 false，首挂即稳定显示正文）。
   // 换实例时把基线对齐到当时 transactionNumber，事务发生前一律显示「正文」占位，落定后才如实反映选区。
+  // 注意：落定信号依赖 @tiptap/react 的 transactionNumber 由当前 useEditorState 实例内部持有且跨 editor 实例换手时不重置（非模块级全局计数）；
+  // 后续升级 @tiptap/react 时需重点验证此假设依然成立。
   const [baseline, setBaseline] = useState<{ editor: Editor; tx: number }>({
     editor,
     tx: 0
