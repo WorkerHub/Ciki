@@ -1,0 +1,323 @@
+{
+  "wide__nova-light": {
+    "viewport": {
+      "w": 1920,
+      "h": 1080
+    },
+    "devicePixelRatio": 1,
+    "htmlAttrs": {
+      "theme": "nova",
+      "dark": false,
+      "mode": "light"
+    },
+    "container": {
+      "left": 370.4,
+      "right": 1640,
+      "top": 183.3,
+      "width": 1269.6,
+      "maxWidth": "none",
+      "display": "block"
+    },
+    "tocAside": {
+      "left": 1672,
+      "right": 1896,
+      "top": 183.3,
+      "width": 224,
+      "maxWidth": "none",
+      "display": "block"
+    },
+    "tocNav": null,
+    "canvas": {
+      "left": 370.4,
+      "right": 1896,
+      "top": 72,
+      "width": 1525.6,
+      "maxWidth": "1600px",
+      "display": "block"
+    },
+    "content": {
+      "fontSize": "15px",
+      "lineHeight": "26.25px",
+      "fontFamily": "\"Geist Variable\", sans-serif",
+      "color": "oklch(0.145 0 0)",
+      "width": 1269.6
+    },
+    "paperTexture": null,
+    "readMaxWidthVar": "none",
+    "bodyBg": "oklch(1 0 0)"
+  },
+  "wide__paper-light": {
+    "viewport": {
+      "w": 1920,
+      "h": 1080
+    },
+    "devicePixelRatio": 1,
+    "htmlAttrs": {
+      "theme": "paper",
+      "dark": false,
+      "mode": "light"
+    },
+    "container": {
+      "left": 370.4,
+      "right": 1230.4,
+      "top": 183.3,
+      "width": 860,
+      "maxWidth": "860px",
+      "display": "block"
+    },
+    "tocAside": {
+      "left": 1262.4,
+      "right": 1486.4,
+      "top": 183.3,
+      "width": 224,
+      "maxWidth": "none",
+      "display": "block"
+    },
+    "tocNav": null,
+    "canvas": {
+      "left": 370.4,
+      "right": 1896,
+      "top": 72,
+      "width": 1525.6,
+      "maxWidth": "1600px",
+      "display": "block"
+    },
+    "content": {
+      "fontSize": "15px",
+      "lineHeight": "25.5px",
+      "fontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "color": "rgb(42, 43, 47)",
+      "width": 860
+    },
+    "paperTexture": {
+      "afterContent": "\"\"",
+      "afterOpacity": "0.55",
+      "afterBackground": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' he",
+      "afterSize": "auto"
+    },
+    "readMaxWidthVar": "860px",
+    "bodyBg": "rgb(247, 244, 238)"
+  },
+  "wide__paper-dark": {
+    "viewport": {
+      "w": 1920,
+      "h": 1080
+    },
+    "devicePixelRatio": 1,
+    "htmlAttrs": {
+      "theme": "paper",
+      "dark": true,
+      "mode": "dark"
+    },
+    "container": {
+      "left": 370.4,
+      "right": 1230.4,
+      "top": 183.3,
+      "width": 860,
+      "maxWidth": "860px",
+      "display": "block"
+    },
+    "tocAside": {
+      "left": 1262.4,
+      "right": 1486.4,
+      "top": 183.3,
+      "width": 224,
+      "maxWidth": "none",
+      "display": "block"
+    },
+    "tocNav": null,
+    "canvas": {
+      "left": 370.4,
+      "right": 1896,
+      "top": 72,
+      "width": 1525.6,
+      "maxWidth": "1600px",
+      "display": "block"
+    },
+    "content": {
+      "fontSize": "15px",
+      "lineHeight": "25.5px",
+      "fontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "color": "rgb(242, 240, 235)",
+      "width": 860
+    },
+    "paperTexture": {
+      "afterContent": "\"\"",
+      "afterOpacity": "0.22",
+      "afterBackground": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' he",
+      "afterSize": "auto"
+    },
+    "readMaxWidthVar": "860px",
+    "bodyBg": "rgb(11, 12, 14)"
+  },
+  "narrow-1279__nova-light": {
+    "viewport": {
+      "w": 1279,
+      "h": 900
+    },
+    "devicePixelRatio": 1,
+    "htmlAttrs": {
+      "theme": "nova",
+      "dark": false,
+      "mode": "light"
+    },
+    "container": {
+      "left": 255,
+      "right": 1255,
+      "top": 183.3,
+      "width": 1000,
+      "maxWidth": "none",
+      "display": "block"
+    },
+    "tocAside": null,
+    "tocNav": null,
+    "canvas": {
+      "left": 255,
+      "right": 1255,
+      "top": 72,
+      "width": 1000,
+      "maxWidth": "1600px",
+      "display": "block"
+    },
+    "content": {
+      "fontSize": "15px",
+      "lineHeight": "26.25px",
+      "fontFamily": "\"Geist Variable\", sans-serif",
+      "color": "oklch(0.145 0 0)",
+      "width": 1000
+    },
+    "paperTexture": null,
+    "readMaxWidthVar": "none",
+    "bodyBg": "oklch(1 0 0)"
+  },
+  "narrow-1279__paper-light": {
+    "viewport": {
+      "w": 1279,
+      "h": 900
+    },
+    "devicePixelRatio": 1,
+    "htmlAttrs": {
+      "theme": "paper",
+      "dark": false,
+      "mode": "light"
+    },
+    "container": {
+      "left": 255,
+      "right": 1115,
+      "top": 183.3,
+      "width": 860,
+      "maxWidth": "860px",
+      "display": "block"
+    },
+    "tocAside": null,
+    "tocNav": null,
+    "canvas": {
+      "left": 255,
+      "right": 1255,
+      "top": 72,
+      "width": 1000,
+      "maxWidth": "1600px",
+      "display": "block"
+    },
+    "content": {
+      "fontSize": "15px",
+      "lineHeight": "25.5px",
+      "fontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "color": "rgb(42, 43, 47)",
+      "width": 860
+    },
+    "paperTexture": {
+      "afterContent": "\"\"",
+      "afterOpacity": "0.55",
+      "afterBackground": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' he",
+      "afterSize": "auto"
+    },
+    "readMaxWidthVar": "860px",
+    "bodyBg": "rgb(247, 244, 238)"
+  },
+  "narrow-1024__nova-light": {
+    "viewport": {
+      "w": 1024,
+      "h": 800
+    },
+    "devicePixelRatio": 1,
+    "htmlAttrs": {
+      "theme": "nova",
+      "dark": false,
+      "mode": "light"
+    },
+    "container": {
+      "left": 225,
+      "right": 1000,
+      "top": 183.3,
+      "width": 775,
+      "maxWidth": "none",
+      "display": "block"
+    },
+    "tocAside": null,
+    "tocNav": null,
+    "canvas": {
+      "left": 225,
+      "right": 1000,
+      "top": 72,
+      "width": 775,
+      "maxWidth": "1600px",
+      "display": "block"
+    },
+    "content": {
+      "fontSize": "15px",
+      "lineHeight": "26.25px",
+      "fontFamily": "\"Geist Variable\", sans-serif",
+      "color": "oklch(0.145 0 0)",
+      "width": 775
+    },
+    "paperTexture": null,
+    "readMaxWidthVar": "none",
+    "bodyBg": "oklch(1 0 0)"
+  },
+  "narrow-1024__paper-light": {
+    "viewport": {
+      "w": 1024,
+      "h": 800
+    },
+    "devicePixelRatio": 1,
+    "htmlAttrs": {
+      "theme": "paper",
+      "dark": false,
+      "mode": "light"
+    },
+    "container": {
+      "left": 225,
+      "right": 1000,
+      "top": 183.3,
+      "width": 775,
+      "maxWidth": "860px",
+      "display": "block"
+    },
+    "tocAside": null,
+    "tocNav": null,
+    "canvas": {
+      "left": 225,
+      "right": 1000,
+      "top": 72,
+      "width": 775,
+      "maxWidth": "1600px",
+      "display": "block"
+    },
+    "content": {
+      "fontSize": "15px",
+      "lineHeight": "25.5px",
+      "fontFamily": "\"Inter Variable\", \"PingFang SC\", \"Noto Sans CJK SC\", \"Source Han Sans SC\", \"Microsoft YaHei\", sans-serif",
+      "color": "rgb(42, 43, 47)",
+      "width": 775
+    },
+    "paperTexture": {
+      "afterContent": "\"\"",
+      "afterOpacity": "0.55",
+      "afterBackground": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' he",
+      "afterSize": "auto"
+    },
+    "readMaxWidthVar": "860px",
+    "bodyBg": "rgb(247, 244, 238)"
+  }
+}

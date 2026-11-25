@@ -1,0 +1,23 @@
+{
+  "editor": {
+    "left": 395.4,
+    "right": 1871,
+    "width": 1475.6
+  },
+  "surface": {
+    "left": 370.4,
+    "right": 1896,
+    "width": 1525.6
+  },
+  "title": {
+    "left": 370.4,
+    "right": 1896,
+    "width": 1525.6
+  },
+  "toolbarLabel": "正文",
+  "bodyBg": "rgb(247, 244, 238)",
+  "htmlAttrs": {
+    "dataTheme": "paper",
+    "dataMode": "light"
+  }
+}

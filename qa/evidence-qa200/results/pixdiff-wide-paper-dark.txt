@@ -1,0 +1,2 @@
+wide__paper-dark-viewport.png vs wide__paper-dark-viewport.png: 1920x1080 差异像素 326381 (15.740%)
+  差异行范围: 190–1079, 差异列范围: 74–1814

@@ -1,0 +1,2 @@
+wide2400__paper-light-viewport.png vs wide2400__paper-light-viewport.png: 2400x1200 差异像素 361532 (12.553%)
+  差异行范围: 190–1199, 差异列范围: 74–2129

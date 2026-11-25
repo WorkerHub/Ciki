@@ -1,0 +1,2 @@
+wide__nova-light-viewport.png vs wide__nova-light-viewport.png: 1920x1080 差异像素 578 (0.028%)
+  差异行范围: 1057–1066, 差异列范围: 70–165

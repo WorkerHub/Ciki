@@ -1,0 +1,33 @@
+{
+  "canvas": {
+    "left": 610.5,
+    "right": 2210.5,
+    "width": 1600,
+    "top": 72
+  },
+  "container": {
+    "left": 610.5,
+    "right": 1954.5,
+    "width": 1344,
+    "top": 183.3,
+    "maxWidth": "none"
+  },
+  "aside": {
+    "left": 1986.5,
+    "right": 2210.5,
+    "width": 224,
+    "top": 183.3
+  },
+  "asideNav": {
+    "left": 1986.5,
+    "right": 2210.5,
+    "width": 224,
+    "top": 183.3
+  },
+  "bodyBg": "oklch(1 0 0)",
+  "htmlAttrs": {
+    "dataTheme": "nova",
+    "dataMode": "light",
+    "cls": ""
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "canvas": {
+    "left": 610.5,
+    "right": 2210.5,
+    "width": 1600,
+    "top": 72
+  },
+  "container": {
+    "left": 610.5,
+    "right": 1470.5,
+    "width": 860,
+    "top": 183.3,
+    "maxWidth": "860px"
+  },
+  "aside": {
+    "left": 1502.5,
+    "right": 1726.5,
+    "width": 224,
+    "top": 183.3
+  },
+  "asideNav": {
+    "left": 1502.5,
+    "right": 1726.5,
+    "width": 224,
+    "top": 183.3
+  },
+  "bodyBg": "rgb(247, 244, 238)",
+  "htmlAttrs": {
+    "dataTheme": "paper",
+    "dataMode": "light",
+    "cls": ""
+  }
+}

@@ -1,0 +1,2 @@
+narrow-1279__nova-light-viewport.png vs narrow-1279__nova-light-viewport.png: 1279x900 差异像素 578 (0.050%)
+  差异行范围: 877–886, 差异列范围: 70–165

@@ -1,0 +1,2 @@
+narrow-1279__paper-light-viewport.png vs narrow-1279__paper-light-viewport.png: 1279x900 差异像素 139236 (12.096%)
+  差异行范围: 231–886, 差异列范围: 74–1253
