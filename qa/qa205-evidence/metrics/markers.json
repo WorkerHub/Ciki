@@ -1,0 +1,30 @@
+{
+  "checkedAt": "2026-11-25T01:55+08:00",
+  "prodBase": "https://ciki.pama.workers.dev",
+  "apiPublic": {
+    "version": "v1.0.0-284-c5b0255",
+    "source": "prod-public.json"
+  },
+  "method": "curl 抓取生产 index.html(no-cache) -> 入口 index-B4sJZhzK.js -> 动态 import chunk 名 -> 逐文件 grep 特征串",
+  "markers": {
+    "data-testid crop-box": "assets/AvatarCropDialog-C_bT9abH.js",
+    "i18n key profile.avatar.decodeFailed": "assets/AvatarCropDialog-C_bT9abH.js",
+    "i18n key settings.agents.avatar.uploaded": "assets/SettingsPage-rz_39PQp.js",
+    "zh 裁剪头像": "assets/api-B4YB4xqB.js",
+    "zh 图片解码失败，请更换图片重试。": "assets/api-B4YB4xqB.js",
+    "zh 缩放选区": "assets/api-B4YB4xqB.js",
+    "zh Agent 头像已更新。": "assets/api-B4YB4xqB.js",
+    "zh 为 {{name}} 选择头像": "assets/api-B4YB4xqB.js",
+    "zh 上传头像": "assets/api-B4YB4xqB.js"
+  },
+  "chunksTotalFetched": 110,
+  "notes": [
+    "AvatarCropDialog chunk 19084 字节，与本地同 commit 构建（AvatarCropDialog-CvjOCb1n.js）同尺寸；chunk 哈希不同源于 build-info 注入的构建元数据（时间戳/构建号），属预期。",
+    "生产 index.html 曾出现边缘缓存回退（旧部署入口 index-99Hme72b.js 已 404->SPA 回退），以 no-cache 复抓的 index-B4sJZhzK.js 为准。",
+    "api-B4YB4xqB.js（zh 资源所在共享 chunk）体积较大未入库，可用 markers 清单在生产资产 /assets/api-B4YB4xqB.js 上复验。"
+  ],
+  "savedHashes": {
+    "AvatarCropDialog-C_bT9abH.js": "da4ba98d14be6c500f9b716bffcb054568dffc26d6a81c9dba5811f745cf47d7",
+    "SettingsPage-rz_39PQp.js": "654c7b5eee5dfd3a61d655a525db9bc4c0b1384209b6a93293a54c2138acbdfe"
+  }
+}

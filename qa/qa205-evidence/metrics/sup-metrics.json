@@ -1,0 +1,396 @@
+{
+  "results": [
+    {
+      "name": "sup: alpha 上传恰 1 次 POST",
+      "pass": true,
+      "detail": [
+        {
+          "ts": 1795572025633,
+          "kind": "request",
+          "method": "POST",
+          "path": "/api/me/agents/2/avatar"
+        }
+      ]
+    },
+    {
+      "name": "sup: alpha.avatarUrl 更新",
+      "pass": true,
+      "detail": "/api/files/avatars/8e0e7444-0fb1-4d7a-bad3-bc60467ad39b.webp"
+    },
+    {
+      "name": "sup: alpha 落盘 WebP",
+      "pass": true,
+      "detail": {
+        "bytes": 1166
+      }
+    },
+    {
+      "name": "sup: 取消无头像变更请求",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sup: 取消后 beta 头像不变",
+      "pass": true,
+      "detail": {
+        "before": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp",
+        "after": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+      }
+    },
+    {
+      "name": "sup: 解码失败提示可见",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sup: 解码失败无上传请求",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sup: alpha.avatarUrl 置空",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sup: 预览阶段无上传",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "sup: 自己头像更新",
+      "pass": true,
+      "detail": "/api/files/avatars/91fe53e1-b863-4523-a9ea-b9338ed0a549.webp"
+    },
+    {
+      "name": "sup: 资料页落盘 WebP",
+      "pass": true,
+      "detail": {
+        "bytes": 1192
+      }
+    }
+  ],
+  "shots": [
+    "sup-00-agent-card-initial.png",
+    "sup-01-alpha-uploaded-notice.png",
+    "sup-02-beta-cancelled-unchanged.png",
+    "sup-03-decode-error-alert.png",
+    "sup-04-alpha-avatar-deleted.png",
+    "sup-05-profile-preview-savebtn.png",
+    "sup-06-profile-saved.png"
+  ],
+  "requests": [
+    {
+      "ts": 1795572024774,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "ts": 1795572024774,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "ts": 1795572024774,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "ts": 1795572024794,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "ts": 1795572024794,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "ts": 1795572024794,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "ts": 1795572025118,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "ts": 1795572025118,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/tokens"
+    },
+    {
+      "ts": 1795572025118,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/import-tokens"
+    },
+    {
+      "ts": 1795572025119,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/agents"
+    },
+    {
+      "ts": 1795572025119,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/sessions"
+    },
+    {
+      "ts": 1795572025119,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "ts": 1795572025119,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/9bf9a9c7-603d-4e62-8713-a58d1059d4a6.webp"
+    },
+    {
+      "ts": 1795572025147,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/9bf9a9c7-603d-4e62-8713-a58d1059d4a6.webp",
+      "status": 200
+    },
+    {
+      "ts": 1795572025149,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "ts": 1795572025149,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/sessions",
+      "status": 200
+    },
+    {
+      "ts": 1795572025150,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/import-tokens",
+      "status": 200
+    },
+    {
+      "ts": 1795572025150,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/agents",
+      "status": 200
+    },
+    {
+      "ts": 1795572025150,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/tokens",
+      "status": 200
+    },
+    {
+      "ts": 1795572025150,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "ts": 1795572025183,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "ts": 1795572025183,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+    },
+    {
+      "ts": 1795572025191,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 200
+    },
+    {
+      "ts": 1795572025196,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp",
+      "status": 200
+    },
+    {
+      "ts": 1795572025633,
+      "kind": "request",
+      "method": "POST",
+      "path": "/api/me/agents/2/avatar"
+    },
+    {
+      "ts": 1795572025647,
+      "kind": "response",
+      "method": "POST",
+      "path": "/api/me/agents/2/avatar",
+      "status": 200
+    },
+    {
+      "ts": 1795572025650,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/8e0e7444-0fb1-4d7a-bad3-bc60467ad39b.webp"
+    },
+    {
+      "ts": 1795572025661,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/8e0e7444-0fb1-4d7a-bad3-bc60467ad39b.webp",
+      "status": 200
+    },
+    {
+      "ts": 1795572027293,
+      "kind": "request",
+      "method": "DELETE",
+      "path": "/api/me/agents/2/avatar"
+    },
+    {
+      "ts": 1795572027310,
+      "kind": "response",
+      "method": "DELETE",
+      "path": "/api/me/agents/2/avatar",
+      "status": 200
+    },
+    {
+      "ts": 1795572027450,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "ts": 1795572027450,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "ts": 1795572027450,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "ts": 1795572027463,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "ts": 1795572027464,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "ts": 1795572027464,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "ts": 1795572027772,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/9bf9a9c7-603d-4e62-8713-a58d1059d4a6.webp"
+    },
+    {
+      "ts": 1795572027772,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/9bf9a9c7-603d-4e62-8713-a58d1059d4a6.webp",
+      "status": 200
+    },
+    {
+      "ts": 1795572027772,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "ts": 1795572027772,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "ts": 1795572027778,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "ts": 1795572027779,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "ts": 1795572027781,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "ts": 1795572027788,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 200
+    },
+    {
+      "ts": 1795572028658,
+      "kind": "request",
+      "method": "POST",
+      "path": "/api/me/avatar"
+    },
+    {
+      "ts": 1795572028671,
+      "kind": "response",
+      "method": "POST",
+      "path": "/api/me/avatar",
+      "status": 200
+    },
+    {
+      "ts": 1795572028673,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/91fe53e1-b863-4523-a9ea-b9338ed0a549.webp"
+    },
+    {
+      "ts": 1795572028678,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/91fe53e1-b863-4523-a9ea-b9338ed0a549.webp",
+      "status": 200
+    }
+  ]
+}

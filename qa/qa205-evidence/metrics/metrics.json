@@ -1,0 +1,719 @@
+{
+  "base": "http://127.0.0.1:8795",
+  "startedAt": "2026-11-25T01:46:49.568Z",
+  "finishedAt": "2026-11-25T01:46:54.656Z",
+  "results": [
+    {
+      "name": "前置: alpha 初始无头像",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "前置: beta 初始无头像",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "前置: 管理员本人初始无头像",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项1: 裁剪对话框打开且选区可见",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项1: 选区可拖动（x 左移≈50px）",
+      "pass": true,
+      "detail": {
+        "dx": -50
+      }
+    },
+    {
+      "name": "项1: 拖动后选区仍在画布内",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项1: 选区可缩小（End）",
+      "pass": true,
+      "detail": {
+        "w": [
+          213,
+          4
+        ]
+      }
+    },
+    {
+      "name": "项1: 选区可放大回满（Home，短边全幅）",
+      "pass": true,
+      "detail": {
+        "h": [
+          213,
+          213
+        ]
+      }
+    },
+    {
+      "name": "项1: 最终选区源尺寸 ≥512px",
+      "pass": true,
+      "detail": {
+        "ratio": 1,
+        "srcSel": 2000
+      }
+    },
+    {
+      "name": "项1: 确认后恰好 1 次上传请求",
+      "pass": true,
+      "detail": [
+        {
+          "ts": 1795571210850,
+          "kind": "request",
+          "method": "POST",
+          "path": "/api/me/agents/2/avatar"
+        }
+      ]
+    },
+    {
+      "name": "项1: 上传响应 200",
+      "pass": true,
+      "detail": [
+        {
+          "ts": 1795571210866,
+          "kind": "response",
+          "method": "POST",
+          "path": "/api/me/agents/2/avatar",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "name": "项1: alpha.avatarUrl 已更新",
+      "pass": true,
+      "detail": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+    },
+    {
+      "name": "项1: 行内头像 img src 与接口一致",
+      "pass": true,
+      "detail": {
+        "uiSrc": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp",
+        "api": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+      }
+    },
+    {
+      "name": "项1: 落盘文件可取回且为 WebP",
+      "pass": true,
+      "detail": {
+        "status": 200,
+        "bytes": 1218,
+        "isWebp": true,
+        "contentType": "image/webp"
+      }
+    },
+    {
+      "name": "项2: 取消后无任何头像上传/删除请求",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "项2: beta 头像不变（仍为 null）",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "项2: beta 行无头像 img",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项3: 仅 1 次上传且指向 beta",
+      "pass": true,
+      "detail": [
+        {
+          "ts": 1795571212689,
+          "kind": "request",
+          "method": "POST",
+          "path": "/api/me/agents/3/avatar"
+        }
+      ]
+    },
+    {
+      "name": "项3: beta.avatarUrl 已更新",
+      "pass": true,
+      "detail": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+    },
+    {
+      "name": "项3: alpha.avatarUrl 保持不变",
+      "pass": true,
+      "detail": {
+        "before": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp",
+        "after": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+      }
+    },
+    {
+      "name": "项3: beta 落盘文件为 WebP",
+      "pass": true,
+      "detail": {
+        "status": 200,
+        "bytes": 1198,
+        "isWebp": true,
+        "contentType": "image/webp"
+      }
+    },
+    {
+      "name": "项4a: 出现解码失败错误提示",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项4a: 对话框已关闭",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项4a: 无上传请求",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "项4a: alpha 头像不变",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项4b: DELETE 请求 200",
+      "pass": true,
+      "detail": [
+        {
+          "ts": 1795571213240,
+          "kind": "response",
+          "method": "DELETE",
+          "path": "/api/me/agents/2/avatar",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "name": "项4b: alpha.avatarUrl 置空",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "项4b: beta 头像不受影响",
+      "pass": true,
+      "detail": {
+        "before": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp",
+        "after": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+      }
+    },
+    {
+      "name": "项4b: alpha 行头像 img 移除",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项4b: 删除后『删除头像』按钮消失",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "name": "项5: 资料页初始无头像",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "项5: 裁剪确认后仅本地预览、未上传",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "项5: 点保存后恰好 1 次 POST /api/me/avatar",
+      "pass": true,
+      "detail": [
+        {
+          "ts": 1795571214592,
+          "kind": "request",
+          "method": "POST",
+          "path": "/api/me/avatar"
+        }
+      ]
+    },
+    {
+      "name": "项5: 自己头像已更新",
+      "pass": true,
+      "detail": "/api/files/avatars/2f3cf219-5b9c-4268-8bb0-6640e20b809e.webp"
+    },
+    {
+      "name": "项5: 落盘文件为 WebP",
+      "pass": true,
+      "detail": {
+        "status": 200,
+        "bytes": 1192,
+        "isWebp": true,
+        "contentType": "image/webp"
+      }
+    }
+  ],
+  "shots": [
+    "01-settings-agents-initial.png",
+    "02-crop-dialog-open.png",
+    "03-crop-dragged.png",
+    "04-crop-zoom-min.png",
+    "05-crop-final-max.png",
+    "06-alpha-updated.png",
+    "07-beta-crop-open.png",
+    "08-beta-cancelled-unchanged.png",
+    "09-beta-crop-open-again.png",
+    "10-beta-uploaded-alpha-unchanged.png",
+    "11-decode-failed-error.png",
+    "12-alpha-avatar-deleted.png",
+    "13-profile-crop-open.png",
+    "14-profile-preview-no-upload.png",
+    "15-profile-saved.png"
+  ],
+  "stateTimeline": [
+    {
+      "tag": "initial",
+      "ts": "2026-11-25T01:46:49.568Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": null
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": null
+        }
+      ],
+      "meAvatarUrl": null
+    },
+    {
+      "tag": "after-item1",
+      "ts": "2026-11-25T01:46:51.043Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": null
+        }
+      ],
+      "meAvatarUrl": null
+    },
+    {
+      "tag": "after-item2-cancel",
+      "ts": "2026-11-25T01:46:52.459Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": null
+        }
+      ],
+      "meAvatarUrl": null
+    },
+    {
+      "tag": "after-item3",
+      "ts": "2026-11-25T01:46:52.891Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+        }
+      ],
+      "meAvatarUrl": null
+    },
+    {
+      "tag": "after-item4a",
+      "ts": "2026-11-25T01:46:53.155Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+        }
+      ],
+      "meAvatarUrl": null
+    },
+    {
+      "tag": "after-item4b",
+      "ts": "2026-11-25T01:46:53.273Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": null
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+        }
+      ],
+      "meAvatarUrl": null
+    },
+    {
+      "tag": "profile-before",
+      "ts": "2026-11-25T01:46:54.203Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": null
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+        }
+      ],
+      "meAvatarUrl": null
+    },
+    {
+      "tag": "profile-after",
+      "ts": "2026-11-25T01:46:54.624Z",
+      "agents": [
+        {
+          "id": 2,
+          "username": "qa-agent-alpha",
+          "avatarUrl": null
+        },
+        {
+          "id": 3,
+          "username": "qa-agent-beta",
+          "avatarUrl": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+        }
+      ],
+      "meAvatarUrl": "/api/files/avatars/2f3cf219-5b9c-4268-8bb0-6640e20b809e.webp"
+    }
+  ],
+  "requests": [
+    {
+      "ts": 1795571208679,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "ts": 1795571208679,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "ts": 1795571208679,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "ts": 1795571208687,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "ts": 1795571208710,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "ts": 1795571208710,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "ts": 1795571209024,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "ts": 1795571209025,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/tokens"
+    },
+    {
+      "ts": 1795571209025,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/import-tokens"
+    },
+    {
+      "ts": 1795571209025,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/agents"
+    },
+    {
+      "ts": 1795571209025,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me/sessions"
+    },
+    {
+      "ts": 1795571209025,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "ts": 1795571209047,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "ts": 1795571209047,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/sessions",
+      "status": 200
+    },
+    {
+      "ts": 1795571209047,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/import-tokens",
+      "status": 200
+    },
+    {
+      "ts": 1795571209047,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/agents",
+      "status": 200
+    },
+    {
+      "ts": 1795571209048,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me/tokens",
+      "status": 200
+    },
+    {
+      "ts": 1795571209048,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "ts": 1795571209077,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "ts": 1795571209082,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 200
+    },
+    {
+      "ts": 1795571210850,
+      "kind": "request",
+      "method": "POST",
+      "path": "/api/me/agents/2/avatar"
+    },
+    {
+      "ts": 1795571210866,
+      "kind": "response",
+      "method": "POST",
+      "path": "/api/me/agents/2/avatar",
+      "status": 200
+    },
+    {
+      "ts": 1795571210867,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp"
+    },
+    {
+      "ts": 1795571210878,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/f700d6e7-c531-40d9-8d29-df6a31c1a675.webp",
+      "status": 200
+    },
+    {
+      "ts": 1795571212689,
+      "kind": "request",
+      "method": "POST",
+      "path": "/api/me/agents/3/avatar"
+    },
+    {
+      "ts": 1795571212715,
+      "kind": "response",
+      "method": "POST",
+      "path": "/api/me/agents/3/avatar",
+      "status": 200
+    },
+    {
+      "ts": 1795571212716,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp"
+    },
+    {
+      "ts": 1795571212724,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/c266d6c4-4452-4481-bf32-0842365bcf27.webp",
+      "status": 200
+    },
+    {
+      "ts": 1795571213227,
+      "kind": "request",
+      "method": "DELETE",
+      "path": "/api/me/agents/2/avatar"
+    },
+    {
+      "ts": 1795571213240,
+      "kind": "response",
+      "method": "DELETE",
+      "path": "/api/me/agents/2/avatar",
+      "status": 200
+    },
+    {
+      "ts": 1795571213402,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "ts": 1795571213402,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "ts": 1795571213402,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "ts": 1795571213418,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "ts": 1795571213418,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "ts": 1795571213418,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "ts": 1795571213727,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "ts": 1795571213727,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "ts": 1795571213733,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "ts": 1795571213735,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "ts": 1795571213743,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "ts": 1795571213749,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 200
+    },
+    {
+      "ts": 1795571214592,
+      "kind": "request",
+      "method": "POST",
+      "path": "/api/me/avatar"
+    },
+    {
+      "ts": 1795571214605,
+      "kind": "response",
+      "method": "POST",
+      "path": "/api/me/avatar",
+      "status": 200
+    },
+    {
+      "ts": 1795571214607,
+      "kind": "request",
+      "method": "GET",
+      "path": "/api/files/avatars/2f3cf219-5b9c-4268-8bb0-6640e20b809e.webp"
+    },
+    {
+      "ts": 1795571214613,
+      "kind": "response",
+      "method": "GET",
+      "path": "/api/files/avatars/2f3cf219-5b9c-4268-8bb0-6640e20b809e.webp",
+      "status": 200
+    }
+  ],
+  "savedFiles": {
+    "alpha1": "files/alpha-item1.webp",
+    "beta3": "files/beta-item3.webp",
+    "profile": "files/profile-item5.webp"
+  }
+}
