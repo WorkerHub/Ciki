@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router"
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
@@ -432,10 +432,12 @@ describe("邮箱验证码 2FA", () => {
   })
 })
 
-/** 语言偏好：即时生效 + 只提交 language；失败回滚（规格 §2.4/§4）。 */
+/** 语言偏好：先选后存（暂存 + 独立保存按钮写回账号）；失败回滚（规格 §2.4 / 2026-11-25 拍板）。 */
 describe("界面语言", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
     vi.mocked(meApi.sessions).mockResolvedValue([])
+    vi.mocked(meApi.updateProfile).mockReset()
     vi.mocked(meApi.updateProfile).mockResolvedValue({
       id: 1,
       username: "管理员",
@@ -454,20 +456,68 @@ describe("界面语言", () => {
     })
   })
 
-  it("切到英文即时生效，并且只把 language 写回账号", async () => {
+  const getLanguageSaveBtn = () => {
+    const card = screen
+      .getByText("语言")
+      .closest<HTMLElement>('[data-slot="card"]')!
+    return within(card).getByRole("button", { name: "保存" })
+  }
+
+  it("点选语言只改暂存值，不立即切换界面语言、不写回账号", async () => {
     const user = userEvent.setup()
     setUser({ totpEnabled: false, passkeyCount: 0 })
     renderSettings()
 
+    expect(i18n.language).toBe("zh")
+    expect(screen.getByText("语言")).toBeInTheDocument()
+
     await user.click(screen.getByRole("radio", { name: "English" }))
 
-    expect(await screen.findByText("Language")).toBeInTheDocument()
+    expect(i18n.language).toBe("zh")
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).not.toBe("en")
+    expect(screen.getByText("语言")).toBeInTheDocument()
+    expect(screen.queryByText("Language")).toBeNull()
+    expect(meApi.updateProfile).not.toHaveBeenCalled()
+  })
+
+  it("保存按钮禁用/可点随暂存切换：初始禁用，选新语言可点，切回当前语言重新禁用", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    const saveBtn = getLanguageSaveBtn()
+    expect(saveBtn).toBeDisabled()
+
+    // 切换至 English，暂存值改变，保存按钮可用
+    await user.click(screen.getByRole("radio", { name: "English" }))
+    expect(saveBtn).toBeEnabled()
+
+    // 切回 中文，暂存值与当前生效语言一致，保存按钮重新禁用
+    await user.click(screen.getByRole("radio", { name: "中文" }))
+    expect(saveBtn).toBeDisabled()
+  })
+
+  it("点保存才执行保存链：本地 changeLanguage 生效且写回账号，成功后保存按钮重置为禁用", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    const saveBtn = getLanguageSaveBtn()
+    expect(saveBtn).toBeDisabled()
+
+    await user.click(screen.getByRole("radio", { name: "English" }))
+    expect(saveBtn).toBeEnabled()
+
+    await user.click(saveBtn)
+
     expect(meApi.updateProfile).toHaveBeenCalledWith({ language: "en" })
     expect(i18n.language).toBe("en")
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("en")
+    expect(await screen.findByText("Language")).toBeInTheDocument()
+    expect(saveBtn).toBeDisabled()
   })
 
-  it("写回失败时回滚到切换前语言并报错", async () => {
+  it("写回失败时回滚本地语言并走错误提示，保存按钮保持可用", async () => {
     vi.mocked(meApi.updateProfile).mockRejectedValue(
       new ApiError(400, "Invalid language", "INVALID_LANGUAGE")
     )
@@ -475,13 +525,48 @@ describe("界面语言", () => {
     setUser({ totpEnabled: false, passkeyCount: 0 })
     renderSettings()
 
+    const saveBtn = getLanguageSaveBtn()
     await user.click(screen.getByRole("radio", { name: "English" }))
+    expect(saveBtn).toBeEnabled()
+
+    await user.click(saveBtn)
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "语言不受支持，只支持中文和英文。"
     )
     expect(i18n.language).toBe("zh")
     expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("zh")
+    expect(screen.getByText("语言")).toBeInTheDocument()
+    expect(saveBtn).toBeEnabled()
+  })
+
+  it("外部（如账号语言覆盖）更新生效语言时自动重同步暂存，避免保存按钮被误启用", async () => {
+    await i18n.changeLanguage("en")
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    const card = screen
+      .getByText("Language")
+      .closest<HTMLElement>('[data-slot="card"]')!
+    const saveBtn = within(card).getByRole("button", { name: "Save" })
+    expect(saveBtn).toBeDisabled()
+
+    // 模拟冷启动后 RootGate 用账号语言异步覆盖 i18n
+    await act(async () => {
+      await i18n.changeLanguage("zh")
+    })
+
+    const updatedCard = screen
+      .getByText("语言")
+      .closest<HTMLElement>('[data-slot="card"]')!
+    const updatedSaveBtn = within(updatedCard).getByRole("button", {
+      name: "保存"
+    })
+    expect(updatedSaveBtn).toBeDisabled()
+    expect(screen.getByRole("radio", { name: "中文" })).toHaveAttribute(
+      "data-state",
+      "on"
+    )
   })
   it("不再在设置页底部显示退出登录按钮", () => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
@@ -525,6 +610,13 @@ describe("主题风格设置", () => {
     useThemeStore.setState({ style: "nova", theme: "auto", migratedAt: null })
   })
 
+  const getThemeSaveBtn = () => {
+    const card = screen
+      .getByText("主题")
+      .closest<HTMLElement>('[data-slot="card"]')!
+    return within(card).getByRole("button", { name: "保存" })
+  }
+
   it("渲染风格选项（Nova / 纸面）与保存按钮，初始无变更时禁用；不包含亮暗三档控件", () => {
     setUser({ totpEnabled: false, passkeyCount: 0 })
     renderSettings()
@@ -537,7 +629,7 @@ describe("主题风格设置", () => {
     expect(screen.getByRole("radio", { name: "纸面" })).toBeInTheDocument()
 
     // 保存按钮存在且因无变更而处于禁用状态
-    const saveBtn = screen.getByRole("button", { name: "保存" })
+    const saveBtn = getThemeSaveBtn()
     expect(saveBtn).toBeDisabled()
 
     // 删除亮暗三档控件（深色 / 浅色 / 自动 不出现在设置页中）
@@ -551,7 +643,7 @@ describe("主题风格设置", () => {
     setUser({ totpEnabled: false, passkeyCount: 0 })
     renderSettings()
 
-    const saveBtn = screen.getByRole("button", { name: "保存" })
+    const saveBtn = getThemeSaveBtn()
     expect(saveBtn).toBeDisabled()
 
     // 切换至「纸面」
@@ -579,7 +671,7 @@ describe("主题风格设置", () => {
 
     renderSettings()
 
-    const saveBtn = screen.getByRole("button", { name: "保存" })
+    const saveBtn = getThemeSaveBtn()
     await userEventSetup.click(screen.getByRole("radio", { name: "纸面" }))
     expect(saveBtn).toBeEnabled()
 
@@ -615,7 +707,7 @@ describe("主题风格设置", () => {
 
     renderSettings()
 
-    const saveBtn = screen.getByRole("button", { name: "保存" })
+    const saveBtn = getThemeSaveBtn()
     await userEventSetup.click(screen.getByRole("radio", { name: "纸面" }))
     await userEventSetup.click(saveBtn)
 

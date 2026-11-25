@@ -205,8 +205,7 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
     const target = projectDrop(
       rows,
       Number(event.active.id),
-      Number(event.over.id),
-      event.delta.x
+      Number(event.over.id)
     )
     setPreview(dropPreview(rows, Number(event.active.id), target))
   }
