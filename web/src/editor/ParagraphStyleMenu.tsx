@@ -46,6 +46,8 @@ export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
   // 个换手窗口仍可能读到旧实例的快照，而新实例默认 selection 落在文首——文首若是标题，
   // 标签就会随机闪成「标题 N」（#210）。以「当前实例的第一笔事务」作为落定信号：换实例时
   // 把基线记到当时的 transactionNumber，事务发生前一律显示「正文」占位，落定后才如实反映选区。
+  // 注意：落定信号依赖 @tiptap/react 的 transactionNumber 为内部全局计数且跨实例不重置；
+  // 后续升级 @tiptap/react 时需重点验证此假设依然成立。
   const [baseline, setBaseline] = useState<{ editor: Editor; tx: number }>({
     editor,
     tx: -1
@@ -60,6 +62,8 @@ export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
   if (baseline.editor !== editor) {
     setBaseline({ editor, tx })
   }
+  // 换实例首帧 heading 仍可能是旧实例快照，全靠 isSettled 三元表达式兜住（未落定时固定回落 "p"）；
+  // 严禁跳过 isSettled 直接消费 heading，防后续误改导致初始化闪烁回归。
   const isSettled = baseline.editor === editor && tx > baseline.tx
   const value = isSettled ? heading : "p"
   return (
