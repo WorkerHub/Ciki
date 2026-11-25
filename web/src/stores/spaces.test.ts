@@ -103,4 +103,26 @@ describe("空间 store：本机偏好与回落", () => {
     expect(useSpacesStore.getState().currentId).toBe(1)
     expect(useSpacesStore.getState().spaces.map((item) => item.id)).toEqual([1])
   })
+
+  it("存储含非法 currentId 时，rehydrate 回退为 null", async () => {
+    localStorage.setItem(
+      SPACE_STORAGE_KEY,
+      JSON.stringify({
+        state: { currentId: "invalid-id" },
+        version: 0
+      })
+    )
+    await useSpacesStore.persist.rehydrate()
+    expect(useSpacesStore.getState().currentId).toBeNull()
+
+    localStorage.setItem(
+      SPACE_STORAGE_KEY,
+      JSON.stringify({
+        state: { currentId: -5 },
+        version: 0
+      })
+    )
+    await useSpacesStore.persist.rehydrate()
+    expect(useSpacesStore.getState().currentId).toBeNull()
+  })
 })

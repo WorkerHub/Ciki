@@ -31,12 +31,16 @@ export const useThemeStore = create<ThemeState>()(
       resolved: resolveTheme("auto"),
       migratedAt: null,
       setTheme: (theme) => {
+        const safeTheme: ThemeMode =
+          theme === "light" || theme === "dark" ? theme : "auto"
         const style = get().style
-        set({ theme, resolved: applyTheme(theme, style) })
+        set({ theme: safeTheme, resolved: applyTheme(safeTheme, style) })
       },
       setStyle: (style) => {
+        const safeStyle: ThemeStyle =
+          style === "paper" ? "paper" : DEFAULT_THEME_STYLE
         const theme = get().theme
-        set({ style, resolved: applyTheme(theme, style) })
+        set({ style: safeStyle, resolved: applyTheme(theme, safeStyle) })
       },
       markMigrated: (timestamp = Date.now()) => {
         set({ migratedAt: timestamp })
@@ -57,6 +61,9 @@ export const useThemeStore = create<ThemeState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
+        if (state.theme !== "light" && state.theme !== "dark") {
+          state.theme = "auto"
+        }
         if (!state.style || (state.style !== "nova" && state.style !== "paper"))
           state.style = DEFAULT_THEME_STYLE
         if (state.migratedAt === undefined) state.migratedAt = null
