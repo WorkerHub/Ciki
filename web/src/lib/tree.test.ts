@@ -10,7 +10,9 @@ import {
   flattenAll,
   flattenVisible,
   needsRenumber,
+  placeNodeInTree,
   projectDrop,
+  pruneNodeFromTree,
   siblingsOf,
   withoutSubtree
 } from "@/lib/tree"
@@ -95,71 +97,7 @@ describe("页面树工具", () => {
     ).toEqual([3])
   })
 
-  it("拖拽：不移动水平位置时保持原层级，插到目标之前", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    expect(projectDrop(rows, 5, 1, 0)).toEqual({
-      parentId: null,
-      sortOrder: 0
-    })
-  })
-
-  it("拖拽：不横拖落在子页行上 = 与它同级（仍挂在它父页下）", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    const target = projectDrop(rows, 4, 2, 0)
-    expect(target).toEqual({ parentId: 1, sortOrder: 0 })
-  })
-
-  it("拖拽：根级页右拖一档，嵌到最上面那行（同级第一行）下面", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    // 悬停在 A 上：A 就是父页，落进它子列表末尾（A 已有 A1、A2 两页）
-    expect(projectDrop(rows, 4, 1, 18)).toEqual({ parentId: 1, sortOrder: 2 })
-  })
-
-  it("拖拽：右拖一档落在子页行上，父页是该子页自己而不是它的前一个同级", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    // 悬停在 A2（A 的第二个子页）上：拖 C 右拖一档 → 成为 A2 的子页
-    expect(projectDrop(rows, 5, 3, 18)).toEqual({ parentId: 3, sortOrder: 0 })
-    // 同一次悬停在 A2 上，不横拖则是 A2 的同级（仍是 A 的子页，排在 A2 之前）
-    expect(projectDrop(rows, 5, 3, 0)).toEqual({ parentId: 1, sortOrder: 1 })
-  })
-
-  it("拖拽：嵌套目标带折叠子页时，下标取全部子页数（落到末尾）", () => {
-    // A 未展开（rows 里没有 A1/A2），childCount 仍是 2
-    const rows = flattenVisible(tree, new Set())
-    expect(projectDrop(rows, 4, 1, 18)).toEqual({ parentId: 1, sortOrder: 2 })
-  })
-
-  it("拖拽：左拖一档把子页升回上一层（A1 升到根级）", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    expect(projectDrop(rows, 2, 1, -18)).toEqual({
-      parentId: null,
-      sortOrder: 0
-    })
-    // 继续往左拖不再升层：夹在 over 行所在层
-    expect(projectDrop(rows, 2, 1, -54)).toEqual({
-      parentId: null,
-      sortOrder: 0
-    })
-  })
-
-  it("拖拽：右拖两档以上仍只嵌一层（夹在 over 行下一层）", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    expect(projectDrop(rows, 4, 1, 36)).toEqual({ parentId: 1, sortOrder: 2 })
-  })
-
-  it("拖拽：不能把自己的子页当成父页（防环）", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    expect(projectDrop(rows, 1, 2, 18)).toBeNull()
-    expect(projectDrop(rows, 1, 2, 0)).toBeNull()
-  })
-
-  it("拖拽：不能落到自己的子树里", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    expect(projectDrop(rows, 1, 2, 0)).toBeNull()
-    expect(projectDrop(rows, 1, 1, 0)).toBeNull()
-  })
-
-  it("拖拽：向下移动时插到目标行之后（A 拖到 C 上 → 落到最后一位）", () => {
+  it("拖拽：向下移动时插到目标行之后（A 拖到 C 上 → 落到同级最后一位）", () => {
     const rows = flattenVisible(tree, new Set())
     expect(projectDrop(rows, 1, 5, 0)).toEqual({
       parentId: null,
@@ -167,7 +105,7 @@ describe("页面树工具", () => {
     })
   })
 
-  it("拖拽：向上移动时插到目标行之前", () => {
+  it("拖拽：向上移动时插到目标行之前（C 拖到 A 上 → 插在同级第一位）", () => {
     const rows = flattenVisible(tree, new Set())
     expect(projectDrop(rows, 5, 1, 0)).toEqual({
       parentId: null,
@@ -183,20 +121,35 @@ describe("页面树工具", () => {
     })
   })
 
-  it("拖拽：跨父级向上时插到目标之前", () => {
+  it("拖拽：子页内部同级向下移动（A1 拖到 A2）", () => {
     const rows = flattenVisible(tree, new Set([1]))
-    expect(projectDrop(rows, 5, 2, 0)).toEqual({
+    expect(projectDrop(rows, 2, 3, 0)).toEqual({
       parentId: 1,
-      sortOrder: 0
+      sortOrder: 1
     })
   })
 
-  it("拖拽：跨父级向下时插到目标之后（子页拖到根层末尾）", () => {
+  it("拖拽：去掉横向换层级，横向位移不改变父级或层级", () => {
     const rows = flattenVisible(tree, new Set([1]))
-    expect(projectDrop(rows, 2, 5, 0)).toEqual({
+    // 即使右拖 36px，B 悬停在 C 上依然只是同级排序，不嵌入
+    expect(projectDrop(rows, 4, 5, 36)).toEqual({
       parentId: null,
-      sortOrder: 3
+      sortOrder: 2
     })
+  })
+
+  it("拖拽：只保留同级排序，跨父级悬停返回 null", () => {
+    const rows = flattenVisible(tree, new Set([1]))
+    // 根级 B 悬停在子页 A1 上：非同级，返回 null
+    expect(projectDrop(rows, 4, 2, 0)).toBeNull()
+    // 子页 A1 悬停在根级 B 上：非同级，返回 null
+    expect(projectDrop(rows, 2, 4, 0)).toBeNull()
+  })
+
+  it("拖拽：不能落到自己身上", () => {
+    const rows = flattenVisible(tree, new Set([1]))
+    expect(projectDrop(rows, 1, 1, 0)).toBeNull()
+    expect(projectDrop(rows, 2, 2, 18)).toBeNull()
   })
 
   it("统计整棵树的页面数（含全部子孙）", () => {
@@ -204,52 +157,100 @@ describe("页面树工具", () => {
     expect(countNodes(tree)).toBe(5)
   })
 
-  it("拖拽取值：落点只用事件上的累计位移，不读外部状态", () => {
+  it("拖拽取值：dropFromDragEnd 恒定同级落点", () => {
     const rows = flattenVisible(tree, new Set([1]))
-    // 右拖 18px：嵌到悬停行下面
     expect(
       dropFromDragEnd(rows, {
         active: { id: 4 },
-        over: { id: 1 },
+        over: { id: 5 },
         delta: { x: 18 }
       })
-    ).toEqual({ parentId: 1, sortOrder: 2 })
-    // 没横拖：保持同级
+    ).toEqual({ parentId: null, sortOrder: 2 })
     expect(
       dropFromDragEnd(rows, {
         active: { id: 4 },
-        over: { id: 1 },
+        over: { id: 5 },
         delta: { x: 0 }
       })
-    ).toEqual({ parentId: null, sortOrder: 0 })
-    // 没落在任何行上：不移动
+    ).toEqual({ parentId: null, sortOrder: 2 })
+    // 没落在任何行上
     expect(
       dropFromDragEnd(rows, { active: { id: 4 }, over: null, delta: { x: 18 } })
     ).toBeNull()
   })
 
-  it("落点预览：嵌进已有子页的页面时，线画在它最后一个子页之后", () => {
+  it("落点预览：同级往后拖时线画在目标行之后，深度固定为本层", () => {
     const rows = flattenVisible(tree, new Set([1]))
-    const target = projectDrop(rows, 4, 1, 18)
-    expect(dropPreview(rows, 4, target)).toEqual({ depth: 1, afterId: 3 })
+    const target = projectDrop(rows, 4, 5, 0)
+    expect(dropPreview(rows, 4, target)).toEqual({ depth: 0, afterId: 5 })
   })
 
-  it("落点预览：目标页还没有子页时，线画在目标页之后并缩进一层", () => {
-    const rows = flattenVisible(tree, new Set())
-    const target = projectDrop(rows, 1, 4, 18)
-    expect(dropPreview(rows, 1, target)).toEqual({ depth: 1, afterId: 4 })
+  it("落点预览：同级往前拖时线画在目标行之前，深度固定为本层", () => {
+    const rows = flattenVisible(tree, new Set([1]))
+    const target = projectDrop(rows, 5, 1, 0)
+    expect(dropPreview(rows, 5, target)).toEqual({ depth: 0, beforeId: 1 })
   })
 
-  it("落点预览：同级往前拖时线画在目标行之前，层级就是该层", () => {
+  it("落点预览：没有落点或目标为 null 时不出线", () => {
     const rows = flattenVisible(tree, new Set([1]))
-    const target = projectDrop(rows, 5, 3, 0)
-    expect(dropPreview(rows, 5, target)).toEqual({ depth: 1, beforeId: 3 })
+    expect(dropPreview(rows, 1, null)).toBeNull()
+    expect(dropPreview(rows, 4, projectDrop(rows, 4, 2, 0))).toBeNull()
   })
 
-  it("落点预览：没有落点（拖到自己身上 / 自己子树内）时不出线", () => {
-    const rows = flattenVisible(tree, new Set([1]))
-    expect(dropPreview(rows, 1, projectDrop(rows, 1, 1, 18))).toBeNull()
-    expect(dropPreview(rows, 1, projectDrop(rows, 1, 2, 18))).toBeNull()
+  it("本地树落位：同级向下移动更新 sortOrder", () => {
+    const updated = placeNodeInTree(tree, 1, null, 2)
+    expect(updated.map((n) => [n.id, n.sortOrder])).toEqual([
+      [4, 0],
+      [5, 1],
+      [1, 2]
+    ])
+    // 子节点结构保持完整
+    expect(findNode(updated, 1)?.children.map((n) => n.id)).toEqual([2, 3])
+  })
+
+  it("本地树落位：同级向上移动更新 sortOrder", () => {
+    const updated = placeNodeInTree(tree, 5, null, 0)
+    expect(updated.map((n) => [n.id, n.sortOrder])).toEqual([
+      [5, 0],
+      [1, 1],
+      [4, 2]
+    ])
+  })
+
+  it("本地树落位：子级同级移动", () => {
+    const updated = placeNodeInTree(tree, 2, 1, 1)
+    const children = findNode(updated, 1)?.children ?? []
+    expect(children.map((n) => [n.id, n.sortOrder])).toEqual([
+      [3, 0],
+      [2, 1]
+    ])
+  })
+
+  it("本地树落位：跨父级移动（MovePageDialog 场景）", () => {
+    const updated = placeNodeInTree(tree, 2, null, 1)
+    expect(updated.map((n) => [n.id, n.sortOrder, n.parentId])).toEqual([
+      [1, 0, null],
+      [2, 1, null],
+      [4, 2, null],
+      [5, 3, null]
+    ])
+    // 原父级剩余子级重新赋 0 起编号
+    expect(
+      findNode(updated, 1)?.children.map((n) => [n.id, n.sortOrder])
+    ).toEqual([[3, 0]])
+  })
+
+  it("本地树落位：防环（不能移到自己的子树内）", () => {
+    const updated = placeNodeInTree(tree, 1, 2, 0)
+    expect(updated).toEqual(tree)
+  })
+
+  it("本地树剪枝：从树中移除页面并对原同级重新编号", () => {
+    const pruned = pruneNodeFromTree(tree, 4)
+    expect(pruned.map((n) => [n.id, n.sortOrder])).toEqual([
+      [1, 0],
+      [5, 1]
+    ])
   })
 
   it("同级 sortOrder 不连续或重名时提示需要重排", () => {

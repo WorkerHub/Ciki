@@ -9,6 +9,8 @@ import {
   findNode,
   findPath,
   needsRenumber,
+  placeNodeInTree,
+  pruneNodeFromTree,
   siblingsOf,
   sortSiblings
 } from "@/lib/tree"
@@ -51,6 +53,10 @@ interface PagesState {
  * 客户端按当前显示顺序把这一级重排成 0..n-1。
  */
 export const usePagesStore = create<PagesState>((set, get) => {
+  let moveQueue: Promise<void> = Promise.resolve()
+  let pendingMoves = 0
+  let baselineTree: PageNode[] | null = null
+
   const repairOrder = async (parentIds: (number | null)[]) => {
     for (const parentId of parentIds) {
       const siblings = siblingsOf(get().tree, parentId)
@@ -66,6 +72,10 @@ export const usePagesStore = create<PagesState>((set, get) => {
     // 省略参数 = 沿用当前空间（写操作后重拉）；显式传 null = 走后端缺省的默认空间
     const next = spaceId === undefined ? get().spaceId : spaceId
     const switching = next !== get().spaceId
+    if (switching) {
+      pendingMoves = 0
+      baselineTree = null
+    }
     set({
       loading: true,
       error: null,
@@ -147,24 +157,112 @@ export const usePagesStore = create<PagesState>((set, get) => {
     },
 
     movePage: async (id, parentId, sortOrder) => {
-      const before = findNode(get().tree, id)
-      await pagesApi.move(id, parentId, sortOrder)
-      await load()
-      await repairOrder([parentId, before?.parentId ?? null])
-      await load()
+      const currentSpace = get().spaceId
+      const beforeNode = findNode(get().tree, id)
+      const beforeParentId = beforeNode?.parentId ?? null
+
+      if (pendingMoves === 0) {
+        baselineTree = get().tree
+      }
+      const rollbackTree = baselineTree ?? get().tree
+
+      // 1. 同步乐观更新本地树结构，同帧呈现新顺序
+      set({ tree: placeNodeInTree(get().tree, id, parentId, sortOrder) })
       if (parentId !== null) get().expand(parentId)
+
+      pendingMoves++
+
+      // 2. 后台同步任务串行排队，避免并发踩踏
+      const task = (async () => {
+        await moveQueue.catch(() => {})
+
+        try {
+          await pagesApi.move(id, parentId, sortOrder)
+          await repairOrder([parentId, beforeParentId])
+        } catch (error) {
+          // 同步失败（网络异常/接口报错），回滚到拖放前顺序
+          set({ tree: rollbackTree })
+          pendingMoves = 0
+          baselineTree = null
+          throw error
+        } finally {
+          if (pendingMoves > 0) {
+            pendingMoves--
+          }
+        }
+
+        // 3. 所有排队的移动都完成后，收敛拉取服务端最终态
+        if (pendingMoves === 0) {
+          baselineTree = null
+          try {
+            const finalTree = await pagesApi.tree(currentSpace)
+            if (pendingMoves === 0) {
+              set({ tree: finalTree })
+            }
+          } catch {
+            // 收敛拉取网络偶发失败不覆盖本地成功的乐观状态
+          }
+        }
+      })()
+
+      moveQueue = task
+      return task
     },
 
     movePageTo: async (id, targetSpaceId, parentId, sortOrder) => {
-      const before = findNode(get().tree, id)
-      // spaceId 与 parentId 一起给：cross 空间时服务端会把整棵后代子树的 space_id 一起改。
-      await pagesApi.move(id, parentId, sortOrder, targetSpaceId)
-      await load()
-      await repairOrder([parentId, before?.parentId ?? null])
-      await load()
-      // 父子页就在当前树里时展开它，让用户直接看到落位
-      if (parentId !== null && targetSpaceId === get().spaceId)
-        get().expand(parentId)
+      const currentSpace = get().spaceId
+      const isSameSpace = targetSpaceId === currentSpace
+      const beforeNode = findNode(get().tree, id)
+      const beforeParentId = beforeNode?.parentId ?? null
+
+      if (pendingMoves === 0) {
+        baselineTree = get().tree
+      }
+      const rollbackTree = baselineTree ?? get().tree
+
+      // 1. 同步乐观更新：同空间落位，跨空间从当前树移出
+      if (isSameSpace) {
+        set({ tree: placeNodeInTree(get().tree, id, parentId, sortOrder) })
+        if (parentId !== null) get().expand(parentId)
+      } else {
+        set({ tree: pruneNodeFromTree(get().tree, id) })
+      }
+
+      pendingMoves++
+
+      // 2. 后台同步任务串行排队
+      const task = (async () => {
+        await moveQueue.catch(() => {})
+
+        try {
+          await pagesApi.move(id, parentId, sortOrder, targetSpaceId)
+          await repairOrder([parentId, beforeParentId])
+        } catch (error) {
+          set({ tree: rollbackTree })
+          pendingMoves = 0
+          baselineTree = null
+          throw error
+        } finally {
+          if (pendingMoves > 0) {
+            pendingMoves--
+          }
+        }
+
+        if (pendingMoves === 0) {
+          baselineTree = null
+          try {
+            const finalTree = await pagesApi.tree(currentSpace)
+            if (pendingMoves === 0) {
+              set({ tree: finalTree })
+            }
+          } catch {
+            // 忽略收敛拉取的偶发网络错误
+          }
+        }
+      })()
+
+      moveQueue = task
+      return task
     },
 
     removePage: async (id) => {

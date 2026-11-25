@@ -129,15 +129,15 @@ export function countNodes(nodes: PageNode[]): number {
 }
 
 /**
- * 拖拽落点投影：行的水平位移换算成缩进层级，再折算成目标父页与同级下标。
- * 与 dnd-kit 官方的 sortable tree 思路一致：只能落到 over 行的同层或下一层。
+ * 拖拽落点投影：只保留同级排序，取消拖动改层级（改层级走「移动」对话框）。
+ * 落点恒为现父级同级内，over 行若不在同一父级则返回 null。
  */
 export function projectDrop(
   rows: TreeRow[],
   activeId: number,
   overId: number,
-  dragOffsetX: number,
-  indentWidth = INDENT_WIDTH
+  _dragOffsetX = 0,
+  _indentWidth = INDENT_WIDTH
 ): DropTarget | null {
   if (activeId === overId) return null
   const overIndex = rows.findIndex((row) => row.id === overId)
@@ -146,27 +146,8 @@ export function projectDrop(
   const activeRow = rows[activeIndex]
   const overRow = rows[overIndex]
 
-  // 不能落到自己的子树里（拖动整棵子树时，active 的所有后代都应被忽略）。
-  let activeSubtreeEnd = activeIndex + 1
-  while (
-    activeSubtreeEnd < rows.length &&
-    rows[activeSubtreeEnd].depth > activeRow.depth
-  ) {
-    activeSubtreeEnd += 1
-  }
-  if (overIndex > activeIndex && overIndex < activeSubtreeEnd) return null
-
-  const dragDepth = Math.round(dragOffsetX / indentWidth)
-  // 层级只夹在 over 行所在层与它的下一层之间：右拖一档 = 嵌到 over 行下面。
-  const projectedDepth = Math.max(
-    0,
-    Math.min(overRow.depth + dragDepth, overRow.depth + 1)
-  )
-
-  // 深一档：over 行本身就是父页，落进它子列表的末尾（childCount 含未展开的子页）。
-  if (projectedDepth > overRow.depth) {
-    return { parentId: overRow.id, sortOrder: overRow.childCount }
-  }
+  // 只保留同级排序：over 行必须与 active 属于同一个父级
+  if (overRow.parentId !== activeRow.parentId) return null
 
   const parentId = overRow.parentId
   const siblings = rows.filter(
@@ -206,28 +187,157 @@ export function dropFromDragEnd(
   )
 }
 
-/** 把落点换算成「画在哪一行、缩进多少」，拖动过程中据此显示层级预览。 */
+/** 把落点换算成「画在哪一行、缩进多少」，简化为固定本层深度单线。 */
 export function dropPreview(
   rows: TreeRow[],
   activeId: number,
   target: DropTarget | null
 ): DropPreview | null {
   if (!target) return null
-  const parent =
-    target.parentId === null
-      ? null
-      : (rows.find((row) => row.id === target.parentId) ?? null)
-  if (target.parentId !== null && !parent) return null
-  const depth = parent ? parent.depth + 1 : 0
+  const activeRow = rows.find((row) => row.id === activeId)
+  if (!activeRow) return null
+  const depth = activeRow.depth
   const siblings = rows.filter(
-    (row) => row.parentId === target.parentId && row.id !== activeId
+    (row) => row.parentId === activeRow.parentId && row.id !== activeId
   )
   const next = siblings[target.sortOrder]
   if (next) return { depth, beforeId: next.id }
   const last = siblings[siblings.length - 1]
   if (last) return { depth, afterId: last.id }
-  // 该层还没有别的页面：线画在父页行之后（父页折叠时也表示「作为它的子页」）。
-  return parent ? { depth, afterId: parent.id } : null
+  return null
+}
+
+/**
+ * 在树中将指定页面移动到目标父级与位置（乐观更新用）。
+ * 被移动节点与目标同级（以及原同级）都会重新按顺序赋 0..n-1 的 sortOrder。
+ */
+export function placeNodeInTree(
+  nodes: PageNode[],
+  id: number,
+  targetParentId: number | null,
+  targetIndex: number
+): PageNode[] {
+  const target = findNode(nodes, id)
+  if (!target) return nodes
+
+  // 防环：不能把页面移入自身或自己的子孙节点下
+  if (targetParentId !== null) {
+    if (targetParentId === id) return nodes
+    if (findNode(target.children, targetParentId)) return nodes
+  }
+
+  const movedNode: PageNode = {
+    ...target,
+    parentId: targetParentId
+  }
+
+  // 同父级内移动：直接在当前同级列表中抽出并插入
+  if (target.parentId === targetParentId) {
+    const updateInSameParent = (list: PageNode[]): PageNode[] => {
+      const isTargetLevel = list.some((node) => node.id === id)
+      if (isTargetLevel) {
+        const sorted = sortSiblings(list)
+        const withoutMoved = sorted.filter((node) => node.id !== id)
+        const insertAt = Math.max(0, Math.min(targetIndex, withoutMoved.length))
+        const nextList = [
+          ...withoutMoved.slice(0, insertAt),
+          movedNode,
+          ...withoutMoved.slice(insertAt)
+        ]
+        return nextList.map((node, index) => ({
+          ...node,
+          sortOrder: index
+        }))
+      }
+      return list.map((node) =>
+        node.children.length
+          ? { ...node, children: updateInSameParent(node.children) }
+          : node
+      )
+    }
+
+    return updateInSameParent(nodes)
+  }
+
+  // 跨父级移动：先从原父级移除并对原同级重排，再插入到目标父级
+  const removeAndReorder = (list: PageNode[]): PageNode[] => {
+    const hasTarget = list.some((node) => node.id === id)
+    const filtered = list.filter((node) => node.id !== id)
+    const processed = filtered.map((node) =>
+      node.children.length
+        ? { ...node, children: removeAndReorder(node.children) }
+        : node
+    )
+    if (!hasTarget) return processed
+    return sortSiblings(processed).map((node, index) => ({
+      ...node,
+      sortOrder: index
+    }))
+  }
+
+  const strippedTree = removeAndReorder(nodes)
+
+  const insertIntoTarget = (list: PageNode[]): PageNode[] => {
+    const sorted = sortSiblings(list)
+    const insertAt = Math.max(0, Math.min(targetIndex, sorted.length))
+    const nextList = [
+      ...sorted.slice(0, insertAt),
+      movedNode,
+      ...sorted.slice(insertAt)
+    ]
+    return nextList.map((node, index) => ({
+      ...node,
+      sortOrder: index
+    }))
+  }
+
+  if (targetParentId === null) {
+    return insertIntoTarget(strippedTree)
+  }
+
+  const attachToParent = (list: PageNode[]): PageNode[] => {
+    return list.map((node) => {
+      if (node.id === targetParentId) {
+        return {
+          ...node,
+          children: insertIntoTarget(node.children)
+        }
+      }
+      if (node.children.length) {
+        return {
+          ...node,
+          children: attachToParent(node.children)
+        }
+      }
+      return node
+    })
+  }
+
+  return attachToParent(strippedTree)
+}
+
+/**
+ * 从当前树中剪掉指定页面及其子树（跨空间移动时乐观更新用），
+ * 并对原同级剩余页面重新赋 0..n-1 的 sortOrder。
+ */
+export function pruneNodeFromTree(nodes: PageNode[], id: number): PageNode[] {
+  const target = findNode(nodes, id)
+  if (!target) return nodes
+
+  const walk = (list: PageNode[]): PageNode[] => {
+    const hasTarget = list.some((node) => node.id === id)
+    const filtered = list.filter((node) => node.id !== id)
+    const processed = filtered.map((node) =>
+      node.children.length ? { ...node, children: walk(node.children) } : node
+    )
+    if (!hasTarget) return processed
+    return sortSiblings(processed).map((node, index) => ({
+      ...node,
+      sortOrder: index
+    }))
+  }
+
+  return walk(nodes)
 }
 
 /** 同级出现重复（或乱序）的 sortOrder 时需要客户端校正一次。 */
