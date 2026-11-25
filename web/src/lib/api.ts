@@ -254,8 +254,15 @@ export interface Me extends User {
   themeStyle?: ThemeStyle
   twofa: {
     totpEnabled: boolean
+    totpName?: string | null
     passkeyEnabled: boolean
     passkeyCount: number
+    passkeys?: Array<{
+      name: string
+      createdAt: string
+      lastUsedAt: string | null
+      credentialId: string
+    }>
     /** 邮箱验证码 2FA 是否已开启（与 TOTP/Passkey 并列的第三种因子）。 */
     emailOtpEnabled: boolean
   }

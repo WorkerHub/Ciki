@@ -9,6 +9,7 @@ export interface PasskeyRow {
   transports: string
   created_at: string
   last_used_at: string | null
+  name: string
 }
 
 export async function listPasskeys(
@@ -59,14 +60,15 @@ export async function insertPasskey(
     publicKey: string
     counter: number
     transports: string
+    name: string
   }
 ): Promise<void> {
   const now = new Date().toISOString()
   await db
     .prepare(
       `INSERT INTO ${passkeysTable(prefix)}
-        (user_id, credential_id, public_key, counter, transports, created_at, last_used_at)
-       VALUES (?, ?, ?, ?, ?, ?, NULL)`
+        (user_id, credential_id, public_key, counter, transports, created_at, last_used_at, name)
+       VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`
     )
     .bind(
       data.userId,
@@ -74,7 +76,8 @@ export async function insertPasskey(
       data.publicKey,
       data.counter,
       data.transports,
-      now
+      now,
+      data.name
     )
     .run()
 }
@@ -104,6 +107,22 @@ export async function deletePasskey(
       `DELETE FROM ${passkeysTable(prefix)} WHERE user_id = ? AND credential_id = ?`
     )
     .bind(userId, credentialId)
+    .run()
+  return result.meta.changes > 0
+}
+
+export async function renamePasskey(
+  db: D1Database,
+  prefix: string,
+  userId: number,
+  credentialId: string,
+  name: string
+): Promise<boolean> {
+  const result = await db
+    .prepare(
+      `UPDATE ${passkeysTable(prefix)} SET name = ? WHERE user_id = ? AND credential_id = ?`
+    )
+    .bind(name, userId, credentialId)
     .run()
   return result.meta.changes > 0
 }

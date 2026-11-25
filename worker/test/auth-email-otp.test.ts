@@ -284,8 +284,10 @@ describe("设置页：发码（send-verify）", () => {
     ).json()) as { twofa: Record<string, unknown> }
     expect(meBefore.twofa).toEqual({
       totpEnabled: false,
+      totpName: null,
       passkeyEnabled: false,
       passkeyCount: 0,
+      passkeys: [],
       emailOtpEnabled: false
     })
 
@@ -382,8 +384,10 @@ describe("设置页：发码（send-verify）", () => {
     ).json()) as { twofa: Record<string, unknown> }
     expect(meAfter.twofa).toEqual({
       totpEnabled: false,
+      totpName: null,
       passkeyEnabled: false,
       passkeyCount: 0,
+      passkeys: [],
       emailOtpEnabled: true
     })
   })
@@ -462,8 +466,10 @@ describe("设置页：发码（send-verify）", () => {
     ).json()) as { twofa: Record<string, unknown> }
     expect(me.twofa).toEqual({
       totpEnabled: true,
+      totpName: "TOTP",
       passkeyEnabled: false,
       passkeyCount: 0,
+      passkeys: [],
       emailOtpEnabled: true
     })
   })
