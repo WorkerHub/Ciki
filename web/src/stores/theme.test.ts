@@ -1,3 +1,5 @@
+import fs from "node:fs"
+import path from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { Me } from "@/lib/api"
 import { THEME_META_COLORS } from "@/lib/theme"
@@ -138,6 +140,60 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(THEME_META_COLORS.nova.dark).toBe("#0a0a0a")
     expect(THEME_META_COLORS.paper.light).toBe("#f7f4ee")
     expect(THEME_META_COLORS.paper.dark).toBe("#0b0c0e")
+  })
+})
+
+describe("纸面主题按钮覆盖层与令牌契约", () => {
+  it("纸面覆盖层包含 default、secondary、outline 与 focus-visible 的完整规则", () => {
+    const cssPath = path.resolve(import.meta.dirname, "../index.css")
+    const css = fs.readFileSync(cssPath, "utf-8")
+
+    // default variant 边框与阴影
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\][\s\S]*?border-color:\s*var\(--coral\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\][\s\S]*?box-shadow:\s*var\(--shadow-coral\)/
+    )
+    // default variant 悬停与激活态实色 deep
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:hover[\s\S]*?background-color:\s*var\(--coral-deep\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:hover[\s\S]*?border-color:\s*var\(--coral-deep\)/
+    )
+    // secondary variant 消除透底白边
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\][\s\S]*?border-color:\s*var\(--secondary\)/
+    )
+    // secondary variant 悬停与激活态边框和填充同步
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:hover[\s\S]*?background-color:\s*color-mix\(in oklch,\s*var\(--secondary\),\s*var\(--foreground\)\s*5%\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:hover[\s\S]*?border-color:\s*color-mix\(in oklch,\s*var\(--secondary\),\s*var\(--foreground\)\s*5%\)/
+    )
+    // outline variant 保持 box-shadow: var(--shadow-ctl)
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="outline"\][\s\S]*?box-shadow:\s*var\(--shadow-ctl\)/
+    )
+    // focus-visible 焦点环守护限定到 default 与 secondary
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="default"\]:focus-visible[\s\S]*?border-color:\s*var\(--ring\)/
+    )
+    expect(css).toMatch(
+      /html\[data-theme="paper"\]\s+\[data-slot="button"\]\[data-variant="secondary"\]:focus-visible[\s\S]*?border-color:\s*var\(--ring\)/
+    )
+  })
+
+  it("纸面浅色与暗色珊瑚令牌完整落定单一真源", () => {
+    const cssPath = path.resolve(import.meta.dirname, "../index.css")
+    const css = fs.readFileSync(cssPath, "utf-8")
+
+    expect(css).toContain("--coral: #e2705a;")
+    expect(css).toContain("--coral-deep: #d6624b;")
+    expect(css).toContain("--coral: #e8694e;")
+    expect(css).toContain("--coral-deep: #f07a5f;")
   })
 })
 
