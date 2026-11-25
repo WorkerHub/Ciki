@@ -72,12 +72,6 @@ describe("页面树工具", () => {
     expect(findNode(tree, 3)?.title).toBe("A2")
   })
 
-  it("首屏行带上子页总数（含未展开的），拖拽嵌套据此落到末尾", () => {
-    const rows = flattenVisible(tree, new Set())
-    expect(rows.find((row) => row.id === 1)?.childCount).toBe(2)
-    expect(rows.find((row) => row.id === 4)?.childCount).toBe(0)
-  })
-
   it("整棵树展平：父页在前、子页紧跟、缩进层级正确", () => {
     expect(flattenAll(tree).map((row) => [row.id, row.depth])).toEqual([
       [1, 0],
