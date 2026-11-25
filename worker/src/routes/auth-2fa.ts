@@ -21,6 +21,7 @@ import {
   findPasskeyByCredentialId,
   insertPasskey,
   listPasskeys,
+  renamePasskey,
   updatePasskeyCounter
 } from "../db/queries/passkeys"
 import { verifyPassword } from "../core/auth"
@@ -510,7 +511,7 @@ auth2faRoutes.post("/passkey/authenticate/verify", async (c) => {
 
 /** 生成 TOTP 密钥：明文只回这一次，待确认密钥加密后存挑战行。 */
 auth2faRoutes.post("/totp/setup", async (c) => {
-  const body = await readJsonBody<{ password?: unknown }>(c)
+  const body = await readJsonBody<{ password?: unknown; name?: unknown }>(c)
   const reauth = await requireFactorReauth(
     c,
     typeof body?.password === "string" ? body.password : undefined
@@ -522,7 +523,24 @@ auth2faRoutes.post("/totp/setup", async (c) => {
   const user = await findUserById(c.env.DB, prefix, userId)
   if (!user) return c.json({ error: "User not found" }, 404)
 
-  const { secret, uri } = generateTotpSecret(user.email)
+  let label = user.email
+  if (body?.name !== undefined && body?.name !== null) {
+    if (typeof body.name !== "string") {
+      return c.json({ error: "Invalid TOTP name", code: "INVALID_NAME" }, 400)
+    }
+    const trimmed = body.name.trim()
+    if (trimmed.length > 50) {
+      return c.json(
+        { error: "TOTP name must be 1-50 characters", code: "INVALID_NAME" },
+        400
+      )
+    }
+    if (trimmed.length > 0) {
+      label = trimmed
+    }
+  }
+
+  const { secret, uri } = generateTotpSecret(label)
   const encrypted = await encryptSecret(
     c.env.ENCRYPTION_KEY,
     secret,
@@ -540,7 +558,11 @@ auth2faRoutes.post("/totp/setup", async (c) => {
 
 /** 校验并启用 TOTP；成功后把当前受限会话标记清零。 */
 auth2faRoutes.post("/totp/enable", async (c) => {
-  const body = await readJsonBody<{ code?: unknown; password?: unknown }>(c)
+  const body = await readJsonBody<{
+    code?: unknown
+    password?: unknown
+    name?: unknown
+  }>(c)
   const reauth = await requireFactorReauth(
     c,
     typeof body?.password === "string" ? body.password : undefined
@@ -548,6 +570,23 @@ auth2faRoutes.post("/totp/enable", async (c) => {
   if (reauth) return reauth
   const code = typeof body?.code === "string" ? body.code.trim() : ""
   if (!code) return c.json({ error: "Code required" }, 400)
+
+  let totpName = "TOTP"
+  if (body?.name !== undefined && body?.name !== null) {
+    if (typeof body.name !== "string") {
+      return c.json({ error: "Invalid TOTP name", code: "INVALID_NAME" }, 400)
+    }
+    const trimmed = body.name.trim()
+    if (trimmed.length > 50) {
+      return c.json(
+        { error: "TOTP name must be 1-50 characters", code: "INVALID_NAME" },
+        400
+      )
+    }
+    if (trimmed.length > 0) {
+      totpName = trimmed
+    }
+  }
 
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
@@ -585,7 +624,8 @@ auth2faRoutes.post("/totp/enable", async (c) => {
   )
   await upsertTotp(c.env.DB, prefix, userId, {
     totp_secret: encrypted,
-    totp_enabled: 1
+    totp_enabled: 1,
+    totp_name: totpName
   })
   await clearSessionRestriction(c.env.DB, prefix, c.get("sessionId"))
   return c.json({ success: true })
@@ -599,7 +639,8 @@ auth2faRoutes.post("/totp/disable", async (c) => {
   const prefix = getTablePrefix(c.env)
   await upsertTotp(c.env.DB, prefix, c.get("userId"), {
     totp_secret: null,
-    totp_enabled: 0
+    totp_enabled: 0,
+    totp_name: ""
   })
   return c.json({ success: true })
 })
@@ -652,6 +693,33 @@ auth2faRoutes.post("/passkey/register/verify", async (c) => {
 
   const prefix = getTablePrefix(c.env)
   const userId = c.get("userId")
+
+  let passkeyName: string
+  if (body.name !== undefined && body.name !== null) {
+    if (typeof body.name !== "string") {
+      return c.json(
+        { error: "Invalid passkey name", code: "INVALID_NAME" },
+        400
+      )
+    }
+    const trimmed = body.name.trim()
+    if (trimmed.length > 50) {
+      return c.json(
+        { error: "Passkey name must be 1-50 characters", code: "INVALID_NAME" },
+        400
+      )
+    }
+    if (trimmed.length > 0) {
+      passkeyName = trimmed
+    } else {
+      const existingCount = await countPasskeys(c.env.DB, prefix, userId)
+      passkeyName = `Passkey ${existingCount + 1}`
+    }
+  } else {
+    const existingCount = await countPasskeys(c.env.DB, prefix, userId)
+    passkeyName = `Passkey ${existingCount + 1}`
+  }
+
   const key = await challengeKeyForUser("passkey_register", userId)
   const challenge = await readChallenge(c.env.DB, prefix, key)
   if (!challenge) return c.json({ error: "No pending challenge" }, 400)
@@ -678,7 +746,8 @@ auth2faRoutes.post("/passkey/register/verify", async (c) => {
         String.fromCharCode(...new Uint8Array(credential.publicKey))
       ),
       counter: credential.counter,
-      transports: JSON.stringify(transports)
+      transports: JSON.stringify(transports),
+      name: passkeyName
     })
   } catch (err) {
     console.error(
@@ -691,6 +760,40 @@ auth2faRoutes.post("/passkey/register/verify", async (c) => {
   await deleteChallenge(c.env.DB, prefix, key)
   await clearSessionRestriction(c.env.DB, prefix, c.get("sessionId"))
   return c.json({ success: true })
+})
+
+auth2faRoutes.patch("/passkey/:credentialId", async (c) => {
+  const body = await readJsonBody<{ name?: unknown }>(c)
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
+  if (typeof body.name !== "string") {
+    return c.json(
+      { error: "Passkey name must be a string", code: "INVALID_NAME" },
+      400
+    )
+  }
+  const trimmed = body.name.trim()
+  if (trimmed.length < 1 || trimmed.length > 50) {
+    return c.json(
+      { error: "Passkey name must be 1-50 characters", code: "INVALID_NAME" },
+      400
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const credentialId = c.req.param("credentialId")
+  const updated = await renamePasskey(
+    c.env.DB,
+    prefix,
+    c.get("userId"),
+    credentialId,
+    trimmed
+  )
+  if (!updated) {
+    return c.json({ error: "Passkey not found" }, 404)
+  }
+  return c.json({ success: true, name: trimmed })
 })
 
 auth2faRoutes.delete("/passkey/:credentialId", async (c) => {
@@ -834,16 +937,31 @@ export async function twofaSummary(
   userId: number
 ): Promise<{
   totpEnabled: boolean
+  totpName: string | null
   passkeyEnabled: boolean
   passkeyCount: number
+  passkeys: Array<{
+    name: string
+    createdAt: string
+    lastUsedAt: string | null
+    credentialId: string
+  }>
   emailOtpEnabled: boolean
 }> {
   const totp = await getTotp(db, prefix, userId)
-  const passkeyCount = await countPasskeys(db, prefix, userId)
+  const passkeyRows = await listPasskeys(db, prefix, userId)
+  const passkeyCount = passkeyRows.length
   return {
     totpEnabled: Boolean(totp?.totp_enabled),
+    totpName: totp?.totp_enabled ? totp.totp_name || "TOTP" : null,
     passkeyEnabled: passkeyCount > 0,
     passkeyCount,
+    passkeys: passkeyRows.map((p) => ({
+      name: p.name,
+      createdAt: p.created_at,
+      lastUsedAt: p.last_used_at,
+      credentialId: p.credential_id
+    })),
     // 前端设置页靠这个字段显示「已开启」并判断重认证（字段名由前端锁定）。
     emailOtpEnabled: Boolean(totp?.email_otp_enabled)
   }

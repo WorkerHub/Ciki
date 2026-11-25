@@ -6,14 +6,14 @@ import * as OTPAuth from "otpauth"
 
 const ISSUER = "ciki"
 
-export function generateTotpSecret(email: string): {
+export function generateTotpSecret(label: string): {
   secret: string
   uri: string
 } {
   const secret = new OTPAuth.Secret({ size: 20 })
   const totp = new OTPAuth.TOTP({
     issuer: ISSUER,
-    label: email,
+    label,
     algorithm: "SHA1",
     digits: 6,
     period: 30,

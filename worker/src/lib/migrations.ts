@@ -39,8 +39,10 @@ import {
 import {
   migrationsTable,
   notificationsTable,
+  passkeysTable,
   settingsTable,
   tableName,
+  user2faTable,
   usersTable
 } from "./tables"
 
@@ -400,6 +402,56 @@ const SCHEMA_V13: Migration = {
   isApplied: schemaV13Applied
 }
 
+export const PASSKEY_TOTP_NAME_MIGRATION_NAME = "schema_v14"
+
+/**
+ * `schema_v14` —— Passkey 与 TOTP 加名字：
+ * 1. passkey_credentials 表增加 name 列（TEXT NOT NULL DEFAULT ''），
+ *    存量行按创建时间顺序（created_at ASC, id ASC）回填默认名「Passkey 1」「Passkey 2」……（每用户内编号）；
+ * 2. user_2fa 表增加 totp_name 列（TEXT NOT NULL DEFAULT ''），
+ *    存量已启用 TOTP 回填默认名「TOTP」。
+ */
+function schemaV14(prefix: string): string {
+  const passkeys = passkeysTable(prefix)
+  const user2fa = user2faTable(prefix)
+  return `ALTER TABLE ${passkeys} ADD COLUMN name TEXT NOT NULL DEFAULT '';
+ALTER TABLE ${user2fa} ADD COLUMN totp_name TEXT NOT NULL DEFAULT '';
+UPDATE ${user2fa} SET totp_name = 'TOTP' WHERE totp_enabled = 1;
+UPDATE ${passkeys}
+SET name = 'Passkey ' || (
+  SELECT COUNT(*)
+  FROM ${passkeys} AS p2
+  WHERE p2.user_id = ${passkeys}.user_id
+    AND (p2.created_at < ${passkeys}.created_at OR (p2.created_at = ${passkeys}.created_at AND p2.id <= ${passkeys}.id))
+)
+WHERE name = '' OR name IS NULL`
+}
+
+async function schemaV14Applied(ctx: MigrationContext): Promise<boolean> {
+  const { db, prefix, applied } = ctx
+  if (applied.has(PASSKEY_TOTP_NAME_MIGRATION_NAME)) return true
+  const passkeys = passkeysTable(prefix)
+  const user2fa = user2faTable(prefix)
+  if (!(await tableExists(db, passkeys)) || !(await tableExists(db, user2fa))) {
+    return false
+  }
+  const passkeyCols = await db
+    .prepare(`PRAGMA table_info(${passkeys})`)
+    .all<{ name: string }>()
+  const user2faCols = await db
+    .prepare(`PRAGMA table_info(${user2fa})`)
+    .all<{ name: string }>()
+  const hasPasskeyName = passkeyCols.results.some((c) => c.name === "name")
+  const hasTotpName = user2faCols.results.some((c) => c.name === "totp_name")
+  return hasPasskeyName && hasTotpName
+}
+
+const SCHEMA_V14: Migration = {
+  name: PASSKEY_TOTP_NAME_MIGRATION_NAME,
+  sql: "",
+  isApplied: schemaV14Applied
+}
+
 export function getMigrations(
   prefix: string,
   language: Language = DEFAULT_LANGUAGE
@@ -428,6 +480,7 @@ export function getMigrations(
     { ...SCHEMA_V10, sql: schemaV10(prefix) },
     { ...SCHEMA_V11, sql: schemaV11(prefix) },
     { ...SCHEMA_V12, sql: schemaV12(prefix) },
-    { ...SCHEMA_V13, sql: schemaV13(prefix) }
+    { ...SCHEMA_V13, sql: schemaV13(prefix) },
+    { ...SCHEMA_V14, sql: schemaV14(prefix) }
   ]
 }

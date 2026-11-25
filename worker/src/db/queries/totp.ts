@@ -3,6 +3,7 @@ import { user2faTable } from "../../lib/tables"
 export interface TotpRow {
   user_id: number
   totp_secret: string | null
+  totp_name?: string | null
   totp_enabled: number
   email_otp_enabled: number
   updated_at: string
@@ -23,19 +24,30 @@ export async function upsertTotp(
   db: D1Database,
   prefix: string,
   userId: number,
-  data: { totp_secret: string | null; totp_enabled: number }
+  data: {
+    totp_secret: string | null
+    totp_enabled: number
+    totp_name?: string | null
+  }
 ): Promise<void> {
   const now = new Date().toISOString()
   await db
     .prepare(
-      `INSERT INTO ${user2faTable(prefix)} (user_id, totp_secret, totp_enabled, updated_at)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO ${user2faTable(prefix)} (user_id, totp_secret, totp_enabled, totp_name, updated_at)
+       VALUES (?, ?, ?, ?, ?)
        ON CONFLICT(user_id) DO UPDATE SET
          totp_secret = excluded.totp_secret,
          totp_enabled = excluded.totp_enabled,
+         totp_name = excluded.totp_name,
          updated_at = excluded.updated_at`
     )
-    .bind(userId, data.totp_secret, data.totp_enabled, now)
+    .bind(
+      userId,
+      data.totp_secret,
+      data.totp_enabled,
+      data.totp_name ?? "",
+      now
+    )
     .run()
 }
 
