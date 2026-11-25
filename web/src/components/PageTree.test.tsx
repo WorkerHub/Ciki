@@ -11,7 +11,12 @@ vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
   return {
     ...actual,
-    pagesApi: { ...actual.pagesApi, tree: vi.fn(), create: vi.fn() }
+    pagesApi: {
+      ...actual.pagesApi,
+      tree: vi.fn(),
+      create: vi.fn(),
+      move: vi.fn()
+    }
   }
 })
 
@@ -501,5 +506,58 @@ describe("目录树自动展开到当前文档与滚动可见", () => {
 
     expect(usePagesStore.getState().expanded).toContain(4)
     expect(screen.getByText("另一个子文档")).toBeInTheDocument()
+  })
+
+  it("行内菜单下移触发乐观更新，同步失败时呈现错误提示并回滚", async () => {
+    const user = userEvent.setup()
+    const twoPages = [
+      {
+        id: 10,
+        parentId: null,
+        title: "首项页面",
+        sortOrder: 0,
+        updatedAt: "2026-11-25T00:00:00.000Z",
+        children: []
+      },
+      {
+        id: 20,
+        parentId: null,
+        title: "次项页面",
+        sortOrder: 1,
+        updatedAt: "2026-11-25T00:00:00.000Z",
+        children: []
+      }
+    ]
+    useSpacesStore.setState({
+      spaces: [space("editor")],
+      status: "ready",
+      error: null,
+      currentId: 1
+    })
+    usePagesStore.setState({
+      tree: twoPages,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+    vi.mocked(pagesApi.move).mockRejectedValueOnce(
+      new Error("网络异常，移动失败")
+    )
+    vi.mocked(pagesApi.tree).mockRejectedValueOnce(new Error("网络异常"))
+
+    renderTree()
+
+    // 打开首项页面的操作菜单并点击「下移」
+    await user.click(
+      screen.getByRole("button", { name: "页面「首项页面」操作" })
+    )
+    const moveDownItem = await screen.findByRole("menuitem", { name: "下移" })
+    await user.click(moveDownItem)
+
+    // 报错提示出现在界面上，并且页面树回滚到首项在前
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("网络异常，请稍后重试")
+    expect(usePagesStore.getState().tree.map((p) => p.id)).toEqual([10, 20])
   })
 })
