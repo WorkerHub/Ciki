@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import { Editor } from "@tiptap/core"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { createExtensions } from "@/editor/extensions"
@@ -95,5 +95,59 @@ describe("段落样式下拉", () => {
     expect(
       screen.getByRole("combobox", { name: "段落样式" })
     ).toHaveTextContent(/^标题 2$/)
+  })
+
+  it("正文到位重建实例后标签稳定为正文，落定后如实反映选区（#210）", () => {
+    // 正文到位前：空文档实例
+    const first = makeEditor("")
+    const { rerender } = render(<ParagraphStyleMenu editor={first} />)
+    const trigger = screen.getByRole("combobox", { name: "段落样式" })
+    expect(trigger).toHaveTextContent(/^正文$/)
+
+    // 正文到位：useEditor 重建一个以标题开头的新实例，默认 selection 落在标题上
+    const second = makeEditor("<h2>小标题</h2><p>正文内容</p>")
+    rerender(<ParagraphStyleMenu editor={second} />)
+    // 关键回归：标签仍是「正文」，不随机闪成「标题 2」
+    expect(trigger).toHaveTextContent(/^正文$/)
+
+    // 用户把光标真正移进标题后才反映层级
+    act(() => {
+      second.commands.setTextSelection(2)
+    })
+    expect(trigger).toHaveTextContent(/^标题 2$/)
+
+    // 移入正文：标签跟随变为「正文」
+    act(() => {
+      second.commands.setTextSelection(8)
+    })
+    expect(trigger).toHaveTextContent(/^正文$/)
+
+    // 再次移入标题：标签跟随变回「标题 2」
+    act(() => {
+      second.commands.setTextSelection(2)
+    })
+    expect(trigger).toHaveTextContent(/^标题 2$/)
+  })
+
+  it("同一页面内容多次重载，初始标签必须稳定一致为正文（#210）", () => {
+    const initial = makeEditor("")
+    const { rerender } = render(<ParagraphStyleMenu editor={initial} />)
+    const trigger = screen.getByRole("combobox", { name: "段落样式" })
+
+    // 模拟多次换页或内容重载（每次均以 h2 开头）
+    for (let i = 0; i < 3; i++) {
+      const nextEditor = makeEditor(
+        `<h2>第 ${i + 1} 次标题</h2><p>段落内容</p>`
+      )
+      rerender(<ParagraphStyleMenu editor={nextEditor} />)
+      // 重载后事务发生前一律显示「正文」，无抖动
+      expect(trigger).toHaveTextContent(/^正文$/)
+
+      // 光标落定到标题上后才反映「标题 2」
+      act(() => {
+        nextEditor.commands.setTextSelection(2)
+      })
+      expect(trigger).toHaveTextContent(/^标题 2$/)
+    }
   })
 })
