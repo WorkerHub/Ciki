@@ -106,7 +106,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.75;
-  --wiki-read-max-width: none;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -249,7 +248,6 @@ html[data-theme="paper"] {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.7;
-  --wiki-read-max-width: 860px;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -320,7 +318,6 @@ html[data-theme="paper"].dark {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.7;
-  --wiki-read-max-width: 860px;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -1094,11 +1091,6 @@ html[data-theme="paper"] [data-slot="button"][data-variant="default"] {
 html[data-theme="paper"] [data-slot="button"][data-variant="outline"],
 html[data-theme="paper"] [data-slot="button"][data-variant="secondary"] {
   box-shadow: var(--shadow-ctl);
-}
-
-/* 阅读页正文列宽对齐纸面舒适阅读宽度 */
-html[data-theme="paper"] [data-readview-container] {
-  max-width: var(--wiki-read-max-width, none);
 }
 
 /* 纸纹理：轻微纸张质感，不遮挡交互与可读性 */
