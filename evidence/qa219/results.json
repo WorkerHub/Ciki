@@ -1,0 +1,1171 @@
+{
+  "results": [
+    {
+      "no": "1a",
+      "name": "初始：界面中文，分区选中「中文」，保存按钮禁用",
+      "pass": true,
+      "detail": "选中=中文，保存禁用，标题=语言",
+      "at": "05:23:18"
+    },
+    {
+      "no": "1b",
+      "name": "点选 English：界面语言不变、暂存高亮 English、保存按钮变可点、无 profile 请求",
+      "pass": true,
+      "detail": "暂存高亮 English；标题仍「语言」；保存可点；无 PUT",
+      "at": "05:23:19"
+    },
+    {
+      "no": "1c",
+      "name": "点回 中文：保存按钮恢复禁用",
+      "pass": true,
+      "detail": "回中文→禁用；再点 English→可点（可重复）",
+      "at": "05:23:19"
+    },
+    {
+      "no": "2a",
+      "name": "点保存：PUT /api/me/profile 200，界面语言立即切换为英文，保存按钮回到禁用",
+      "pass": true,
+      "detail": "PUT 200；标题 Language；按钮回禁用；localStorage=en",
+      "at": "05:23:22"
+    },
+    {
+      "no": "2b",
+      "name": "刷新后保持英文（RootGate 以账号语言覆盖）",
+      "pass": true,
+      "detail": "刷新后界面=英文，分区=English",
+      "at": "05:23:27"
+    },
+    {
+      "no": "2c",
+      "name": "服务端已写回：GET /api/me 返回 language=en（接口层证据）",
+      "pass": true,
+      "detail": "GET /api/me language=en (id=18303, raw={\"language\":\"en\",\"id\":18303})",
+      "at": "05:23:28"
+    },
+    {
+      "no": "2d",
+      "name": "换浏览器登录同账号：界面语言为保存后的英文（账号已写回）",
+      "pass": true,
+      "detail": "新 context 登录后界面=英文；/api/me language=en",
+      "at": "05:24:05"
+    },
+    {
+      "no": "2e",
+      "name": "反向保存链：切回中文并保存成功（为项3/4 复位基线）",
+      "pass": true,
+      "detail": "PUT 200；界面回中文；localStorage=zh；/api/me language=zh",
+      "at": "05:24:08"
+    },
+    {
+      "no": "3a",
+      "name": "断网下点保存：出现错误提示（role=alert 网络异常）",
+      "pass": true,
+      "detail": "PUT aborted(net::ERR_INTERNET_DISCONNECTED)；alert=「网络异常，请稍后重试」",
+      "at": "05:24:08"
+    },
+    {
+      "no": "3b",
+      "name": "界面语言回滚为保存前的中文，localStorage 复位，账号未写回",
+      "pass": true,
+      "detail": "标题=语言；localStorage=zh；/api/me language=zh",
+      "at": "05:24:10"
+    },
+    {
+      "no": "3c",
+      "name": "回滚后保存按钮保持可点（暂存仍在，可重试），恢复网络后保存可成功",
+      "pass": true,
+      "detail": "失败后按钮可点；恢复网络重试 200；已复位 zh",
+      "at": "05:24:13"
+    },
+    {
+      "no": "4a",
+      "name": "暂存 English 后暂存不落盘（localStorage 仍 zh）",
+      "pass": true,
+      "detail": "暂存 English 后 localStorage 仍 zh",
+      "at": "05:24:13"
+    },
+    {
+      "no": "4b",
+      "name": "未保存直接离开（账号菜单→个人资料，SPA 导航）再回设置：暂存不残留",
+      "pass": true,
+      "detail": "离开→/profile→回 /settings：选中=中文，保存禁用，界面中文",
+      "at": "05:24:15"
+    },
+    {
+      "no": "4c",
+      "name": "整页刷新路径同样不残留：暂存后 reload，回原值",
+      "pass": true,
+      "detail": "暂存→reload→中文/禁用；/api/me language=zh",
+      "at": "05:24:28"
+    },
+    {
+      "no": "5a",
+      "name": "未登录页循环按钮存在，当前态=中文，点击立即切英文（无暂存/无保存按钮）",
+      "pass": true,
+      "detail": "点击立即 zh→en；登录按钮变 Sign in；无保存按钮",
+      "at": "05:24:36"
+    },
+    {
+      "no": "5b",
+      "name": "循环顺序与保持：刷新仍英文（localStorage），再点回到中文",
+      "pass": true,
+      "detail": "刷新保持 en；再点回 zh；循环顺序正确",
+      "at": "05:24:40"
+    }
+  ],
+  "apiLog": [
+    {
+      "tag": "A",
+      "t": 1795584185885,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584185885,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "A",
+      "t": 1795584185885,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "A",
+      "t": 1795584187112,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584187112,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 401
+    },
+    {
+      "tag": "A",
+      "t": 1795584187112,
+      "method": "POST",
+      "path": "/api/auth/refresh"
+    },
+    {
+      "tag": "A",
+      "t": 1795584187112,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584187441,
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "status": 401
+    },
+    {
+      "tag": "A",
+      "t": 1795584188675,
+      "method": "POST",
+      "path": "/api/auth/login"
+    },
+    {
+      "tag": "A",
+      "t": 1795584191869,
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584191870,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584192606,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584194741,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584194741,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "A",
+      "t": 1795584194742,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "A",
+      "t": 1795584195278,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584195617,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584195688,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584196422,
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "tag": "A",
+      "t": 1795584196422,
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "tag": "A",
+      "t": 1795584198197,
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584198205,
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584198205,
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "tag": "A",
+      "t": 1795584198207,
+      "method": "GET",
+      "path": "/api/me/tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584198207,
+      "method": "GET",
+      "path": "/api/me/import-tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584198207,
+      "method": "GET",
+      "path": "/api/me/agents"
+    },
+    {
+      "tag": "A",
+      "t": 1795584198207,
+      "method": "GET",
+      "path": "/api/me/sessions"
+    },
+    {
+      "tag": "A",
+      "t": 1795584198810,
+      "method": "GET",
+      "path": "/api/me/agents",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584199087,
+      "method": "GET",
+      "path": "/api/me/sessions",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584199087,
+      "method": "GET",
+      "path": "/api/me/import-tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584199087,
+      "method": "GET",
+      "path": "/api/me/tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584199353,
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 404
+    },
+    {
+      "tag": "A",
+      "t": 1795584199763,
+      "method": "PUT",
+      "path": "/api/me/profile"
+    },
+    {
+      "tag": "A",
+      "t": 1795584201644,
+      "method": "PUT",
+      "path": "/api/me/profile",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584203798,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584203799,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "A",
+      "t": 1795584203799,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "A",
+      "t": 1795584205073,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584205073,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584205073,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584206012,
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "tag": "A",
+      "t": 1795584206012,
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "tag": "A",
+      "t": 1795584206661,
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584206661,
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584206672,
+      "method": "GET",
+      "path": "/api/me/tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584206672,
+      "method": "GET",
+      "path": "/api/me/import-tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584206672,
+      "method": "GET",
+      "path": "/api/me/agents"
+    },
+    {
+      "tag": "A",
+      "t": 1795584206672,
+      "method": "GET",
+      "path": "/api/me/sessions"
+    },
+    {
+      "tag": "A",
+      "t": 1795584206673,
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "tag": "A",
+      "t": 1795584207254,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584207278,
+      "method": "GET",
+      "path": "/api/me/agents",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584207278,
+      "method": "GET",
+      "path": "/api/me/import-tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584207282,
+      "method": "GET",
+      "path": "/api/me/sessions",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584207602,
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 404
+    },
+    {
+      "tag": "A",
+      "t": 1795584207602,
+      "method": "GET",
+      "path": "/api/me/tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584208352,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584213527,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "B",
+      "t": 1795584213527,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "B",
+      "t": 1795584213527,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "B",
+      "t": 1795584213933,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 401
+    },
+    {
+      "tag": "B",
+      "t": 1795584213934,
+      "method": "POST",
+      "path": "/api/auth/refresh"
+    },
+    {
+      "tag": "B",
+      "t": 1795584214215,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584214572,
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "status": 401
+    },
+    {
+      "tag": "B",
+      "t": 1795584214576,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584216130,
+      "method": "POST",
+      "path": "/api/auth/login"
+    },
+    {
+      "tag": "B",
+      "t": 1795584219079,
+      "method": "POST",
+      "path": "/api/auth/login",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584219114,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "B",
+      "t": 1795584219114,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584223141,
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "tag": "B",
+      "t": 1795584223141,
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "tag": "B",
+      "t": 1795584223576,
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584223576,
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584223580,
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "tag": "B",
+      "t": 1795584224322,
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 404
+    },
+    {
+      "tag": "B",
+      "t": 1795584240050,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "B",
+      "t": 1795584240050,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "B",
+      "t": 1795584240050,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "B",
+      "t": 1795584240672,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584240933,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584241156,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584242298,
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "tag": "B",
+      "t": 1795584242298,
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "tag": "B",
+      "t": 1795584244035,
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584244037,
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584244059,
+      "method": "GET",
+      "path": "/api/me/tokens"
+    },
+    {
+      "tag": "B",
+      "t": 1795584244059,
+      "method": "GET",
+      "path": "/api/me/import-tokens"
+    },
+    {
+      "tag": "B",
+      "t": 1795584244060,
+      "method": "GET",
+      "path": "/api/me/agents"
+    },
+    {
+      "tag": "B",
+      "t": 1795584244060,
+      "method": "GET",
+      "path": "/api/me/sessions"
+    },
+    {
+      "tag": "B",
+      "t": 1795584244060,
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "tag": "B",
+      "t": 1795584244635,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "B",
+      "t": 1795584244674,
+      "method": "GET",
+      "path": "/api/me/sessions",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584244674,
+      "method": "GET",
+      "path": "/api/me/agents",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584244674,
+      "method": "GET",
+      "path": "/api/me/import-tokens",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584244674,
+      "method": "GET",
+      "path": "/api/me/tokens",
+      "status": 200
+    },
+    {
+      "tag": "B",
+      "t": 1795584244883,
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 404
+    },
+    {
+      "tag": "B",
+      "t": 1795584245409,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584245892,
+      "method": "PUT",
+      "path": "/api/me/profile"
+    },
+    {
+      "tag": "A",
+      "t": 1795584247407,
+      "method": "PUT",
+      "path": "/api/me/profile",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584247463,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584248425,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584248624,
+      "method": "PUT",
+      "path": "/api/me/profile"
+    },
+    {
+      "tag": "A",
+      "t": 1795584249433,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584250415,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584250777,
+      "method": "PUT",
+      "path": "/api/me/profile"
+    },
+    {
+      "tag": "A",
+      "t": 1795584251887,
+      "method": "PUT",
+      "path": "/api/me/profile",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584252103,
+      "method": "PUT",
+      "path": "/api/me/profile"
+    },
+    {
+      "tag": "A",
+      "t": 1795584253244,
+      "method": "PUT",
+      "path": "/api/me/profile",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584254580,
+      "method": "GET",
+      "path": "/api/me/tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584254580,
+      "method": "GET",
+      "path": "/api/me/import-tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584254580,
+      "method": "GET",
+      "path": "/api/me/agents"
+    },
+    {
+      "tag": "A",
+      "t": 1795584254581,
+      "method": "GET",
+      "path": "/api/me/sessions"
+    },
+    {
+      "tag": "A",
+      "t": 1795584255368,
+      "method": "GET",
+      "path": "/api/me/agents",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584255368,
+      "method": "GET",
+      "path": "/api/me/sessions",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584255368,
+      "method": "GET",
+      "path": "/api/me/import-tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584255537,
+      "method": "GET",
+      "path": "/api/me/tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584262081,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584262081,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "A",
+      "t": 1795584262082,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "A",
+      "t": 1795584263268,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584263293,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584263293,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584266432,
+      "method": "GET",
+      "path": "/api/notifications/unread-count"
+    },
+    {
+      "tag": "A",
+      "t": 1795584266432,
+      "method": "GET",
+      "path": "/api/spaces"
+    },
+    {
+      "tag": "A",
+      "t": 1795584267213,
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584267213,
+      "method": "GET",
+      "path": "/api/spaces",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584267224,
+      "method": "GET",
+      "path": "/api/me/tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584267224,
+      "method": "GET",
+      "path": "/api/me/import-tokens"
+    },
+    {
+      "tag": "A",
+      "t": 1795584267224,
+      "method": "GET",
+      "path": "/api/me/agents"
+    },
+    {
+      "tag": "A",
+      "t": 1795584267225,
+      "method": "GET",
+      "path": "/api/me/sessions"
+    },
+    {
+      "tag": "A",
+      "t": 1795584267225,
+      "method": "GET",
+      "path": "/api/pages"
+    },
+    {
+      "tag": "A",
+      "t": 1795584267831,
+      "method": "GET",
+      "path": "/api/me/import-tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584267831,
+      "method": "GET",
+      "path": "/api/me/sessions",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584267831,
+      "method": "GET",
+      "path": "/api/me/agents",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584267960,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "A",
+      "t": 1795584268198,
+      "method": "GET",
+      "path": "/api/me/tokens",
+      "status": 200
+    },
+    {
+      "tag": "A",
+      "t": 1795584268228,
+      "method": "GET",
+      "path": "/api/pages",
+      "status": 404
+    },
+    {
+      "tag": "A",
+      "t": 1795584268675,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 200
+    },
+    {
+      "tag": "C",
+      "t": 1795584272816,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "C",
+      "t": 1795584272816,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "C",
+      "t": 1795584272816,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "C",
+      "t": 1795584273954,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 401
+    },
+    {
+      "tag": "C",
+      "t": 1795584273954,
+      "method": "POST",
+      "path": "/api/auth/refresh"
+    },
+    {
+      "tag": "C",
+      "t": 1795584274547,
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "status": 401
+    },
+    {
+      "tag": "C",
+      "t": 1795584274549,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "C",
+      "t": 1795584274784,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    },
+    {
+      "tag": "C",
+      "t": 1795584277760,
+      "method": "GET",
+      "path": "/api/me"
+    },
+    {
+      "tag": "C",
+      "t": 1795584277760,
+      "method": "GET",
+      "path": "/api/auth/config"
+    },
+    {
+      "tag": "C",
+      "t": 1795584277760,
+      "method": "GET",
+      "path": "/api/setup/state"
+    },
+    {
+      "tag": "C",
+      "t": 1795584278051,
+      "method": "GET",
+      "path": "/api/me",
+      "status": 401
+    },
+    {
+      "tag": "C",
+      "t": 1795584278051,
+      "method": "POST",
+      "path": "/api/auth/refresh"
+    },
+    {
+      "tag": "C",
+      "t": 1795584278533,
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "status": 401
+    },
+    {
+      "tag": "C",
+      "t": 1795584278534,
+      "method": "GET",
+      "path": "/api/setup/state",
+      "status": 200
+    },
+    {
+      "tag": "C",
+      "t": 1795584279370,
+      "method": "GET",
+      "path": "/api/auth/config",
+      "status": 200
+    }
+  ],
+  "consoleErrors": [
+    {
+      "tag": "A",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "tag": "A",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "tag": "A",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "tag": "A",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "tag": "B",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "tag": "B",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "tag": "B",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "tag": "B",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "tag": "A",
+      "text": "Failed to load resource: net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "tag": "A",
+      "text": "Failed to load resource: the server responded with a status of 404 ()"
+    },
+    {
+      "tag": "C",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "tag": "C",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "tag": "C",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    },
+    {
+      "tag": "C",
+      "text": "Failed to load resource: the server responded with a status of 401 ()"
+    }
+  ],
+  "finishedAt": "2026-11-25T05:24:44.291Z"
+}
