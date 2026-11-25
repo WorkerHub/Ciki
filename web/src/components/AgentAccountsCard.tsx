@@ -1,6 +1,7 @@
 import { Bot, Check, ChevronDown, ChevronUp, Copy, Plus } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { AvatarCropDialog } from "@/components/AvatarCropDialog"
 import { AgentSpacesDialog } from "@/components/AgentSpacesDialog"
 import { TokenSpaceScope } from "@/components/TokenSpaceScope"
 import {
@@ -72,6 +73,13 @@ export function AgentAccountsCard() {
   // 空间管理弹窗
   const [managingSpacesAgent, setManagingSpacesAgent] =
     useState<AgentAccount | null>(null)
+
+  // 头像裁剪弹窗
+  const [cropTarget, setCropTarget] = useState<{
+    agentId: number
+    file: File
+  } | null>(null)
+  const [cropOpen, setCropOpen] = useState(false)
 
   // 新建 Agent
   const [creating, setCreating] = useState(false)
@@ -209,6 +217,10 @@ export function AgentAccountsCard() {
       if (issuedToken?.agentId === agentId) {
         setIssuedToken(null)
       }
+      if (cropTarget?.agentId === agentId) {
+        setCropOpen(false)
+        setCropTarget(null)
+      }
       setNoticeKey("settings.agents.deleted")
       setDeleteTargetAgent(null)
     } catch (deleteError) {
@@ -218,10 +230,11 @@ export function AgentAccountsCard() {
     }
   }
 
-  const handleAvatarChange = async (
+  const handleAvatarChange = (
     agentId: number,
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
+    if (busy) return
     const next = event.target.files?.[0] ?? null
     event.target.value = ""
     if (!next) return
@@ -232,11 +245,25 @@ export function AgentAccountsCard() {
     }
     setError("")
     setNoticeKey("")
+    setCropTarget({ agentId, file: next })
+    setCropOpen(true)
+  }
+
+  const handleCropConfirm = async (normalizedFile: File) => {
+    if (!cropTarget) return
+    const targetAgentId = cropTarget.agentId
+    setCropOpen(false)
+    setCropTarget(null)
+    setError("")
+    setNoticeKey("")
     setBusy(true)
     try {
-      const updated = await meApi.agents.uploadAvatar(agentId, next)
+      const updated = await meApi.agents.uploadAvatar(
+        targetAgentId,
+        normalizedFile
+      )
       setAgents((prev) =>
-        prev ? prev.map((a) => (a.id === agentId ? updated : a)) : prev
+        prev ? prev.map((a) => (a.id === targetAgentId ? updated : a)) : prev
       )
       setNoticeKey("settings.agents.avatar.uploaded")
     } catch (avatarError) {
@@ -244,6 +271,17 @@ export function AgentAccountsCard() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const handleCropCancel = () => {
+    setCropOpen(false)
+    setCropTarget(null)
+  }
+
+  const handleCropError = (msg: string) => {
+    setCropOpen(false)
+    setCropTarget(null)
+    setError(msg)
   }
 
   const handleDeleteAvatar = async (agentId: number) => {
@@ -546,9 +584,8 @@ export function AgentAccountsCard() {
                               name: agent.username
                             })}
                             className="sr-only"
-                            onChange={(e) =>
-                              void handleAvatarChange(agent.id, e)
-                            }
+                            disabled={busy}
+                            onChange={(e) => handleAvatarChange(agent.id, e)}
                           />
                           {agent.avatarUrl ? (
                             <>
@@ -1055,6 +1092,13 @@ export function AgentAccountsCard() {
         onOpenChange={(open) => {
           if (!open) setManagingSpacesAgent(null)
         }}
+      />
+      <AvatarCropDialog
+        open={cropOpen}
+        file={cropTarget?.file ?? null}
+        onConfirm={(normalizedFile) => void handleCropConfirm(normalizedFile)}
+        onCancel={handleCropCancel}
+        onError={handleCropError}
       />
     </Card>
   )
