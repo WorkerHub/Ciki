@@ -43,14 +43,14 @@ function currentHeading(editor: Editor): string {
 export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
   const { t } = useTranslation()
   // 正文到位前 useEditor 会重建一次编辑器实例（空文档 → 真实内容）。useEditorState 在这
-  // 个换手窗口仍可能读到旧实例的快照，而新实例默认 selection 落在文首——文首若是标题，
-  // 标签就会随机闪成「标题 N」（#210）。以「当前实例的第一笔事务」作为落定信号：换实例时
-  // 把基线记到当时的 transactionNumber，事务发生前一律显示「正文」占位，落定后才如实反映选区。
-  // 注意：落定信号依赖 @tiptap/react 的 transactionNumber 为内部全局计数且跨实例不重置；
-  // 后续升级 @tiptap/react 时需重点验证此假设依然成立。
+  // 个换手窗口仍可能读到旧实例快照；且当页面数据先于空间列表就绪时，工具条首挂即拿到真实内容实例，
+  // 若哨兵初值为 tx:-1 则 0 > -1 恒真，首帧直接反映文首标题闪现「标题 N」（#210 / #229）。
+  // 以「当前实例至少发生过一笔事务」作为落定信号：
+  // 哨兵初值记为 tx:0，仅当 tx > baseline.tx 时才算落定（首挂 0 > 0 为 false，首挂即稳定显示正文）。
+  // 换实例时把基线对齐到当时 transactionNumber，事务发生前一律显示「正文」占位，落定后才如实反映选区。
   const [baseline, setBaseline] = useState<{ editor: Editor; tx: number }>({
     editor,
-    tx: -1
+    tx: 0
   })
   const { heading, tx } = useEditorState({
     editor,
