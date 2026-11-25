@@ -1,0 +1,330 @@
+{
+  "base": "https://ciki.oneboy.app",
+  "ranAt": "2026-11-25T06:55:17.413Z",
+  "results": [
+    {
+      "id": "step0",
+      "label": "基线访问（原状快照 + 渲染健全）",
+      "pass": true,
+      "checks": [
+        {
+          "name": "登录页渲染（email 输入框）",
+          "ok": true,
+          "got": true
+        },
+        {
+          "name": "登录页渲染（password 输入框）",
+          "ok": true,
+          "got": true
+        },
+        {
+          "name": "无崩溃错误页（h2 精确匹配=0）",
+          "ok": true,
+          "got": 0
+        },
+        {
+          "name": "页脚版本指纹（格式 v1.0.0-<n>-<hash>）",
+          "ok": true,
+          "got": "Ciki · v1.0.0-295-09688fc"
+        },
+        {
+          "name": "ThemeCycleButton 存在",
+          "ok": true,
+          "got": "Theme: Auto (follow system). Click to switch."
+        }
+      ],
+      "snapshot": {}
+    },
+    {
+      "id": "case1a",
+      "label": "①字段互换（spec 字面扁平格式）",
+      "pass": true,
+      "checks": [
+        {
+          "name": "不崩：无错误页 h2「Unexpected Application Error!」",
+          "ok": true,
+          "got": 0
+        },
+        {
+          "name": "登录页仍渲染（email+password）",
+          "ok": true,
+          "got": {
+            "email": true,
+            "password": true
+          }
+        },
+        {
+          "name": "data-theme=nova（style 回退 nova）",
+          "ok": true,
+          "got": "nova"
+        },
+        {
+          "name": "data-mode=dark（auto 跟随 dark 系统）",
+          "ok": true,
+          "got": "dark"
+        },
+        {
+          "name": "循环按钮安全渲染且标签匹配 /Theme: Auto|主题：自动/",
+          "ok": true,
+          "got": "Theme: Auto (follow system). Click to switch."
+        },
+        {
+          "name": "无 pageerror / 无可疑 console error（401 /api/me 探活豁免）",
+          "ok": true,
+          "got": [
+            "Failed to load resource: the server responded with a status of 401 ()",
+            "Failed to load resource: the server responded with a status of 401 ()"
+          ]
+        },
+        {
+          "name": "页脚版本指纹仍在（格式 v1.0.0-<n>-<hash>）",
+          "ok": true,
+          "got": "Ciki · v1.0.0-295-09688fc"
+        }
+      ],
+      "written": "{\"theme\":\"paper\",\"style\":\"light\"}",
+      "afterReload": "{\"theme\":\"paper\",\"style\":\"light\"}",
+      "note": "扁平格式非 zustand 落盘格式：theme 不可能保留，预期 auto"
+    },
+    {
+      "id": "case1b",
+      "label": "①字段互换（zustand 包裹层=真实落盘/崩溃形态）",
+      "pass": true,
+      "checks": [
+        {
+          "name": "不崩：无错误页 h2「Unexpected Application Error!」",
+          "ok": true,
+          "got": 0
+        },
+        {
+          "name": "登录页仍渲染（email+password）",
+          "ok": true,
+          "got": {
+            "email": true,
+            "password": true
+          }
+        },
+        {
+          "name": "data-theme=nova（style 回退 nova）",
+          "ok": true,
+          "got": "nova"
+        },
+        {
+          "name": "data-mode=dark（auto 跟随 dark 系统）",
+          "ok": true,
+          "got": "dark"
+        },
+        {
+          "name": "循环按钮安全渲染且标签匹配 /Theme: Auto|主题：自动/",
+          "ok": true,
+          "got": "Theme: Auto (follow system). Click to switch."
+        },
+        {
+          "name": "无 pageerror / 无可疑 console error（401 /api/me 探活豁免）",
+          "ok": true,
+          "got": [
+            "Failed to load resource: the server responded with a status of 401 ()",
+            "Failed to load resource: the server responded with a status of 401 ()"
+          ]
+        },
+        {
+          "name": "页脚版本指纹仍在（格式 v1.0.0-<n>-<hash>）",
+          "ok": true,
+          "got": "Ciki · v1.0.0-295-09688fc"
+        }
+      ],
+      "written": "{\"state\":{\"theme\":\"paper\",\"style\":\"light\"},\"version\":0}",
+      "afterReload": "{\"state\":{\"theme\":\"paper\",\"style\":\"light\"},\"version\":0}",
+      "note": "字段互换进入 rehydrate 校验：theme→auto、style→nova"
+    },
+    {
+      "id": "case2a",
+      "label": "②非法 style（spec 字面扁平格式）",
+      "pass": true,
+      "checks": [
+        {
+          "name": "不崩：无错误页 h2「Unexpected Application Error!」",
+          "ok": true,
+          "got": 0
+        },
+        {
+          "name": "登录页仍渲染（email+password）",
+          "ok": true,
+          "got": {
+            "email": true,
+            "password": true
+          }
+        },
+        {
+          "name": "data-theme=nova（style 回退 nova）",
+          "ok": true,
+          "got": "nova"
+        },
+        {
+          "name": "data-mode=dark（auto 跟随 dark 系统）",
+          "ok": true,
+          "got": "dark"
+        },
+        {
+          "name": "循环按钮安全渲染且标签匹配 /Theme: Auto|主题：自动/",
+          "ok": true,
+          "got": "Theme: Auto (follow system). Click to switch."
+        },
+        {
+          "name": "无 pageerror / 无可疑 console error（401 /api/me 探活豁免）",
+          "ok": true,
+          "got": [
+            "Failed to load resource: the server responded with a status of 401 ()",
+            "Failed to load resource: the server responded with a status of 401 ()"
+          ]
+        },
+        {
+          "name": "页脚版本指纹仍在（格式 v1.0.0-<n>-<hash>）",
+          "ok": true,
+          "got": "Ciki · v1.0.0-295-09688fc"
+        }
+      ],
+      "written": "{\"theme\":\"light\",\"style\":\"paperx\"}",
+      "afterReload": "{\"theme\":\"light\",\"style\":\"paperx\"}",
+      "note": "扁平格式：theme=light 无法保留（解析语义如此），预期 auto+nova"
+    },
+    {
+      "id": "case2b",
+      "label": "②非法 style（zustand 包裹层=真实落盘形态）",
+      "pass": true,
+      "checks": [
+        {
+          "name": "不崩：无错误页 h2「Unexpected Application Error!」",
+          "ok": true,
+          "got": 0
+        },
+        {
+          "name": "登录页仍渲染（email+password）",
+          "ok": true,
+          "got": {
+            "email": true,
+            "password": true
+          }
+        },
+        {
+          "name": "data-theme=nova（style 回退 nova）",
+          "ok": true,
+          "got": "nova"
+        },
+        {
+          "name": "data-mode=light（light 保留不被吞）",
+          "ok": true,
+          "got": "light"
+        },
+        {
+          "name": "循环按钮安全渲染且标签匹配 /Theme: Light|主题：浅色/",
+          "ok": true,
+          "got": "Theme: Light. Click to switch."
+        },
+        {
+          "name": "无 pageerror / 无可疑 console error（401 /api/me 探活豁免）",
+          "ok": true,
+          "got": [
+            "Failed to load resource: the server responded with a status of 401 ()",
+            "Failed to load resource: the server responded with a status of 401 ()"
+          ]
+        },
+        {
+          "name": "页脚版本指纹仍在（格式 v1.0.0-<n>-<hash>）",
+          "ok": true,
+          "got": "Ciki · v1.0.0-295-09688fc"
+        }
+      ],
+      "written": "{\"state\":{\"theme\":\"light\",\"style\":\"paperx\"},\"version\":0}",
+      "afterReload": "{\"state\":{\"theme\":\"light\",\"style\":\"paperx\"},\"version\":0}",
+      "note": "style→nova，theme=light 保留（dark 系统下仍解析 light 即为证）"
+    },
+    {
+      "id": "case3",
+      "label": "附项：非法 JSON 裸字符串",
+      "pass": true,
+      "checks": [
+        {
+          "name": "不崩：无错误页 h2「Unexpected Application Error!」",
+          "ok": true,
+          "got": 0
+        },
+        {
+          "name": "登录页仍渲染（email+password）",
+          "ok": true,
+          "got": {
+            "email": true,
+            "password": true
+          }
+        },
+        {
+          "name": "data-theme=nova（style 回退 nova）",
+          "ok": true,
+          "got": "nova"
+        },
+        {
+          "name": "data-mode=dark（auto 跟随 dark 系统）",
+          "ok": true,
+          "got": "dark"
+        },
+        {
+          "name": "循环按钮安全渲染且标签匹配 /Theme: Auto|主题：自动/",
+          "ok": true,
+          "got": "Theme: Auto (follow system). Click to switch."
+        },
+        {
+          "name": "无 pageerror / 无可疑 console error（401 /api/me 探活豁免）",
+          "ok": true,
+          "got": [
+            "Failed to load resource: the server responded with a status of 401 ()",
+            "Failed to load resource: the server responded with a status of 401 ()"
+          ]
+        },
+        {
+          "name": "页脚版本指纹仍在（格式 v1.0.0-<n>-<hash>）",
+          "ok": true,
+          "got": "Ciki · v1.0.0-295-09688fc"
+        }
+      ],
+      "written": "paper",
+      "afterReload": "paper",
+      "note": "非 JSON：内联脚本 catch → auto；store getItem 抛错走 reject 分支 → 不崩"
+    },
+    {
+      "id": "cleanup",
+      "label": "③清理：恢复 production 域 localStorage 原状",
+      "pass": true,
+      "checks": [
+        {
+          "name": "恢复动作本身：逐键等于写入前快照（刷新前）",
+          "ok": true,
+          "got": {
+            "restored": {},
+            "baseline": {}
+          }
+        },
+        {
+          "name": "刷新后其余键与基线一致（差异只可能来自应用自身写入）",
+          "ok": true,
+          "got": {
+            "after": {},
+            "baseline": {}
+          }
+        },
+        {
+          "name": "ciki-theme 不存在（基线本无此键）",
+          "ok": true,
+          "got": null
+        },
+        {
+          "name": "页面仍正常渲染",
+          "ok": true,
+          "got": {
+            "email": true,
+            "crash": 0
+          }
+        }
+      ]
+    }
+  ]
+}
