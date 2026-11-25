@@ -257,15 +257,17 @@ export interface Me extends User {
     totpName?: string | null
     passkeyEnabled: boolean
     passkeyCount: number
-    passkeys?: Array<{
-      name: string
-      createdAt: string
-      lastUsedAt: string | null
-      credentialId: string
-    }>
+    passkeys?: PasskeyItem[]
     /** 邮箱验证码 2FA 是否已开启（与 TOTP/Passkey 并列的第三种因子）。 */
     emailOtpEnabled: boolean
   }
+}
+
+export interface PasskeyItem {
+  name: string
+  createdAt: string
+  lastUsedAt: string | null
+  credentialId: string
 }
 
 export interface AuthConfig {
@@ -1056,12 +1058,16 @@ export const authApi = {
       { skipRefresh: true }
     ),
   logout: () => api.post<{ success: true }>("/auth/logout"),
-  totpSetup: (password?: string) =>
-    api.post<TotpSetup>("/auth/2fa/totp/setup", password ? { password } : {}),
-  totpEnable: (code: string, password?: string) =>
+  totpSetup: (password?: string, name?: string) =>
+    api.post<TotpSetup>("/auth/2fa/totp/setup", {
+      ...(password ? { password } : {}),
+      ...(name ? { name } : {})
+    }),
+  totpEnable: (code: string, password?: string, name?: string) =>
     api.post<{ success: true }>("/auth/2fa/totp/enable", {
       code,
-      ...(password ? { password } : {})
+      ...(password ? { password } : {}),
+      ...(name ? { name } : {})
     }),
   totpDisable: (password: string) =>
     api.post<{ success: true }>("/auth/2fa/totp/disable", { password }),
@@ -1072,12 +1078,19 @@ export const authApi = {
     ),
   passkeyRegisterVerify: (
     credential: Record<string, unknown>,
-    password?: string
+    password?: string,
+    name?: string
   ) =>
     api.post<{ success: true }>("/auth/2fa/passkey/register/verify", {
       ...credential,
-      ...(password ? { password } : {})
+      ...(password ? { password } : {}),
+      ...(name ? { name } : {})
     }),
+  passkeyRename: (credentialId: string, name: string) =>
+    api.patch<{ success: true; name: string }>(
+      `/auth/2fa/passkey/${encodeURIComponent(credentialId)}`,
+      { name }
+    ),
   passkeyRemove: (credentialId: string, password: string) =>
     api.del<{ success: true }>(
       `/auth/2fa/passkey/${encodeURIComponent(credentialId)}`,
@@ -1565,6 +1578,7 @@ export const ERROR_TEXT_CODES = new Set<string>([
   "USERNAME_TAKEN",
   "INVALID_AVATAR",
   "INVALID_LANGUAGE",
+  "INVALID_NAME",
   // 空间与成员
   "INVALID_SPACE_NAME",
   "INVALID_SPACE_DESCRIPTION",
