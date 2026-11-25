@@ -142,7 +142,10 @@ function withoutEmailSettings(
       (row as { key?: string }).key !== "resend_config"
   )
   next.users = (next.users ?? []).map((row) => {
-    const { kind, owner_user_id, bio, ...rest } = row as Record<string, unknown>
+    const { kind, owner_user_id, bio, theme_style, ...rest } = row as Record<
+      string,
+      unknown
+    >
     return rest
   })
   return next
@@ -350,7 +353,8 @@ describe("全新库与幂等", () => {
       "schema_v9",
       "schema_v10",
       "schema_v11",
-      "schema_v12"
+      "schema_v12",
+      "schema_v13"
     ])
 
     const tables = tableNames(context)

@@ -13,6 +13,7 @@ import {
 } from "../src/db/queries/users"
 import { getTablePrefix } from "../src/lib/table-prefix"
 import { softDeleteSubtree } from "../src/db/queries/pages"
+import { usersTable } from "../src/lib/tables"
 
 interface ProfileResponse {
   id: number
@@ -1333,5 +1334,182 @@ describe("作者动态流接口：GET /api/users/:id/activity", () => {
     const body = (await res.json()) as ActivityResponse
     expect(body.events).toEqual([])
     expect(body.hasMore).toBe(false)
+  })
+})
+
+describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
+  it("schema_v13 迁移：users 表正确添加 theme_style 列，且默认值为 'nova'", async () => {
+    const { db } = await initializedContext()
+    const rawColumns = db.db
+      .prepare("PRAGMA table_info(ciki_users)")
+      .all() as Array<{
+      name: string
+      type: string
+      notnull: number
+      dflt_value: string | null
+    }>
+    const cols = Object.fromEntries(rawColumns.map((c) => [c.name, c]))
+
+    expect(cols.theme_style).toBeDefined()
+    expect(cols.theme_style.type.toUpperCase()).toBe("TEXT")
+    expect(cols.theme_style.notnull).toBe(1)
+    expect(cols.theme_style.dflt_value).toBe("'nova'")
+  })
+
+  it("GET /api/me 默认返回 themeStyle: 'nova'", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const meRes = await jsonRequest(env, "GET", "/api/me", undefined, admin)
+    expect(meRes.status).toBe(200)
+    const meBody = (await meRes.json()) as { themeStyle: string }
+    expect(meBody.themeStyle).toBe("nova")
+  })
+
+  it("PUT /api/me/theme 独立保存：只更新 theme_style 为 paper，返回完整 meDto，不影响其他资料字段", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    // 先设置 bio 与 language
+    await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/profile",
+      { bio: "原简介", language: "zh" },
+      admin
+    )
+
+    // 保存主题风格为 paper
+    const res = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/theme",
+      { themeStyle: "paper" },
+      admin
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      themeStyle: string
+      bio: string
+      language: string
+      username: string
+    }
+    expect(body.themeStyle).toBe("paper")
+    expect(body.bio).toBe("原简介")
+    expect(body.language).toBe("zh")
+
+    // GET /api/me 回读确认
+    const meRes = await jsonRequest(env, "GET", "/api/me", undefined, admin)
+    expect(meRes.status).toBe(200)
+    expect(((await meRes.json()) as { themeStyle: string }).themeStyle).toBe(
+      "paper"
+    )
+
+    // 确认数据库底层 theme_style 为 paper
+    const row = await findUserByEmail(env.DB, prefix, "admin@example.com")
+    expect(row?.theme_style).toBe("paper")
+  })
+
+  it("PUT /api/me/theme 兼容 style 字段入参且支持切回 nova", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 先切为 paper
+    await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/theme",
+      { themeStyle: "paper" },
+      admin
+    )
+
+    // 使用 { style: "nova" } 切回 nova
+    const res = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/theme",
+      { style: "nova" },
+      admin
+    )
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { themeStyle: string }).themeStyle).toBe(
+      "nova"
+    )
+
+    const meRes = await jsonRequest(env, "GET", "/api/me", undefined, admin)
+    expect(((await meRes.json()) as { themeStyle: string }).themeStyle).toBe(
+      "nova"
+    )
+  })
+
+  it("PUT /api/me/theme 非法值校验：非法 style 返回 400 INVALID_THEME_STYLE", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const invalidValues = [
+      "dark",
+      "light",
+      "auto",
+      "NOVA",
+      "paper ",
+      "",
+      123,
+      null,
+      true,
+      {}
+    ]
+    for (const val of invalidValues) {
+      const res = await jsonRequest(
+        env,
+        "PUT",
+        "/api/me/theme",
+        { themeStyle: val },
+        admin
+      )
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string; code: string }
+      expect(body.code).toBe("INVALID_THEME_STYLE")
+    }
+
+    // 空请求体或缺失字段同样 400
+    const emptyRes = await jsonRequest(env, "PUT", "/api/me/theme", {}, admin)
+    expect(emptyRes.status).toBe(400)
+    expect(((await emptyRes.json()) as { code: string }).code).toBe(
+      "INVALID_THEME_STYLE"
+    )
+  })
+
+  it("PUT /api/me/theme-style 端点别名亦正常工作", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const res = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/theme-style",
+      { themeStyle: "paper" },
+      admin
+    )
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { themeStyle: string }).themeStyle).toBe(
+      "paper"
+    )
+  })
+
+  it("历史/非法值归一化兜底：底层脏数据回退 nova", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    // 直接在数据库里写入非合法值 'corrupted_style'
+    await env.DB.prepare(
+      `UPDATE ${usersTable(prefix)} SET theme_style = 'corrupted_style'`
+    ).run()
+
+    const meRes = await jsonRequest(env, "GET", "/api/me", undefined, admin)
+    expect(meRes.status).toBe(200)
+    expect(((await meRes.json()) as { themeStyle: string }).themeStyle).toBe(
+      "nova"
+    )
   })
 })

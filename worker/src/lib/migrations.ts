@@ -372,6 +372,34 @@ const SCHEMA_V12: Migration = {
   isApplied: schemaV12Applied
 }
 
+export const USER_THEME_STYLE_MIGRATION_NAME = "schema_v13"
+
+/**
+ * `schema_v13` —— 用户主题风格（theme_style）：
+ * 为 users 表增加 theme_style 列（TEXT NOT NULL DEFAULT 'nova'）。
+ */
+function schemaV13(prefix: string): string {
+  const users = usersTable(prefix)
+  return `ALTER TABLE ${users} ADD COLUMN theme_style TEXT NOT NULL DEFAULT 'nova'`
+}
+
+async function schemaV13Applied(ctx: MigrationContext): Promise<boolean> {
+  const { db, prefix, applied } = ctx
+  if (applied.has(USER_THEME_STYLE_MIGRATION_NAME)) return true
+  if (!(await tableExists(db, usersTable(prefix)))) return false
+  const columns = await db
+    .prepare(`PRAGMA table_info(${usersTable(prefix)})`)
+    .all<{ name: string }>()
+  const colNames = new Set(columns.results.map((c) => c.name))
+  return colNames.has("theme_style")
+}
+
+const SCHEMA_V13: Migration = {
+  name: USER_THEME_STYLE_MIGRATION_NAME,
+  sql: "",
+  isApplied: schemaV13Applied
+}
+
 export function getMigrations(
   prefix: string,
   language: Language = DEFAULT_LANGUAGE
@@ -399,6 +427,7 @@ export function getMigrations(
     { ...SCHEMA_V9, sql: schemaV9(prefix) },
     { ...SCHEMA_V10, sql: schemaV10(prefix) },
     { ...SCHEMA_V11, sql: schemaV11(prefix) },
-    { ...SCHEMA_V12, sql: schemaV12(prefix) }
+    { ...SCHEMA_V12, sql: schemaV12(prefix) },
+    { ...SCHEMA_V13, sql: schemaV13(prefix) }
   ]
 }
