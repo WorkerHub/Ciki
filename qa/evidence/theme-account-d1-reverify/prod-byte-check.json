@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-11-25T04:03Z",
+  "purpose": "生产只读字节核对：确认线上部署的构建确为 D1 修复 commit 876447f，且修复代码在产物中（不改生产、不写入任何数据）",
+  "production": {
+    "publicVersion": "v1.0.0-289-876447f",
+    "authConfig": { "registrationEnabled": false, "registrationApprovalRequired": true, "emailConfigured": true },
+    "entryChunk": "/assets/index-DzLYjEIM.js",
+    "entryContains": { "migratedAt": 7, "markMigrated": 2 }
+  },
+  "localStack": {
+    "base": "http://127.0.0.1:9465",
+    "fingerprint": "v1.0.0-289-876447f-qa（.dev.vars 注入 APP_VERSION）",
+    "buildInfo": { "version": "v1.0.0-289-876447f", "commit": "876447f", "commitCount": 289, "builtAt": "2026-11-25T03:50:02.917Z", "timeZone": "Asia/Shanghai" },
+    "entryChunk": "/assets/index-W8trHlwC.js",
+    "entryContains": { "migratedAt": 7, "markMigrated": 2 }
+  },
+  "byteComparison": {
+    "method": "逐 chunk 对比生产与本地产物；对 import/文件名引用做哈希名归一后比较代码本体",
+    "identicalChunks": ["rolldown-runtime-COiEfhsA", "jsx-runtime-CldxteV5", "createLucideIcon-TIzg7WNw", "api-DWPUYEaT", "react-dom-BNtzwOHF", "hooks-C_grFR7p", "components-BvMw0Vbl", "tree-BLr_pyBI", "react-C-4DsAYK", "middleware-CpWMw2yu", "dist-QJDFOEJg", "dist-BJCFFHOq", "index-CYhAQWCH.css"],
+    "differingChunks": ["入口 index-* 及依赖其文件名表的懒加载 chunk（AppShell/SearchBox/dialog/MovePageDialog/alert-dialog/useSpaceRole/SpaceSwitcher/CreatePageDialog/ThemeToggle/build-info/AdminPage…）"],
+    "rootCause": "build-info chunk 内嵌构建元数据：生产 builtAt=2026-11-25T03:37:03.939Z timeZone=UTC（CI 构建环境），本地 builtAt=2026-11-25T03:50:02.917Z timeZone=Asia/Shanghai（本机构建环境）；version/commit/commitCount 三者完全一致（876447f / 289）。时间戳差异级联改变 chunk 内容哈希与文件名引用，代码本体归一后逐字节一致（AppShell 验证：strip 文件名引用后完全相同）",
+    "conclusion": "生产与本地的源码同为 876447f；差异仅为构建时间戳/时区元数据。修复代码（migratedAt/markMigrated）在生产入口 chunk 中存在且计数与本地一致"
+  },
+  "prodBuildInfoChunk": {
+    "url": "https://ciki.oneboy.app/assets/build-info-CYxVi5dZ.js",
+    "content": "version=v1.0.0-289-876447f, commit=876447f, commitCount=289, builtAt=2026-11-25T03:37:03.939Z, timeZone=UTC, offset=+00:00"
+  }
+}
