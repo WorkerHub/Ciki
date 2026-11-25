@@ -90,8 +90,16 @@ describe("段落样式下拉", () => {
 
   it("光标在标题里时触发器显示该层级", () => {
     const editor = makeEditor("<h2>小标题</h2>")
-    editor.commands.setTextSelection(1)
     render(<ParagraphStyleMenu editor={editor} />)
+    // 首挂事务发生前稳定显示正文（#230）
+    expect(
+      screen.getByRole("combobox", { name: "段落样式" })
+    ).toHaveTextContent(/^正文$/)
+
+    // 光标进入标题产生事务后显示对应层级
+    act(() => {
+      editor.commands.setTextSelection(1)
+    })
     expect(
       screen.getByRole("combobox", { name: "段落样式" })
     ).toHaveTextContent(/^标题 2$/)
@@ -149,5 +157,25 @@ describe("段落样式下拉", () => {
       })
       expect(trigger).toHaveTextContent(/^标题 2$/)
     }
+  })
+
+  it("首挂即拿到含标题内容实例时标签稳定为正文，首笔事务落定后如实反映选区（#230）", () => {
+    const editor = makeEditor("<h2>文首标题</h2><p>正文内容</p>")
+    render(<ParagraphStyleMenu editor={editor} />)
+    const trigger = screen.getByRole("combobox", { name: "段落样式" })
+    // 哨兵初值 0 使首挂 tx(0) > baseline.tx(0) 为 false → 首挂即正文，防止直接反映文首标题（#229 验收打回项）
+    expect(trigger).toHaveTextContent(/^正文$/)
+
+    // 首笔事务落定（用户交互或光标定位）后如实反映选区
+    act(() => {
+      editor.commands.setTextSelection(2)
+    })
+    expect(trigger).toHaveTextContent(/^标题 2$/)
+
+    // 移入正文跟随变回正文
+    act(() => {
+      editor.commands.setTextSelection(8)
+    })
+    expect(trigger).toHaveTextContent(/^正文$/)
   })
 })
