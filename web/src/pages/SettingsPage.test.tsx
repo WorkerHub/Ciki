@@ -661,7 +661,7 @@ describe("主题风格设置", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("zh")
     vi.mocked(meApi.sessions).mockResolvedValue([])
-    useThemeStore.setState({ style: "nova", theme: "auto", migratedAt: null })
+    useThemeStore.setState({ style: "nova", mode: "auto", migratedAt: null })
   })
 
   const getThemeSaveBtn = () => {

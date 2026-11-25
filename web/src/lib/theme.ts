@@ -1,6 +1,5 @@
 /** 主题明暗模式：亮 / 暗 / 自动三档（规格 §3B）。 */
 export type ThemeMode = "auto" | "light" | "dark"
-export type Theme = ThemeMode
 
 /** 主题风格（外观）：现行 Nova / 新增 纸面 (Paper) */
 export type ThemeStyle = "nova" | "paper"
@@ -61,7 +60,7 @@ export const THEME_STYLE_OPTIONS: {
 }))
 
 /** 三档的可选值与其文案 key：文案在 `locales/*.json` 的 `common.theme.*`。 */
-export const THEME_OPTIONS: {
+export const THEME_MODE_OPTIONS: {
   value: ThemeMode
   labelKey: string
   hintKey: string
@@ -88,9 +87,9 @@ export function systemPrefersDark(): boolean {
   return window.matchMedia("(prefers-color-scheme: dark)").matches
 }
 
-export function resolveTheme(theme: ThemeMode): "light" | "dark" {
-  if (theme === "auto") return systemPrefersDark() ? "dark" : "light"
-  if (theme === "dark") return "dark"
+export function resolveMode(mode: ThemeMode): "light" | "dark" {
+  if (mode === "auto") return systemPrefersDark() ? "dark" : "light"
+  if (mode === "dark") return "dark"
   return "light"
 }
 
@@ -103,15 +102,15 @@ export function resolveTheme(theme: ThemeMode): "light" | "dark" {
  * 首屏在同一套规则上由 index.html 的内联脚本先跑一次，避免闪烁。
  */
 export function applyTheme(
-  theme: ThemeMode,
+  mode: ThemeMode,
   style: ThemeStyle = DEFAULT_THEME_STYLE
 ): "light" | "dark" {
-  const safeTheme: ThemeMode =
-    theme === "light" || theme === "dark" ? theme : "auto"
+  const safeMode: ThemeMode =
+    mode === "light" || mode === "dark" ? mode : "auto"
   const safeStyle: ThemeStyle =
     style === "paper" ? "paper" : DEFAULT_THEME_STYLE
-  if (typeof document === "undefined") return resolveTheme(safeTheme)
-  const resolved = resolveTheme(safeTheme)
+  if (typeof document === "undefined") return resolveMode(safeMode)
+  const resolved = resolveMode(safeMode)
   const dark = resolved === "dark"
   const root = document.documentElement
   root.classList.toggle("dark", dark)
@@ -130,7 +129,7 @@ export function applyTheme(
 }
 
 /** 订阅系统明暗变化；返回取消订阅函数。 */
-export function watchSystemTheme(onChange: () => void): () => void {
+export function watchSystemMode(onChange: () => void): () => void {
   if (typeof window === "undefined" || !window.matchMedia) return () => {}
   const query = window.matchMedia("(prefers-color-scheme: dark)")
   query.addEventListener("change", onChange)

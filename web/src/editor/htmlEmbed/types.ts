@@ -20,6 +20,6 @@ export const CIKI_EMBED_THEME_MESSAGE_TYPE = "ciki-embed-theme" as const
 
 export interface CikiEmbedThemeMessage {
   type: typeof CIKI_EMBED_THEME_MESSAGE_TYPE
-  theme: "light" | "dark"
+  mode: "light" | "dark"
   style: "nova" | "paper"
 }

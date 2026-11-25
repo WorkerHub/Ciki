@@ -29,27 +29,27 @@
       ;(() => {
         const root = document.documentElement
         const meta = document.querySelector('meta[name="theme-color"]')
-        let theme = "auto"
+        let mode = "auto"
         let style = "nova"
         try {
           const stored = localStorage.getItem("ciki-theme")
           if (stored) {
             try {
               const parsed = JSON.parse(stored)
-              theme = parsed?.state?.theme ?? parsed
+              mode = parsed?.state?.mode ?? parsed?.state?.theme ?? parsed
               style = parsed?.state?.style ?? "nova"
             } catch {
-              theme = stored
+              mode = stored
             }
           }
         } catch {
           // localStorage 被禁用时按浅色走，不阻塞渲染
         }
-        if (theme !== "light" && theme !== "dark") theme = "auto"
+        if (mode !== "light" && mode !== "dark") mode = "auto"
         if (style !== "paper") style = "nova"
         const dark =
-          theme === "dark" ||
-          (theme === "auto" &&
+          mode === "dark" ||
+          (mode === "auto" &&
             window.matchMedia("(prefers-color-scheme: dark)").matches)
         root.setAttribute("data-theme", style)
         root.classList.toggle("dark", dark)

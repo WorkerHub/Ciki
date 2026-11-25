@@ -24,6 +24,21 @@
         "nova": "Nova",
         "paper": "Paper"
       },
+      "modeLabel": "Mode",
+      "mode": {
+        "auto": {
+          "label": "Auto",
+          "hint": "Follow the system appearance"
+        },
+        "light": {
+          "label": "Light",
+          "hint": "Always light"
+        },
+        "dark": {
+          "label": "Dark",
+          "hint": "Always dark"
+        }
+      },
       "auto": {
         "label": "Auto",
         "hint": "Follow the system appearance"

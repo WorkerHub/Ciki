@@ -24,6 +24,21 @@
         "nova": "Nova",
         "paper": "纸面"
       },
+      "modeLabel": "模式",
+      "mode": {
+        "auto": {
+          "label": "自动",
+          "hint": "跟随系统外观切换"
+        },
+        "light": {
+          "label": "浅色",
+          "hint": "始终使用浅色"
+        },
+        "dark": {
+          "label": "深色",
+          "hint": "始终使用深色"
+        }
+      },
       "auto": {
         "label": "自动",
         "hint": "跟随系统外观切换"

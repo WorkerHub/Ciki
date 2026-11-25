@@ -41,7 +41,7 @@ export function HtmlEmbedBlockView({
   const style = useThemeStore((state) => (isEditable ? "nova" : state.style))
 
   const [isIframeLoaded, setIsIframeLoaded] = useState(false)
-  const [initialThemeParams, setInitialThemeParams] = useState(() => ({
+  const [initialEmbedParams, setInitialEmbedParams] = useState(() => ({
     resolved,
     style
   }))
@@ -49,7 +49,7 @@ export function HtmlEmbedBlockView({
   if (prevKey !== key) {
     setPrevKey(key)
     setIsIframeLoaded(false)
-    setInitialThemeParams({ resolved, style })
+    setInitialEmbedParams({ resolved, style })
   }
 
   const [autoHeight, setAutoHeight] = useState<number>(
@@ -144,7 +144,7 @@ export function HtmlEmbedBlockView({
     if (!iframe?.contentWindow) return
     const message: CikiEmbedThemeMessage = {
       type: CIKI_EMBED_THEME_MESSAGE_TYPE,
-      theme: resolved,
+      mode: resolved,
       style
     }
     iframe.contentWindow.postMessage(message, "*")
@@ -160,7 +160,7 @@ export function HtmlEmbedBlockView({
     if (isIframeLoaded) {
       sendThemeMessage()
     } else {
-      setInitialThemeParams({ resolved, style })
+      setInitialEmbedParams({ resolved, style })
     }
   }, [editor.isEditable, isIframeLoaded, resolved, style, sendThemeMessage])
 
@@ -261,7 +261,7 @@ export function HtmlEmbedBlockView({
       >
         <iframe
           ref={iframeRef}
-          src={`/api/files/${key}?theme=${encodeURIComponent(initialThemeParams.resolved)}&style=${encodeURIComponent(initialThemeParams.style)}`}
+          src={`/api/files/${key}?mode=${encodeURIComponent(initialEmbedParams.resolved)}&style=${encodeURIComponent(initialEmbedParams.style)}`}
           sandbox="allow-scripts"
           referrerPolicy="no-referrer"
           loading="lazy"

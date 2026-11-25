@@ -619,17 +619,17 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
       "var params = new URLSearchParams(window.location.search)"
     )
     expect(html).toContain(
-      'applyTheme(params.get("theme"), params.get("style"))'
+      'applyTheme(params.get("mode"), params.get("style"))'
     )
-    expect(html).toContain("de.dataset.theme = theme")
-    expect(html).toContain("de.dataset.themeStyle = style")
+    expect(html).toContain('de.classList.toggle("dark", isDark)')
+    expect(html).toContain('de.setAttribute("data-theme", style)')
 
     // 2. 验证消息监听：来源必须是 window.parent，类型必须是 ciki-embed-theme
     expect(html).toContain("event.source !== window.parent")
     expect(html).toContain('data.type !== "ciki-embed-theme"')
 
-    // 3. 验证取值范围白名单：theme 仅限 light/dark，style 仅限 nova/paper
-    expect(html).toContain('theme === "light" || theme === "dark"')
+    // 3. 验证取值范围白名单：mode 仅限 light/dark，style 仅限 nova/paper
+    expect(html).toContain('mode === "light" || mode === "dark"')
     expect(html).toContain('style === "nova" || style === "paper"')
   })
 
@@ -651,10 +651,10 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
     })
     const html = await res.text()
 
-    // 模拟带着 ?theme=dark&style=paper 打开 iframe
+    // 模拟带着 ?mode=dark&style=paper 打开 iframe
     const parentWindow = {} as unknown as Window
     const window = new Window({
-      url: `https://example.com/api/files/${key}?theme=dark&style=paper`
+      url: `https://example.com/api/files/${key}?mode=dark&style=paper`
     })
     ;(window as unknown as { parent: unknown }).parent = parentWindow
     window.document.write(html)
@@ -663,8 +663,9 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
     window.eval(scriptMatch![1])
 
     const docEl = window.document.documentElement
-    expect(docEl.dataset.theme).toBe("dark")
-    expect(docEl.dataset.themeStyle).toBe("paper")
+    expect(docEl.getAttribute("data-theme")).toBe("paper")
+    expect(docEl.classList.contains("dark")).toBe(true)
+    expect(docEl.dataset.themeStyle).toBeUndefined()
 
     // 模拟 window.parent 发送合法的切换消息
     window.dispatchEvent(
@@ -672,13 +673,13 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
         source: parentWindow,
         data: {
           type: "ciki-embed-theme",
-          theme: "light",
+          mode: "light",
           style: "nova"
         }
       })
     )
-    expect(docEl.dataset.theme).toBe("light")
-    expect(docEl.dataset.themeStyle).toBe("nova")
+    expect(docEl.getAttribute("data-theme")).toBe("nova")
+    expect(docEl.classList.contains("dark")).toBe(false)
 
     // 模拟非 parent 来源的伪造消息：严格被忽略
     const fakeWindow = {} as unknown as Window
@@ -687,13 +688,13 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
         source: fakeWindow,
         data: {
           type: "ciki-embed-theme",
-          theme: "dark",
+          mode: "dark",
           style: "paper"
         }
       })
     )
-    expect(docEl.dataset.theme).toBe("light")
-    expect(docEl.dataset.themeStyle).toBe("nova")
+    expect(docEl.getAttribute("data-theme")).toBe("nova")
+    expect(docEl.classList.contains("dark")).toBe(false)
 
     // 模拟非法取值的主题消息：严格被忽略
     window.dispatchEvent(
@@ -701,12 +702,12 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
         source: parentWindow,
         data: {
           type: "ciki-embed-theme",
-          theme: "cyberpunk",
+          mode: "cyberpunk",
           style: "neon"
         }
       })
     )
-    expect(docEl.dataset.theme).toBe("light")
-    expect(docEl.dataset.themeStyle).toBe("nova")
+    expect(docEl.getAttribute("data-theme")).toBe("nova")
+    expect(docEl.classList.contains("dark")).toBe(false)
   })
 })
