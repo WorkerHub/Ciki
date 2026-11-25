@@ -90,7 +90,8 @@ export function systemPrefersDark(): boolean {
 
 export function resolveTheme(theme: ThemeMode): "light" | "dark" {
   if (theme === "auto") return systemPrefersDark() ? "dark" : "light"
-  return theme
+  if (theme === "dark") return "dark"
+  return "light"
 }
 
 /**
@@ -105,15 +106,19 @@ export function applyTheme(
   theme: ThemeMode,
   style: ThemeStyle = DEFAULT_THEME_STYLE
 ): "light" | "dark" {
-  if (typeof document === "undefined") return resolveTheme(theme)
-  const resolved = resolveTheme(theme)
+  const safeTheme: ThemeMode =
+    theme === "light" || theme === "dark" ? theme : "auto"
+  const safeStyle: ThemeStyle =
+    style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+  if (typeof document === "undefined") return resolveTheme(safeTheme)
+  const resolved = resolveTheme(safeTheme)
   const dark = resolved === "dark"
   const root = document.documentElement
   root.classList.toggle("dark", dark)
   root.setAttribute("data-mode", dark ? "dark" : "light")
-  root.setAttribute("data-theme", style)
+  root.setAttribute("data-theme", safeStyle)
   root.style.colorScheme = dark ? "dark" : "light"
-  const def = getThemeDefinition(style)
+  const def = getThemeDefinition(safeStyle)
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) {
     meta.setAttribute(

@@ -79,7 +79,17 @@ export const useSpacesStore = create<SpacesState>()(
     {
       name: SPACE_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ currentId: state.currentId })
+      partialize: (state) => ({ currentId: state.currentId }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        if (
+          typeof state.currentId !== "number" ||
+          !Number.isInteger(state.currentId) ||
+          state.currentId <= 0
+        ) {
+          state.currentId = null
+        }
+      }
     }
   )
 )
