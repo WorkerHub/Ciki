@@ -237,13 +237,13 @@ html[data-theme="paper"] {
   --grain-blend: multiply;
 
   /* 代码块令牌 */
-  --code-bg: #2d2e32;
-  --code-fg: #e9e6e0;
-  --code-dim: #a3a7b8;
-  --code-kw: #f08a6d;
-  --code-str: #e6c477;
-  --code-type: #93cfc6;
-  --code-border: rgba(255, 255, 255, 0.08);
+  --code-bg: #e9e3da;
+  --code-fg: #2a2b2f;
+  --code-dim: #77746f;
+  --code-kw: #a03e2b;
+  --code-str: #845312;
+  --code-type: #1d685c;
+  --code-border: rgba(42, 43, 47, 0.08);
 
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
