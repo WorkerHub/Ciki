@@ -65,6 +65,7 @@
 - `schema_v10`：为 `users` 表追加 `kind` 列（`TEXT NOT NULL DEFAULT 'human'`）和 `owner_user_id` 列（`INTEGER DEFAULT NULL`），引入 Agent 账号身份模型与归属关系。
 - `schema_v11`：新增 `notifications` 表及 `(recipient_id, read_at)`、`(recipient_id, created_at)` 索引，支撑评论通知持久化与未读/分页查询。
 - `schema_v12`：为 `users` 表追加 `bio` 列（`TEXT NOT NULL DEFAULT ''`），支持作者主页与个人资料展示一句话简介。
+- `schema_v13`：为 `users` 表追加 `theme_style` 列（`TEXT NOT NULL DEFAULT 'nova'`），支持主题风格（Nova / 纸面）与用户账号绑定同步。
 - 已是当前形态的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本收敛）。
 
 今后结构变化只在末尾追加新的 `schema_vN`（新表/新索引写进本条迁移自己的 sql，不改 `schema_v1` 基线清单），`schema_v1` 不得改名、改内容或调序。
@@ -77,22 +78,23 @@
 
 ### users
 
-| 列                     | 类型                             | 说明                                                                                                                                                                                   |
-| ---------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id                     | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                                                                                            |
-| email                  | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                                                                                     |
-| username               | TEXT NOT NULL DEFAULT ''         | 大小写不敏感唯一（空串除外）、1–40 码点；注册/建号时取邮箱前缀，重名自动加 `-2`/`-3` 后缀（后缀算在 40 码点内），之后可改；这是**唯一对外的用户身份**                                  |
-| avatar_key             | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像                                                                |
-| password_hash          | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                                                                                       |
-| role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                                                                                       |
-| is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                                                                                    |
-| approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                    |
-| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在结构坍缩（`schema_v1` 之前那版）时已一律置 1                                          |
-| language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。主题等纯前端偏好不进数据库 |
-| bio                    | TEXT NOT NULL DEFAULT ''         | 用户一句话简介（纯文本、上限 100 码点，人类用户可自改，Agent 账号恒为空串）                                                                                                            |
-| kind                   | TEXT NOT NULL DEFAULT 'human'    | 账号类型：`human`（人类用户，默认） / `agent`（Agent 账号）                                                                                                                            |
-| owner_user_id          | INTEGER DEFAULT NULL             | Agent 账号的所有者用户 ID（对应人类用户的 `id`）；人类用户此列固定为 `NULL`                                                                                                            |
-| created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                                                               |
+| 列                     | 类型                             | 说明                                                                                                                                                                                                                                                 |
+| ---------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| id                     | INTEGER PK AUTOINCREMENT         | 内部整数主键；`/api/me` 仍返回它（前端做「本人」判定用），但**不再是可复制给别人的对外 ID**                                                                                                                                                          |
+| email                  | TEXT UNIQUE NOT NULL             | 写入前 trim + 小写；库内 UNIQUE 是唯一性的最终防线                                                                                                                                                                                                   |
+| username               | TEXT NOT NULL DEFAULT ''         | 大小写不敏感唯一（空串除外）、1–40 码点；注册/建号时取邮箱前缀，重名自动加 `-2`/`-3` 后缀（后缀算在 40 码点内），之后可改；这是**唯一对外的用户身份**                                                                                                |
+| avatar_key             | TEXT NOT NULL DEFAULT ''         | 头像在 R2 的 key：新上传为 `avatars/<uuid>.<ext>`，存量可为平铺 `<uuid>.<ext>`；读接口 `/api/files/:key`；空串 = 无头像                                                                                                                              |
+| password_hash          | TEXT NOT NULL                    | PBKDF2-SHA256（100k 次），格式 `saltHex:hashHex`                                                                                                                                                                                                     |
+| role                   | TEXT NOT NULL DEFAULT 'user'     | `admin` / `user`                                                                                                                                                                                                                                     |
+| is_active              | INTEGER NOT NULL DEFAULT 1       | 0/1                                                                                                                                                                                                                                                  |
+| approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                                                                                  |
+| email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在结构坍缩（`schema_v1` 之前那版）时已一律置 1                                                                                                        |
+| language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。明暗模式等纯前端偏好维持现状只存本地（不进数据库），主题风格跟账号走（存 `theme_style`） |
+| theme_style            | TEXT NOT NULL DEFAULT 'nova'     | 主题风格，取值仅 `nova` / `paper`；默认 `nova`；通过 `PUT /api/me/theme` 修改，非法值不落库                                                                                                                                                          |
+| bio                    | TEXT NOT NULL DEFAULT ''         | 用户一句话简介（纯文本、上限 100 码点，人类用户可自改，Agent 账号恒为空串）                                                                                                                                                                          |
+| kind                   | TEXT NOT NULL DEFAULT 'human'    | 账号类型：`human`（人类用户，默认） / `agent`（Agent 账号）                                                                                                                                                                                          |
+| owner_user_id          | INTEGER DEFAULT NULL             | Agent 账号的所有者用户 ID（对应人类用户的 `id`）；人类用户此列固定为 `NULL`                                                                                                                                                                          |
+| created_at, updated_at | TEXT NOT NULL                    | ISO 时间                                                                                                                                                                                                                                             |
 
 索引：`username` 上有唯一索引 `{prefix}users_username`（`COLLATE NOCASE`：`alice` 与 `Alice` 视为重名；`WHERE username <> ''`：空串不参与），并发改重名由数据库兜底。撞名只在建号时按 `-2`/`-3` 规避（`insertWithUniqueUsername`），存量重名已在 `schema_v1` 之前那版消解完毕。`public_id` 已随整数化删除——对外身份只有 `username`，内部整数 `id` 不用于分享/复制。
 
@@ -839,6 +841,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "role": "admin",
   "avatarUrl": "/api/files/avatars/<uuid>.png",
   "bio": "全栈开发者，专注知识库协作",
+  "themeStyle": "nova",
   "language": "zh",
   "approvalStatus": "approved",
   "createdAt": "2026-11-07T12:00:00.000Z",
@@ -852,6 +855,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```
 
 `id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。`bio` 是一句话简介（纯文本，人类用户原样输出，Agent 账号恒为空串 `""`）。`language` 是界面语言（`zh` / `en`），登录后前端以它为准。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
+`themeStyle` 是主题风格（`nova` / `paper`，默认 `nova`），登录后前端以它为准；历史或非法值归一化兜底 `nova`；Agent 账号不作特殊处理（默认 `nova`）。
 
 #### PUT /api/me/profile
 
@@ -870,6 +874,20 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 - `language`：只认精确的 `zh` / `en`（不 trim、不做大小写归一），其它值（含 `null`、数字）400 `{"error":"language must be zh or en","code":"INVALID_LANGUAGE"}`。只带语言不影响 username 与头像。
 - `bio`：接受可选纯文本，去首尾空白，按 Unicode 码点（`Array.from(str).length`）计上限 100，超长或类型非字符串回 400 `{"error":"...","code":"INVALID_BIO"}`；人类用户原样保存，Agent 账号无资料编辑入口（`bio` 恒为空串 `""`）。
 - `id` / `email` 只读：传了也不生效（只认上面四个字段）。
+
+#### PUT /api/me/theme（需会话）
+
+```json
+{
+  "themeStyle": "paper"
+}
+```
+
+- 独立主题风格保存接口：只写 `users.theme_style` 一个字段，不连带其他资料字段。
+- 入参接受 `themeStyle`（或兼容 `style`），取值严格为 `"nova"` 或 `"paper"`。
+- 非法值（如非字符串、未知风格等）返回 400 `{"error":"themeStyle must be nova or paper","code":"INVALID_THEME_STYLE"}`。
+- 成功返回与 `GET /api/me` 完全相同的对象（复用 `meDto`）。
+- 同时提供 `PUT /api/me/theme-style` 作为别名端点。
 
 #### POST /api/me/avatar（需会话）
 
@@ -2506,7 +2524,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
 - 「数据库维护」页的体积行：一行 `数据库体积 X · 图片体积 Y · 正文体积 Z · 页面 N`，体积一律用 `formatBytes` 渲染（不另写格式化）。`databaseSizeBytes` 为 `null` 时写「不可得」；`assetsSizeBytes` / `contentSizeBytes` 为 `null` 时**整项不渲染**（与 D1 同一降级思路，不显示 0 或估算数），空桶的真 0 照实显示 `0 B`；`*ObjectCount` 本期不显示。
 - 设置页的两张卡：`API Token` 卡用 `GET/POST /api/me/tokens`、`PUT /api/me/tokens/:id/name`、`PUT /api/me/tokens/:id/spaces`、`DELETE /api/me/tokens/:id`（列表只回未吊销，创建 201 回明文一次、成功后面板一律重拉列表，不本地拼行）；「浏览器插件」卡用 `GET/POST /api/me/import-tokens` 与 `DELETE /api/me/import-tokens/:id`。
-- 主题等纯前端偏好不进本契约（客户端持久化）。
+- 主题明暗模式（自动 / 亮色 / 暗色，theme）维持现状只存本地（客户端 localStorage 持久化），主题风格（Nova / 纸面，themeStyle）跟用户账号走（服务端 users.theme_style 持久化，GET /api/me 返回、PUT /api/me/theme 更新）。
 - 注册后按 `emailVerificationRequired` 分流：`true` → 跳「验证邮箱」页（输入 6 位码调 `POST /api/auth/email/verify`，页面提供重发按钮调 `POST /api/auth/email/resend`）；`false`（首个管理员、管理员后台建号）→ 直接去登录。该字段缺失视为 `false`。
 - 登录拿到 403 `EMAIL_NOT_VERIFIED` → 登录页给出「重新发送验证码」入口（`resend`，按钮按响应的 `cooldownSeconds` 倒计时），不要提示密码错误。403 `ACCOUNT_PENDING_APPROVAL` 是另一件事：等管理员批准。
 - 管理员在后台改用户邮箱只作废该用户未用的验证码、**不回退** `email_verified`（改完仍可登录）；「自助改邮箱后重新验证」属后续小单，本契约不含。

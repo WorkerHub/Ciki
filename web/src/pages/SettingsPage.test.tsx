@@ -8,6 +8,8 @@ import { LANGUAGE_STORAGE_KEY } from "@/lib/language"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
+import { useThemeStore } from "@/stores/theme"
+import type { ThemeStyle } from "@/lib/theme"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
@@ -30,6 +32,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
       get: vi.fn(),
       sessions: vi.fn(),
       updateProfile: vi.fn(),
+      updateThemeStyle: vi.fn(),
       changePassword: vi.fn(),
       tokens: vi.fn(),
       importTokens: vi.fn(),
@@ -53,6 +56,7 @@ beforeEach(() => {
   vi.mocked(meApi.tokens).mockResolvedValue({ tokens: [] })
   vi.mocked(meApi.importTokens).mockResolvedValue({ tokens: [] })
   vi.mocked(meApi.agents.list).mockResolvedValue([])
+  vi.mocked(meApi.updateThemeStyle).mockReset()
 })
 
 function setUser(twofa: {
@@ -498,7 +502,7 @@ describe("设置页 · 英文界面", () => {
     renderSettings()
 
     expect(screen.getByText("Settings")).toBeInTheDocument()
-    expect(screen.getByText("Appearance")).toBeInTheDocument()
+    expect(screen.getByText("Theme")).toBeInTheDocument()
     expect(screen.getByText("Change password")).toBeInTheDocument()
     expect(screen.getByText("Two-factor authentication")).toBeInTheDocument()
     expect(
@@ -511,5 +515,117 @@ describe("设置页 · 英文界面", () => {
     expect(screen.getByText("No API Token yet")).toBeInTheDocument()
     expect(screen.getByText("No extension credentials yet")).toBeInTheDocument()
     expect(screen.getByText("Signed-in devices")).toBeInTheDocument()
+  })
+})
+
+describe("主题风格设置", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
+    vi.mocked(meApi.sessions).mockResolvedValue([])
+    useThemeStore.setState({ style: "nova", theme: "auto" })
+  })
+
+  it("渲染风格选项（Nova / 纸面）与保存按钮，初始无变更时禁用；不包含亮暗三档控件", () => {
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    // 区域标题改为「主题」
+    expect(screen.getByText("主题")).toBeInTheDocument()
+
+    // 包含 Nova 与 纸面 两个风格选项
+    expect(screen.getByRole("radio", { name: "Nova" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "纸面" })).toBeInTheDocument()
+
+    // 保存按钮存在且因无变更而处于禁用状态
+    const saveBtn = screen.getByRole("button", { name: "保存" })
+    expect(saveBtn).toBeDisabled()
+
+    // 删除亮暗三档控件（深色 / 浅色 / 自动 不出现在设置页中）
+    expect(screen.queryByRole("radio", { name: "浅色" })).toBeNull()
+    expect(screen.queryByRole("radio", { name: "深色" })).toBeNull()
+    expect(screen.queryByRole("radio", { name: "自动" })).toBeNull()
+  })
+
+  it("选择新风格后保存按钮可用，但在点击保存前不直接改本地 store 风格", async () => {
+    const userEventSetup = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    renderSettings()
+
+    const saveBtn = screen.getByRole("button", { name: "保存" })
+    expect(saveBtn).toBeDisabled()
+
+    // 切换至「纸面」
+    await userEventSetup.click(screen.getByRole("radio", { name: "纸面" }))
+
+    // 保存按钮变为可用
+    expect(saveBtn).toBeEnabled()
+
+    // 本地 store 中的 style 此时仍维持 nova，未被修改
+    expect(useThemeStore.getState().style).toBe("nova")
+
+    // 切回 Nova，保存按钮重新禁用
+    await userEventSetup.click(screen.getByRole("radio", { name: "Nova" }))
+    expect(saveBtn).toBeDisabled()
+  })
+
+  it("点击保存后调用 meApi.updateThemeStyle，成功后更新账号状态与本地 store 并显示成功提示", async () => {
+    const userEventSetup = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    const updatedUser = {
+      ...useAuthStore.getState().user!,
+      themeStyle: "paper" as ThemeStyle
+    }
+    vi.mocked(meApi.updateThemeStyle).mockResolvedValue(updatedUser)
+
+    renderSettings()
+
+    const saveBtn = screen.getByRole("button", { name: "保存" })
+    await userEventSetup.click(screen.getByRole("radio", { name: "纸面" }))
+    expect(saveBtn).toBeEnabled()
+
+    // 点击保存
+    await userEventSetup.click(saveBtn)
+
+    // 调用接口保存
+    expect(meApi.updateThemeStyle).toHaveBeenCalledWith("paper")
+
+    // 更新了 auth store 与 theme store
+    expect(useAuthStore.getState().user?.themeStyle).toBe("paper")
+    expect(useThemeStore.getState().style).toBe("paper")
+
+    // 显示成功提示反馈
+    expect(await screen.findByText("主题风格已保存。")).toBeInTheDocument()
+
+    // 保存按钮重置为禁用
+    expect(saveBtn).toBeDisabled()
+  })
+
+  it("保存失败时显示错误提示，本地 store 保持不变，保存按钮保持可用", async () => {
+    const userEventSetup = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    vi.mocked(meApi.updateThemeStyle).mockRejectedValue(
+      new ApiError(
+        400,
+        "themeStyle must be nova or paper",
+        "INVALID_THEME_STYLE"
+      )
+    )
+
+    renderSettings()
+
+    const saveBtn = screen.getByRole("button", { name: "保存" })
+    await userEventSetup.click(screen.getByRole("radio", { name: "纸面" }))
+    await userEventSetup.click(saveBtn)
+
+    // 本地 store 保持 nova
+    expect(useThemeStore.getState().style).toBe("nova")
+
+    // 弹出错误提示
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "themeStyle must be nova or paper"
+    )
+
+    // 保存按钮保持可用以支持重试
+    expect(saveBtn).toBeEnabled()
   })
 })

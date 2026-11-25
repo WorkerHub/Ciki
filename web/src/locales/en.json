@@ -15,6 +15,7 @@
     },
     "cancel": "Cancel",
     "save": "Save",
+    "saving": "Saving…",
     "retry": "Retry",
     "theme": {
       "label": "Theme",
@@ -565,7 +566,7 @@
       "label": "Language"
     },
     "appearance": {
-      "title": "Appearance",
+      "title": "Theme",
       "account": "Signed in as {{email}}"
     },
     "password": {
@@ -646,6 +647,7 @@
       "revoke": "Revoke"
     },
     "notices": {
+      "themeUpdated": "Theme style saved.",
       "passwordUpdated": "Password updated. Sign-in sessions on other devices have been invalidated.",
       "totpEnabled": "Two-factor authentication enabled. The next sign-in will ask for a TOTP code.",
       "totpDisabled": "Two-factor authentication disabled.",
