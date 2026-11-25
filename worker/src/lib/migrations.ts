@@ -410,21 +410,33 @@ export const PASSKEY_TOTP_NAME_MIGRATION_NAME = "schema_v14"
  *    存量行按创建时间顺序（created_at ASC, id ASC）回填默认名「Passkey 1」「Passkey 2」……（每用户内编号）；
  * 2. user_2fa 表增加 totp_name 列（TEXT NOT NULL DEFAULT ''），
  *    存量已启用 TOTP 回填默认名「TOTP」。
+ *
+ * 使用 apply + db.batch() 原子事务执行，保证加列与存量回填同成功同回滚，
+ * 避免自愈路径跳过存量回填。
  */
-function schemaV14(prefix: string): string {
+async function schemaV14Apply(ctx: MigrationContext): Promise<void> {
+  const { db, prefix } = ctx
   const passkeys = passkeysTable(prefix)
   const user2fa = user2faTable(prefix)
-  return `ALTER TABLE ${passkeys} ADD COLUMN name TEXT NOT NULL DEFAULT '';
-ALTER TABLE ${user2fa} ADD COLUMN totp_name TEXT NOT NULL DEFAULT '';
-UPDATE ${user2fa} SET totp_name = 'TOTP' WHERE totp_enabled = 1;
-UPDATE ${passkeys}
+  await db.batch([
+    db.prepare(
+      `ALTER TABLE ${passkeys} ADD COLUMN name TEXT NOT NULL DEFAULT ''`
+    ),
+    db.prepare(
+      `ALTER TABLE ${user2fa} ADD COLUMN totp_name TEXT NOT NULL DEFAULT ''`
+    ),
+    db.prepare(
+      `UPDATE ${user2fa} SET totp_name = 'TOTP' WHERE totp_enabled = 1`
+    ),
+    db.prepare(`UPDATE ${passkeys}
 SET name = 'Passkey ' || (
   SELECT COUNT(*)
   FROM ${passkeys} AS p2
   WHERE p2.user_id = ${passkeys}.user_id
     AND (p2.created_at < ${passkeys}.created_at OR (p2.created_at = ${passkeys}.created_at AND p2.id <= ${passkeys}.id))
 )
-WHERE name = '' OR name IS NULL`
+WHERE name = '' OR name IS NULL`)
+  ])
 }
 
 async function schemaV14Applied(ctx: MigrationContext): Promise<boolean> {
@@ -449,6 +461,7 @@ async function schemaV14Applied(ctx: MigrationContext): Promise<boolean> {
 const SCHEMA_V14: Migration = {
   name: PASSKEY_TOTP_NAME_MIGRATION_NAME,
   sql: "",
+  apply: schemaV14Apply,
   isApplied: schemaV14Applied
 }
 
@@ -481,6 +494,6 @@ export function getMigrations(
     { ...SCHEMA_V11, sql: schemaV11(prefix) },
     { ...SCHEMA_V12, sql: schemaV12(prefix) },
     { ...SCHEMA_V13, sql: schemaV13(prefix) },
-    { ...SCHEMA_V14, sql: schemaV14(prefix) }
+    { ...SCHEMA_V14 }
   ]
 }

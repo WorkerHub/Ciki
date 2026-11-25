@@ -9,6 +9,7 @@ import {
 } from "./support/app"
 import { createPasskey } from "./support/webauthn"
 import { runLedgerMigrations } from "../src/lib/migrations-runner"
+import { getMigrations } from "../src/lib/migrations"
 import { passkeysTable, user2faTable } from "../src/lib/tables"
 
 const PASSWORD = "Test" + "-Password" + "-123"
@@ -69,6 +70,15 @@ async function registerNamedPasskey(
 }
 
 describe("schema_v14 迁移与存量数据回填", () => {
+  it("schema_v14 声明了 apply 且 sql 为空，通过 db.batch 原子执行加列与回填", async () => {
+    const prefix = "ciki_"
+    const migrations = getMigrations(prefix)
+    const v14 = migrations.find((m) => m.name === "schema_v14")
+    expect(v14).toBeDefined()
+    expect(v14?.sql).toBe("")
+    expect(typeof v14?.apply).toBe("function")
+  })
+
   it("存量 passkey 按创建时间顺序回填「Passkey 1」「Passkey 2」；存量已启用 TOTP 回填「TOTP」", async () => {
     const ctx = makeContext()
     const prefix = "ciki_"

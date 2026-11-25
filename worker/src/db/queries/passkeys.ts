@@ -60,7 +60,7 @@ export async function insertPasskey(
     publicKey: string
     counter: number
     transports: string
-    name?: string
+    name: string
   }
 ): Promise<void> {
   const now = new Date().toISOString()
@@ -77,7 +77,7 @@ export async function insertPasskey(
       data.counter,
       data.transports,
       now,
-      data.name ?? "Passkey 1"
+      data.name
     )
     .run()
 }
