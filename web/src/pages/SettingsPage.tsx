@@ -15,6 +15,7 @@ import { ApiTokensCard } from "@/components/ApiTokensCard"
 import { ImportTokensCard } from "@/components/ImportTokensCard"
 import { LanguageSegmented } from "@/components/LanguageToggle"
 import { ThemeStyleSegmented } from "@/components/ThemeToggle"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -40,6 +41,7 @@ import {
   authApi,
   describeApiError,
   meApi,
+  type PasskeyItem,
   type SessionInfo,
   type TotpSetup
 } from "@/lib/api"
@@ -120,6 +122,153 @@ function PasswordConfirmDialog({
   )
 }
 
+function NameInputDialog({
+  open,
+  onOpenChange,
+  title,
+  label,
+  placeholder,
+  confirmLabel,
+  inputId,
+  onConfirm
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  label: string
+  placeholder?: string
+  confirmLabel: string
+  inputId: string
+  onConfirm: (name: string) => void
+}) {
+  const [name, setName] = useState("")
+  const { t } = useTranslation()
+
+  useEffect(() => {
+    if (open) setName("")
+  }, [open])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">{title}</DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            onConfirm(name.trim())
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor={inputId}>{label}</Label>
+            <Input
+              id={inputId}
+              name="name"
+              type="text"
+              maxLength={50}
+              placeholder={placeholder}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoFocus
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" size="sm">
+              {confirmLabel}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RenamePasskeyDialog({
+  open,
+  onOpenChange,
+  initialName,
+  busy,
+  error,
+  onConfirm
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  initialName: string
+  busy: boolean
+  error: string
+  onConfirm: (name: string) => void
+}) {
+  const [name, setName] = useState(initialName)
+  const { t } = useTranslation()
+
+  useEffect(() => {
+    if (open) setName(initialName)
+  }, [open, initialName])
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{t("settings.dialogs.renamePasskey.title")}</DialogTitle>
+          <DialogDescription className="sr-only">
+            {t("settings.dialogs.renamePasskey.title")}
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault()
+            const trimmed = name.trim()
+            if (trimmed) onConfirm(trimmed)
+          }}
+        >
+          <div className="space-y-1.5">
+            <Label htmlFor="rename-passkey-name">
+              {t("settings.dialogs.renamePasskey.nameLabel")}
+            </Label>
+            <Input
+              id="rename-passkey-name"
+              name="name"
+              type="text"
+              maxLength={50}
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+              autoFocus
+            />
+          </div>
+          {error ? <p className="text-xs text-destructive">{error}</p> : null}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={busy}
+              onClick={() => onOpenChange(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" size="sm" disabled={busy || !name.trim()}>
+              {busy ? t("settings.password.busy") : t("common.save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function SettingsPage() {
   const user = useAuthStore((state) => state.user)
   const setUser = useAuthStore((state) => state.setUser)
@@ -189,6 +338,8 @@ export function SettingsPage() {
   const [totpQr, setTotpQr] = useState("")
   const [totpCode, setTotpCode] = useState("")
   const [totpBusy, setTotpBusy] = useState(false)
+  const [setupTotpOpen, setSetupTotpOpen] = useState(false)
+  const [pendingTotpName, setPendingTotpName] = useState("")
   const [disableTotpOpen, setDisableTotpOpen] = useState(false)
 
   // 新增因子前的密码重认证（已有因子时后端要求 body.password）
@@ -200,6 +351,13 @@ export function SettingsPage() {
 
   // Passkey
   const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const [addPasskeyOpen, setAddPasskeyOpen] = useState(false)
+  const [pendingPasskeyName, setPendingPasskeyName] = useState("")
+  const [editingPasskey, setEditingPasskey] = useState<PasskeyItem | null>(null)
+  const [renameError, setRenameError] = useState("")
+  const [deletingPasskey, setDeletingPasskey] = useState<PasskeyItem | null>(
+    null
+  )
   const [removePasskeyOpen, setRemovePasskeyOpen] = useState(false)
 
   // 邮箱验证码（第三种因子）：send-verify 发码 → enable 拿码开启，验过往返才真正开启
@@ -304,17 +462,13 @@ export function SettingsPage() {
     }
   }
 
-  const startTotp = async (password?: string) => {
+  const startTotp = async (password?: string, name?: string) => {
     setError("")
     setNoticeKey("")
-    if (!password && needsReauthToAddFactor(user?.twofa)) {
-      setReauthError("")
-      setPendingReauth("totp")
-      return
-    }
     setTotpBusy(true)
     try {
-      setTotp(await authApi.totpSetup(password))
+      const chosenName = name !== undefined ? name : pendingTotpName
+      setTotp(await authApi.totpSetup(password, chosenName || undefined))
       setReauthPassword(password ?? "")
       setPendingReauth(null)
     } catch (setupError) {
@@ -334,10 +488,15 @@ export function SettingsPage() {
     setError("")
     setTotpBusy(true)
     try {
-      await authApi.totpEnable(totpCode.trim(), reauthPassword || undefined)
+      await authApi.totpEnable(
+        totpCode.trim(),
+        reauthPassword || undefined,
+        pendingTotpName || undefined
+      )
       setTotp(null)
       setTotpCode("")
       setReauthPassword("")
+      setPendingTotpName("")
       // 后端在启用成功后已经清掉 needs_2fa_setup，本地受限标记也要跟着清，
       // 否则用户会一直被 RequireAuth 拉回设置页
       setRestricted(false)
@@ -350,23 +509,21 @@ export function SettingsPage() {
     }
   }
 
-  const registerPasskey = async (password?: string) => {
+  const registerPasskey = async (password?: string, name?: string) => {
     setError("")
     setNoticeKey("")
-    if (!password && needsReauthToAddFactor(user?.twofa)) {
-      setReauthError("")
-      setPendingReauth("passkey")
-      return
-    }
     setPasskeyBusy(true)
     try {
+      const chosenName = name !== undefined ? name : pendingPasskeyName
       const options = await authApi.passkeyRegisterOptions(password)
       const credential = await registrationCredential(options)
       await authApi.passkeyRegisterVerify(
         credential as unknown as Record<string, unknown>,
-        password
+        password,
+        chosenName || undefined
       )
       setReauthPassword("")
+      setPendingPasskeyName("")
       setPendingReauth(null)
       setRestricted(false)
       setNoticeKey("settings.notices.passkeyAdded")
@@ -452,7 +609,16 @@ export function SettingsPage() {
   }
 
   const totpEnabled = user?.twofa.totpEnabled ?? false
-  const passkeyCount = user?.twofa.passkeyCount ?? 0
+  const passkeys: PasskeyItem[] =
+    user?.twofa.passkeys ??
+    (user?.twofa.passkeyCount
+      ? Array.from({ length: user.twofa.passkeyCount }, (_, i) => ({
+          name: `Passkey ${i + 1}`,
+          createdAt: user?.createdAt ?? new Date().toISOString(),
+          lastUsedAt: null,
+          credentialId: `passkey-${i + 1}`
+        }))
+      : [])
   const emailOtpEnabled = user?.twofa.emailOtpEnabled === true
   /** 发信没配好时「开启邮箱验证码」直接不可点，并在同一句里说清去哪里配。 */
   const emailUnavailable = !emailConfigured && !emailOtpEnabled
@@ -635,9 +801,16 @@ export function SettingsPage() {
           <section className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-sm font-medium">
-                  {t("settings.twofa.totp.label")}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium">
+                    {t("settings.twofa.totp.label")}
+                  </p>
+                  {totpEnabled && user?.twofa.totpName ? (
+                    <Badge variant="secondary" className="text-xs font-normal">
+                      {user.twofa.totpName}
+                    </Badge>
+                  ) : null}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   {totpEnabled
                     ? t("settings.twofa.totp.enabled")
@@ -657,7 +830,7 @@ export function SettingsPage() {
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => void startTotp()}
+                  onClick={() => setSetupTotpOpen(true)}
                   disabled={totpBusy}
                 >
                   {totpBusy
@@ -724,27 +897,25 @@ export function SettingsPage() {
 
           <Separator />
 
-          <section className="space-y-2">
+          <section className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="flex items-center gap-1.5 text-sm font-medium">
                   <KeyRound className="size-3.5" aria-hidden="true" />
                   Passkey
                 </p>
-                <p className="text-xs text-muted-foreground">
-                  {passkeyCount > 0
-                    ? t("settings.twofa.passkey.registered", {
-                        count: passkeyCount
-                      })
-                    : t("settings.twofa.passkey.none")}
-                </p>
+                {passkeys.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t("settings.twofa.passkey.none")}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center gap-1.5">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  onClick={() => void registerPasskey()}
+                  onClick={() => setAddPasskeyOpen(true)}
                   disabled={passkeyBusy || !webauthnSupported()}
                   title={
                     webauthnSupported()
@@ -756,7 +927,7 @@ export function SettingsPage() {
                     ? t("settings.twofa.passkey.waiting")
                     : t("settings.twofa.passkey.add")}
                 </Button>
-                {passkeyCount > 0 ? (
+                {passkeys.length > 0 ? (
                   <Button
                     type="button"
                     size="sm"
@@ -768,6 +939,51 @@ export function SettingsPage() {
                 ) : null}
               </div>
             </div>
+
+            {passkeys.length > 0 ? (
+              <ul className="divide-y divide-border rounded-lg border border-border">
+                {passkeys.map((pk) => (
+                  <li
+                    key={pk.credentialId}
+                    className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="truncate text-sm font-medium">{pk.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("settings.twofa.passkey.meta", {
+                          createdAt: formatDateTime(pk.createdAt),
+                          lastUsed: pk.lastUsedAt
+                            ? formatDateTime(pk.lastUsedAt)
+                            : t("settings.twofa.passkey.neverUsed")
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setRenameError("")
+                          setEditingPasskey(pk)
+                        }}
+                      >
+                        {t("settings.twofa.passkey.rename")}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => setDeletingPasskey(pk)}
+                      >
+                        {t("settings.twofa.passkey.delete")}
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </section>
 
           <Separator />
@@ -983,8 +1199,9 @@ export function SettingsPage() {
           const flow = pendingReauth
           setPendingReauth(null)
           setReauthError("")
-          if (flow === "totp") void startTotp(password)
-          if (flow === "passkey") void registerPasskey(password)
+          if (flow === "totp") void startTotp(password, pendingTotpName)
+          if (flow === "passkey")
+            void registerPasskey(password, pendingPasskeyName)
           if (flow === "email") void sendEmailVerify(password)
         }}
       />
@@ -1028,6 +1245,106 @@ export function SettingsPage() {
             await authApi.passkeyDisableAll(password)
             setRemovePasskeyOpen(false)
             setNoticeKey("settings.notices.passkeyRemoved")
+            await refreshMe()
+          } catch (removeError) {
+            setError(describeApiError(removeError))
+          } finally {
+            setPasskeyBusy(false)
+          }
+        }}
+      />
+
+      <NameInputDialog
+        open={setupTotpOpen}
+        onOpenChange={setSetupTotpOpen}
+        title={t("settings.dialogs.setupTotp.title")}
+        label={t("settings.dialogs.setupTotp.nameLabel")}
+        placeholder={t("settings.dialogs.setupTotp.namePlaceholder")}
+        confirmLabel={t("settings.dialogs.setupTotp.continue")}
+        inputId="setup-totp-name"
+        onConfirm={(name) => {
+          setSetupTotpOpen(false)
+          setPendingTotpName(name)
+          if (needsReauthToAddFactor(user?.twofa)) {
+            setReauthError("")
+            setPendingReauth("totp")
+          } else {
+            void startTotp(undefined, name)
+          }
+        }}
+      />
+
+      <NameInputDialog
+        open={addPasskeyOpen}
+        onOpenChange={setAddPasskeyOpen}
+        title={t("settings.dialogs.addPasskey.title")}
+        label={t("settings.dialogs.addPasskey.nameLabel")}
+        placeholder={t("settings.dialogs.addPasskey.namePlaceholder")}
+        confirmLabel={t("settings.dialogs.addPasskey.continue")}
+        inputId="add-passkey-name"
+        onConfirm={(name) => {
+          setAddPasskeyOpen(false)
+          setPendingPasskeyName(name)
+          if (needsReauthToAddFactor(user?.twofa)) {
+            setReauthError("")
+            setPendingReauth("passkey")
+          } else {
+            void registerPasskey(undefined, name)
+          }
+        }}
+      />
+
+      <RenamePasskeyDialog
+        open={editingPasskey !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingPasskey(null)
+            setRenameError("")
+          }
+        }}
+        initialName={editingPasskey?.name ?? ""}
+        busy={passkeyBusy}
+        error={renameError}
+        onConfirm={async (name) => {
+          if (!editingPasskey) return
+          setPasskeyBusy(true)
+          setRenameError("")
+          try {
+            await authApi.passkeyRename(editingPasskey.credentialId, name)
+            setEditingPasskey(null)
+            setNoticeKey("settings.notices.passkeyRenamed")
+            await refreshMe()
+          } catch (err) {
+            setRenameError(describeApiError(err))
+          } finally {
+            setPasskeyBusy(false)
+          }
+        }}
+      />
+
+      <PasswordConfirmDialog
+        open={deletingPasskey !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeletingPasskey(null)
+            setError("")
+          }
+        }}
+        title={t("settings.dialogs.deletePasskey.title")}
+        description={t("settings.dialogs.deletePasskey.description", {
+          name: deletingPasskey?.name ?? ""
+        })}
+        confirmLabel={t("settings.twofa.passkey.delete")}
+        busy={passkeyBusy}
+        error={error}
+        onConfirm={async (password) => {
+          if (!deletingPasskey) return
+          setPasskeyBusy(true)
+          setError("")
+          try {
+            await authApi.passkeyRemove(deletingPasskey.credentialId, password)
+            setDeletingPasskey(null)
+            setNoticeKey("settings.notices.passkeyDeleted")
             await refreshMe()
           } catch (removeError) {
             setError(describeApiError(removeError))

@@ -11,6 +11,18 @@ import { useSiteStore } from "@/stores/site"
 import { useThemeStore } from "@/stores/theme"
 import type { ThemeStyle } from "@/lib/theme"
 
+vi.mock("@/lib/webauthn", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/webauthn")>()
+  return {
+    ...actual,
+    webauthnSupported: () => true,
+    registrationCredential: vi.fn().mockResolvedValue({
+      id: "mock-credential-id",
+      type: "public-key"
+    })
+  }
+})
+
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
   return {
@@ -22,6 +34,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
       totpDisable: vi.fn(),
       passkeyRegisterOptions: vi.fn(),
       passkeyRegisterVerify: vi.fn(),
+      passkeyRename: vi.fn(),
+      passkeyRemove: vi.fn(),
       passkeyDisableAll: vi.fn(),
       emailOtpSendVerify: vi.fn(),
       emailOtpEnable: vi.fn(),
@@ -61,9 +75,27 @@ beforeEach(() => {
 
 function setUser(twofa: {
   totpEnabled: boolean
+  totpName?: string | null
   passkeyCount: number
+  passkeys?: Array<{
+    name: string
+    createdAt: string
+    lastUsedAt: string | null
+    credentialId: string
+  }>
   emailOtpEnabled?: boolean
 }) {
+  const passkeys =
+    twofa.passkeys ??
+    (twofa.passkeyCount > 0
+      ? Array.from({ length: twofa.passkeyCount }, (_, i) => ({
+          name: `Passkey ${i + 1}`,
+          createdAt: "2026-11-20T00:00:00.000Z",
+          lastUsedAt: null,
+          credentialId: `cred-${i + 1}`
+        }))
+      : [])
+
   useAuthStore.setState({
     user: {
       id: 1,
@@ -75,8 +107,10 @@ function setUser(twofa: {
       createdAt: "2026-11-07T00:00:00.000Z",
       twofa: {
         totpEnabled: twofa.totpEnabled,
+        totpName: twofa.totpEnabled ? (twofa.totpName ?? "TOTP") : null,
         passkeyEnabled: twofa.passkeyCount > 0,
         passkeyCount: twofa.passkeyCount,
+        passkeys,
         emailOtpEnabled: twofa.emailOtpEnabled ?? false
       }
     },
@@ -144,6 +178,8 @@ describe("两步验证新增因子的重认证", () => {
     expect(screen.queryByRole("button", { name: "开始配置" })).toBeNull()
 
     await user.click(screen.getByRole("button", { name: "添加 Passkey" }))
+    // 先出命名对话框，点继续后进入密码重认证
+    await user.click(screen.getByRole("button", { name: "继续" }))
     const password = await screen.findByLabelText("账号密码")
     await user.type(password, "reauth-pw")
     await user.click(screen.getByRole("button", { name: "继续" }))
@@ -157,10 +193,12 @@ describe("两步验证新增因子的重认证", () => {
     renderSettings()
 
     await user.click(screen.getByRole("button", { name: "开始配置" }))
+    // 先出 TOTP 命名对话框，点继续后进入密码重认证
+    await user.click(screen.getByRole("button", { name: "继续" }))
     await user.type(await screen.findByLabelText("账号密码"), "reauth-pw")
     await user.click(screen.getByRole("button", { name: "继续" }))
 
-    expect(authApi.totpSetup).toHaveBeenCalledWith("reauth-pw")
+    expect(authApi.totpSetup).toHaveBeenCalledWith("reauth-pw", undefined)
     expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument()
   })
 
@@ -170,8 +208,10 @@ describe("两步验证新增因子的重认证", () => {
     renderSettings()
 
     await user.click(screen.getByRole("button", { name: "开始配置" }))
+    // 点命名对话框的继续按钮
+    await user.click(screen.getByRole("button", { name: "继续" }))
 
-    expect(authApi.totpSetup).toHaveBeenCalledWith(undefined)
+    expect(authApi.totpSetup).toHaveBeenCalledWith(undefined, undefined)
     expect(screen.queryByLabelText("账号密码")).toBeNull()
     expect(await screen.findByText("JBSWY3DPEHPK3PXP")).toBeInTheDocument()
   })
@@ -218,11 +258,16 @@ describe("受限会话在配置完成后解除", () => {
     renderSettings()
 
     await user.click(screen.getByRole("button", { name: "开始配置" }))
+    await user.click(screen.getByRole("button", { name: "继续" }))
     await screen.findByText("JBSWY3DPEHPK3PXP")
     await user.type(screen.getByLabelText("6 位验证码"), "123456")
     await user.click(screen.getByRole("button", { name: "启用" }))
 
-    expect(authApi.totpEnable).toHaveBeenCalledWith("123456", undefined)
+    expect(authApi.totpEnable).toHaveBeenCalledWith(
+      "123456",
+      undefined,
+      undefined
+    )
     expect(useAuthStore.getState().restricted).toBe(false)
     expect(sessionStorage.getItem("ciki-restricted-session")).toBeNull()
   })
@@ -582,7 +627,18 @@ describe("界面语言", () => {
 describe("设置页 · 英文界面", () => {
   it("卡片标题、两步验证与两张令牌卡都是英文", async () => {
     vi.mocked(meApi.sessions).mockResolvedValue([])
-    setUser({ totpEnabled: true, passkeyCount: 1 })
+    setUser({
+      totpEnabled: true,
+      passkeyCount: 1,
+      passkeys: [
+        {
+          name: "My MacBook Passkey",
+          createdAt: "2026-11-20T00:00:00.000Z",
+          lastUsedAt: null,
+          credentialId: "cred-1"
+        }
+      ]
+    })
     await i18n.changeLanguage("en")
     renderSettings()
 
@@ -590,11 +646,9 @@ describe("设置页 · 英文界面", () => {
     expect(screen.getByText("Theme")).toBeInTheDocument()
     expect(screen.getByText("Change password")).toBeInTheDocument()
     expect(screen.getByText("Two-factor authentication")).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        "1 passkey registered (fingerprint / face / security key)."
-      )
-    ).toBeInTheDocument()
+    expect(screen.getByText("My MacBook Passkey")).toBeInTheDocument()
+    expect(screen.getByText(/Created/)).toBeInTheDocument()
+    expect(screen.getByText(/Never used/)).toBeInTheDocument()
     expect(await screen.findByText("API Token")).toBeInTheDocument()
     expect(screen.getByText("Browser extension")).toBeInTheDocument()
     expect(screen.getByText("No API Token yet")).toBeInTheDocument()
@@ -722,5 +776,237 @@ describe("主题风格设置", () => {
 
     // 保存按钮保持可用以支持重试
     expect(saveBtn).toBeEnabled()
+  })
+})
+
+describe("Passkey 与 TOTP 加名字与管理功能", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh")
+    vi.mocked(meApi.sessions).mockResolvedValue([])
+    vi.mocked(authApi.totpSetup).mockReset()
+    vi.mocked(authApi.totpEnable).mockReset()
+    vi.mocked(authApi.passkeyRegisterOptions).mockReset()
+    vi.mocked(authApi.passkeyRegisterVerify).mockReset()
+    vi.mocked(authApi.passkeyRename).mockReset()
+    vi.mocked(authApi.passkeyRemove).mockReset()
+    vi.mocked(authApi.passkeyDisableAll).mockReset()
+  })
+
+  it("添加 Passkey 弹出命名对话框，输入名字后注册随请求提交", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    vi.mocked(authApi.passkeyRegisterOptions).mockResolvedValue({
+      challenge: "mock-challenge"
+    })
+    vi.mocked(authApi.passkeyRegisterVerify).mockResolvedValue({
+      success: true
+    })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "添加 Passkey" }))
+    expect(screen.getByLabelText("Passkey 名称")).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText("Passkey 名称"), "我的工作笔记本")
+    await user.click(screen.getByRole("button", { name: "继续" }))
+
+    expect(authApi.passkeyRegisterOptions).toHaveBeenCalledWith(undefined)
+    expect(authApi.passkeyRegisterVerify).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "mock-credential-id" }),
+      undefined,
+      "我的工作笔记本"
+    )
+  })
+
+  it("添加 Passkey 留空名字时，以 undefined 提交给后端自动生成默认名", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    vi.mocked(authApi.passkeyRegisterOptions).mockResolvedValue({
+      challenge: "mock-challenge"
+    })
+    vi.mocked(authApi.passkeyRegisterVerify).mockResolvedValue({
+      success: true
+    })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "添加 Passkey" }))
+    await user.click(screen.getByRole("button", { name: "继续" }))
+
+    expect(authApi.passkeyRegisterVerify).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "mock-credential-id" }),
+      undefined,
+      undefined
+    )
+  })
+
+  it("Passkey 逐个列表显示：名字、创建时间、最近使用时间（未使用与具体时间）、改名与删除按钮", () => {
+    setUser({
+      totpEnabled: false,
+      passkeyCount: 2,
+      passkeys: [
+        {
+          name: "公司电脑",
+          createdAt: "2026-11-20T08:30:00.000Z",
+          lastUsedAt: null,
+          credentialId: "cred-work"
+        },
+        {
+          name: "个人手机",
+          createdAt: "2026-11-21T10:00:00.000Z",
+          lastUsedAt: "2026-11-25T05:00:00.000Z",
+          credentialId: "cred-mobile"
+        }
+      ]
+    })
+    renderSettings()
+
+    expect(screen.getByText("公司电脑")).toBeInTheDocument()
+    expect(screen.getByText("个人手机")).toBeInTheDocument()
+
+    // 公司电脑 lastUsedAt 为空 -> 显示「未使用」
+    expect(screen.getByText(/最近使用：未使用/)).toBeInTheDocument()
+    // 创建时间
+    expect(screen.getAllByText(/创建于/).length).toBe(2)
+
+    // 每行都有改名与删除
+    expect(screen.getAllByRole("button", { name: "改名" })).toHaveLength(2)
+    expect(screen.getAllByRole("button", { name: "删除" })).toHaveLength(2)
+    // 存在凭证时显示「全部移除」
+    expect(screen.getByRole("button", { name: "全部移除" })).toBeInTheDocument()
+  })
+
+  it("Passkey 改名：打开改名对话框，输入新名称保存后调 PATCH /passkey/:credentialId，无需密码", async () => {
+    const user = userEvent.setup()
+    setUser({
+      totpEnabled: false,
+      passkeyCount: 1,
+      passkeys: [
+        {
+          name: "旧名字",
+          createdAt: "2026-11-20T08:30:00.000Z",
+          lastUsedAt: null,
+          credentialId: "cred-1"
+        }
+      ]
+    })
+    vi.mocked(authApi.passkeyRename).mockResolvedValue({
+      success: true,
+      name: "新名字"
+    })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "改名" }))
+    const input = screen.getByLabelText("Passkey 名称")
+    expect(input).toHaveValue("旧名字")
+
+    await user.clear(input)
+    await user.type(input, "新名字")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    expect(authApi.passkeyRename).toHaveBeenCalledWith("cred-1", "新名字")
+    // 不会弹出密码确认框
+    expect(screen.queryByLabelText("账号密码")).toBeNull()
+  })
+
+  it("Passkey 单个删除：点击删除弹出密码确认对话框，验证后调 DELETE /passkey/:credentialId", async () => {
+    const user = userEvent.setup()
+    setUser({
+      totpEnabled: false,
+      passkeyCount: 1,
+      passkeys: [
+        {
+          name: "待删凭证",
+          createdAt: "2026-11-20T08:30:00.000Z",
+          lastUsedAt: null,
+          credentialId: "cred-del"
+        }
+      ]
+    })
+    vi.mocked(authApi.passkeyRemove).mockResolvedValue({ success: true })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "删除" }))
+    // 弹出密码确认对话框
+    expect(screen.getByText("删除 Passkey")).toBeInTheDocument()
+    expect(
+      screen.getByText("确定要删除「待删凭证」吗？删除后无法再使用它登录。")
+    ).toBeInTheDocument()
+
+    const passwordInput = screen.getByLabelText("账号密码")
+    await user.type(passwordInput, "my-pass")
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "删除" })
+    )
+
+    expect(authApi.passkeyRemove).toHaveBeenCalledWith("cred-del", "my-pass")
+  })
+
+  it("Passkey 全部移除：调用 passkeyDisableAll", async () => {
+    const user = userEvent.setup()
+    setUser({
+      totpEnabled: false,
+      passkeyCount: 2
+    })
+    vi.mocked(authApi.passkeyDisableAll).mockResolvedValue({ success: true })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "全部移除" }))
+    expect(screen.getByText("移除全部 Passkey")).toBeInTheDocument()
+
+    const passwordInput = screen.getByLabelText("账号密码")
+    await user.type(passwordInput, "my-pass")
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "全部移除"
+      })
+    )
+
+    expect(authApi.passkeyDisableAll).toHaveBeenCalledWith("my-pass")
+  })
+
+  it("TOTP 设置流程：在生成二维码之前输入名字，setup 与 enable 均提交该名字", async () => {
+    const user = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    vi.mocked(authApi.totpSetup).mockResolvedValue({
+      secret: "JBSWY3DPEHPK3PXP",
+      uri: "otpauth://totp/ciki:我的手机?secret=JBSWY3DPEHPK3PXP"
+    })
+    vi.mocked(authApi.totpEnable).mockResolvedValue({ success: true })
+    renderSettings()
+
+    await user.click(screen.getByRole("button", { name: "开始配置" }))
+    expect(screen.getByLabelText("验证器名称")).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText("验证器名称"), "我的手机")
+    await user.click(screen.getByRole("button", { name: "继续" }))
+
+    expect(authApi.totpSetup).toHaveBeenCalledWith(undefined, "我的手机")
+
+    // 输入验证码并启用
+    await screen.findByText("JBSWY3DPEHPK3PXP")
+    await user.type(screen.getByLabelText("6 位验证码"), "654321")
+    await user.click(screen.getByRole("button", { name: "启用" }))
+
+    expect(authApi.totpEnable).toHaveBeenCalledWith(
+      "654321",
+      undefined,
+      "我的手机"
+    )
+  })
+
+  it("TOTP 显示：已启用时展示名字 Badge，未启用时不展示", () => {
+    // 未启用状态
+    setUser({ totpEnabled: false, passkeyCount: 0 })
+    const { unmount } = renderSettings()
+    expect(screen.queryByText("默认手机验证器")).toBeNull()
+    unmount()
+
+    // 已启用状态，带自定义 totpName
+    setUser({
+      totpEnabled: true,
+      totpName: "默认手机验证器",
+      passkeyCount: 0
+    })
+    renderSettings()
+    expect(screen.getByText("默认手机验证器")).toBeInTheDocument()
   })
 })

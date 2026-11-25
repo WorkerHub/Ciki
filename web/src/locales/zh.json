@@ -597,7 +597,11 @@
         "add": "添加 Passkey",
         "waiting": "等待验证…",
         "removeAll": "全部移除",
-        "unsupported": "当前浏览器不支持 WebAuthn"
+        "unsupported": "当前浏览器不支持 WebAuthn",
+        "rename": "改名",
+        "delete": "删除",
+        "neverUsed": "未使用",
+        "meta": "创建于 {{createdAt}} · 最近使用：{{lastUsed}}"
       },
       "email": {
         "label": "邮箱验证码",
@@ -630,6 +634,31 @@
       "removePasskey": {
         "title": "移除全部 Passkey",
         "description": "移除后只能使用动态验证码或密码登录。"
+      },
+      "addPasskey": {
+        "title": "添加 Passkey",
+        "description": "添加新的 Passkey",
+        "nameLabel": "Passkey 名称",
+        "namePlaceholder": "选填，留空使用默认名称",
+        "continue": "继续"
+      },
+      "renamePasskey": {
+        "title": "重命名 Passkey",
+        "nameLabel": "Passkey 名称",
+        "namePlaceholder": "输入新的名称",
+        "save": "保存"
+      },
+      "deletePasskey": {
+        "title": "删除 Passkey",
+        "description": "确定要删除「{{name}}」吗？删除后无法再使用它登录。",
+        "confirm": "删除"
+      },
+      "setupTotp": {
+        "title": "配置两步验证",
+        "description": "配置验证器 App",
+        "nameLabel": "验证器名称",
+        "namePlaceholder": "选填，留空使用账号邮箱",
+        "continue": "继续"
       }
     },
     "sessions": {
@@ -648,6 +677,8 @@
       "totpDisabled": "两步验证已关闭。",
       "passkeyAdded": "Passkey 已添加。",
       "passkeyRemoved": "Passkey 已全部移除。",
+      "passkeyRenamed": "Passkey 已改名。",
+      "passkeyDeleted": "Passkey 已删除。",
       "emailOtpEnabled": "邮箱验证码已开启，下次登录可以改用邮箱收码。",
       "emailOtpDisabled": "邮箱验证码已关闭。"
     },
@@ -1392,6 +1423,7 @@
     "USERNAME_TAKEN": "这个用户名已经有人用了，请换一个。",
     "INVALID_AVATAR": "头像无效，请重新上传。",
     "INVALID_LANGUAGE": "语言不受支持，只支持中文和英文。",
+    "INVALID_NAME": "名称格式不正确（1–50 个字符）。",
     "INVALID_SPACE_NAME": "空间名称需为 1–64 个字符。",
     "INVALID_SPACE_DESCRIPTION": "空间描述最多 500 个字符。",
     "SPACE_NOT_FOUND": "空间不存在，或你已不是它的成员。",

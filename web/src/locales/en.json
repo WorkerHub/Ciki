@@ -602,7 +602,11 @@
         "add": "Add passkey",
         "waiting": "Waiting for verification…",
         "removeAll": "Remove all",
-        "unsupported": "This browser does not support WebAuthn"
+        "unsupported": "This browser does not support WebAuthn",
+        "rename": "Rename",
+        "delete": "Delete",
+        "neverUsed": "Never used",
+        "meta": "Created {{createdAt}} · Last used: {{lastUsed}}"
       },
       "email": {
         "label": "Email code",
@@ -635,6 +639,31 @@
       "removePasskey": {
         "title": "Remove all passkeys",
         "description": "After removing, you can only sign in with a TOTP code or your password."
+      },
+      "addPasskey": {
+        "title": "Add passkey",
+        "description": "Add a new passkey",
+        "nameLabel": "Passkey name",
+        "namePlaceholder": "Optional, defaults to automatic name",
+        "continue": "Continue"
+      },
+      "renamePasskey": {
+        "title": "Rename passkey",
+        "nameLabel": "Passkey name",
+        "namePlaceholder": "Enter a new name",
+        "save": "Save"
+      },
+      "deletePasskey": {
+        "title": "Delete passkey",
+        "description": "Are you sure you want to delete \"{{name}}\"? You will no longer be able to sign in with it.",
+        "confirm": "Delete"
+      },
+      "setupTotp": {
+        "title": "Set up two-factor authentication",
+        "description": "Set up authenticator app",
+        "nameLabel": "Authenticator name",
+        "namePlaceholder": "Optional, defaults to account email",
+        "continue": "Continue"
       }
     },
     "sessions": {
@@ -653,6 +682,8 @@
       "totpDisabled": "Two-factor authentication disabled.",
       "passkeyAdded": "Passkey added.",
       "passkeyRemoved": "All passkeys removed.",
+      "passkeyRenamed": "Passkey renamed.",
+      "passkeyDeleted": "Passkey deleted.",
       "emailOtpEnabled": "Email code enabled. The next sign-in can use an emailed code.",
       "emailOtpDisabled": "Email code disabled."
     },
@@ -1413,6 +1444,7 @@
     "USERNAME_TAKEN": "That username is taken. Choose another one.",
     "INVALID_AVATAR": "That avatar is not valid; upload it again.",
     "INVALID_LANGUAGE": "Unsupported language. Choose Chinese or English.",
+    "INVALID_NAME": "Name must be 1–50 characters.",
     "INVALID_SPACE_NAME": "A space name must be 1–64 characters.",
     "INVALID_SPACE_DESCRIPTION": "A space description can be at most 500 characters.",
     "SPACE_NOT_FOUND": "The space does not exist, or you are no longer a member of it.",
