@@ -15,8 +15,10 @@ export interface ThemeState {
   theme: ThemeMode
   style: ThemeStyle
   resolved: "light" | "dark"
+  migratedAt: number | null
   setTheme: (theme: ThemeMode) => void
   setStyle: (style: ThemeStyle) => void
+  markMigrated: (timestamp?: number) => void
   /** 系统明暗变化时调用；只有 auto 档需要重算。 */
   syncSystem: () => void
 }
@@ -27,6 +29,7 @@ export const useThemeStore = create<ThemeState>()(
       theme: "auto",
       style: DEFAULT_THEME_STYLE,
       resolved: resolveTheme("auto"),
+      migratedAt: null,
       setTheme: (theme) => {
         const style = get().style
         set({ theme, resolved: applyTheme(theme, style) })
@@ -34,6 +37,9 @@ export const useThemeStore = create<ThemeState>()(
       setStyle: (style) => {
         const theme = get().theme
         set({ style, resolved: applyTheme(theme, style) })
+      },
+      markMigrated: (timestamp = Date.now()) => {
+        set({ migratedAt: timestamp })
       },
       syncSystem: () => {
         if (get().theme !== "auto") return
@@ -44,11 +50,16 @@ export const useThemeStore = create<ThemeState>()(
     {
       name: THEME_STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ theme: state.theme, style: state.style }),
+      partialize: (state) => ({
+        theme: state.theme,
+        style: state.style,
+        migratedAt: state.migratedAt
+      }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
         if (!state.style || (state.style !== "nova" && state.style !== "paper"))
           state.style = DEFAULT_THEME_STYLE
+        if (state.migratedAt === undefined) state.migratedAt = null
         state.resolved = applyTheme(state.theme, state.style)
       }
     }
@@ -72,15 +83,18 @@ export function _resetThemeMigratingForTest() {
 export async function syncAccountTheme(user: Me | null): Promise<void> {
   if (!user || migrating) return
   const serverStyle: ThemeStyle = user.themeStyle === "paper" ? "paper" : "nova"
-  const localStyle: ThemeStyle = useThemeStore.getState().style
+  const themeStore = useThemeStore.getState()
+  const localStyle: ThemeStyle = themeStore.style
+  const hasMigrated = Boolean(themeStore.migratedAt)
 
-  // 一次性迁移条件：服务端默认 nova && 本地镜像 paper
-  if (serverStyle === "nova" && localStyle === "paper") {
+  // 一次性迁移条件：未曾同步过 && 服务端默认 nova && 本地镜像 paper
+  if (!hasMigrated && serverStyle === "nova" && localStyle === "paper") {
     migrating = true
     try {
       const updated = await meApi.updateThemeStyle("paper")
       useAuthStore.getState().setUser(updated)
       useThemeStore.getState().setStyle("paper")
+      useThemeStore.getState().markMigrated()
     } catch {
       // 迁移回写失败（如网络抖动或后端端点未就绪）：保留本地 paper 镜像，允许后续重试，不静默覆盖丢弃偏好
     } finally {

@@ -522,7 +522,7 @@ describe("主题风格设置", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("zh")
     vi.mocked(meApi.sessions).mockResolvedValue([])
-    useThemeStore.setState({ style: "nova", theme: "auto" })
+    useThemeStore.setState({ style: "nova", theme: "auto", migratedAt: null })
   })
 
   it("渲染风格选项（Nova / 纸面）与保存按钮，初始无变更时禁用；不包含亮暗三档控件", () => {
@@ -592,6 +592,8 @@ describe("主题风格设置", () => {
     // 更新了 auth store 与 theme store
     expect(useAuthStore.getState().user?.themeStyle).toBe("paper")
     expect(useThemeStore.getState().style).toBe("paper")
+    expect(useThemeStore.getState().migratedAt).toBeTruthy()
+    expect(localStorage.getItem("ciki-theme")).toContain('"migratedAt":')
 
     // 显示成功提示反馈
     expect(await screen.findByText("主题风格已保存。")).toBeInTheDocument()
@@ -619,6 +621,7 @@ describe("主题风格设置", () => {
 
     // 本地 store 保持 nova
     expect(useThemeStore.getState().style).toBe("nova")
+    expect(useThemeStore.getState().migratedAt).toBeNull()
 
     // 弹出错误提示
     expect(await screen.findByRole("alert")).toHaveTextContent(
