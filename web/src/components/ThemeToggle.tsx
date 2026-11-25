@@ -2,7 +2,11 @@ import { Monitor, Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { THEME_STYLE_OPTIONS, type Theme, type ThemeStyle } from "@/lib/theme"
+import {
+  THEME_STYLE_OPTIONS,
+  type ThemeMode,
+  type ThemeStyle
+} from "@/lib/theme"
 import { useThemeStore } from "@/stores/theme"
 
 const ICONS = {
@@ -49,18 +53,18 @@ export function ThemeStyleSegmented({
 /** 顶栏的快捷切换：自动 → 浅色 → 深色 循环。 */
 export function ThemeCycleButton() {
   const { t } = useTranslation()
-  const theme = useThemeStore((state) => state.theme)
-  const setTheme = useThemeStore((state) => state.setTheme)
-  const currentTheme: Theme =
-    theme === "light" || theme === "dark" ? theme : "auto"
-  const Icon = ICONS[currentTheme]
-  const order: Theme[] = ["auto", "light", "dark"]
-  const label: Record<Theme, string> = {
+  const mode = useThemeStore((state) => state.mode)
+  const setMode = useThemeStore((state) => state.setMode)
+  const currentMode: ThemeMode =
+    mode === "light" || mode === "dark" ? mode : "auto"
+  const Icon = ICONS[currentMode]
+  const order: ThemeMode[] = ["auto", "light", "dark"]
+  const label: Record<ThemeMode, string> = {
     auto: t("common.theme.cycle.auto"),
     light: t("common.theme.cycle.light"),
     dark: t("common.theme.cycle.dark")
   }
-  const hint = t("common.theme.cycle.switch", { label: label[currentTheme] })
+  const hint = t("common.theme.cycle.switch", { label: label[currentMode] })
   return (
     <Button
       type="button"
@@ -69,8 +73,8 @@ export function ThemeCycleButton() {
       title={hint}
       aria-label={hint}
       onClick={() => {
-        const index = order.indexOf(currentTheme)
-        setTheme(order[(index + 1) % order.length])
+        const index = order.indexOf(currentMode)
+        setMode(order[(index + 1) % order.length])
       }}
     >
       <Icon aria-hidden="true" />

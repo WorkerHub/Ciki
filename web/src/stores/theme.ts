@@ -1,9 +1,9 @@
 import { create } from "zustand"
-import { createJSONStorage, persist } from "zustand/middleware"
+import { persist, type StorageValue } from "zustand/middleware"
 import { type Me, meApi } from "@/lib/api"
 import {
   applyTheme,
-  resolveTheme,
+  resolveMode,
   THEME_STORAGE_KEY,
   DEFAULT_THEME_STYLE,
   type ThemeMode,
@@ -12,62 +12,211 @@ import {
 import { useAuthStore } from "@/stores/auth"
 
 export interface ThemeState {
-  theme: ThemeMode
+  mode: ThemeMode
   style: ThemeStyle
   resolved: "light" | "dark"
   migratedAt: number | null
-  setTheme: (theme: ThemeMode) => void
+  setMode: (mode: ThemeMode) => void
   setStyle: (style: ThemeStyle) => void
   markMigrated: (timestamp?: number) => void
   /** 系统明暗变化时调用；只有 auto 档需要重算。 */
   syncSystem: () => void
 }
 
+export interface PersistedThemeState {
+  mode: ThemeMode
+  style: ThemeStyle
+  migratedAt: number | null
+}
+
+export interface ThemeMigrationResult {
+  migrated: boolean
+  state: PersistedThemeState
+}
+
+/**
+ * 持久化数据迁移：
+ * 将旧结构中的 `theme`（明暗模式）搬移到 `mode` 字段，并落迁移时间戳标记。
+ * 支持三类输入：
+ * 1. 旧结构三种 mode 取值（auto / light / dark / 非法值回退 auto） -> migrated: true
+ * 2. 无旧字段（仅 style 或空结构） -> mode 默认 auto，migrated: false
+ * 3. 已迁移结构（已有 mode 字段） -> 保持现状，migrated: false
+ */
+export function migrateThemeStorage(
+  raw: unknown,
+  now: number = Date.now()
+): ThemeMigrationResult {
+  let parsed: unknown = raw
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      parsed = raw
+    }
+  }
+
+  // 兼容裸字符串输入（"light" | "dark" | "auto"）
+  if (typeof parsed === "string") {
+    const mode: ThemeMode =
+      parsed === "light" || parsed === "dark" ? parsed : "auto"
+    return {
+      migrated: true,
+      state: {
+        mode,
+        style: DEFAULT_THEME_STYLE,
+        migratedAt: now
+      }
+    }
+  }
+
+  const container = (
+    parsed && typeof parsed === "object" ? parsed : {}
+  ) as Record<string, unknown>
+  const stateObj = (
+    container.state && typeof container.state === "object"
+      ? container.state
+      : container
+  ) as Record<string, unknown>
+
+  const hasLegacyTheme = "theme" in stateObj
+  const hasMode = "mode" in stateObj
+
+  // 类 3: 已迁移结构
+  if (hasMode) {
+    const rawMode = stateObj.mode
+    const mode: ThemeMode =
+      rawMode === "light" || rawMode === "dark" ? rawMode : "auto"
+    const style: ThemeStyle =
+      stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+    const migratedAt =
+      typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
+    return {
+      migrated: false,
+      state: {
+        mode,
+        style,
+        migratedAt
+      }
+    }
+  }
+
+  // 类 1: 旧结构（含 theme 字段）
+  if (hasLegacyTheme) {
+    const rawTheme = stateObj.theme
+    const mode: ThemeMode =
+      rawTheme === "light" || rawTheme === "dark" ? rawTheme : "auto"
+    const style: ThemeStyle =
+      stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+    const migratedAt =
+      typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : now
+    return {
+      migrated: true,
+      state: {
+        mode,
+        style,
+        migratedAt
+      }
+    }
+  }
+
+  // 类 2: 无旧字段（未设置过明暗，或无 theme 也无 mode）
+  const style: ThemeStyle =
+    stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+  const migratedAt =
+    typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
+  return {
+    migrated: false,
+    state: {
+      mode: "auto",
+      style,
+      migratedAt
+    }
+  }
+}
+
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      theme: "auto",
+      mode: "auto",
       style: DEFAULT_THEME_STYLE,
-      resolved: resolveTheme("auto"),
+      resolved: resolveMode("auto"),
       migratedAt: null,
-      setTheme: (theme) => {
-        const safeTheme: ThemeMode =
-          theme === "light" || theme === "dark" ? theme : "auto"
+      setMode: (mode) => {
+        const safeMode: ThemeMode =
+          mode === "light" || mode === "dark" ? mode : "auto"
         const style = get().style
-        set({ theme: safeTheme, resolved: applyTheme(safeTheme, style) })
+        set({ mode: safeMode, resolved: applyTheme(safeMode, style) })
       },
       setStyle: (style) => {
         const safeStyle: ThemeStyle =
           style === "paper" ? "paper" : DEFAULT_THEME_STYLE
-        const theme = get().theme
-        set({ style: safeStyle, resolved: applyTheme(theme, safeStyle) })
+        const mode = get().mode
+        set({ style: safeStyle, resolved: applyTheme(mode, safeStyle) })
       },
       markMigrated: (timestamp = Date.now()) => {
         set({ migratedAt: timestamp })
       },
       syncSystem: () => {
-        if (get().theme !== "auto") return
+        if (get().mode !== "auto") return
         const style = get().style
         set({ resolved: applyTheme("auto", style) })
       }
     }),
     {
       name: THEME_STORAGE_KEY,
-      storage: createJSONStorage(() => localStorage),
+      storage: {
+        getItem: (name: string): StorageValue<PersistedThemeState> | null => {
+          if (typeof window === "undefined" || !window.localStorage) return null
+          try {
+            const raw = localStorage.getItem(name)
+            if (!raw) return null
+            const migration = migrateThemeStorage(raw)
+            if (migration.migrated) {
+              try {
+                localStorage.setItem(
+                  name,
+                  JSON.stringify({
+                    state: migration.state,
+                    version: 0
+                  })
+                )
+              } catch {}
+            }
+            return {
+              state: migration.state,
+              version: 0
+            }
+          } catch {
+            return null
+          }
+        },
+        setItem: (name: string, value: StorageValue<PersistedThemeState>) => {
+          if (typeof window === "undefined" || !window.localStorage) return
+          try {
+            localStorage.setItem(name, JSON.stringify(value))
+          } catch {}
+        },
+        removeItem: (name: string) => {
+          if (typeof window === "undefined" || !window.localStorage) return
+          try {
+            localStorage.removeItem(name)
+          } catch {}
+        }
+      },
       partialize: (state) => ({
-        theme: state.theme,
+        mode: state.mode,
         style: state.style,
         migratedAt: state.migratedAt
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
-        if (state.theme !== "light" && state.theme !== "dark") {
-          state.theme = "auto"
+        if (state.mode !== "light" && state.mode !== "dark") {
+          state.mode = "auto"
         }
         if (!state.style || (state.style !== "nova" && state.style !== "paper"))
           state.style = DEFAULT_THEME_STYLE
         if (state.migratedAt === undefined) state.migratedAt = null
-        state.resolved = applyTheme(state.theme, state.style)
+        state.resolved = applyTheme(state.mode, state.style)
       }
     }
   )

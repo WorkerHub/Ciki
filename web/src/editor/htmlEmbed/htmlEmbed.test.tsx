@@ -90,7 +90,7 @@ describe("htmlEmbed 节点契约与规范", () => {
   afterEach(() => {
     cleanupEditors()
     vi.restoreAllMocks()
-    useThemeStore.getState().setTheme("auto")
+    useThemeStore.getState().setMode("auto")
     useThemeStore.getState().setStyle("nova")
   })
 
@@ -652,7 +652,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 200 })
     )
-    useThemeStore.getState().setTheme("dark")
+    useThemeStore.getState().setMode("dark")
     useThemeStore.getState().setStyle("paper")
 
     const { container } = render(<ReadView html={EMBED_HTML} />)
@@ -663,8 +663,8 @@ describe("htmlEmbed 节点契约与规范", () => {
       return el as HTMLIFrameElement
     })
 
-    // 1. 首帧参数：src 携带 theme=dark 与 style=paper
-    expect(iframe.src).toContain("theme=dark")
+    // 1. 首帧参数：src 携带 mode=dark 与 style=paper
+    expect(iframe.src).toContain("mode=dark")
     expect(iframe.src).toContain("style=paper")
 
     // Mock contentWindow.postMessage
@@ -679,7 +679,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(postMessageSpy).toHaveBeenCalledWith(
       {
         type: CIKI_EMBED_THEME_MESSAGE_TYPE,
-        theme: "dark",
+        mode: "dark",
         style: "paper"
       },
       "*"
@@ -689,7 +689,7 @@ describe("htmlEmbed 节点契约与规范", () => {
 
     // 3. 主题 store 变化重发：切为 light / nova
     await act(async () => {
-      useThemeStore.getState().setTheme("light")
+      useThemeStore.getState().setMode("light")
       useThemeStore.getState().setStyle("nova")
     })
 
@@ -697,7 +697,7 @@ describe("htmlEmbed 节点契约与规范", () => {
       expect(postMessageSpy).toHaveBeenCalledWith(
         {
           type: CIKI_EMBED_THEME_MESSAGE_TYPE,
-          theme: "light",
+          mode: "light",
           style: "nova"
         },
         "*"
@@ -705,9 +705,9 @@ describe("htmlEmbed 节点契约与规范", () => {
     })
 
     // 验证核心（Tony 评审硬指标）：已 load 的 iframe 在主题切换后，src 保持初始参数，绝不触发重新导航（重载）
-    expect(iframe.src).toContain("theme=dark")
+    expect(iframe.src).toContain("mode=dark")
     expect(iframe.src).toContain("style=paper")
-    expect(iframe.src).not.toContain("theme=light")
+    expect(iframe.src).not.toContain("mode=light")
 
     // 4. 固定高度与自动高度均下发
     const AUTO_HTML = `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="${EMBED_NAME}"></div>`
@@ -726,7 +726,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(autoPostMessageSpy).toHaveBeenCalledWith(
       {
         type: CIKI_EMBED_THEME_MESSAGE_TYPE,
-        theme: "light",
+        mode: "light",
         style: "nova"
       },
       "*"
@@ -737,7 +737,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 200 })
     )
-    useThemeStore.getState().setTheme("dark")
+    useThemeStore.getState().setMode("dark")
     useThemeStore.getState().setStyle("nova")
 
     const TWO_EMBEDS_HTML = `
@@ -769,7 +769,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(spy1).toHaveBeenCalledWith(
       {
         type: CIKI_EMBED_THEME_MESSAGE_TYPE,
-        theme: "dark",
+        mode: "dark",
         style: "nova"
       },
       "*"
@@ -777,7 +777,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     expect(spy2).toHaveBeenCalledWith(
       {
         type: CIKI_EMBED_THEME_MESSAGE_TYPE,
-        theme: "dark",
+        mode: "dark",
         style: "nova"
       },
       "*"
@@ -788,7 +788,7 @@ describe("htmlEmbed 节点契约与规范", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(null, { status: 200 })
     )
-    useThemeStore.getState().setTheme("dark")
+    useThemeStore.getState().setMode("dark")
     useThemeStore.getState().setStyle("paper")
 
     const { container } = render(<ReadView html={EMBED_HTML} />)
@@ -799,17 +799,17 @@ describe("htmlEmbed 节点契约与规范", () => {
       return el as HTMLIFrameElement
     })
 
-    expect(iframe.src).toContain("theme=dark")
+    expect(iframe.src).toContain("mode=dark")
 
     // 在尚未触发 load 事件前切换主题
     await act(async () => {
-      useThemeStore.getState().setTheme("light")
+      useThemeStore.getState().setMode("light")
       useThemeStore.getState().setStyle("nova")
     })
 
     // 未 load 状态下 src 参数更新为最新主题，保证首帧按新主题渲染
     await waitFor(() => {
-      expect(iframe.src).toContain("theme=light")
+      expect(iframe.src).toContain("mode=light")
       expect(iframe.src).toContain("style=nova")
     })
   })

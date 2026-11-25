@@ -39,7 +39,7 @@ export function ExcalidrawModal({
   onSave
 }: ExcalidrawModalProps) {
   const { t, i18n } = useTranslation()
-  const resolvedTheme = useThemeStore((state) => state.resolved)
+  const resolvedMode = useThemeStore((state) => state.resolved)
   const langCode = i18n.language.startsWith("zh") ? "zh-CN" : "en"
 
   const [excalidrawAPI, setExcalidrawAPI] =
@@ -59,7 +59,7 @@ export function ExcalidrawModal({
       setInitialData({
         elements: [],
         appState: {
-          theme: resolvedTheme,
+          theme: resolvedMode,
           isLoading: false
         }
       })
@@ -83,7 +83,7 @@ export function ExcalidrawModal({
           elements: data.elements || [],
           appState: {
             ...(data.appState || {}),
-            theme: resolvedTheme,
+            theme: resolvedMode,
             isLoading: false
           }
         })
@@ -95,7 +95,7 @@ export function ExcalidrawModal({
         setInitialData({
           elements: [],
           appState: {
-            theme: resolvedTheme,
+            theme: resolvedMode,
             isLoading: false
           }
         })
@@ -107,7 +107,7 @@ export function ExcalidrawModal({
     return () => {
       cancelled = true
     }
-  }, [sceneKey, resolvedTheme])
+  }, [sceneKey, resolvedMode])
 
   // 按 Esc 键退出（保存中不响应；输入框编辑中优先让组件自身处理 Esc）
   useEffect(() => {
@@ -239,7 +239,7 @@ export function ExcalidrawModal({
         ) : initialData ? (
           <Excalidraw
             excalidrawAPI={(api) => setExcalidrawAPI(api)}
-            theme={resolvedTheme}
+            theme={resolvedMode}
             langCode={langCode}
             initialData={initialData}
             validateEmbeddable={false}

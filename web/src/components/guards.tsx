@@ -4,7 +4,7 @@ import { Navigate, Outlet, useLocation } from "react-router"
 import { usePageTitle } from "@/hooks/use-page-title"
 import { applyAccountLanguage } from "@/i18n"
 import { setUnauthorizedHandler } from "@/lib/api"
-import { watchSystemTheme } from "@/lib/theme"
+import { watchSystemMode } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
 import { useSetupGateStore } from "@/stores/setup"
 import { useSiteStore } from "@/stores/site"
@@ -48,12 +48,12 @@ export function RootGate() {
     setUnauthorizedHandler(() => useAuthStore.getState().setUser(null))
     void load()
     void loadSite()
-    const stopTheme = watchSystemTheme(() =>
+    const stopMode = watchSystemMode(() =>
       useThemeStore.getState().syncSystem()
     )
     if (useSetupGateStore.getState().state === null) void loadSetup()
     return () => {
-      stopTheme()
+      stopMode()
       setUnauthorizedHandler(null)
     }
   }, [load, loadSetup, loadSite])
