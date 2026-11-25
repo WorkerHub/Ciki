@@ -61,7 +61,7 @@ import {
 import { usePagesStore } from "@/stores/pages"
 import { useSpacesStore } from "@/stores/spaces"
 
-/** 侧边栏页面树：展开/收起、点击进页面、拖拽改层级与排序、行内菜单做增删改。 */
+/** 侧边栏页面树：展开/收起、点击进页面、拖动只保留同级排序（改层级走「移动」对话框）、行内菜单做增删改。 */
 export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useTranslation()
   const navigate = useNavigate()

@@ -10,8 +10,6 @@ export interface TreeRow {
   depth: number
   sortOrder: number
   hasChildren: boolean
-  /** 全部子页数（含未展开的），拖拽嵌套时用它能落到子列表真正的末尾。 */
-  childCount: number
 }
 
 export interface DropTarget {
@@ -52,8 +50,7 @@ export function flattenVisible(
         parentId,
         depth,
         sortOrder: node.sortOrder,
-        hasChildren: node.children.length > 0,
-        childCount: node.children.length
+        hasChildren: node.children.length > 0
       })
       if (node.children.length && expanded.has(node.id))
         walk(node.children, depth + 1, node.id)
