@@ -17,6 +17,7 @@ export interface UserRow {
   username: string
   avatar_key: string
   bio?: string
+  theme_style?: string
   role: "admin" | "user"
   is_active: number
   approval_status: "pending" | "approved" | "rejected"
@@ -369,7 +370,8 @@ const UPDATABLE = new Set([
   "username",
   "avatar_key",
   "language",
-  "bio"
+  "bio",
+  "theme_style"
 ])
 
 export async function updateUser(
