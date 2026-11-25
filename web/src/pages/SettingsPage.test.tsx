@@ -924,12 +924,21 @@ describe("Passkey 与 TOTP 加名字与管理功能", () => {
     vi.mocked(authApi.passkeyRemove).mockResolvedValue({ success: true })
     renderSettings()
 
+    // 模拟先触发一个其它操作的页面级报错（例如两次输入密码不一致）
+    await user.type(screen.getByLabelText("当前密码"), "oldpassword")
+    await user.type(screen.getByLabelText("新密码（至少 8 位）"), "password123")
+    await user.type(screen.getByLabelText("再次输入新密码"), "different")
+    await user.click(screen.getByRole("button", { name: "更新密码" }))
+    expect(screen.getByText("两次输入的新密码不一致")).toBeInTheDocument()
+
     await user.click(screen.getByRole("button", { name: "删除" }))
     // 弹出密码确认对话框
     expect(screen.getByText("删除 Passkey")).toBeInTheDocument()
     expect(
       screen.getByText("确定要删除「待删凭证」吗？删除后无法再使用它登录。")
     ).toBeInTheDocument()
+    // 打开删除弹窗时已清理 error，弹窗内不应残留前置错误
+    expect(screen.queryByText("两次输入的新密码不一致")).toBeNull()
 
     const passwordInput = screen.getByLabelText("账号密码")
     await user.type(passwordInput, "my-pass")

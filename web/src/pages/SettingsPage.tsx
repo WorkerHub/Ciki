@@ -609,16 +609,7 @@ export function SettingsPage() {
   }
 
   const totpEnabled = user?.twofa.totpEnabled ?? false
-  const passkeys: PasskeyItem[] =
-    user?.twofa.passkeys ??
-    (user?.twofa.passkeyCount
-      ? Array.from({ length: user.twofa.passkeyCount }, (_, i) => ({
-          name: `Passkey ${i + 1}`,
-          createdAt: user?.createdAt ?? new Date().toISOString(),
-          lastUsedAt: null,
-          credentialId: `passkey-${i + 1}`
-        }))
-      : [])
+  const passkeys: PasskeyItem[] = user?.twofa.passkeys ?? []
   const emailOtpEnabled = user?.twofa.emailOtpEnabled === true
   /** 发信没配好时「开启邮箱验证码」直接不可点，并在同一句里说清去哪里配。 */
   const emailUnavailable = !emailConfigured && !emailOtpEnabled
@@ -932,7 +923,10 @@ export function SettingsPage() {
                     type="button"
                     size="sm"
                     variant="ghost"
-                    onClick={() => setRemovePasskeyOpen(true)}
+                    onClick={() => {
+                      setError("")
+                      setRemovePasskeyOpen(true)
+                    }}
                   >
                     {t("settings.twofa.passkey.removeAll")}
                   </Button>
@@ -975,7 +969,10 @@ export function SettingsPage() {
                         size="sm"
                         variant="ghost"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => setDeletingPasskey(pk)}
+                        onClick={() => {
+                          setError("")
+                          setDeletingPasskey(pk)
+                        }}
                       >
                         {t("settings.twofa.passkey.delete")}
                       </Button>

@@ -592,7 +592,6 @@
         "codeLabel": "6 位验证码"
       },
       "passkey": {
-        "registered_other": "已登记 {{count}} 个 Passkey（指纹 / 面容 / 安全钥匙）。",
         "none": "未登记。",
         "add": "添加 Passkey",
         "waiting": "等待验证…",
@@ -637,25 +636,20 @@
       },
       "addPasskey": {
         "title": "添加 Passkey",
-        "description": "添加新的 Passkey",
         "nameLabel": "Passkey 名称",
         "namePlaceholder": "选填，留空使用默认名称",
         "continue": "继续"
       },
       "renamePasskey": {
         "title": "重命名 Passkey",
-        "nameLabel": "Passkey 名称",
-        "namePlaceholder": "输入新的名称",
-        "save": "保存"
+        "nameLabel": "Passkey 名称"
       },
       "deletePasskey": {
         "title": "删除 Passkey",
-        "description": "确定要删除「{{name}}」吗？删除后无法再使用它登录。",
-        "confirm": "删除"
+        "description": "确定要删除「{{name}}」吗？删除后无法再使用它登录。"
       },
       "setupTotp": {
         "title": "配置两步验证",
-        "description": "配置验证器 App",
         "nameLabel": "验证器名称",
         "namePlaceholder": "选填，留空使用账号邮箱",
         "continue": "继续"

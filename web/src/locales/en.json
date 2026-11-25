@@ -596,8 +596,6 @@
         "codeLabel": "6-digit code"
       },
       "passkey": {
-        "registered_one": "{{count}} passkey registered (fingerprint / face / security key).",
-        "registered_other": "{{count}} passkeys registered (fingerprint / face / security key).",
         "none": "None registered.",
         "add": "Add passkey",
         "waiting": "Waiting for verification…",
@@ -642,25 +640,20 @@
       },
       "addPasskey": {
         "title": "Add passkey",
-        "description": "Add a new passkey",
         "nameLabel": "Passkey name",
         "namePlaceholder": "Optional, defaults to automatic name",
         "continue": "Continue"
       },
       "renamePasskey": {
         "title": "Rename passkey",
-        "nameLabel": "Passkey name",
-        "namePlaceholder": "Enter a new name",
-        "save": "Save"
+        "nameLabel": "Passkey name"
       },
       "deletePasskey": {
         "title": "Delete passkey",
-        "description": "Are you sure you want to delete \"{{name}}\"? You will no longer be able to sign in with it.",
-        "confirm": "Delete"
+        "description": "Are you sure you want to delete \"{{name}}\"? You will no longer be able to sign in with it."
       },
       "setupTotp": {
         "title": "Set up two-factor authentication",
-        "description": "Set up authenticator app",
         "nameLabel": "Authenticator name",
         "namePlaceholder": "Optional, defaults to account email",
         "continue": "Continue"
