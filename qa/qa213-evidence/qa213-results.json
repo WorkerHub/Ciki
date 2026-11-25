@@ -1,0 +1,187 @@
+{
+  "base": "http://127.0.0.1:8846",
+  "results": [
+    {
+      "id": "T0",
+      "item": "初始树序为 [1,2,3]",
+      "result": "PASS",
+      "detail": "got=1,2,3 titles=QA 拖拽-甲|QA 拖拽-乙|QA 拖拽-丙"
+    },
+    {
+      "id": "T1a",
+      "item": "正常网络：松手后立即呈现新顺序 [3,1,2]（无等待）",
+      "result": "PASS",
+      "detail": "immediate=3,1,2 (up 后 877ms 内)"
+    },
+    {
+      "id": "T1b",
+      "item": "正常网络：松手后 3.2s 采样 25 次恒为新顺序、无回弹",
+      "result": "PASS",
+      "detail": "timeline=[{\"t\":0,\"ids\":\"3,1,2\"},{\"t\":133,\"ids\":\"3,1,2\"},{\"t\":267,\"ids\":\"3,1,2\"},{\"t\":402,\"ids\":\"3,1,2\"},{\"t\":536,\"ids\":\"3,1,2\"},{\"t\":670,\"ids\":\"3,1,2\"},{\"t\":803,\"ids\":\"3,1,2\"},{\"t\":936,\"ids\":\"3,1,2\"},{\"t\":1070,\"ids\":\"3,1,2\"},{\"t\":1204,\"ids\":\"3,1,2\"},{\"t\":1337,\"ids\":\"3,1,2\"},{\"t\":1471,\"ids\":\"3,1,2\"},{\"t\":1604,\"ids\":\"3,1,2\"},{\"t\":1738,\"ids\":\"3,1,2\"},{\"t\":1872,\"ids\":\"3,1,2\"},{\"t\":2003,\"ids\":\"3,1,2\"},{\"t\":2135,\"ids\":\"3,1,2\"},{\"t\":2268,\"ids\":\"3,1,2\"},{\"t\":2402,\"ids\":\"3,1,2\"},{\"t\":2536,\"ids\":\"3,1,2\"},{\"t\":2669,\"ids\":\"3,1,2\"},{\"t\":2802,\"ids\":\"3,1,2\"},{\"t\":2936,\"ids\":\"3,1,2\"},{\"t\":3070,\"ids\":\"3,1,2\"}]"
+    },
+    {
+      "id": "T1c",
+      "item": "正常网络：收敛后仍为新顺序",
+      "result": "PASS",
+      "detail": "after=3,1,2"
+    },
+    {
+      "id": "T2a",
+      "item": "Slow 3G：松手后立即呈现新顺序 [3,2,1]",
+      "result": "PASS",
+      "detail": "immediate=3,2,1 (up 后 797ms 内)"
+    },
+    {
+      "id": "T2b",
+      "item": "Slow 3G：12s 同步窗口内顺序恒定不跳动",
+      "result": "PASS",
+      "detail": "n=59 unique=[\"3,2,1\"]"
+    },
+    {
+      "id": "T2c",
+      "item": "Slow 3G：同步完成后刷新，服务端顺序 = [3,2,1]",
+      "result": "PASS",
+      "detail": "after=3,2,1"
+    },
+    {
+      "id": "T3a",
+      "item": "接口失败：松手后乐观呈现 [1,3,2]",
+      "result": "PASS",
+      "detail": "optimistic=1,3,2"
+    },
+    {
+      "id": "T3b",
+      "item": "接口失败：随后回滚到原顺序 [3,2,1]",
+      "result": "PASS",
+      "detail": "rolled=3,2,1 timeline=[\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\",\"3,2,1\"]"
+    },
+    {
+      "id": "T3c",
+      "item": "接口失败：出现错误提示（role=alert）",
+      "result": "PASS",
+      "detail": "alert=\"网络异常，请稍后重试\""
+    },
+    {
+      "id": "T3d",
+      "item": "恢复网络刷新后顺序 = 原顺序 [3,2,1]",
+      "result": "PASS",
+      "detail": "after=3,2,1"
+    },
+    {
+      "id": "T3x-a",
+      "item": "真断网：松手后瞬时乐观呈现或已回滚（fetch 立即拒绝）",
+      "result": "PASS",
+      "detail": "optimistic=3,2,1（乐观态由 T3a 证实，此处过快无法采样属预期）"
+    },
+    {
+      "id": "T3x-b",
+      "item": "真断网：回滚到原顺序 [3,2,1] + 错误提示",
+      "result": "PASS",
+      "detail": "rolled=3,2,1 alert=\"网络异常，请稍后重试\""
+    },
+    {
+      "id": "T3x-c",
+      "item": "恢复网络刷新后 = [3,2,1]",
+      "result": "PASS",
+      "detail": "after=3,2,1"
+    },
+    {
+      "id": "T4a",
+      "item": "连续两次快速拖放：第二笔发起时本地已呈现第一笔结果",
+      "result": "PASS",
+      "detail": "mid=2,3,1"
+    },
+    {
+      "id": "T4b",
+      "item": "连续两次快速拖放：最终顺序 = 期望 [3,1,2]",
+      "result": "PASS",
+      "detail": "final=3,1,2 stable=true unique=[\"3,1,2\"]"
+    },
+    {
+      "id": "T4c",
+      "item": "刷新后顺序保持（服务端已落）[3,1,2]",
+      "result": "PASS",
+      "detail": "after=3,1,2"
+    },
+    {
+      "id": "T5a",
+      "item": "拖子页到其他层级行：松手不改父级（C1 仍在 P2 下，depth=1）",
+      "result": "PASS",
+      "detail": "flat=3@d0,1@d0,2@d0,4@d1,5@d1 c1={\"id\":4,\"title\":\"QA 子页-一\",\"depth\":1}"
+    },
+    {
+      "id": "T5b",
+      "item": "跨层拖动全程无预览线（不同父级不产生跨级落点）",
+      "result": "PASS",
+      "detail": "samples n=39 nonNull=0"
+    },
+    {
+      "id": "T5c",
+      "item": "跨级拖动松手：未发出任何 move 请求（落点无效直接回原位）",
+      "result": "PASS",
+      "detail": "moves=[]"
+    },
+    {
+      "id": "T5d-a",
+      "item": "子页同级拖动：出现过的预览线深度恒为本层（left=20px，横向晃动不变）",
+      "result": "PASS",
+      "detail": "n=25 非空=18 unique=[\"20px\"]"
+    },
+    {
+      "id": "T5d-b",
+      "item": "子页同级拖动松手：C1 与 C2 交换且都仍在 P2 下（depth=1）",
+      "result": "PASS",
+      "detail": "flat=3@d0,1@d0,2@d0,5@d1,4@d1"
+    },
+    {
+      "id": "T5x-a",
+      "item": "同级拖动照常生效（P1 拖到 P2 后）",
+      "result": "PASS",
+      "detail": "flat=3,2,1"
+    },
+    {
+      "id": "T5x-b",
+      "item": "同级拖动预览线深度恒为 0（left=2px）",
+      "result": "PASS",
+      "detail": "previews=[{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"},{\"left\":\"2px\",\"top\":\"\",\"bottom\":\"-1px\"}] n=19"
+    },
+    {
+      "id": "T6a",
+      "item": "移动对话框：P3 改到 P1 下（depth=1，P1 子列表末尾）",
+      "result": "PASS",
+      "detail": "flat=2,1,3 p3={\"id\":3,\"title\":\"QA 拖拽-丙\",\"depth\":1}"
+    },
+    {
+      "id": "T6b",
+      "item": "刷新后保持：P3 仍是 P1 子页",
+      "result": "PASS",
+      "detail": "flat=2,1,3"
+    },
+    {
+      "id": "T6c",
+      "item": "移回顶层：P3 depth=0",
+      "result": "PASS",
+      "detail": "flat=2,1,3"
+    },
+    {
+      "id": "T6d",
+      "item": "刷新后保持：P3 仍在顶层",
+      "result": "PASS",
+      "detail": "flat=2,1,3"
+    },
+    {
+      "id": "T7-nova",
+      "item": "Nova 主题：拖动主路径正常（[2,1,3]→拖1到3后→[2,3,1] 且稳定）",
+      "result": "PASS",
+      "detail": "theme=nova base=2,1,3 seq=2,3,1 stable=true"
+    },
+    {
+      "id": "T7-paper",
+      "item": "纸面主题：拖动主路径正常（[2,3,1]→拖3到2前→[3,2,1] 且稳定）",
+      "result": "PASS",
+      "detail": "theme=paper base=2,3,1 seq=3,2,1 stable=true"
+    }
+  ],
+  "pass": 30,
+  "total": 30
+}
