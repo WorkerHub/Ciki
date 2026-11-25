@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 import { ReactNodeViewRenderer } from "@tiptap/react"
+import { insertBlockAfterNodeSelection } from "@/editor/block-insert"
 import { imageWidth } from "@/editor/image-attributes"
 import { ExcalidrawBlockView } from "./ExcalidrawBlockView"
 import type { ExcalidrawNodeAttrs } from "./types"
@@ -107,20 +108,18 @@ export const WikiExcalidraw = Node.create<ExcalidrawOptions>({
 
   addCommands() {
     return {
-      setExcalidraw:
-        (attrs) =>
-        ({ commands }) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs: {
-              sceneKey: "",
-              previewKey: "",
-              extractedText: "",
-              width: null,
-              ...attrs
-            }
-          })
-        }
+      setExcalidraw: (attrs) => (props) => {
+        return insertBlockAfterNodeSelection(props, {
+          type: this.name,
+          attrs: {
+            sceneKey: "",
+            previewKey: "",
+            extractedText: "",
+            width: null,
+            ...attrs
+          }
+        })
+      }
     }
   },
 

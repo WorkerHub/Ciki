@@ -1,12 +1,15 @@
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight"
+import { isNodeSelection } from "@tiptap/core"
 import Image from "@tiptap/extension-image"
 import Placeholder from "@tiptap/extension-placeholder"
-import { Table } from "@tiptap/extension-table"
+import { Table, createTable } from "@tiptap/extension-table"
 import TableRow from "@tiptap/extension-table-row"
 import TaskItem from "@tiptap/extension-task-item"
 import TaskList from "@tiptap/extension-task-list"
+import { TextSelection } from "@tiptap/pm/state"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
+import { insertBlockAfterNodeSelection } from "@/editor/block-insert"
 import { CodeBlockView } from "@/editor/CodeBlockView"
 import {
   WikiColor,
@@ -118,6 +121,17 @@ export const WikiImage = Image.extend({
       }
     }
   },
+  addCommands() {
+    return {
+      ...this.parent?.(),
+      setImage: (options) => (props) => {
+        return insertBlockAfterNodeSelection(props, {
+          type: this.name,
+          attrs: options
+        })
+      }
+    }
+  },
   addNodeView() {
     // 一个图片节点视图盖三种态：未转存占位、阅读态渲染、编辑态可缩放（见 ImageBlock）
     return ReactNodeViewRenderer(ImageBlock, { stopEvent: stopForInteractive })
@@ -125,6 +139,38 @@ export const WikiImage = Image.extend({
   // 未转存的图片没有 src（只有 data-original-src），默认的 img[src] 规则会把它丢掉。
   parseHTML() {
     return [...(this.parent?.() ?? []), { tag: "img[data-original-src]" }]
+  }
+})
+
+/**
+ * 表格：在 NodeSelection 下插入表格时插在被选中块节点之后，防止覆盖现有块节点。
+ */
+const WikiTable = Table.extend({
+  addCommands() {
+    return {
+      ...this.parent?.(),
+      insertTable:
+        ({ rows = 3, cols = 3, withHeaderRow = true } = {}) =>
+        ({ tr, dispatch, editor }) => {
+          const node = createTable(editor.schema, rows, cols, withHeaderRow)
+
+          if (dispatch) {
+            if (isNodeSelection(tr.selection)) {
+              const insertPos = tr.selection.to
+              tr.insert(insertPos, node)
+                .scrollIntoView()
+                .setSelection(TextSelection.near(tr.doc.resolve(insertPos + 1)))
+            } else {
+              const offset = tr.selection.from + 1
+              tr.replaceSelectionWith(node)
+                .scrollIntoView()
+                .setSelection(TextSelection.near(tr.doc.resolve(offset)))
+            }
+          }
+
+          return true
+        }
+    }
   }
 })
 
@@ -169,7 +215,7 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
     WikiFontSize,
     WikiHighlight.configure({ multicolor: true }),
     WikiJointColorAdaptation,
-    Table.configure({
+    WikiTable.configure({
       resizable: isEdit,
       // 始终包一层 .tableWrapper：读态也要横向滚动，否则超宽表格会把正文挤变形
       renderWrapper: true,
@@ -191,4 +237,4 @@ export function createExtensions(mode: EditorMode, placeholder?: string) {
   ]
 }
 
-export { WikiExcalidraw, WikiHtmlEmbed }
+export { WikiExcalidraw, WikiHtmlEmbed, WikiTable }

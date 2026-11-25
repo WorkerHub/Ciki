@@ -1,5 +1,6 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 import { ReactNodeViewRenderer } from "@tiptap/react"
+import { insertBlockAfterNodeSelection } from "@/editor/block-insert"
 import { i18n } from "@/i18n"
 import { HtmlEmbedBlockView } from "./HtmlEmbedBlockView"
 import type { HtmlEmbedNodeAttrs } from "./types"
@@ -147,19 +148,17 @@ export const WikiHtmlEmbed = Node.create<HtmlEmbedOptions>({
 
   addCommands() {
     return {
-      setHtmlEmbed:
-        (attrs) =>
-        ({ commands }) => {
-          return commands.insertContent({
-            type: this.name,
-            attrs: {
-              key: "",
-              height: null,
-              name: "",
-              ...attrs
-            }
-          })
-        }
+      setHtmlEmbed: (attrs) => (props) => {
+        return insertBlockAfterNodeSelection(props, {
+          type: this.name,
+          attrs: {
+            key: "",
+            height: null,
+            name: "",
+            ...attrs
+          }
+        })
+      }
     }
   },
 
