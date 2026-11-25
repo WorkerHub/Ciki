@@ -1,0 +1,373 @@
+{
+  "origin": "vite-dev",
+  "baseUrl": "http://127.0.0.1:5174",
+  "pageId": 1,
+  "reloads": 12,
+  "checks": [
+    {
+      "name": "会话自证 /api/me",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "name": "重载采样#1",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=213 window=494..4017ms"
+    },
+    {
+      "name": "重载采样#2",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=218 window=405..4003ms"
+    },
+    {
+      "name": "重载采样#3",
+      "ok": false,
+      "detail": "distinct=[\"标题 2\"] samples=217 window=431..4006ms"
+    },
+    {
+      "name": "重载采样#4",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=218 window=412..4008ms"
+    },
+    {
+      "name": "重载采样#5",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=218 window=419..4010ms"
+    },
+    {
+      "name": "重载采样#6",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=216 window=439..4007ms"
+    },
+    {
+      "name": "重载采样#7",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=215 window=469..4015ms"
+    },
+    {
+      "name": "重载采样#8",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=217 window=428..4004ms"
+    },
+    {
+      "name": "重载采样#9",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=213 window=505..4012ms"
+    },
+    {
+      "name": "重载采样#10",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=217 window=415..4001ms"
+    },
+    {
+      "name": "重载采样#11",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=216 window=437..4004ms"
+    },
+    {
+      "name": "重载采样#12",
+      "ok": true,
+      "detail": "distinct=[\"正文\"] samples=217 window=428..4000ms"
+    },
+    {
+      "name": "口径1 初始标签稳定一致（全部重载）",
+      "ok": false,
+      "detail": "12 次 distinct=[[\"正文\"],[\"正文\"],[\"标题 2\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"],[\"正文\"]]"
+    },
+    {
+      "name": "主题 light 生效",
+      "ok": true,
+      "detail": "data-mode=light（初始 light）"
+    },
+    {
+      "name": "light 主题初始标签",
+      "ok": true,
+      "detail": "distinct=[\"正文\"]"
+    },
+    {
+      "name": "口径2a 点进正文→正文",
+      "ok": true,
+      "detail": "label=正文"
+    },
+    {
+      "name": "口径2b 点进标题2→标题 2",
+      "ok": true,
+      "detail": "label=标题 2"
+    },
+    {
+      "name": "口径2c 切标题3→标签跟随+文档h3",
+      "ok": true,
+      "detail": "label=标题 3 h3=true"
+    },
+    {
+      "name": "口径2d 切回正文→标签跟随+h3还原",
+      "ok": true,
+      "detail": "label=正文 h3Gone=true"
+    },
+    {
+      "name": "下拉恢复首块为标题 2",
+      "ok": true,
+      "detail": "{\"h2\":true,\"h3\":false} label=标题 2"
+    },
+    {
+      "name": "口径3a ⌘S 保存内容落库",
+      "ok": true,
+      "detail": "contentText 含 R1=true"
+    },
+    {
+      "name": "口径3b 保存生成版本",
+      "ok": true,
+      "detail": "revisions=4"
+    },
+    {
+      "name": "口径3c 保存按钮回阅读页",
+      "ok": true,
+      "detail": "http://127.0.0.1:5174/p/1"
+    },
+    {
+      "name": "口径3d 阅读页呈现保存内容",
+      "ok": true,
+      "detail": "R1=true R2=true"
+    },
+    {
+      "name": "主题 dark 生效",
+      "ok": true,
+      "detail": "data-mode=dark"
+    },
+    {
+      "name": "dark 主题初始标签",
+      "ok": true,
+      "detail": "distinct=[\"正文\"]"
+    },
+    {
+      "name": "dark 主题点进标题→标题 2",
+      "ok": true,
+      "detail": "label=标题 2"
+    }
+  ],
+  "apiLog": [
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages",
+    "PUT /api/pages/1",
+    "GET /api/pages",
+    "PUT /api/pages/1",
+    "GET /api/pages",
+    "GET /api/pages/1",
+    "GET /api/pages/1/comments",
+    "GET /api/me",
+    "GET /api/auth/config",
+    "GET /api/setup/state",
+    "GET /api/notifications/unread-count",
+    "GET /api/pages/1",
+    "GET /api/spaces",
+    "GET /api/pages"
+  ],
+  "reloadResults": [
+    {
+      "run": 1,
+      "distinct": [
+        "正文"
+      ],
+      "n": 213,
+      "firstAt": 494,
+      "lastAt": 4017
+    },
+    {
+      "run": 2,
+      "distinct": [
+        "正文"
+      ],
+      "n": 218,
+      "firstAt": 405,
+      "lastAt": 4003
+    },
+    {
+      "run": 3,
+      "distinct": [
+        "标题 2"
+      ],
+      "n": 217,
+      "firstAt": 431,
+      "lastAt": 4006
+    },
+    {
+      "run": 4,
+      "distinct": [
+        "正文"
+      ],
+      "n": 218,
+      "firstAt": 412,
+      "lastAt": 4008
+    },
+    {
+      "run": 5,
+      "distinct": [
+        "正文"
+      ],
+      "n": 218,
+      "firstAt": 419,
+      "lastAt": 4010
+    },
+    {
+      "run": 6,
+      "distinct": [
+        "正文"
+      ],
+      "n": 216,
+      "firstAt": 439,
+      "lastAt": 4007
+    },
+    {
+      "run": 7,
+      "distinct": [
+        "正文"
+      ],
+      "n": 215,
+      "firstAt": 469,
+      "lastAt": 4015
+    },
+    {
+      "run": 8,
+      "distinct": [
+        "正文"
+      ],
+      "n": 217,
+      "firstAt": 428,
+      "lastAt": 4004
+    },
+    {
+      "run": 9,
+      "distinct": [
+        "正文"
+      ],
+      "n": 213,
+      "firstAt": 505,
+      "lastAt": 4012
+    },
+    {
+      "run": 10,
+      "distinct": [
+        "正文"
+      ],
+      "n": 217,
+      "firstAt": 415,
+      "lastAt": 4001
+    },
+    {
+      "run": 11,
+      "distinct": [
+        "正文"
+      ],
+      "n": 216,
+      "firstAt": 437,
+      "lastAt": 4004
+    },
+    {
+      "run": 12,
+      "distinct": [
+        "正文"
+      ],
+      "n": 217,
+      "firstAt": 428,
+      "lastAt": 4000
+    }
+  ],
+  "revisionCount": 4,
+  "darkBodyBg": "oklch(0.145 0 0)"
+}

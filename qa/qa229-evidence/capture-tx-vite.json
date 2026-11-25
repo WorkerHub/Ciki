@@ -1,0 +1,413 @@
+{
+  "capturedAt": "2026-11-25T12:08:46.996Z",
+  "base": "http://127.0.0.1:5174",
+  "pageId": "1",
+  "reloads": 8,
+  "runs": [
+    {
+      "run": 1,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 642,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 26
+        },
+        {
+          "t": 642,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 20
+        },
+        {
+          "t": 727,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "fbv8cj2",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 732,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 39
+        },
+        {
+          "t": 732,
+          "ev": "attach",
+          "instanceId": "fbv8cj2",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 591,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 23
+        },
+        {
+          "t": 597,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 25
+        },
+        {
+          "t": 668,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "r9dwbpl",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 671,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 29
+        },
+        {
+          "t": 672,
+          "ev": "attach",
+          "instanceId": "r9dwbpl",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 510,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 23
+        },
+        {
+          "t": 510,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 20
+        },
+        {
+          "t": 591,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "thmyns7",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 595,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 37
+        },
+        {
+          "t": 595,
+          "ev": "attach",
+          "instanceId": "thmyns7",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 532,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 21
+        },
+        {
+          "t": 532,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 18
+        },
+        {
+          "t": 614,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "e9dev6k",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 614,
+          "ev": "attach",
+          "instanceId": "e9dev6k",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 618,
+          "ev": "create",
+          "instanceId": "e9dev6k"
+        },
+        {
+          "t": 618,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 40
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 559,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 22
+        },
+        {
+          "t": 559,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 19
+        },
+        {
+          "t": 639,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "9ctt5hp",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 644,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 37
+        },
+        {
+          "t": 644,
+          "ev": "attach",
+          "instanceId": "9ctt5hp",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 516,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 36
+        },
+        {
+          "t": 520,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 38
+        },
+        {
+          "t": 591,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "tq76hzw",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 595,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 29
+        },
+        {
+          "t": 595,
+          "ev": "attach",
+          "instanceId": "tq76hzw",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    },
+    {
+      "run": 7,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 526,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 22
+        },
+        {
+          "t": 526,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 19
+        },
+        {
+          "t": 605,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "3mp18xx",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 609,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 37
+        },
+        {
+          "t": 610,
+          "ev": "attach",
+          "instanceId": "3mp18xx",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    },
+    {
+      "run": 8,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 573,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 22
+        },
+        {
+          "t": 574,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 19
+        },
+        {
+          "t": 653,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "yqnn3va",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 657,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 38
+        },
+        {
+          "t": 657,
+          "ev": "attach",
+          "instanceId": "yqnn3va",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    }
+  ]
+}

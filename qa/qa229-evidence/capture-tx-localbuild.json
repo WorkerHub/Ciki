@@ -1,0 +1,618 @@
+{
+  "capturedAt": "2026-11-25T12:10:08.213Z",
+  "base": "http://127.0.0.1:9221",
+  "pageId": "1",
+  "reloads": 12,
+  "runs": [
+    {
+      "run": 1,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 494,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 19
+        },
+        {
+          "t": 512,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 31
+        },
+        {
+          "t": 567,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "jh7069d",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 571,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 12
+        },
+        {
+          "t": 571,
+          "ev": "attach",
+          "instanceId": "jh7069d",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 449,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 11
+        },
+        {
+          "t": 457,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 17
+        },
+        {
+          "t": 490,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "2hneq7d",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 494,
+          "ev": "attach",
+          "instanceId": "2hneq7d",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 495,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 11
+        }
+      ]
+    },
+    {
+      "run": 3,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 434,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 12
+        },
+        {
+          "t": 438,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 14
+        },
+        {
+          "t": 474,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "2o2rvgg",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 478,
+          "ev": "attach",
+          "instanceId": "2o2rvgg",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 484,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 17
+        }
+      ]
+    },
+    {
+      "run": 4,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 454,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 45
+        },
+        {
+          "t": 454,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 48
+        },
+        {
+          "t": 499,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "5yme1hs",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 499,
+          "ev": "attach",
+          "instanceId": "5yme1hs",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 499,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 41
+        },
+        {
+          "t": 503,
+          "ev": "create",
+          "instanceId": "5yme1hs"
+        }
+      ]
+    },
+    {
+      "run": 5,
+      "finalLabel": "正文",
+      "active": "",
+      "hit": false,
+      "txlog": [
+        {
+          "t": 444,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 27
+        },
+        {
+          "t": 444,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 30
+        },
+        {
+          "t": 488,
+          "ev": "label",
+          "value": "正文",
+          "ed": {
+            "instanceId": "3crxyga",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 488,
+          "ev": "attach",
+          "instanceId": "3crxyga",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 488,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 40
+        },
+        {
+          "t": 491,
+          "ev": "create",
+          "instanceId": "3crxyga"
+        }
+      ]
+    },
+    {
+      "run": 6,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 447,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 17
+        },
+        {
+          "t": 451,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 19
+        },
+        {
+          "t": 484,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "cduwcqq",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 488,
+          "ev": "attach",
+          "instanceId": "cduwcqq",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 489,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 11
+        }
+      ]
+    },
+    {
+      "run": 7,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 439,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 11
+        },
+        {
+          "t": 451,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 21
+        },
+        {
+          "t": 492,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "qmen453",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 496,
+          "ev": "attach",
+          "instanceId": "qmen453",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 498,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 13
+        }
+      ]
+    },
+    {
+      "run": 8,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 411,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 13
+        },
+        {
+          "t": 417,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 15
+        },
+        {
+          "t": 450,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "isdb5m1",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 454,
+          "ev": "attach",
+          "instanceId": "isdb5m1",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 454,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 11
+        }
+      ]
+    },
+    {
+      "run": 9,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 466,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 11
+        },
+        {
+          "t": 472,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 14
+        },
+        {
+          "t": 509,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "b486r80",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 513,
+          "ev": "attach",
+          "instanceId": "b486r80",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 513,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 11
+        }
+      ]
+    },
+    {
+      "run": 10,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 419,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 12
+        },
+        {
+          "t": 424,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 15
+        },
+        {
+          "t": 461,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "t6zphk0",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 464,
+          "ev": "attach",
+          "instanceId": "t6zphk0",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 464,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 11
+        }
+      ]
+    },
+    {
+      "run": 11,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 441,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 11
+        },
+        {
+          "t": 441,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 9
+        },
+        {
+          "t": 480,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "96y325g",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 484,
+          "ev": "attach",
+          "instanceId": "96y325g",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 484,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 10
+        }
+      ]
+    },
+    {
+      "run": 12,
+      "finalLabel": "标题 2",
+      "active": "",
+      "hit": true,
+      "txlog": [
+        {
+          "t": 426,
+          "ev": "fetch-done",
+          "url": "/api/pages/1?format=json",
+          "ms": 11
+        },
+        {
+          "t": 433,
+          "ev": "fetch-done",
+          "url": "/api/spaces",
+          "ms": 16
+        },
+        {
+          "t": 469,
+          "ev": "label",
+          "value": "标题 2",
+          "ed": {
+            "instanceId": "i7oh3xk",
+            "docFirst": "heading",
+            "selParent": "heading"
+          }
+        },
+        {
+          "t": 473,
+          "ev": "attach",
+          "instanceId": "i7oh3xk",
+          "editable": true,
+          "sel": {
+            "from": 1,
+            "to": 1,
+            "parent": "heading",
+            "depth": 1,
+            "idx0": 0,
+            "docFirst": "heading"
+          }
+        },
+        {
+          "t": 473,
+          "ev": "fetch-done",
+          "url": "/api/pages?spaceId=1",
+          "ms": 11
+        }
+      ]
+    }
+  ]
+}
