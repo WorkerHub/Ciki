@@ -16,19 +16,34 @@ const ICONS = {
   dark: Moon
 } as const
 
+export interface ThemeStyleSegmentedProps {
+  value?: ThemeStyle
+  onChange?: (style: ThemeStyle) => void
+  disabled?: boolean
+}
+
 /** 设置页里的主题风格选择（Nova / 纸面，极简两个选项、无说明文字）。 */
-export function ThemeStyleSegmented() {
+export function ThemeStyleSegmented({
+  value,
+  onChange,
+  disabled
+}: ThemeStyleSegmentedProps = {}) {
   const { t } = useTranslation()
   const style = useThemeStore((state) => state.style)
+  const current = value ?? style
   const setStyle = useThemeStore((state) => state.setStyle)
   return (
     <ToggleGroup
       type="single"
       variant="outline"
       size="sm"
-      value={style}
-      onValueChange={(value) => {
-        if (value) setStyle(value as ThemeStyle)
+      value={current}
+      disabled={disabled}
+      onValueChange={(val) => {
+        if (val) {
+          if (onChange) onChange(val as ThemeStyle)
+          else setStyle(val as ThemeStyle)
+        }
       }}
       aria-label={t("common.theme.styleLabel")}
     >

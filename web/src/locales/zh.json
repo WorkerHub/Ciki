@@ -15,6 +15,7 @@
     },
     "cancel": "取消",
     "save": "保存",
+    "saving": "保存中…",
     "retry": "重试",
     "theme": {
       "label": "主题",
@@ -561,7 +562,11 @@
       "label": "界面语言"
     },
     "appearance": {
-      "title": "外观",
+      "title": "主题",
+      "account": "当前账号：{{email}}"
+    },
+    "theme": {
+      "title": "主题",
       "account": "当前账号：{{email}}"
     },
     "password": {
@@ -641,6 +646,7 @@
       "revoke": "吊销"
     },
     "notices": {
+      "themeUpdated": "主题风格已保存。",
       "passwordUpdated": "密码已更新，其它设备上的登录会话已失效。",
       "totpEnabled": "两步验证已开启，下次登录需要输入动态验证码。",
       "totpDisabled": "两步验证已关闭。",

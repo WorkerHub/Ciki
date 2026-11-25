@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { createJSONStorage, persist } from "zustand/middleware"
+import { type Me, meApi } from "@/lib/api"
 import {
   applyTheme,
   resolveTheme,
@@ -8,6 +9,7 @@ import {
   type ThemeMode,
   type ThemeStyle
 } from "@/lib/theme"
+import { useAuthStore } from "@/stores/auth"
 
 export interface ThemeState {
   theme: ThemeMode
@@ -52,3 +54,43 @@ export const useThemeStore = create<ThemeState>()(
     }
   )
 )
+
+let migrating = false
+
+export function _resetThemeMigratingForTest() {
+  migrating = false
+}
+
+/**
+ * 账号主题同步与一次性迁移（规格 §5/§6）：
+ * - 登录态下以服务端返回的 themeStyle 为真源应用风格；
+ * - 本地 localStorage ciki-theme 中的 style 字段降级为首屏镜像（由 setStyle 同步维护）；
+ * - 上线后首次登录加载时，若服务端 themeStyle 仍为默认 nova 且本地镜像 style 为 paper，
+ *   把本地值回写服务端一次；此后一律以服务端为准；
+ * - 未登录状态（user 为 null）：保持本地镜像 / 默认 nova，不报错、不等待。
+ */
+export async function syncAccountTheme(user: Me | null): Promise<void> {
+  if (!user || migrating) return
+  const serverStyle: ThemeStyle = user.themeStyle === "paper" ? "paper" : "nova"
+  const localStyle: ThemeStyle = useThemeStore.getState().style
+
+  // 一次性迁移条件：服务端默认 nova && 本地镜像 paper
+  if (serverStyle === "nova" && localStyle === "paper") {
+    migrating = true
+    try {
+      const updated = await meApi.updateThemeStyle("paper")
+      useAuthStore.getState().setUser(updated)
+      useThemeStore.getState().setStyle("paper")
+    } catch {
+      // 迁移回写失败（如网络中断），保持以服务端为准
+      useThemeStore.getState().setStyle(serverStyle)
+    } finally {
+      migrating = false
+    }
+  } else {
+    // 此后一律以服务端为准
+    if (localStyle !== serverStyle) {
+      useThemeStore.getState().setStyle(serverStyle)
+    }
+  }
+}

@@ -14,7 +14,7 @@ import { AgentAccountsCard } from "@/components/AgentAccountsCard"
 import { ApiTokensCard } from "@/components/ApiTokensCard"
 import { ImportTokensCard } from "@/components/ImportTokensCard"
 import { LanguageSegmented } from "@/components/LanguageToggle"
-import { ThemeSegmented, ThemeStyleSegmented } from "@/components/ThemeToggle"
+import { ThemeStyleSegmented } from "@/components/ThemeToggle"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -45,6 +45,7 @@ import {
 } from "@/lib/api"
 import { formatDateTime, formatRelative } from "@/lib/format"
 import type { Language } from "@/lib/language"
+import type { ThemeStyle } from "@/lib/theme"
 import { needsReauthToAddFactor } from "@/lib/two-factor"
 import {
   describeWebAuthnError,
@@ -53,6 +54,7 @@ import {
 } from "@/lib/webauthn"
 import { useAuthStore } from "@/stores/auth"
 import { useSiteStore } from "@/stores/site"
+import { useThemeStore } from "@/stores/theme"
 
 function PasswordConfirmDialog({
   open,
@@ -131,6 +133,37 @@ export function SettingsPage() {
 
   // 语言：切换即时生效，再写回账号（规格 §2.4）
   const [savingLanguage, setSavingLanguage] = useState(false)
+
+  // 主题风格：选择 + 保存按钮写回账号（规格 §7）
+  const accountStyle: ThemeStyle =
+    user?.themeStyle === "paper" ? "paper" : "nova"
+  const [selectedStyle, setSelectedStyle] = useState<ThemeStyle>(accountStyle)
+  const [savingTheme, setSavingTheme] = useState(false)
+
+  useEffect(() => {
+    if (user?.themeStyle) {
+      setSelectedStyle(user.themeStyle === "paper" ? "paper" : "nova")
+    }
+  }, [user?.themeStyle])
+
+  const hasThemeChanged = selectedStyle !== accountStyle
+
+  const saveThemeStyle = async () => {
+    if (!hasThemeChanged || savingTheme) return
+    setError("")
+    setNoticeKey("")
+    setSavingTheme(true)
+    try {
+      const updated = await meApi.updateThemeStyle(selectedStyle)
+      setUser(updated)
+      useThemeStore.getState().setStyle(updated.themeStyle ?? selectedStyle)
+      setNoticeKey("settings.notices.themeUpdated")
+    } catch (err) {
+      setError(describeApiError(err))
+    } finally {
+      setSavingTheme(false)
+    }
+  }
 
   // 修改密码
   const [currentPassword, setCurrentPassword] = useState("")
@@ -458,8 +491,19 @@ export function SettingsPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            <ThemeStyleSegmented />
-            <ThemeSegmented />
+            <ThemeStyleSegmented
+              value={selectedStyle}
+              onChange={setSelectedStyle}
+              disabled={savingTheme}
+            />
+            <Button
+              type="button"
+              size="sm"
+              disabled={!hasThemeChanged || savingTheme}
+              onClick={() => void saveThemeStyle()}
+            >
+              {savingTheme ? t("common.saving") : t("common.save")}
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             {t("settings.appearance.account", { email: user?.email })}
