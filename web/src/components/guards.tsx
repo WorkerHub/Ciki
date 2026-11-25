@@ -8,7 +8,7 @@ import { watchSystemTheme } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
 import { useSetupGateStore } from "@/stores/setup"
 import { useSiteStore } from "@/stores/site"
-import { useThemeStore } from "@/stores/theme"
+import { syncAccountTheme, useThemeStore } from "@/stores/theme"
 
 export function FullPageLoader({ label }: { label?: string }) {
   const { t } = useTranslation()
@@ -34,6 +34,7 @@ export function FullPageLoader({ label }: { label?: string }) {
 export function RootGate() {
   const location = useLocation()
   const load = useAuthStore((state) => state.load)
+  const user = useAuthStore((state) => state.user)
   const accountLanguage = useAuthStore((state) => state.user?.language)
   const setup = useSetupGateStore((state) => state.state)
   const loadSetup = useSetupGateStore((state) => state.load)
@@ -63,6 +64,13 @@ export function RootGate() {
   useEffect(() => {
     void applyAccountLanguage(accountLanguage)
   }, [accountLanguage])
+
+  // 登录 / 刷新 Me 后以账号主题风格为准，并在上线后首次登录时执行一次性迁移（规格 §5/§6）。
+  useEffect(() => {
+    if (user) {
+      void syncAccountTheme(user)
+    }
+  }, [user])
 
   if (setup === null) return <FullPageLoader />
 

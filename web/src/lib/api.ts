@@ -7,6 +7,7 @@
  */
 import i18n from "@/i18n"
 import type { Language } from "@/lib/language"
+import type { ThemeStyle } from "@/lib/theme"
 
 const BASE = "/api"
 
@@ -247,6 +248,10 @@ export interface Me extends User {
    * 读不到时前端保持本机选择，所以这里按可选处理。
    */
   language?: Language
+  /**
+   * 主题风格（nova | paper，服务端已归一化、兜底 nova）。
+   */
+  themeStyle?: ThemeStyle
   twofa: {
     totpEnabled: boolean
     passkeyEnabled: boolean
@@ -1123,6 +1128,11 @@ export const meApi = {
     language?: Language
     bio?: string
   }) => api.put<Me>("/me/profile", patch),
+  /**
+   * 保存主题风格（Nova / 纸面）：写回账号并返回完整 Me DTO。
+   */
+  updateThemeStyle: (style: ThemeStyle) =>
+    api.put<Me>("/me/theme", { themeStyle: style }),
   /**
    * 头像专用上传口（规格 §1）：落 avatars/，服务端同请求里换掉本人头像并删旧图；
    * 响应是与 GET /api/me 相同的 Me，调用方一次拿到新 avatarUrl。

@@ -36,6 +36,7 @@ import {
 import { twofaSummary } from "./auth-2fa"
 import { isUsernameConflict, normalizeUsername } from "../core/identity"
 import { isLanguage, normalizeLanguage, type Language } from "../core/language"
+import { isThemeStyle, normalizeThemeStyle } from "../core/theme-style"
 import { AVATAR_KEY_RE, storeImageUpload } from "../lib/upload"
 import {
   deleteSessionById,
@@ -89,6 +90,7 @@ function meDto(user: UserRow, twofa: Awaited<ReturnType<typeof twofaSummary>>) {
     role: user.role,
     avatarUrl: user.avatar_key ? `/api/files/${user.avatar_key}` : null,
     bio: user.kind === "agent" ? "" : (user.bio ?? ""),
+    themeStyle: normalizeThemeStyle(user.theme_style),
     // 读出口再归一一次：库里若有支持集外的历史值，前端也不会拿到未知语言码。
     language: normalizeLanguage(user.language),
     approvalStatus: user.approval_status,
@@ -248,6 +250,45 @@ async function deleteReplacedAvatar(
     // 旧图删不掉不影响资料更新，最多在桶里留一个孤儿对象。
   }
 }
+
+/**
+ * 主题风格独立保存（规格「主题风格跟账号」）：只写 users.theme_style 一个字段，不连带其他资料字段。
+ * 入参支持 themeStyle（或兼容 style），取值仅限 nova | paper。
+ * 非法值回 400 INVALID_THEME_STYLE，成功返回与 GET /api/me 相同的完整 me DTO。
+ */
+async function handleThemeUpdate(c: Context<HonoEnv>) {
+  const body = await readJsonBody<{
+    themeStyle?: unknown
+    style?: unknown
+  }>(c)
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return c.json({ error: "Invalid request body" }, 400)
+  }
+
+  const candidate = body.themeStyle !== undefined ? body.themeStyle : body.style
+  if (!isThemeStyle(candidate)) {
+    return c.json(
+      {
+        error: "themeStyle must be nova or paper",
+        code: "INVALID_THEME_STYLE"
+      },
+      400
+    )
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const userId = c.get("userId")
+  const user = await findUserById(c.env.DB, prefix, userId)
+  if (!user) return c.json({ error: "User not found" }, 404)
+
+  await updateUser(c.env.DB, prefix, userId, { theme_style: candidate })
+
+  const updated = (await findUserById(c.env.DB, prefix, userId)) ?? user
+  return c.json(meDto(updated, await twofaSummary(c.env.DB, prefix, userId)))
+}
+
+meRoutes.put("/theme", handleThemeUpdate)
+meRoutes.put("/theme-style", handleThemeUpdate)
 
 /**
  * 头像专用上传口（规格 §1）：multipart 单图，校验口径与 /api/files 完全一致，

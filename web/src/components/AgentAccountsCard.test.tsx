@@ -289,12 +289,24 @@ describe("AgentAccountsCard", () => {
 
     await screen.findByText("ci-agent")
 
-    // 1. 上传头像
+    // 1. 上传头像：选图后打开裁剪弹窗，确认后传归一化 WebP 文件
     const fileInput = screen.getByLabelText("为 ci-agent 选择头像")
     const file = new File(["fake-image"], "avatar.png", { type: "image/png" })
     await user.upload(fileInput, file)
 
-    expect(meApi.agents.uploadAvatar).toHaveBeenCalledWith(101, file)
+    expect(
+      await screen.findByRole("heading", { name: "裁剪头像" })
+    ).toBeInTheDocument()
+    const confirmCropBtn = screen.getByRole("button", { name: "确定" })
+    await user.click(confirmCropBtn)
+
+    await waitFor(() => expect(meApi.agents.uploadAvatar).toHaveBeenCalled())
+    const [uploadedAgentId, uploadedFile] = vi.mocked(meApi.agents.uploadAvatar)
+      .mock.calls[0]
+    expect(uploadedAgentId).toBe(101)
+    expect(uploadedFile.type).toBe("image/webp")
+    expect(uploadedFile.name).toBe("avatar.webp")
+
     await waitFor(() => {
       expect(screen.getByText(/Agent 头像已更新/)).toBeInTheDocument()
     })
@@ -309,6 +321,105 @@ describe("AgentAccountsCard", () => {
     await waitFor(() => {
       expect(screen.getByText(/Agent 头像已删除/)).toBeInTheDocument()
     })
+  })
+
+  it("选头像进入裁剪后点取消，关闭弹窗并清空状态，不发上传请求", async () => {
+    const user = userEvent.setup()
+    render(<AgentAccountsCard />)
+
+    await screen.findByText("ci-agent")
+
+    const fileInput = screen.getByLabelText("为 ci-agent 选择头像")
+    const file = new File(["fake-image"], "avatar.png", { type: "image/png" })
+    await user.upload(fileInput, file)
+
+    expect(
+      await screen.findByRole("heading", { name: "裁剪头像" })
+    ).toBeInTheDocument()
+    const cancelCropBtn = screen.getByRole("button", { name: "取消" })
+    await user.click(cancelCropBtn)
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+    expect(meApi.agents.uploadAvatar).not.toHaveBeenCalled()
+  })
+
+  it("多个 Agent 时选图裁剪只更新目标 Agent 头像", async () => {
+    const user = userEvent.setup()
+    vi.mocked(meApi.agents.uploadAvatar).mockResolvedValue({
+      ...AGENT_2,
+      avatarUrl: "/api/files/avatars/agent2-avatar.webp"
+    })
+    render(<AgentAccountsCard />)
+
+    await screen.findByText("bot-disabled")
+
+    // 选择第二个 Agent（id: 102）
+    const fileInput = screen.getByLabelText("为 bot-disabled 选择头像")
+    const file = new File(["fake-image-2"], "custom-avatar.jpg", {
+      type: "image/jpeg"
+    })
+    await user.upload(fileInput, file)
+
+    expect(
+      await screen.findByRole("heading", { name: "裁剪头像" })
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "确定" }))
+
+    await waitFor(() => expect(meApi.agents.uploadAvatar).toHaveBeenCalled())
+    const [uploadedAgentId, uploadedFile] = vi.mocked(meApi.agents.uploadAvatar)
+      .mock.calls[0]
+    expect(uploadedAgentId).toBe(102)
+    expect(uploadedFile.type).toBe("image/webp")
+    expect(uploadedFile.name).toBe("custom-avatar.webp")
+    await waitFor(() => {
+      expect(screen.getByText(/Agent 头像已更新/)).toBeInTheDocument()
+    })
+  })
+
+  it("图片解码失败时在卡片现有 alert 区域报错，不发上传请求并关闭弹窗", async () => {
+    const orig = window.createImageBitmap
+    vi.spyOn(window, "createImageBitmap").mockRejectedValue(
+      new Error("DECODE_ERROR")
+    )
+    const user = userEvent.setup()
+    render(<AgentAccountsCard />)
+
+    await screen.findByText("ci-agent")
+
+    const fileInput = screen.getByLabelText("为 ci-agent 选择头像")
+    const file = new File(["broken-bytes"], "broken.png", {
+      type: "image/png"
+    })
+    await user.upload(fileInput, file)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "图片解码失败，请更换图片重试。"
+    )
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(meApi.agents.uploadAvatar).not.toHaveBeenCalled()
+
+    window.createImageBitmap = orig
+  })
+
+  it("不支持的图片类型在选图时被拦截并在 alert 区域报错，不打开裁剪弹窗", async () => {
+    const user = userEvent.setup({ applyAccept: false })
+    render(<AgentAccountsCard />)
+
+    await screen.findByText("ci-agent")
+
+    const fileInput = screen.getByLabelText("为 ci-agent 选择头像")
+    const file = new File(["svg-bytes"], "logo.svg", {
+      type: "image/svg+xml"
+    })
+    await user.upload(fileInput, file)
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "只支持 PNG / JPG / GIF / WebP 图片（SVG 不收）"
+    )
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(meApi.agents.uploadAvatar).not.toHaveBeenCalled()
   })
 
   it("空间权限管理弹窗：多选批量授权并明确点名部分失败", async () => {
