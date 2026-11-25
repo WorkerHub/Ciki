@@ -34,8 +34,23 @@ export function HtmlEmbedBlockView({
   const { key, name, height } = attrs
   const fixedHeight = clampManualHtmlEmbedHeight(height)
   const isAuto = fixedHeight === null
-  const resolved = useThemeStore((state) => state.resolved)
-  const style = useThemeStore((state) => state.style)
+  const isEditable = editor.isEditable
+  const resolved = useThemeStore((state) =>
+    isEditable ? "light" : state.resolved
+  )
+  const style = useThemeStore((state) => (isEditable ? "nova" : state.style))
+
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false)
+  const [initialThemeParams, setInitialThemeParams] = useState(() => ({
+    resolved,
+    style
+  }))
+  const [prevKey, setPrevKey] = useState(key)
+  if (prevKey !== key) {
+    setPrevKey(key)
+    setIsIframeLoaded(false)
+    setInitialThemeParams({ resolved, style })
+  }
 
   const [autoHeight, setAutoHeight] = useState<number>(
     DEFAULT_HTML_EMBED_HEIGHT
@@ -135,10 +150,19 @@ export function HtmlEmbedBlockView({
     iframe.contentWindow.postMessage(message, "*")
   }, [resolved, style])
 
+  const handleIframeLoad = useCallback(() => {
+    setIsIframeLoaded(true)
+    sendThemeMessage()
+  }, [sendThemeMessage])
+
   useEffect(() => {
     if (editor.isEditable) return
-    sendThemeMessage()
-  }, [editor.isEditable, sendThemeMessage])
+    if (isIframeLoaded) {
+      sendThemeMessage()
+    } else {
+      setInitialThemeParams({ resolved, style })
+    }
+  }, [editor.isEditable, isIframeLoaded, resolved, style, sendThemeMessage])
 
   const commitHeight = (val: string) => {
     const trimmed = val.trim()
@@ -237,7 +261,7 @@ export function HtmlEmbedBlockView({
       >
         <iframe
           ref={iframeRef}
-          src={`/api/files/${key}?theme=${encodeURIComponent(resolved)}&style=${encodeURIComponent(style)}`}
+          src={`/api/files/${key}?theme=${encodeURIComponent(initialThemeParams.resolved)}&style=${encodeURIComponent(initialThemeParams.style)}`}
           sandbox="allow-scripts"
           referrerPolicy="no-referrer"
           loading="lazy"
@@ -248,7 +272,7 @@ export function HtmlEmbedBlockView({
             height: `${displayHeight}px`,
             display: "block"
           }}
-          onLoad={sendThemeMessage}
+          onLoad={handleIframeLoad}
           onError={() => setHasError(true)}
           data-html-embed-iframe=""
         />

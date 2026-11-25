@@ -704,6 +704,11 @@ describe("htmlEmbed 节点契约与规范", () => {
       )
     })
 
+    // 验证核心（Tony 评审硬指标）：已 load 的 iframe 在主题切换后，src 保持初始参数，绝不触发重新导航（重载）
+    expect(iframe.src).toContain("theme=dark")
+    expect(iframe.src).toContain("style=paper")
+    expect(iframe.src).not.toContain("theme=light")
+
     // 4. 固定高度与自动高度均下发
     const AUTO_HTML = `<div data-type="html-embed" data-key="${EMBED_KEY}" data-name="${EMBED_NAME}"></div>`
     const { container: autoContainer } = render(<ReadView html={AUTO_HTML} />)
@@ -777,5 +782,35 @@ describe("htmlEmbed 节点契约与规范", () => {
       },
       "*"
     )
+  })
+
+  it("15. 懒加载边界：iframe 尚未 load 前若主题变化，更新 src 查询参数保证待加载首帧按新主题渲染", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(null, { status: 200 })
+    )
+    useThemeStore.getState().setTheme("dark")
+    useThemeStore.getState().setStyle("paper")
+
+    const { container } = render(<ReadView html={EMBED_HTML} />)
+
+    const iframe = await waitFor(() => {
+      const el = container.querySelector("iframe[data-html-embed-iframe]")
+      expect(el).not.toBeNull()
+      return el as HTMLIFrameElement
+    })
+
+    expect(iframe.src).toContain("theme=dark")
+
+    // 在尚未触发 load 事件前切换主题
+    await act(async () => {
+      useThemeStore.getState().setTheme("light")
+      useThemeStore.getState().setStyle("nova")
+    })
+
+    // 未 load 状态下 src 参数更新为最新主题，保证首帧按新主题渲染
+    await waitFor(() => {
+      expect(iframe.src).toContain("theme=light")
+      expect(iframe.src).toContain("style=nova")
+    })
   })
 })
