@@ -1,6 +1,9 @@
 import fs from "node:fs"
 import path from "node:path"
+import React from "react"
+import { fireEvent, render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ThemeCycleButton } from "@/components/ThemeToggle"
 import type { Me } from "@/lib/api"
 import { THEME_META_COLORS } from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
@@ -44,6 +47,7 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     document.documentElement.removeAttribute("data-mode")
     document.documentElement.removeAttribute("data-theme")
     localStorage.clear()
+    setSystemDark(false)
     useThemeStore.setState({ theme: "auto", style: "nova", migratedAt: null })
   })
 
@@ -151,6 +155,102 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(cssContent).not.toMatch(
       /\[data-readview-container\]\s*\{[^}]*max-width/
     )
+  })
+
+  it("存储含非法 theme 值时：rehydrate 校验回退 auto，resolved 正常生效且不崩溃", async () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { theme: "invalid-theme", style: "paper" },
+        version: 0
+      })
+    )
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().theme).toBe("auto")
+    expect(useThemeStore.getState().style).toBe("paper")
+    expect(useThemeStore.getState().resolved).toBe("light")
+  })
+
+  it("存储含非法 style 值时：rehydrate 校验回退 nova，resolved 正常生效且不崩溃", async () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { theme: "dark", style: "invalid-style" },
+        version: 0
+      })
+    )
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().theme).toBe("dark")
+    expect(useThemeStore.getState().style).toBe("nova")
+    expect(useThemeStore.getState().resolved).toBe("dark")
+  })
+
+  it("字段互换畸形值（theme=paper, style=light）：rehydrate 分别回退 auto 与 nova，不崩且 DOM 属性正确", async () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { theme: "paper", style: "light" },
+        version: 0
+      })
+    )
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().theme).toBe("auto")
+    expect(useThemeStore.getState().style).toBe("nova")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    expect(isDark()).toBe(false)
+  })
+
+  it("完全非法畸形值（theme=123, style=null 等）：rehydrate 均回退为默认 auto 与 nova", async () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { theme: 123, style: null },
+        version: 0
+      })
+    )
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().theme).toBe("auto")
+    expect(useThemeStore.getState().style).toBe("nova")
+    expect(useThemeStore.getState().resolved).toBe("light")
+  })
+
+  it("合法 theme 与 style 值：rehydrate 正常还原且不被重置", async () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { theme: "dark", style: "paper" },
+        version: 0
+      })
+    )
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().theme).toBe("dark")
+    expect(useThemeStore.getState().style).toBe("paper")
+    expect(useThemeStore.getState().resolved).toBe("dark")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
+    expect(isDark()).toBe(true)
+  })
+
+  it("setTheme 传入非法值防御：归一为 auto", () => {
+    useThemeStore.getState().setTheme("paper" as any)
+    expect(useThemeStore.getState().theme).toBe("auto")
+  })
+
+  it("setStyle 传入非法值防御：归一为 nova", () => {
+    useThemeStore.getState().setStyle("light" as any)
+    expect(useThemeStore.getState().style).toBe("nova")
+  })
+
+  it("ThemeCycleButton 防御：当 store 中 theme 为非法值时安全渲染并回退 Monitor 图标，点击可循环切换", () => {
+    useThemeStore.setState({ theme: "paper" as any })
+    let container: HTMLElement
+    expect(() => {
+      const rendered = render(React.createElement(ThemeCycleButton))
+      container = rendered.container
+    }).not.toThrow()
+    const button = container!.querySelector("button")
+    expect(button).toBeTruthy()
+    fireEvent.click(button!)
+    expect(useThemeStore.getState().theme).toBe("light")
   })
 })
 
