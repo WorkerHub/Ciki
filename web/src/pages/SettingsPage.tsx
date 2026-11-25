@@ -157,6 +157,7 @@ export function SettingsPage() {
       const updated = await meApi.updateThemeStyle(selectedStyle)
       setUser(updated)
       useThemeStore.getState().setStyle(updated.themeStyle ?? selectedStyle)
+      useThemeStore.getState().markMigrated()
       setNoticeKey("settings.notices.themeUpdated")
     } catch (err) {
       setError(describeApiError(err))

@@ -44,7 +44,7 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     document.documentElement.removeAttribute("data-mode")
     document.documentElement.removeAttribute("data-theme")
     localStorage.clear()
-    useThemeStore.setState({ theme: "auto", style: "nova" })
+    useThemeStore.setState({ theme: "auto", style: "nova", migratedAt: null })
   })
 
   it("深色档：写 .dark、data-mode 与 color-scheme，并持久化", () => {
@@ -232,11 +232,12 @@ describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
     localStorage.clear()
     vi.mocked(meApi.updateThemeStyle).mockReset()
     _resetThemeMigratingForTest()
+    useThemeStore.setState({ theme: "auto", style: "nova", migratedAt: null })
     useAuthStore.setState({ user: null, status: "ready", restricted: false })
   })
 
   it("首次登录一次性迁移：服务端为默认 nova 且本地镜像为 paper 时，回写服务端一次并更新账号与本地镜像", async () => {
-    useThemeStore.setState({ theme: "light", style: "paper" })
+    useThemeStore.setState({ theme: "light", style: "paper", migratedAt: null })
     const userWithNova: Me = { ...baseUser, themeStyle: "nova" }
     const updatedUser: Me = { ...baseUser, themeStyle: "paper" }
     vi.mocked(meApi.updateThemeStyle).mockResolvedValue(updatedUser)
@@ -251,6 +252,68 @@ describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
     expect(useAuthStore.getState().user?.themeStyle).toBe("paper")
     expect(useThemeStore.getState().style).toBe("paper")
     expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
+    expect(useThemeStore.getState().migratedAt).toBeTruthy()
+    expect(localStorage.getItem("ciki-theme")).toContain('"migratedAt":')
+  })
+
+  it("项4 场景：本地 paper + 服务端 nova 首次登录仍回写一次，且回写成功后落标记并在下次刷新不再回写", async () => {
+    // 升级前老用户：本地为 paper，无 migratedAt 持久化标记
+    useThemeStore.setState({ theme: "light", style: "paper", migratedAt: null })
+    const userWithNova: Me = { ...baseUser, themeStyle: "nova" }
+    const updatedUser: Me = { ...baseUser, themeStyle: "paper" }
+    vi.mocked(meApi.updateThemeStyle).mockResolvedValue(updatedUser)
+
+    // 首次登录触发同步：应回写服务端一次
+    await syncAccountTheme(userWithNova)
+    expect(meApi.updateThemeStyle).toHaveBeenCalledTimes(1)
+    expect(meApi.updateThemeStyle).toHaveBeenCalledWith("paper")
+    expect(useThemeStore.getState().style).toBe("paper")
+    expect(useThemeStore.getState().migratedAt).toBeTruthy()
+
+    // 模拟刷新：此时已有 migratedAt 标记，即使服务端假定为 nova（如他人改回），刷新也不再触发回写
+    vi.mocked(meApi.updateThemeStyle).mockClear()
+    useThemeStore.setState({ style: "paper" })
+    await syncAccountTheme(userWithNova)
+    expect(meApi.updateThemeStyle).not.toHaveBeenCalled()
+    expect(useThemeStore.getState().style).toBe("nova")
+  })
+
+  it("项2 场景：他人改 nova 后本地 paper 设备刷新不再回写，直接以服务端 nova 为准", async () => {
+    // 设备已完成过迁移（已落 migratedAt 标记），本地镜像为 paper
+    useThemeStore.setState({
+      theme: "light",
+      style: "paper",
+      migratedAt: 1732500000000
+    })
+    // 他人在另一台设备上把账号风格改回了 nova
+    const userWithNova: Me = { ...baseUser, themeStyle: "nova" }
+
+    // 当前设备刷新触发同步
+    await syncAccountTheme(userWithNova)
+
+    // 严禁回写 paper 到服务端
+    expect(meApi.updateThemeStyle).not.toHaveBeenCalled()
+    // 本地镜像直接以服务端 nova 为准应用
+    expect(useThemeStore.getState().style).toBe("nova")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    // 持久化标记保持存在
+    expect(useThemeStore.getState().migratedAt).toBe(1732500000000)
+  })
+
+  it("设置页保存成功后落持久化标记，此后即使本地为 paper 服务端为 nova 也跳过迁移以服务端为准", async () => {
+    useThemeStore.setState({ theme: "light", style: "nova", migratedAt: null })
+    // 模拟设置页保存成功落标记
+    useThemeStore.getState().markMigrated(1732501111111)
+    expect(useThemeStore.getState().migratedAt).toBe(1732501111111)
+
+    // 假设本地之后因某种原因镜像为 paper，但已有标记
+    useThemeStore.setState({ style: "paper" })
+    const userWithNova: Me = { ...baseUser, themeStyle: "nova" }
+
+    await syncAccountTheme(userWithNova)
+
+    expect(meApi.updateThemeStyle).not.toHaveBeenCalled()
+    expect(useThemeStore.getState().style).toBe("nova")
   })
 
   it("此后以服务端为准：服务端为 paper 时，不回写服务端，直接应用服务端风格", async () => {
@@ -293,12 +356,13 @@ describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
       new Error("Network Error")
     )
 
-    // 首次失败：不抛出异常，保留本地 paper 镜像
+    // 首次失败：不抛出异常，保留本地 paper 镜像，不落标记
     await expect(syncAccountTheme(userWithNova)).resolves.toBeUndefined()
     expect(useThemeStore.getState().style).toBe("paper")
     expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
+    expect(useThemeStore.getState().migratedAt).toBeNull()
 
-    // 下次调用重试：成功回写并更新
+    // 下次调用重试：成功回写并更新，并落标记
     const updatedUser: Me = { ...baseUser, themeStyle: "paper" }
     vi.mocked(meApi.updateThemeStyle).mockResolvedValueOnce(updatedUser)
 
@@ -306,6 +370,7 @@ describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
     expect(meApi.updateThemeStyle).toHaveBeenCalledTimes(2)
     expect(useAuthStore.getState().user?.themeStyle).toBe("paper")
     expect(useThemeStore.getState().style).toBe("paper")
+    expect(useThemeStore.getState().migratedAt).toBeTruthy()
   })
 
   it("并发防重：一次性迁移在进行中时，后续并发调用直接返回，不重复调用接口", async () => {
