@@ -131,8 +131,13 @@ export function SettingsPage() {
   /** 成功提示存 key，渲染时再 t()：本页就能切语言，提示不能停在旧语言。 */
   const [noticeKey, setNoticeKey] = useState("")
 
-  // 语言：切换即时生效，再写回账号（规格 §2.4）
+  // 语言：选择暂存 + 保存按钮写回账号（规格 §2.4 / 2026-11-25 拍板对齐主题分区）
+  const effectiveLanguage = currentLanguage()
+  const [selectedLanguage, setSelectedLanguage] =
+    useState<Language>(effectiveLanguage)
   const [savingLanguage, setSavingLanguage] = useState(false)
+
+  const hasLanguageChanged = selectedLanguage !== effectiveLanguage
 
   // 主题风格：选择 + 保存按钮写回账号（规格 §7）
   const accountStyle: ThemeStyle =
@@ -270,20 +275,20 @@ export function SettingsPage() {
   }
 
   /**
-   * 语言切换：先本地即时生效，再写回账号（只提交 language，不碰用户名/头像）。
+   * 语言切换：先选后存，点击保存按钮才本地生效并写回账号（只提交 language，不碰用户名/头像）。
    * 写回失败就回滚到切换前的语言，避免界面显示与账号里存的不一致。
    */
-  const saveLanguage = async (next: Language) => {
+  const saveLanguage = async () => {
     const before = currentLanguage()
-    if (next === before) return
+    if (!hasLanguageChanged || savingLanguage) return
     setError("")
     setNoticeKey("")
     setSavingLanguage(true)
-    await changeLanguage(next)
+    await changeLanguage(selectedLanguage)
     try {
-      setUser(await meApi.updateProfile({ language: next }))
+      setUser(await meApi.updateProfile({ language: selectedLanguage }))
     } catch (languageError) {
-      if (currentLanguage() === next) await changeLanguage(before)
+      if (currentLanguage() === selectedLanguage) await changeLanguage(before)
       setError(describeApiError(languageError))
     } finally {
       setSavingLanguage(false)
@@ -523,10 +528,21 @@ export function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <LanguageSegmented
-            onChange={(next) => void saveLanguage(next)}
-            disabled={savingLanguage}
-          />
+          <div className="flex flex-wrap items-center gap-3">
+            <LanguageSegmented
+              value={selectedLanguage}
+              onChange={setSelectedLanguage}
+              disabled={savingLanguage}
+            />
+            <Button
+              type="button"
+              size="sm"
+              disabled={!hasLanguageChanged || savingLanguage}
+              onClick={() => void saveLanguage()}
+            >
+              {savingLanguage ? t("common.saving") : t("common.save")}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
