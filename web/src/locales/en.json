@@ -569,10 +569,6 @@
       "title": "Theme",
       "account": "Signed in as {{email}}"
     },
-    "theme": {
-      "title": "Theme",
-      "account": "Signed in as {{email}}"
-    },
     "password": {
       "title": "Change password",
       "current": "Current password",

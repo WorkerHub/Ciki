@@ -82,8 +82,7 @@ export async function syncAccountTheme(user: Me | null): Promise<void> {
       useAuthStore.getState().setUser(updated)
       useThemeStore.getState().setStyle("paper")
     } catch {
-      // 迁移回写失败（如网络中断），保持以服务端为准
-      useThemeStore.getState().setStyle(serverStyle)
+      // 迁移回写失败（如网络抖动或后端端点未就绪）：保留本地 paper 镜像，允许后续重试，不静默覆盖丢弃偏好
     } finally {
       migrating = false
     }

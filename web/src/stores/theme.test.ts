@@ -219,18 +219,26 @@ describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
     expect(useThemeStore.getState().style).toBe("paper")
   })
 
-  it("迁移回写失败（网络异常）：降级回退至服务端 nova，不抛出异常", async () => {
-    useThemeStore.setState({ theme: "light", style: "paper" })
+  it("迁移回写失败（网络异常）：保留本地 paper 镜像并在后续重试成功", async () => {
+    useThemeStore.getState().setStyle("paper")
     const userWithNova: Me = { ...baseUser, themeStyle: "nova" }
-    vi.mocked(meApi.updateThemeStyle).mockRejectedValue(
+    vi.mocked(meApi.updateThemeStyle).mockRejectedValueOnce(
       new Error("Network Error")
     )
 
+    // 首次失败：不抛出异常，保留本地 paper 镜像
     await expect(syncAccountTheme(userWithNova)).resolves.toBeUndefined()
+    expect(useThemeStore.getState().style).toBe("paper")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
 
-    // 遵循以服务端为准回退到 nova
-    expect(useThemeStore.getState().style).toBe("nova")
-    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    // 下次调用重试：成功回写并更新
+    const updatedUser: Me = { ...baseUser, themeStyle: "paper" }
+    vi.mocked(meApi.updateThemeStyle).mockResolvedValueOnce(updatedUser)
+
+    await syncAccountTheme(userWithNova)
+    expect(meApi.updateThemeStyle).toHaveBeenCalledTimes(2)
+    expect(useAuthStore.getState().user?.themeStyle).toBe("paper")
+    expect(useThemeStore.getState().style).toBe("paper")
   })
 
   it("并发防重：一次性迁移在进行中时，后续并发调用直接返回，不重复调用接口", async () => {

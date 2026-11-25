@@ -2,12 +2,7 @@ import { Monitor, Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import {
-  THEME_OPTIONS,
-  THEME_STYLE_OPTIONS,
-  type Theme,
-  type ThemeStyle
-} from "@/lib/theme"
+import { THEME_STYLE_OPTIONS, type Theme, type ThemeStyle } from "@/lib/theme"
 import { useThemeStore } from "@/stores/theme"
 
 const ICONS = {
@@ -17,33 +12,27 @@ const ICONS = {
 } as const
 
 export interface ThemeStyleSegmentedProps {
-  value?: ThemeStyle
-  onChange?: (style: ThemeStyle) => void
+  value: ThemeStyle
+  onChange: (style: ThemeStyle) => void
   disabled?: boolean
 }
 
-/** 设置页里的主题风格选择（Nova / 纸面，极简两个选项、无说明文字）。 */
+/** 设置页里的主题风格选择（Nova / 纸面，极简两个选项、无说明文字）。纯受控组件，选择后由外部保存按钮写回账号。 */
 export function ThemeStyleSegmented({
   value,
   onChange,
   disabled
-}: ThemeStyleSegmentedProps = {}) {
+}: ThemeStyleSegmentedProps) {
   const { t } = useTranslation()
-  const style = useThemeStore((state) => state.style)
-  const current = value ?? style
-  const setStyle = useThemeStore((state) => state.setStyle)
   return (
     <ToggleGroup
       type="single"
       variant="outline"
       size="sm"
-      value={current}
+      value={value}
       disabled={disabled}
       onValueChange={(val) => {
-        if (val) {
-          if (onChange) onChange(val as ThemeStyle)
-          else setStyle(val as ThemeStyle)
-        }
+        if (val) onChange(val as ThemeStyle)
       }}
       aria-label={t("common.theme.styleLabel")}
     >
@@ -52,39 +41,6 @@ export function ThemeStyleSegmented({
           {t(option.labelKey)}
         </ToggleGroupItem>
       ))}
-    </ToggleGroup>
-  )
-}
-
-/** 设置页里的三档选择（明示「自动」的含义）。 */
-export function ThemeSegmented() {
-  const { t } = useTranslation()
-  const theme = useThemeStore((state) => state.theme)
-  const setTheme = useThemeStore((state) => state.setTheme)
-  return (
-    <ToggleGroup
-      type="single"
-      variant="outline"
-      size="sm"
-      value={theme}
-      onValueChange={(value) => {
-        if (value) setTheme(value as Theme)
-      }}
-      aria-label={t("common.theme.label")}
-    >
-      {THEME_OPTIONS.map((option) => {
-        const Icon = ICONS[option.value]
-        return (
-          <ToggleGroupItem
-            key={option.value}
-            value={option.value}
-            title={t(option.hintKey)}
-          >
-            <Icon aria-hidden="true" />
-            {t(option.labelKey)}
-          </ToggleGroupItem>
-        )
-      })}
     </ToggleGroup>
   )
 }

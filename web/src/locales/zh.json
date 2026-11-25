@@ -565,10 +565,6 @@
       "title": "主题",
       "account": "当前账号：{{email}}"
     },
-    "theme": {
-      "title": "主题",
-      "account": "当前账号：{{email}}"
-    },
     "password": {
       "title": "修改密码",
       "current": "当前密码",
