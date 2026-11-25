@@ -35,7 +35,7 @@ Screenshots were captured from a local run (`wrangler dev` with a local D1/R2); 
 ## Features
 
 - **Spaces and member roles** — Every space has its own member list with `admin`, `editor` and `viewer` roles. Regular users only see spaces they belong to; site admins see all of them.
-- **Page tree** — A tree in the sidebar; drag to change hierarchy and order. Pages can move within a space, and a whole subtree can move to another space.
+- **Page tree** — A tree in the sidebar; drag only reorders within the same level, and changing hierarchy uses the "Move" dialog. Pages can move within a space, and a whole subtree can move to another space.
 - **Editor** — TipTap 3. Code blocks get light syntax highlighting, a language badge and a copy button (identical in edit and reading views), table columns are resizable, and images upload straight to R2.
 - **Version history** — Every save creates a version record; open an old version and roll back. A rollback is itself recorded as a new version.
 - **Full-text search** — Search from the top bar matches both titles and bodies via FTS5 with CJK tokenization; results include snippets.
