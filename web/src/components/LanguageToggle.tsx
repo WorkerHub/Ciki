@@ -10,11 +10,14 @@ import {
   SUPPORTED_LANGUAGES
 } from "@/lib/language"
 
-interface LanguageSwitchProps {
-  /** 交给调用方接管写回（设置页要同步账号）；不传则只改本地选择。 */
+export interface LanguageSegmentedProps {
+  /** 外部受控暂存值；未传入时回退读取 i18n 当前生效语言。 */
+  value?: Language
+  /** 选项变化时的回调。 */
   onChange?: (language: Language) => void
   disabled?: boolean
 }
+export type LanguageSwitchProps = LanguageSegmentedProps
 
 /**
  * 当前语言与切换动作。语言状态读 i18next（useTranslation 订阅变化），
@@ -34,19 +37,30 @@ function useLanguageChoice(onChange?: (language: Language) => void) {
   }
 }
 
-/** 设置页里的语言选择：与「外观」的三档分段控件同款。 */
-export function LanguageSegmented({ onChange, disabled }: LanguageSwitchProps) {
+/** 设置页里的语言选择：与「外观」的分段控件同款。支持外部受控暂存。 */
+export function LanguageSegmented({
+  value,
+  onChange,
+  disabled
+}: LanguageSegmentedProps) {
   const { t } = useTranslation()
   const { current, select } = useLanguageChoice(onChange)
+  const activeValue = value ?? current
   return (
     <ToggleGroup
       type="single"
       variant="outline"
       size="sm"
-      value={current}
+      value={activeValue}
       disabled={disabled}
-      onValueChange={(value) => {
-        if (isLanguage(value)) select(value)
+      onValueChange={(val) => {
+        if (isLanguage(val)) {
+          if (value !== undefined) {
+            onChange?.(val)
+          } else {
+            select(val)
+          }
+        }
       }}
       aria-label={t("settings.language.label")}
     >
