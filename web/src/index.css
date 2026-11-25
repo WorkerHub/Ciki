@@ -189,7 +189,7 @@ html[data-theme="paper"] {
   --coral-200: #f7cec0;
   --coral-100: #fae0d6;
   --coral-50: #fcece5;
-  --coral-ink: #7c2717;
+  --coral-ink: #ffffff;
   --primary: var(--coral);
   --primary-foreground: var(--coral-ink);
   --secondary: #e9e3da;
@@ -270,7 +270,7 @@ html[data-theme="paper"].dark {
   --coral-200: #6e2f21;
   --coral-100: #4c2219;
   --coral-50: #271612;
-  --coral-ink: #f6ab98;
+  --coral-ink: #ffffff;
   --primary: var(--coral);
   --primary-foreground: var(--coral-ink);
   --secondary: #24262b;
