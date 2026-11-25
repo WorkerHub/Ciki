@@ -1,0 +1,476 @@
+{
+  "when": "2026-11-25T06:23:02.646Z",
+  "base": "http://127.0.0.1:9531",
+  "pageId": "1",
+  "checks": [
+    {
+      "id": "cr-s1-read-a",
+      "name": "项1 读页·字段互换值（登录态）：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "cr-s1-read-b",
+      "name": "项1 读页·字段互换值（登录态）：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova"
+      }
+    },
+    {
+      "id": "cr-s1-read-c",
+      "name": "项1 读页·字段互换值（登录态）：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：自动（跟随系统），点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "cr-s1-read-d",
+      "name": "项1 读页·字段互换值（登录态）：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "cr-s1-edit-a",
+      "name": "项1 编辑页·字段互换值（登录态）：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "cr-s1-edit-b",
+      "name": "项1 编辑页·字段互换值（登录态）：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova"
+      }
+    },
+    {
+      "id": "cr-s1-edit-c",
+      "name": "项1 编辑页·字段互换值（登录态）：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：自动（跟随系统），点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "cr-s1-edit-d",
+      "name": "项1 编辑页·字段互换值（登录态）：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "cr-s2-read-a",
+      "name": "项2 读页·非法style(paperx)+theme=light（登录态）：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "cr-s2-read-b",
+      "name": "项2 读页·非法style(paperx)+theme=light（登录态）：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova",
+        "dataMode": "light"
+      }
+    },
+    {
+      "id": "cr-s2-read-c",
+      "name": "项2 读页·非法style(paperx)+theme=light（登录态）：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：浅色，点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "cr-s2-read-d",
+      "name": "项2 读页·非法style(paperx)+theme=light（登录态）：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "cr-s2-edit-a",
+      "name": "项2 编辑页·非法style(paperx)+theme=light（登录态）：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "cr-s2-edit-b",
+      "name": "项2 编辑页·非法style(paperx)+theme=light（登录态）：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova",
+        "dataMode": "light"
+      }
+    },
+    {
+      "id": "cr-s2-edit-c",
+      "name": "项2 编辑页·非法style(paperx)+theme=light（登录态）：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：浅色，点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "cr-s2-edit-d",
+      "name": "项2 编辑页·非法style(paperx)+theme=light（登录态）：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "cr-s3-read-a",
+      "name": "附加 读页·完全非法(123/null)（登录态）：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "cr-s3-read-b",
+      "name": "附加 读页·完全非法(123/null)（登录态）：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova"
+      }
+    },
+    {
+      "id": "cr-s3-read-c",
+      "name": "附加 读页·完全非法(123/null)（登录态）：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：自动（跟随系统），点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "cr-s3-read-d",
+      "name": "附加 读页·完全非法(123/null)（登录态）：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "cr-s3-edit-a",
+      "name": "附加 编辑页·完全非法(123/null)（登录态）：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "cr-s3-edit-b",
+      "name": "附加 编辑页·完全非法(123/null)（登录态）：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova"
+      }
+    },
+    {
+      "id": "cr-s3-edit-c",
+      "name": "附加 编辑页·完全非法(123/null)（登录态）：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：自动（跟随系统），点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "cr-s3-edit-d",
+      "name": "附加 编辑页·完全非法(123/null)（登录态）：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "wk-s1-read-a",
+      "name": "项1 读页·字段互换值（登录态） [webkit]：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "wk-s1-read-b",
+      "name": "项1 读页·字段互换值（登录态） [webkit]：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova"
+      }
+    },
+    {
+      "id": "wk-s1-read-c",
+      "name": "项1 读页·字段互换值（登录态） [webkit]：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：自动（跟随系统），点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "wk-s1-read-d",
+      "name": "项1 读页·字段互换值（登录态） [webkit]：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "wk-s1-edit-a",
+      "name": "项1 编辑页·字段互换值（登录态） [webkit]：无崩溃页/无 #130/pageerror/无计划外console错误",
+      "pass": true,
+      "detail": {
+        "crashed": false,
+        "hardErrs": [],
+        "otherErrs": [],
+        "benign401Count": 0
+      }
+    },
+    {
+      "id": "wk-s1-edit-b",
+      "name": "项1 编辑页·字段互换值（登录态） [webkit]：DOM 属性符合回退/保留语义",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova"
+      }
+    },
+    {
+      "id": "wk-s1-edit-c",
+      "name": "项1 编辑页·字段互换值（登录态） [webkit]：ThemeCycleButton 渲染且图标存在",
+      "pass": true,
+      "detail": {
+        "title": "主题：自动（跟随系统），点击切换",
+        "hasSvg": true
+      }
+    },
+    {
+      "id": "wk-s1-edit-d",
+      "name": "项1 编辑页·字段互换值（登录态） [webkit]：页面内容渲染（阅读正文/编辑器）",
+      "pass": true,
+      "detail": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ"
+    },
+    {
+      "id": "cr-login-swap-a",
+      "name": "登录页(AuthShell)·swap：无崩溃且循环按钮健康",
+      "pass": true,
+      "detail": {
+        "cycleBtn": {
+          "title": "Theme: Auto (follow system). Click to switch.",
+          "hasSvg": true
+        },
+        "hardErrs": [],
+        "otherErrs": []
+      }
+    },
+    {
+      "id": "cr-login-swap-b",
+      "name": "登录页(AuthShell)·swap：data-theme=nova",
+      "pass": true,
+      "detail": "nova"
+    },
+    {
+      "id": "cr-login-badstyle-a",
+      "name": "登录页(AuthShell)·badstyle：无崩溃且循环按钮健康",
+      "pass": true,
+      "detail": {
+        "cycleBtn": {
+          "title": "Theme: Light. Click to switch.",
+          "hasSvg": true
+        },
+        "hardErrs": [],
+        "otherErrs": []
+      }
+    },
+    {
+      "id": "cr-login-badstyle-b",
+      "name": "登录页(AuthShell)·badstyle：data-theme=nova",
+      "pass": true,
+      "detail": "nova"
+    },
+    {
+      "id": "f3-a",
+      "name": "项3 合法值 nova+light 原样应用（data-theme=nova/data-mode=light）",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova",
+        "dataMode": "light"
+      }
+    },
+    {
+      "id": "f3-a2",
+      "name": "项3 循环按钮初始提示=浅色（合法值生效）",
+      "pass": true,
+      "detail": "主题：浅色，点击切换"
+    },
+    {
+      "id": "f3-b",
+      "name": "项3 循环点击1：浅色→深色（data-mode=dark, .dark 挂上）",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova",
+        "dataMode": "dark",
+        "dark": true,
+        "ls": {
+          "state": {
+            "theme": "dark",
+            "style": "nova",
+            "migratedAt": null
+          },
+          "version": 0
+        },
+        "cycleBtn": {
+          "title": "主题：深色，点击切换",
+          "hasSvg": true
+        },
+        "bodyText": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ\nqa223\n首页\n非法 theme 回归验收样例（#223）\n非法 theme 回归验收样例（#223）\n\nQ\nqa223\n创建于 2026-11-25\n·\nQ\nqa223\n最后编辑于 2026-11-25\n\n编辑\n子页面\n1. 回归目标",
+        "readOk": true
+      }
+    },
+    {
+      "id": "f3-c",
+      "name": "项3 循环点击2：深色→自动（跟随系统=亮）",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova",
+        "dataMode": "light",
+        "dark": false,
+        "ls": {
+          "state": {
+            "theme": "auto",
+            "style": "nova",
+            "migratedAt": null
+          },
+          "version": 0
+        },
+        "cycleBtn": {
+          "title": "主题：自动（跟随系统），点击切换",
+          "hasSvg": true
+        },
+        "bodyText": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ\nqa223\n首页\n非法 theme 回归验收样例（#223）\n非法 theme 回归验收样例（#223）\n\nQ\nqa223\n创建于 2026-11-25\n·\nQ\nqa223\n最后编辑于 2026-11-25\n\n编辑\n子页面\n1. 回归目标",
+        "readOk": true,
+        "title": "主题：自动（跟随系统），点击切换"
+      }
+    },
+    {
+      "id": "f3-d",
+      "name": "项3 循环点击3：自动→浅色，回环完整",
+      "pass": true,
+      "detail": {
+        "dataTheme": "nova",
+        "dataMode": "light",
+        "dark": false,
+        "ls": {
+          "state": {
+            "theme": "light",
+            "style": "nova",
+            "migratedAt": null
+          },
+          "version": 0
+        },
+        "cycleBtn": {
+          "title": "主题：浅色，点击切换",
+          "hasSvg": true
+        },
+        "bodyText": "Ciki\n默认空间\n管理员\n页面\n非法 theme 回归验收样例（#223）\n\nCiki · 1.0.0 · 65c69e0+build.293\n\n新建页面\nQ\nqa223\n首页\n非法 theme 回归验收样例（#223）\n非法 theme 回归验收样例（#223）\n\nQ\nqa223\n创建于 2026-11-25\n·\nQ\nqa223\n最后编辑于 2026-11-25\n\n编辑\n子页面\n1. 回归目标",
+        "readOk": true
+      }
+    },
+    {
+      "id": "f3-e",
+      "name": "项3 循环后 localStorage 持久化 theme=light/style=nova",
+      "pass": true,
+      "detail": {
+        "theme": "light",
+        "style": "nova",
+        "migratedAt": null
+      }
+    },
+    {
+      "id": "f3-f",
+      "name": "项3 设置页切纸面：data-theme=paper",
+      "pass": true,
+      "detail": "paper"
+    },
+    {
+      "id": "f3-g",
+      "name": "项3 保存触发 PUT /api/me/theme 200（服务端为准）",
+      "pass": true,
+      "detail": [
+        {
+          "m": "PUT",
+          "p": "/api/me/theme",
+          "s": 200
+        }
+      ]
+    },
+    {
+      "id": "f3-h",
+      "name": "项3 刷新后保持纸面（不回弹 nova）",
+      "pass": true,
+      "detail": "paper"
+    },
+    {
+      "id": "f3-i",
+      "name": "项3 切回 Nova：data-theme=nova",
+      "pass": true,
+      "detail": "nova"
+    },
+    {
+      "id": "f3-j",
+      "name": "项3 全程无 pageerror/#130",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "id": "f3-k",
+      "name": "项3 合法值 dark+paper（未登录路由守卫页）：data-theme=paper",
+      "pass": true,
+      "detail": {
+        "dataTheme": "paper",
+        "dataMode": "dark",
+        "dark": true,
+        "ls": {
+          "state": {
+            "theme": "dark",
+            "style": "paper"
+          },
+          "version": 0
+        },
+        "cycleBtn": {
+          "title": "Theme: Dark. Click to switch.",
+          "hasSvg": true
+        },
+        "bodyText": "Sign in to Ciki\nEmail\nPassword\nForgot password?\nSign in\nSign in with a passkey\n\nEmail delivery is not configured, so password recovery and self-registration are unavailable. Ask an admin to fill in SM",
+        "readOk": false
+      }
+    }
+  ]
+}
