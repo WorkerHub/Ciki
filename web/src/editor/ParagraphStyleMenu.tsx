@@ -1,4 +1,5 @@
 import { type Editor, useEditorState } from "@tiptap/react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import {
   Select,
@@ -41,14 +42,28 @@ function currentHeading(editor: Editor): string {
  */
 export function ParagraphStyleMenu({ editor }: { editor: Editor }) {
   const { t } = useTranslation()
-  // 当前段落样式随选区实时更新：光标进/出标题、换段都重读。
-  const heading = useEditorState({
+  // 正文到位前 useEditor 会重建一次编辑器实例（空文档 → 真实内容）。useEditorState 在这
+  // 个换手窗口仍可能读到旧实例的快照，而新实例默认 selection 落在文首——文首若是标题，
+  // 标签就会随机闪成「标题 N」（#210）。以「当前实例的第一笔事务」作为落定信号：换实例时
+  // 把基线记到当时的 transactionNumber，事务发生前一律显示「正文」占位，落定后才如实反映选区。
+  const [baseline, setBaseline] = useState<{ editor: Editor; tx: number }>({
     editor,
-    selector: ({ editor }) => currentHeading(editor)
+    tx: -1
   })
+  const { heading, tx } = useEditorState({
+    editor,
+    selector: ({ editor, transactionNumber }) => ({
+      heading: currentHeading(editor),
+      tx: transactionNumber
+    })
+  })
+  if (baseline.editor !== editor) {
+    setBaseline({ editor, tx })
+  }
+  const value = tx > baseline.tx ? heading : "p"
   return (
     <Select
-      value={heading}
+      value={value}
       onValueChange={(value) => {
         if (value === "p") editor.chain().focus().setParagraph().run()
         else {
