@@ -1,3 +1,5 @@
+import type { ThemeStyle } from "@/lib/theme"
+
 export interface HtmlEmbedNodeAttrs {
   /** R2 文件 key，形如 "embeds/<uuid>.html" */
   key: string
@@ -21,5 +23,5 @@ export const CIKI_EMBED_THEME_MESSAGE_TYPE = "ciki-embed-theme" as const
 export interface CikiEmbedThemeMessage {
   type: typeof CIKI_EMBED_THEME_MESSAGE_TYPE
   mode: "light" | "dark"
-  style: "nova" | "paper"
+  style: ThemeStyle
 }

@@ -5,7 +5,12 @@ import { fireEvent, render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ThemeCycleButton } from "@/components/ThemeToggle"
 import type { Me } from "@/lib/api"
-import { THEME_META_COLORS } from "@/lib/theme"
+import {
+  applyTheme,
+  isThemeStyle,
+  THEME_META_COLORS,
+  THEME_STYLES
+} from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
 import {
   _resetThemeMigratingForTest,
@@ -161,6 +166,57 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(THEME_META_COLORS.nova.dark).toBe("#0a0a0a")
     expect(THEME_META_COLORS.paper.light).toBe("#f7f4ee")
     expect(THEME_META_COLORS.paper.dark).toBe("#0b0c0e")
+    expect(THEME_META_COLORS.natural.light).toBe("#faf6f1")
+    expect(THEME_META_COLORS.natural.dark).toBe("#191612")
+    expect(THEME_META_COLORS.eink.light).toBe("#f5f3ea")
+    expect(THEME_META_COLORS.eink.dark).toBe("#171814")
+  })
+
+  it("THEME_STYLES 注册表包含全部 4 套风格", () => {
+    const ids = THEME_STYLES.map((s) => s.id)
+    expect(ids).toEqual(["nova", "paper", "natural", "eink"])
+    expect(isThemeStyle("natural")).toBe(true)
+    expect(isThemeStyle("eink")).toBe(true)
+    expect(isThemeStyle("paper")).toBe(true)
+    expect(isThemeStyle("nova")).toBe(true)
+    expect(isThemeStyle("invalid")).toBe(false)
+  })
+
+  it("applyTheme 直接调用：准确应用自然与墨纸的 data-theme、data-mode 与 meta[theme-color]，非法风格回退 nova", () => {
+    const meta = document.querySelector('meta[name="theme-color"]')!
+
+    // 自然 浅色
+    applyTheme("light", "natural")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#faf6f1")
+
+    // 自然 深色
+    applyTheme("dark", "natural")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#191612")
+
+    // 墨纸 浅色
+    applyTheme("light", "eink")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#f5f3ea")
+
+    // 墨纸 深色
+    applyTheme("dark", "eink")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#171814")
+
+    // 非法风格安全回退 nova
+    applyTheme("light", "unknown-style" as any)
+    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    expect(meta.getAttribute("content")).toBe("#ffffff")
   })
 
   it("纸面与 Nova 阅读版式一致：无正文列宽封顶且清理死令牌", () => {
@@ -172,6 +228,13 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(cssContent).not.toMatch(
       /\[data-readview-container\]\s*\{[^}]*max-width/
     )
+    // 自然与墨纸令牌块齐全
+    expect(cssContent).toContain('html[data-theme="natural"]')
+    expect(cssContent).toContain('html[data-theme="natural"].dark')
+    expect(cssContent).toContain('html[data-theme="eink"]')
+    expect(cssContent).toContain('html[data-theme="eink"].dark')
+    expect(cssContent).toContain("--r-card: 0px")
+    expect(cssContent).toContain("--shadow-card: none")
   })
 
   it("存储含非法 mode 值时：rehydrate 校验回退 auto，resolved 正常生效且不崩溃", async () => {
@@ -724,7 +787,8 @@ describe("index.html 首屏内联脚本执行（新旧结构均不出错）", ()
       }
     } catch {}
     if (mode !== "light" && mode !== "dark") mode = "auto"
-    if (style !== "paper") style = "nova"
+    const validStyles = ["nova", "paper", "natural", "eink"]
+    if (!validStyles.includes(style)) style = "nova"
     const dark =
       mode === "dark" ||
       (mode === "auto" &&
@@ -791,5 +855,31 @@ describe("index.html 首屏内联脚本执行（新旧结构均不出错）", ()
     expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
     expect(document.documentElement.classList.contains("dark")).toBe(false)
     expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+  })
+
+  it("新结构 style=natural：首屏脚本安全解析，准确应用 natural", () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { mode: "dark", style: "natural" },
+        version: 0
+      })
+    )
+    expect(() => runInlineScript()).not.toThrow()
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.classList.contains("dark")).toBe(true)
+  })
+
+  it("新结构 style=eink：首屏脚本安全解析，准确应用 eink", () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { mode: "light", style: "eink" },
+        version: 0
+      })
+    )
+    expect(() => runInlineScript()).not.toThrow()
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.classList.contains("dark")).toBe(false)
   })
 })

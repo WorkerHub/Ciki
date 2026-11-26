@@ -22,7 +22,9 @@
       "styleLabel": "Style",
       "style": {
         "nova": "Nova",
-        "paper": "Paper"
+        "paper": "Paper",
+        "natural": "Natural",
+        "eink": "E-Ink"
       },
       "modeLabel": "Mode",
       "mode": {
