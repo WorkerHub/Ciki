@@ -90,8 +90,9 @@ export function migrateThemeStorage(
     const rawMode = stateObj.mode
     const mode: ThemeMode =
       rawMode === "light" || rawMode === "dark" ? rawMode : "auto"
-    const style: ThemeStyle =
-      isThemeStyle(stateObj.style) ? stateObj.style : DEFAULT_THEME_STYLE
+    const style: ThemeStyle = isThemeStyle(stateObj.style)
+      ? stateObj.style
+      : DEFAULT_THEME_STYLE
     const migratedAt =
       typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
     const modeMigratedAt =
@@ -114,8 +115,9 @@ export function migrateThemeStorage(
     const rawTheme = stateObj.theme
     const mode: ThemeMode =
       rawTheme === "light" || rawTheme === "dark" ? rawTheme : "auto"
-    const style: ThemeStyle =
-      isThemeStyle(stateObj.style) ? stateObj.style : DEFAULT_THEME_STYLE
+    const style: ThemeStyle = isThemeStyle(stateObj.style)
+      ? stateObj.style
+      : DEFAULT_THEME_STYLE
     // 严格保留既有账号风格迁移标记 migratedAt（若原为 null 则保持 null，严禁破坏 syncAccountTheme）
     const migratedAt =
       typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
@@ -131,8 +133,9 @@ export function migrateThemeStorage(
   }
 
   // 类 2: 无旧字段（未设置过明暗，或无 theme 也无 mode）
-  const style: ThemeStyle =
-    isThemeStyle(stateObj.style) ? stateObj.style : DEFAULT_THEME_STYLE
+  const style: ThemeStyle = isThemeStyle(stateObj.style)
+    ? stateObj.style
+    : DEFAULT_THEME_STYLE
   const migratedAt =
     typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
   const modeMigratedAt =
@@ -163,8 +166,9 @@ export const useThemeStore = create<ThemeState>()(
         set({ mode: safeMode, resolved: applyTheme(safeMode, style) })
       },
       setStyle: (style) => {
-        const safeStyle: ThemeStyle =
-          isThemeStyle(style) ? style : DEFAULT_THEME_STYLE
+        const safeStyle: ThemeStyle = isThemeStyle(style)
+          ? style
+          : DEFAULT_THEME_STYLE
         const mode = get().mode
         set({ style: safeStyle, resolved: applyTheme(mode, safeStyle) })
       },

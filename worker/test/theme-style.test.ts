@@ -8,12 +8,7 @@ import {
 
 describe("theme-style 核心定义与校验", () => {
   it("支持集与默认值：nova, paper, natural, eink，默认值为 nova", () => {
-    expect(SUPPORTED_THEME_STYLES).toEqual([
-      "nova",
-      "paper",
-      "natural",
-      "eink"
-    ])
+    expect(SUPPORTED_THEME_STYLES).toEqual(["nova", "paper", "natural", "eink"])
     expect(DEFAULT_THEME_STYLE).toBe("nova")
   })
 

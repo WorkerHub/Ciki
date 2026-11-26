@@ -91,7 +91,7 @@
 | approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                                                                                  |
 | email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在结构坍缩（`schema_v1` 之前那版）时已一律置 1                                                                                                        |
 | language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。明暗模式等纯前端偏好维持现状只存本地（不进数据库），主题风格跟账号走（存 `theme_style`） |
-| theme_style            | TEXT NOT NULL DEFAULT 'nova'     | 主题风格，取值仅 `nova` / `paper` / `natural` / `eink`；默认 `nova`；通过 `PUT /api/me/theme` 修改，非法值不落库                                                                                                                                      |
+| theme_style            | TEXT NOT NULL DEFAULT 'nova'     | 主题风格，取值仅 `nova` / `paper` / `natural` / `eink`；默认 `nova`；通过 `PUT /api/me/theme` 修改，非法值不落库                                                                                                                                     |
 | bio                    | TEXT NOT NULL DEFAULT ''         | 用户一句话简介（纯文本、上限 100 码点，人类用户可自改，Agent 账号恒为空串）                                                                                                                                                                          |
 | kind                   | TEXT NOT NULL DEFAULT 'human'    | 账号类型：`human`（人类用户，默认） / `agent`（Agent 账号）                                                                                                                                                                                          |
 | owner_user_id          | INTEGER DEFAULT NULL             | Agent 账号的所有者用户 ID（对应人类用户的 `id`）；人类用户此列固定为 `NULL`                                                                                                                                                                          |
@@ -2110,9 +2110,9 @@ CSP sandbox 强制 opaque origin（即便用户顶层打开 URL 亦无法访问�
 - **作者契约**：注入脚本已自动对齐宿主 DOM 机制：`data-theme` 装风格（`"nova" | "paper" | "natural" | "eink"`），明暗切 `dark` class（与宿主同机制）。废除嵌入侧 `data-theme-style` 与 `data-theme="light|dark"`。嵌入内容作者只需按 `.dark` 与 `[data-theme="paper"]` 等选择器编写 CSS 变量即可无缝跟随站点主题切换；作者亦可自行监听 `ciki-embed-theme` 消息（接收 `mode` 与 `style` 字段）实现更细粒度的动效或逻辑切换。不监听、未写暗色 CSS 的旧嵌入页面行为完全不变。
 - **三层对应表（定版口径）**：
 
-  | 语义层                       | 风格轴（Theme / Style）                                          | 明暗轴（Mode）                                                                            |
-  | ---------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-  | **产品语义**                 | 产品「主题」（设置页「主题」、跟账号走）                         | 「外观模式」/ 明暗（跟随系统 / 浅色 / 深色）                                              |
+  | 语义层                       | 风格轴（Theme / Style）                                                                 | 明暗轴（Mode）                                                                            |
+  | ---------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+  | **产品语义**                 | 产品「主题」（设置页「主题」、跟账号走）                                                | 「外观模式」/ 明暗（跟随系统 / 浅色 / 深色）                                              |
   | **代码与协议**               | `style`（`ThemeStyle = "nova" \| "paper" \| "natural" \| "eink"`）/ `users.theme_style` | `mode`（`ThemeMode = "auto" \| "light" \| "dark"`，解析后 `resolved: "light" \| "dark"`） |
   | **DOM 契约（宿主 & Embed）** | `html[data-theme="nova" \| "paper" \| "natural" \| "eink"]`                             | `html.dark`（暗色切 class）；`[data-mode="light" \| "dark"]`（仅宿主）                    |
 
