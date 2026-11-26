@@ -881,7 +881,7 @@ export type SpaceRole = "admin" | "editor" | "viewer"
 
 export interface Space {
   id: number
-  /** 对外地址段：由空间名生成、创建后不随改名变化（`/s/<slug>/…`）。 */
+  /** 对外地址段：由空间名生成、可在空间设置中手动修改（`/s/<slug>/…`）。 */
   slug: string
   name: string
   description: string
@@ -1386,8 +1386,10 @@ export const spacesApi = {
   get: (id: number) => api.get<Space>(`/spaces/${id}`),
   create: (input: { name: string; description?: string }) =>
     api.post<Space>("/spaces", input),
-  update: (id: number, input: { name?: string; description?: string }) =>
-    api.put<Space>(`/spaces/${id}`, input),
+  update: (
+    id: number,
+    input: { name?: string; description?: string; slug?: string }
+  ) => api.put<Space>(`/spaces/${id}`, input),
   remove: (id: number) => api.del<{ success: true }>(`/spaces/${id}`),
   members: (id: number) => api.get<SpaceMember[]>(`/spaces/${id}/members`),
   addMember: (id: number, input: { userId: number; role: SpaceRole }) =>

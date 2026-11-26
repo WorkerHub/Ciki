@@ -4,6 +4,8 @@ import {
   canEdit,
   canManage,
   editableSpaces,
+  isValidSpaceSlug,
+  MAX_SPACE_SLUG_LENGTH,
   effectiveRole,
   pickInitialSpace,
   roleForSpace
@@ -82,5 +84,27 @@ describe("移动页面的目标空间", () => {
     expect(editableSpaces(spaces, true).map((item) => item.id)).toEqual([
       1, 2, 3
     ])
+  })
+})
+
+describe("空间 slug 校验规则", () => {
+  it("合法的 slug：小写字母、数字、单连字符分段，1–48 位", () => {
+    expect(isValidSpaceSlug("a")).toBe(true)
+    expect(isValidSpaceSlug("0")).toBe(true)
+    expect(isValidSpaceSlug("pay-team")).toBe(true)
+    expect(isValidSpaceSlug("team-1-prod")).toBe(true)
+    expect(isValidSpaceSlug("a".repeat(MAX_SPACE_SLUG_LENGTH))).toBe(true)
+  })
+
+  it("不合法的 slug：空串、超长、大写、特殊字符、连字符首尾或连续", () => {
+    expect(isValidSpaceSlug("")).toBe(false)
+    expect(isValidSpaceSlug("a".repeat(MAX_SPACE_SLUG_LENGTH + 1))).toBe(false)
+    expect(isValidSpaceSlug("Pay-team")).toBe(false)
+    expect(isValidSpaceSlug("pay_team")).toBe(false)
+    expect(isValidSpaceSlug("pay team")).toBe(false)
+    expect(isValidSpaceSlug("-pay")).toBe(false)
+    expect(isValidSpaceSlug("pay-")).toBe(false)
+    expect(isValidSpaceSlug("pay--team")).toBe(false)
+    expect(isValidSpaceSlug("pay/team")).toBe(false)
   })
 })

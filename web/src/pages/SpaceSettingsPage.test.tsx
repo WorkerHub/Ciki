@@ -112,7 +112,10 @@ function renderSettings(initialEntry = "/s/pay-team/settings") {
     ],
     { initialEntries: [initialEntry] }
   )
-  return render(<RouterProvider router={router} />)
+  return {
+    ...render(<RouterProvider router={router} />),
+    router
+  }
 }
 
 describe("空间设置与成员管理", () => {
@@ -160,12 +163,120 @@ describe("空间设置与成员管理", () => {
 
     expect(spacesApi.update).toHaveBeenCalledWith(1, {
       name: "支付中台",
-      description: "新的描述"
+      description: "新的描述",
+      slug: "pay-team"
     })
     expect(await screen.findByRole("status")).toHaveTextContent(
       "切换器里的名称同步更新"
     )
     expect(useSpacesStore.getState().spaces[0].name).toBe("支付中台")
+  })
+
+  it("修改空间地址保存成功后立即 replace 跳转到新地址并更新本地 store", async () => {
+    const user = userEvent.setup()
+    vi.mocked(spacesApi.update).mockResolvedValue({
+      ...space,
+      slug: "pay-hub"
+    })
+    const { router } = renderSettings()
+
+    const slugInput = await screen.findByLabelText("空间地址")
+    expect(slugInput).toHaveValue("pay-team")
+    await user.clear(slugInput)
+    await user.type(slugInput, "pay-hub")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    expect(spacesApi.update).toHaveBeenCalledWith(1, {
+      name: "支付团队",
+      description: "支付相关文档",
+      slug: "pay-hub"
+    })
+    expect(useSpacesStore.getState().spaces[0].slug).toBe("pay-hub")
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/s/pay-hub/settings")
+      expect(
+        screen.getByRole("link", { name: "返回空间首页" })
+      ).toHaveAttribute("href", "/s/pay-hub")
+    })
+  })
+
+  it("空间地址即时校验非法格式并阻拦保存", async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    const slugInput = await screen.findByLabelText("空间地址")
+    expect(slugInput).toHaveValue("pay-team")
+    expect(slugInput).toHaveAttribute("aria-invalid", "false")
+
+    // 输入大写与下划线
+    await user.clear(slugInput)
+    await user.type(slugInput, "Pay_Team")
+    expect(
+      screen.getByText("只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符")
+    ).toBeInTheDocument()
+    expect(slugInput).toHaveAttribute("aria-invalid", "true")
+
+    // 尝试点击保存，应被阻拦且不发起请求
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    expect(spacesApi.update).not.toHaveBeenCalled()
+
+    // 修复为合法 slug，错误立即清除
+    await user.clear(slugInput)
+    await user.type(slugInput, "pay-hub-2")
+    expect(
+      screen.queryByText(
+        "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      )
+    ).toBeNull()
+    expect(slugInput).toHaveAttribute("aria-invalid", "false")
+  })
+
+  it("校验早退时清理旧的成功或错误提示", async () => {
+    const user = userEvent.setup()
+    vi.mocked(spacesApi.update).mockResolvedValue({
+      ...space,
+      name: "新空间名"
+    })
+    renderSettings()
+
+    // 1. 先触发一次保存成功，产生 infoMessage
+    const nameInput = await screen.findByLabelText("名称")
+    await user.clear(nameInput)
+    await user.type(nameInput, "新空间名")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "切换器里的名称同步更新"
+    )
+
+    // 2. 将 slug 改成非法值再次点击保存，infoMessage 应被清掉，只留 slugError
+    const slugInput = screen.getByLabelText("空间地址")
+    await user.clear(slugInput)
+    await user.type(slugInput, "INVALID_SLUG")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    expect(screen.queryByRole("status")).toBeNull()
+    expect(
+      screen.getByText("只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符")
+    ).toBeInTheDocument()
+  })
+
+  it("后端返回 409 冲突时在空间地址字段下展示已被占用错误，修改后清除", async () => {
+    const user = userEvent.setup()
+    vi.mocked(spacesApi.update).mockRejectedValue(
+      new ApiError(409, "Conflict", "SLUG_TAKEN")
+    )
+    renderSettings()
+
+    const slugInput = await screen.findByLabelText("空间地址")
+    await user.clear(slugInput)
+    await user.type(slugInput, "taken-slug")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    expect(await screen.findByText("这个空间地址已被占用")).toBeInTheDocument()
+    expect(slugInput).toHaveAttribute("aria-invalid", "true")
+
+    // 修改输入后冲突错误清除
+    await user.type(slugInput, "-new")
+    expect(screen.queryByText("这个空间地址已被占用")).toBeNull()
   })
 
   it("成员列表显示角色与最后一名管理员保护", async () => {
@@ -474,10 +585,39 @@ describe("空间设置 · 英文界面", () => {
     renderSettings()
 
     expect(await screen.findByLabelText("Name")).toHaveValue("支付团队")
+    expect(screen.getByLabelText("Space slug")).toHaveValue("pay-team")
     expect(screen.getByText("Members")).toBeInTheDocument()
     expect(screen.getByText("Danger zone")).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Delete space" })
+    ).toBeInTheDocument()
+  })
+
+  it("英文界面下空间地址标签为 Space slug 且错误文案为英文", async () => {
+    await i18n.changeLanguage("en")
+    const user = userEvent.setup()
+    renderSettings()
+
+    const slugInput = await screen.findByLabelText("Space slug")
+    expect(slugInput).toHaveValue("pay-team")
+
+    await user.clear(slugInput)
+    await user.type(slugInput, "Invalid_Slug")
+    expect(
+      screen.getByText(
+        "Must be 1–48 lowercase letters, numbers, and single hyphens, not starting or ending with a hyphen"
+      )
+    ).toBeInTheDocument()
+
+    vi.mocked(spacesApi.update).mockRejectedValue(
+      new ApiError(409, "Conflict", "SLUG_TAKEN")
+    )
+    await user.clear(slugInput)
+    await user.type(slugInput, "taken-slug")
+    await user.click(screen.getByRole("button", { name: "Save" }))
+
+    expect(
+      await screen.findByText("This space slug is already taken")
     ).toBeInTheDocument()
   })
 
