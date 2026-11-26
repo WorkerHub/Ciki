@@ -1,0 +1,3 @@
+n1=200 n2=403
+n1_body={"results":[{"id":431,"ok":false,"error":"Forbidden","code":"FORBIDDEN"}]}
+n2_body={"error":"Forbidden"}

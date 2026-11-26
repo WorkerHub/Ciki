@@ -1,0 +1,302 @@
+[
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/me"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/auth/config"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/setup/state"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/notifications/unread-count"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/spaces"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=19"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash?spaceId=18"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash?spaceId=19"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash?spaceId=19"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "POST",
+    "url": "/api/pages/trash/batch"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "POST",
+    "url": "/api/pages/426/restore"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "DELETE",
+    "url": "/api/pages/423/permanent"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "POST",
+    "url": "/api/pages/trash/batch"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "POST",
+    "url": "/api/pages/trash/batch"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/me"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/auth/config"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/setup/state"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/notifications/unread-count"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/spaces"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=19"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/me"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/auth/config"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/setup/state"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/notifications/unread-count"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/spaces"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/pages?spaceId=19"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "B",
+    "method": "POST",
+    "url": "/api/pages/trash/batch"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/pages?spaceId=19"
+  },
+  {
+    "tag": "B",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/me"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/auth/config"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/setup/state"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/notifications/unread-count"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/spaces"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages?spaceId=17"
+  },
+  {
+    "tag": "A",
+    "method": "GET",
+    "url": "/api/pages/trash"
+  }
+]

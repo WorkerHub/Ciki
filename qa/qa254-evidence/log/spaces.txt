@@ -1,0 +1,1 @@
+SA=17(space-17) SB=18(space-18) SC=19(space-19)

@@ -1,0 +1,20 @@
+== QA254 基线快照（铸造前净基线） 2026-11-26T11:51:05Z ==
+users_total=4
+spaces_total=8
+pages_active=380
+pages_trashed=0
+revisions_total=815
+sessions_total=14
+api_tokens_total=9
+space_members_total=22
+qa_users=0
+qa_spaces=0
+qa_pages=0
+qa_sessions=0
+qa_tokens=0
+auth_counters_total=163
+
+注：mint.js 铸入 2 用户 + 2 会话 + 2 写令牌（qa_users=2/qa_sessions=2/qa_tokens=2）。
+cast.sh 首跑因 jget 解析 bug 在建完 3 个空空间（id 14/15/16）后失败，重跑又建
+17/18/19 —— 两批均为 QA254 前缀空空间，拆除阶段一并按 id 精确删除（14/15 by A、
+16 by B 会话；页面只在 17/18/19 里）。

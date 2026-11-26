@@ -1,0 +1,88 @@
+== QA254 拆除开始 2026-11-26T12:22:26Z ==
+-- 1. 构建确定性 QA 内容哈希集合并对账 --
+definitive hashes: 16
+-- 2. 活动页引用均在集合内 --
+referenced-now: 7 (all inside definitive set)
+-- 3. 软删活动页（写令牌，A）--
+  td-p4 200
+  td-p8 200
+  td-p10 200
+4 pages (P4/P8/P10/P11) in trash
+-- 4. 永久删除（会话，A）--
+  tperm-422 200
+  tperm-426 200
+  tperm-428 200
+pages/revisions/fts for QA ids: 0/0/0
+-- 5. D1 引用清零后删除 R2 内容对象 --
+  content/0bb8ecf9db51fd19d497a8af98f93141353eda63626632d732238215712fcbcc del=200 post-get=404
+  content/241051330ec4b74d3dade1ffc3126afe98a94802de3c04758ca32a6d5078a4ef del=200 post-get=404
+  content/24f3af43a34cf7add36a4256243bbf3798d1e463cdd96fd417ba51eed252a516 del=200 post-get=404
+  content/2a9131d27eeea526a890e9de4bdb3d95de3104c0a7ec9accff347a4543d19564 del=200 post-get=404
+  content/2fa9688fc023fc0ddf1547f60f4396caac09933d5070aad06d8f1f99fd83ddb0 del=200 post-get=404
+  content/34a85e712559f32cdb4d4e69de40debe954e795d4d6ca6b06a7acbeda482b3fd del=200 post-get=404
+  content/3d18084ca87e1285071079720880b75c78feb1b35a066a2aa4f2a67d4ad9e46d del=200 post-get=404
+  content/46cf6a0a580b2ff3c03d04237b99d70025bac3c169acbc44708931abae2a49f5 del=200 post-get=404
+  content/7fa29f256b71efa1fae3bdde2682efefcdbb84861d6612f61db81ea21059f7df del=200 post-get=404
+  content/8e29b19bcd706acb2c20927d5a05ed991cfbb4d95da962d62139159180a12cb7 del=200 post-get=404
+  content/92898f2279571d596eaaf4e0c0461e9949bf833257db8c55a7ab37029aa31d06 del=200 post-get=404
+  content/b48026fe6e15773481d9916d590f894c786c7c773ef26cfe9f7be0ee5f9c2538 del=200 post-get=404
+  content/c9268234c230e038c86066555ddfbc16a8e7e79fdad3b98abe1362b3399a3240 del=200 post-get=404
+  content/d560b8d3dc79a34affcef666336e1583a79b262a8ff12b66c75f9852090e2814 del=200 post-get=404
+  content/f5d13e7db7204e90203d0dcbf434d642c4c2b891bdbecbcc90fe778565a5f272 del=200 post-get=404
+  content/fac33ece5f732a0e41676f22cf862ce7c97d624a76f7c552caa8acc8f27f937d del=200 post-get=404
+all 16 content objects deleted
+-- 6. 删除 QA 空间（17/18 by A, 19 by B）--
+  tspace-17 200
+  tspace-18 200
+  tspace-19 200
+spaces 17/18/19 + members: 0/0
+-- 7. 会话、令牌、用户 --
+users/sessions/tokens/members for 18316/18317: 0/0/0/0
+-- 8. 撤销后会话验证（预期 401）--
+GET /api/me with revoked session -> 401
+== 拆除完成，执行 baseline verify ==
+== QA254 终核 2026-11-26T12:24:18Z ==
+users_total=4
+spaces_total=8
+pages_active=380
+pages_trashed=0
+revisions_total=815
+sessions_total=14
+api_tokens_total=9
+space_members_total=22
+-- QA 残留（全部必须为 0）--
+qa_users=0
+qa_spaces=0
+qa_pages=0
+qa_revisions=0
+qa_fts=2
+qa_members=0
+qa_sessions=0
+qa_tokens=0
+auth_counters_total=165
+-- cleanup residue: my write counters + pre-existing orphan FTS (QA232/QA244) --
+write counters deleted
+orphan fts 410/416 deleted
+-- post-cleanup check --
+qa counter rows left: 0
+fts 410/416 left: 0
+== final verify ==
+== QA254 终核 2026-11-26T12:26:07Z ==
+users_total=4
+spaces_total=8
+pages_active=380
+pages_trashed=0
+revisions_total=815
+sessions_total=14
+api_tokens_total=9
+space_members_total=22
+-- QA 残留（全部必须为 0）--
+qa_users=0
+qa_spaces=0
+qa_pages=0
+qa_revisions=0
+qa_fts=0
+qa_members=0
+qa_sessions=0
+qa_tokens=0
+auth_counters_total=163

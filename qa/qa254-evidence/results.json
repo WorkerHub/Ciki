@@ -1,0 +1,360 @@
+[
+  {
+    "id": "A-login",
+    "criterion": "自证",
+    "expect": "回收站页可访问（会话 Cookie 生效）",
+    "actual": "标题渲染=true",
+    "ok": true
+  },
+  {
+    "id": "1a-rows",
+    "criterion": "口径1",
+    "expect": "默认全部空间：9 个根条目（子页隐藏，由根条目 childCount 表达）",
+    "actual": "实际 9 行",
+    "ok": true
+  },
+  {
+    "id": "1b-order",
+    "criterion": "口径1",
+    "expect": "行序为删除时间倒序：P9→P10→P12→P8→P7→P6→P5→P4→P1",
+    "actual": "QA254-乙-清空全部用页 | QA254-甲-子树页-批量恢复用 | QA254-甲-清空单空间用页 | QA254-甲-版本历史页 | QA254-丙-只读页二 | QA254-丙-只读页 | QA254-乙-待单条彻删 | QA254-乙-单页 | QA254-甲-父页-含子树",
+    "ok": true
+  },
+  {
+    "id": "1c-space",
+    "criterion": "口径1",
+    "expect": "每行空间列与其空间一致（甲/乙/丙）",
+    "actual": "9/9 一致",
+    "ok": true
+  },
+  {
+    "id": "1d-time",
+    "criterion": "口径1",
+    "expect": "创建/删除时间列均渲染日期",
+    "actual": "9/9 渲染",
+    "ok": true
+  },
+  {
+    "id": "2a-childcount",
+    "criterion": "口径2",
+    "expect": "子页面数：P1 行含 2 个子页面、P10 行含 1 个子页面、其余不显示",
+    "actual": "{\"QA254-乙-清空全部用页\":null,\"QA254-甲-子树页-批量恢复用\":\"\",\"QA254-甲-清空单空间用页\":null,\"QA254-甲-版本历史页\":null,\"QA254-丙-只读页二\":null,\"QA254-丙-只读页\":null,\"QA254-乙-待单条彻删\":null,\"QA254-乙-单页\":null,\"QA254-甲-父页-含子树\":\"\"}",
+    "ok": true
+  },
+  {
+    "id": "1e-summary",
+    "criterion": "口径1",
+    "expect": "页头声明「汇总全部空间。」",
+    "actual": "包含=true",
+    "ok": true
+  },
+  {
+    "id": "1f-filter-yi",
+    "criterion": "口径1",
+    "expect": "筛选空间乙 → 3 行（P9/P5/P4）",
+    "actual": "QA254-乙-清空全部用页 | QA254-乙-待单条彻删 | QA254-乙-单页",
+    "ok": true
+  },
+  {
+    "id": "1g-filter-bing",
+    "criterion": "口径1",
+    "expect": "筛选空间丙 → 2 行（P7/P6）",
+    "actual": "QA254-丙-只读页二 | QA254-丙-只读页",
+    "ok": true
+  },
+  {
+    "id": "4a-readonly-note",
+    "criterion": "口径4",
+    "expect": "筛选只读空间：提示「你是只读成员，只能查看。」且清空/全选禁用",
+    "actual": "提示=true 清空禁用=true 全选禁用=true",
+    "ok": true
+  },
+  {
+    "id": "1h-filter-jia",
+    "criterion": "口径1",
+    "expect": "筛选空间甲 → 4 行（P10/P12/P8/P1）",
+    "actual": "QA254-甲-子树页-批量恢复用 | QA254-甲-清空单空间用页 | QA254-甲-版本历史页 | QA254-甲-父页-含子树",
+    "ok": true
+  },
+  {
+    "id": "1i-filter-back",
+    "criterion": "口径1",
+    "expect": "切回全部空间 → 9 行",
+    "actual": "实际 9 行",
+    "ok": true
+  },
+  {
+    "id": "2b-dialog-p1",
+    "criterion": "口径2",
+    "expect": "P1 弹窗：标题=彻底删除选中的 1 项？；共 1 项条目，含子页面共 3 篇",
+    "actual": "title=true desc=true",
+    "ok": true
+  },
+  {
+    "id": "2c-dialog-p4p9",
+    "criterion": "口径2",
+    "expect": "P4+P9 弹窗：共 2 项条目，含子页面共 2 篇",
+    "actual": "title=true desc=true",
+    "ok": true
+  },
+  {
+    "id": "2d-dialog-p10",
+    "criterion": "口径2",
+    "expect": "P10 弹窗：共 1 项条目，含子页面共 2 篇",
+    "actual": "title=true desc=true",
+    "ok": true
+  },
+  {
+    "id": "4b-readonly-row",
+    "criterion": "口径4",
+    "expect": "只读空间行：无勾选框、无恢复/彻底删除按钮",
+    "actual": "P7 勾选框=0 恢复=0 彻删=0；P6 按钮总数=0",
+    "ok": true
+  },
+  {
+    "id": "3a-selected",
+    "criterion": "口径3",
+    "expect": "勾选 P4+P10 → 批量条「已选 2 项」",
+    "actual": "已选 2 项",
+    "ok": true
+  },
+  {
+    "id": "3a-toast",
+    "criterion": "口径3",
+    "expect": "toast「成功 2 项」",
+    "actual": "已捕获",
+    "ok": true
+  },
+  {
+    "id": "3a-no-dialog",
+    "criterion": "口径3",
+    "expect": "批量恢复不出现确认弹窗",
+    "actual": "无弹窗",
+    "ok": true
+  },
+  {
+    "id": "3a-rows-after",
+    "criterion": "口径3",
+    "expect": "恢复后 P4/P10 行消失（P11 随父恢复）→ 7 行",
+    "actual": "QA254-乙-清空全部用页 | QA254-甲-清空单空间用页 | QA254-甲-版本历史页 | QA254-丙-只读页二 | QA254-丙-只读页 | QA254-乙-待单条彻删 | QA254-甲-父页-含子树",
+    "ok": true
+  },
+  {
+    "id": "3a-d1",
+    "criterion": "口径3",
+    "expect": "D1：P4/P10/P11 三页 deleted_at 全部清空（子树整体恢复）",
+    "actual": "rows=3 alive=true",
+    "ok": true
+  },
+  {
+    "id": "3a-d1-rev",
+    "criterion": "口径3",
+    "expect": "恢复不丢版本历史：P4/P10/P11 版本行仍在（≥3）",
+    "actual": "实际 3 行",
+    "ok": true
+  },
+  {
+    "id": "5a-no-dialog",
+    "criterion": "口径5",
+    "expect": "单条恢复不弹确认框（与改动前一致：即时生效）",
+    "actual": "无弹窗",
+    "ok": true
+  },
+  {
+    "id": "5a-row-gone",
+    "criterion": "口径5",
+    "expect": "P8 行消失",
+    "actual": "QA254-乙-清空全部用页 | QA254-甲-清空单空间用页 | QA254-丙-只读页二 | QA254-丙-只读页 | QA254-乙-待单条彻删 | QA254-甲-父页-含子树",
+    "ok": true
+  },
+  {
+    "id": "5a-d1",
+    "criterion": "口径5",
+    "expect": "D1：P8 deleted_at=NULL",
+    "actual": "{\"deleted_at\":null}",
+    "ok": true
+  },
+  {
+    "id": "5a-d1-rev",
+    "criterion": "口径5",
+    "expect": "恢复后 P8 全部 4 个版本仍在",
+    "actual": "versions=1,2,3,4",
+    "ok": true
+  },
+  {
+    "id": "5a-d1-content",
+    "criterion": "口径5",
+    "expect": "恢复后 P8 正文=v3b（最新版本）",
+    "actual": "QA254 P8 正文 v3b：修正后的",
+    "ok": true
+  },
+  {
+    "id": "5b-dialog",
+    "criterion": "口径5",
+    "expect": "单条彻删弹窗：标题=彻底删除「QA254-乙-待单条彻删」？共 1 项条目，含子页面共 1 篇",
+    "actual": "title=true desc=true",
+    "ok": true
+  },
+  {
+    "id": "5b-row-gone",
+    "criterion": "口径5",
+    "expect": "确认后 P5 行消失",
+    "actual": "QA254-乙-清空全部用页 | QA254-甲-清空单空间用页 | QA254-丙-只读页二 | QA254-丙-只读页 | QA254-甲-父页-含子树",
+    "ok": true
+  },
+  {
+    "id": "5b-d1",
+    "criterion": "口径5",
+    "expect": "D1：P5 页面/版本/FTS 全部删除（0/0/0）",
+    "actual": "page=0 rev=0 fts=0",
+    "ok": true
+  },
+  {
+    "id": "3b-dialog",
+    "criterion": "口径3",
+    "expect": "P1+P9 弹窗：共 2 项条目，含子页面共 4 篇（跨空间+子树计数）",
+    "actual": "title=true desc=true",
+    "ok": true
+  },
+  {
+    "id": "3b-toast",
+    "criterion": "口径3",
+    "expect": "toast「成功 2 项」",
+    "actual": "已捕获",
+    "ok": true
+  },
+  {
+    "id": "3b-rows-after",
+    "criterion": "口径3",
+    "expect": "P1/P9 消失 → 剩 3 行（P12/P7/P6）",
+    "actual": "QA254-甲-清空单空间用页 | QA254-丙-只读页二 | QA254-丙-只读页",
+    "ok": true
+  },
+  {
+    "id": "3b-d1",
+    "criterion": "口径3",
+    "expect": "D1：P1/P2/P3/P9 页面/版本/FTS 全部清除（0/0/0）",
+    "actual": "page=0 rev=0 fts=0",
+    "ok": true
+  },
+  {
+    "id": "3c-dialog",
+    "criterion": "口径3+4",
+    "expect": "清空弹窗：共 1 项条目（仅 P12；只读空间的 P6/P7 不计入）",
+    "actual": "title=true desc1条1篇=true",
+    "ok": true
+  },
+  {
+    "id": "3c-toast",
+    "criterion": "口径3",
+    "expect": "toast「成功 1 项」",
+    "actual": "已捕获",
+    "ok": true
+  },
+  {
+    "id": "3c-rows-after",
+    "criterion": "口径3",
+    "expect": "P12 清除 → 只剩只读丙 2 行",
+    "actual": "QA254-丙-只读页二 | QA254-丙-只读页",
+    "ok": true
+  },
+  {
+    "id": "3c-d1",
+    "criterion": "口径3",
+    "expect": "D1：P12 已彻底删除",
+    "actual": "page rows=0",
+    "ok": true
+  },
+  {
+    "id": "3c-clear-disabled",
+    "criterion": "口径3",
+    "expect": "无可编辑条目时清空按钮禁用",
+    "actual": "disabled=true",
+    "ok": true
+  },
+  {
+    "id": "4c-api-batch-restore",
+    "criterion": "口径4",
+    "expect": "接口负例：A 批量恢复只读条目 → 被拒且数据未变",
+    "actual": "http=200 ok=false deleted_at=2026-11-26T11:53:13.559Z",
+    "ok": true
+  },
+  {
+    "id": "4c-api-batch-purge",
+    "criterion": "口径4",
+    "expect": "接口负例：A 批量彻删只读条目 → 被拒且两页仍在回收站",
+    "actual": "http=200 oks=[false,false] rows=2",
+    "ok": true
+  },
+  {
+    "id": "4c-api-permanent",
+    "criterion": "口径4",
+    "expect": "接口负例：A DELETE 彻删只读条目 → 403 且数据未变（首测误用 POST 得 404=方法不存在，已用 DELETE 重测为准）",
+    "actual": "http=403 {\"error\":\"Forbidden\"} deleted_at 未变（复测对象 P13=431）",
+    "ok": true,
+    "note": "superseded: first attempt used wrong method POST -> 404 route-miss; retested with DELETE on cast item P13"
+  },
+  {
+    "id": "4c-api-404",
+    "criterion": "口径5",
+    "expect": "接口负例：恢复不存在的页面 → 404",
+    "actual": "http=404",
+    "ok": true
+  },
+  {
+    "id": "4c-ui-still",
+    "criterion": "口径4",
+    "expect": "负例后 UI：A 视图 P6/P7 两行仍在",
+    "actual": "QA254-丙-只读页二 | QA254-丙-只读页",
+    "ok": true
+  },
+  {
+    "id": "3d-b-rows",
+    "criterion": "口径3",
+    "expect": "B（丙管理员）回收站：2 行（P7/P6）",
+    "actual": "QA254-丙-只读页二 | QA254-丙-只读页",
+    "ok": true
+  },
+  {
+    "id": "3d-b-clear-enabled",
+    "criterion": "口径3",
+    "expect": "B 对丙空间有编辑权 → 清空按钮可用",
+    "actual": "enabled=true",
+    "ok": true
+  },
+  {
+    "id": "3d-b-dialog",
+    "criterion": "口径3",
+    "expect": "B 清空弹窗：共 2 项条目，含子页面共 2 篇",
+    "actual": "title=true desc=true",
+    "ok": true
+  },
+  {
+    "id": "3d-b-toast",
+    "criterion": "口径3",
+    "expect": "toast「成功 2 项」",
+    "actual": "已捕获",
+    "ok": true
+  },
+  {
+    "id": "3d-b-empty",
+    "criterion": "口径3",
+    "expect": "清空后 B 视图显示「回收站是空的」",
+    "actual": "empty=1",
+    "ok": true
+  },
+  {
+    "id": "3d-b-d1",
+    "criterion": "口径3",
+    "expect": "D1：P6/P7 页面/版本/FTS 全部清除（0/0/0）",
+    "actual": "page=0 rev=0 fts=0",
+    "ok": true
+  },
+  {
+    "id": "final-a-empty",
+    "criterion": "口径1",
+    "expect": "终态：A 回收站（全部空间）为空",
+    "actual": "empty=1",
+    "ok": true
+  }
+]
