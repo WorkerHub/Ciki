@@ -8,6 +8,7 @@
 import { Hono } from "hono"
 import { DEFAULT_SITE_NAME } from "../core/identity"
 import { getSetting } from "../db/queries/settings"
+import { AGENT_GUIDE_TEMPLATE } from "../docs/agent-guide-content"
 import { getTablePrefix } from "../lib/table-prefix"
 import type { HonoEnv } from "../types"
 
@@ -27,6 +28,20 @@ publicRoutes.get("/", async (c) => {
   return c.json({
     name: siteName,
     repositoryUrl: REPOSITORY_URL,
-    version
+    version,
+    openapi: "/api/openapi.json",
+    agentGuide: "/api/public/agent-guide"
+  })
+})
+
+publicRoutes.get("/agent-guide", (c) => {
+  const version = (c.env.APP_VERSION ?? "").trim() || UNKNOWN_VERSION
+  const content = AGENT_GUIDE_TEMPLATE.replace("{{BUILD_VERSION}}", version)
+  return new Response(content, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/markdown; charset=utf-8",
+      "Cache-Control": "public, max-age=60"
+    }
   })
 })

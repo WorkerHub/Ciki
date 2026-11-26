@@ -28,6 +28,8 @@ import { readRoutes } from "./routes/read"
 import { writeRoutes } from "./routes/write"
 import { wakerRoutes } from "./routes/waker"
 import { userRoutes } from "./routes/users"
+import { UNKNOWN_VERSION } from "./routes/public"
+import { buildOpenApiSpec } from "./docs/openapi"
 import { CALLBACK_MOUNT_PATH } from "./waker"
 import type { Env, HonoEnv } from "./types"
 
@@ -67,6 +69,7 @@ app.use("/api/*", async (c, next) => {
 const PUBLIC_ROUTES: Array<[string, string]> = [
   ["GET", "/api/health"],
   ["GET", "/api/public"],
+  ["GET", "/api/openapi.json"],
   ["GET", "/api/auth/config"],
   ["POST", "/api/auth/register"],
   ["POST", "/api/auth/login"],
@@ -101,6 +104,8 @@ function isPublicRoute(method: string, path: string): boolean {
   if (path === "/api/read" || path.startsWith("/api/read/")) return true
   // 写接口只认读写令牌（第三张表）：会话 Cookie 与另两种令牌都在它的中间件里被拒。
   if (path === "/api/write" || path.startsWith("/api/write/")) return true
+  if (path === "/api/public" || path.startsWith("/api/public/")) return true
+  if (method === "GET" && path === "/api/openapi.json") return true
   return PUBLIC_ROUTES.some(([m, p]) => m === method && p === path)
 }
 
@@ -138,6 +143,12 @@ app.route("/api/users", userRoutes)
 
 // 存活探针。生效前缀不在这里暴露——它只经 setup / 管理面的接口回显。
 app.get("/api/health", (c) => c.json({ status: "ok" }))
+
+app.get("/api/openapi.json", (c) => {
+  c.header("Cache-Control", "public, max-age=60")
+  const version = (c.env.APP_VERSION ?? "").trim() || UNKNOWN_VERSION
+  return c.json(buildOpenApiSpec(version))
+})
 
 // 未命中的 API 一律 JSON 404：不能落到下面的 SPA 回落，否则调用方会把
 // "接口不存在"当成 200 的 HTML 页面。
