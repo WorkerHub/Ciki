@@ -252,34 +252,70 @@ window.addEventListener("message", (event) => {
 
 ---
 
-## 七、页尾评论操作
+## 七、主题配色真值表
+
+为方便嵌入式内容（Embed iframe 组件、图表、SVG 画布等）单文件自包含实现与宿主设计语言无缝对齐，下表收录四组核心语义色彩令牌的实际色值（与 `web/src/index.css` 同源、逐字对照一致）。
+
+| 语义色彩令牌           | Nova 浅版 (`:root`)         | Nova 暗版 (`.dark`)         | Paper 浅版 (`html[data-theme="paper"]`) | Paper 暗版 (`html[data-theme="paper"].dark`) |
+| ---------------------- | --------------------------- | --------------------------- | --------------------------------------- | -------------------------------------------- |
+| `background`           | `oklch(1 0 0)`              | `oklch(0.145 0 0)`          | `#f7f4ee`                               | `#0b0c0e`                                    |
+| `foreground`           | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
+| `card`                 | `oklch(1 0 0)`              | `oklch(0.205 0 0)`          | `#f9f7f2`                               | `#1a1b1f`                                    |
+| `card-foreground`      | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
+| `popover`              | `oklch(1 0 0)`              | `oklch(0.205 0 0)`          | `#f9f7f2`                               | `#1a1b1f`                                    |
+| `popover-foreground`   | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
+| `primary`              | `oklch(0.205 0 0)`          | `oklch(0.922 0 0)`          | `var(--coral)` (`#e2705a`)              | `var(--coral)` (`#e8694e`)                   |
+| `primary-foreground`   | `oklch(0.985 0 0)`          | `oklch(0.205 0 0)`          | `var(--coral-ink)` (`#ffffff`)          | `var(--coral-ink)` (`#ffffff`)               |
+| `secondary`            | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    |
+| `secondary-foreground` | `oklch(0.205 0 0)`          | `oklch(0.985 0 0)`          | `#434247`                               | `#c8c5bf`                                    |
+| `muted`                | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    |
+| `muted-foreground`     | `oklch(0.556 0 0)`          | `oklch(0.708 0 0)`          | `#77746f`                               | `#908d87`                                    |
+| `accent`               | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    |
+| `accent-foreground`    | `oklch(0.205 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
+| `destructive`          | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | `oklch(0.577 0.245 27.325)`             | `oklch(0.704 0.191 22.216)`                  |
+| `border`               | `oklch(0.922 0 0)`          | `oklch(1 0 0 / 10%)`        | `#dfdbd2`                               | `#26282d`                                    |
+| `input`                | `oklch(0.922 0 0)`          | `oklch(1 0 0 / 15%)`        | `#dfdbd2`                               | `#26282d`                                    |
+| `ring`                 | `oklch(0.708 0 0)`          | `oklch(0.556 0 0)`          | `#f3bcae`                               | `#94402e`                                    |
+| `chart-1`              | `oklch(0.87 0 0)`           | `oklch(0.87 0 0)`           | `oklch(0.87 0 0)`                       | `oklch(0.87 0 0)`                            |
+| `chart-2`              | `oklch(0.556 0 0)`          | `oklch(0.556 0 0)`          | `oklch(0.556 0 0)`                      | `oklch(0.556 0 0)`                           |
+| `chart-3`              | `oklch(0.439 0 0)`          | `oklch(0.439 0 0)`          | `oklch(0.439 0 0)`                      | `oklch(0.439 0 0)`                           |
+| `chart-4`              | `oklch(0.371 0 0)`          | `oklch(0.371 0 0)`          | `oklch(0.371 0 0)`                      | `oklch(0.371 0 0)`                           |
+| `chart-5`              | `oklch(0.269 0 0)`          | `oklch(0.269 0 0)`          | `oklch(0.269 0 0)`                      | `oklch(0.269 0 0)`                           |
+
+> [!NOTE]
+> 1. **Paper 主题真源对照**：`web/src/index.css` 中 Paper 主题的 `primary` 声明为 `var(--coral)`、`primary-foreground` 声明为 `var(--coral-ink)`；其实测常量珊瑚色在浅版为 `--coral: #e2705a`、暗版为 `--coral: #e8694e`，墨色均为 `--coral-ink: #ffffff`；`chart-1`–`chart-5` 未在 Paper 作用域覆盖，继承自全局 `:root` / `.dark`。
+> 2. **嵌入部件使用方式**：iframe 运行于沙箱隔离环境中，无法直接继承宿主的 CSS 变量。作者可通过第 6 节的 `ciki-embed-theme` 消息或 URL 查询参数（`?mode=&style=`）获知当前激活的主题，在组件内联样式表中选用上述真值，实现首帧无感跟随。
+
+---
+
+## 八、页尾评论操作
 
 持 `write` 令牌的 Agent 可代表自身账号发表与维护页面评论（展示为 Agent 身份并标注所属 owner）：
 
-### 7.1 预览评论 Markdown 渲染
+### 8.1 预览评论 Markdown 渲染
 
 - **请求**：`POST /api/pages/:id/comments/preview`
 - **请求体**：`{"bodyMd": "## 分析结论\n数据已核对完成。"}`
 - **响应**：`{"html": "<h2>分析结论</h2><p>数据已核对完成。</p>"}`
 
-### 7.2 发表评论
+### 8.2 发表评论
 
 - **请求**：`POST /api/pages/:id/comments`
 - **请求体**：`{"bodyMd": "## 分析结论", "parentId": null}`（回复某评论时传其 `id`；Ciki 仅支持一级串结构，回复子评论会自动归一到顶层评论下）。
 
-### 7.3 编辑评论
+### 8.3 编辑评论
 
 - **请求**：`PUT /api/pages/:id/comments/:commentId`
 - **请求体**：`{"bodyMd": "## 修改后的正文"}`（仅作者本人有权修改）。
 
-### 7.4 删除评论
+### 8.4 删除评论
 
 - **请求**：`DELETE /api/pages/:id/comments/:commentId`
   软删除评论。如果该评论存在存活的回复，评论将转为占位保留；无回复时彻底移除。
 
 ---
 
-## 八、常见错误与排查
+## 九、常见错误与排查
 
 | 状态码                       | 常见原因                     | 排查方向                                                                                                                                                                                                                                                                                               |
 | ---------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -291,7 +327,7 @@ window.addEventListener("message", (event) => {
 
 ---
 
-## 九、自述端点
+## 十、自述端点
 
 - **OpenAPI 3.1 规范**：`GET /api/openapi.json`（公开免鉴权，返回同源完整 API 规范元数据）。
 - **Agent 指引页**：`GET /api/public/agent-guide`（公开免鉴权，返回本指引 Markdown 原文）。
