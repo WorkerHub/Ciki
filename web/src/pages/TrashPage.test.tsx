@@ -232,9 +232,7 @@ describe("彻底删除确认弹窗与计数", () => {
     const purgeButtons = screen.getAllByRole("button", { name: "彻底删除" })
     await click.click(purgeButtons[0])
 
-    expect(
-      await screen.findByText("彻底删除「单页根」？")
-    ).toBeInTheDocument()
+    expect(await screen.findByText("彻底删除「单页根」？")).toBeInTheDocument()
     expect(
       screen.getByText(
         "共 1 项条目，含子页面共 3 篇。页面与它的全部版本记录会被永久删除，无法恢复。"
@@ -253,9 +251,7 @@ describe("彻底删除确认弹窗与计数", () => {
 
     await click.click(screen.getByRole("button", { name: "批量彻底删除" }))
 
-    expect(
-      await screen.findByText("彻底删除选中的 2 项？")
-    ).toBeInTheDocument()
+    expect(await screen.findByText("彻底删除选中的 2 项？")).toBeInTheDocument()
     expect(
       screen.getByText(
         "共 2 项条目，含子页面共 4 篇。页面与它的全部版本记录会被永久删除，无法恢复。"
@@ -370,9 +366,7 @@ describe("无编辑权空间条目只读", () => {
 
     // 恢复与彻底删除按钮各只有 1 个（只读条目没有）
     expect(screen.getAllByRole("button", { name: "恢复" })).toHaveLength(1)
-    expect(
-      screen.getAllByRole("button", { name: "彻底删除" })
-    ).toHaveLength(1)
+    expect(screen.getAllByRole("button", { name: "彻底删除" })).toHaveLength(1)
   })
 })
 

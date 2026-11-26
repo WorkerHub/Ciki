@@ -1242,7 +1242,6 @@
       "description": "Deleted pages land here first; you can restore them or delete them permanently.",
       "action": "Back to pages"
     },
-    "deletedAt": "Deleted {{relative}} ({{absolute}})",
     "restore": "Restore",
     "purge": "Delete permanently",
     "clearTrash": "Empty trash",

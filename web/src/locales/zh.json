@@ -1227,7 +1227,6 @@
       "description": "被删除的页面会先到这里，可以恢复或彻底删除。",
       "action": "回到页面"
     },
-    "deletedAt": "删除于 {{relative}}（{{absolute}}）",
     "restore": "恢复",
     "purge": "彻底删除",
     "clearTrash": "清空回收站",

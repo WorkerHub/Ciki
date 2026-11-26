@@ -239,9 +239,7 @@ export function TrashPage() {
         )
 
         if (failCount > 0) {
-          toast(
-            t("trash.batchResult", { success: okCount, failed: failCount })
-          )
+          toast(t("trash.batchResult", { success: okCount, failed: failCount }))
         } else {
           toast.success(t("trash.batchSuccess", { count: okCount }))
         }
