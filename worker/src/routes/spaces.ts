@@ -6,13 +6,17 @@
  * 创建者自动成为该空间 `admin`。
  *
  * id 是整数自增主键；URL 里的空间段用 `slug`（`/s/<slug>/…`，前端从 `GET /api/spaces`
- * 的 `slug` 解析）。slug 在创建时由空间名生成、之后不随改名变化。
+ * 的 `slug` 解析）。slug 在创建时由空间名生成，改名不随之变化，可在空间设置中手动修改。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { parseId, readIdInput, readJsonBody } from "../lib/http"
-import { uniqueSpaceSlug } from "../lib/slug"
+import {
+  isSpaceSlugConflict,
+  isValidSpaceSlug,
+  uniqueSpaceSlug
+} from "../lib/slug"
 import { findUserById } from "../db/queries/users"
 import {
   countSpaceAdmins,
@@ -22,6 +26,7 @@ import {
   findSpaceMember,
   insertSpace,
   insertSpaceMember,
+  isSpaceSlugTaken,
   listSpaceSlugs,
   listAllSpaces,
   listMemberCandidates,
@@ -209,13 +214,18 @@ spaceRoutes.put("/:id", async (c) => {
   if (!access) return spaceNotFound(c)
   if (!isSpaceManager(access.role)) return forbidden(c)
 
-  const body = await readJsonBody<{ name?: unknown; description?: unknown }>(c)
+  const body = await readJsonBody<{
+    name?: unknown
+    description?: unknown
+    slug?: unknown
+  }>(c)
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return c.json({ error: "Invalid request body" }, 400)
   }
   const hasName = body.name !== undefined
   const hasDescription = body.description !== undefined
-  if (!hasName && !hasDescription) {
+  const hasSlug = body.slug !== undefined
+  if (!hasName && !hasDescription && !hasSlug) {
     return c.json({ error: "Nothing to update" }, 400)
   }
 
@@ -250,20 +260,72 @@ spaceRoutes.put("/:id", async (c) => {
   }
 
   const prefix = getTablePrefix(c.env)
+  let nextSlug: string | undefined
+  if (hasSlug) {
+    if (!isValidSpaceSlug(body.slug)) {
+      return c.json(
+        {
+          error:
+            "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+          code: "INVALID_SPACE_SLUG"
+        },
+        400
+      )
+    }
+    if (body.slug !== access.space.slug) {
+      const taken = await isSpaceSlugTaken(
+        c.env.DB,
+        prefix,
+        body.slug,
+        access.space.id
+      )
+      if (taken) {
+        return c.json(
+          {
+            error: "Space slug is already taken",
+            code: "SPACE_SLUG_TAKEN"
+          },
+          409
+        )
+      }
+      nextSlug = body.slug
+    }
+  }
+
   const now = new Date().toISOString()
-  await updateSpace(c.env.DB, prefix, access.space.id, {
-    name,
-    description,
-    updatedAt: now
-  })
+  const hasChanges =
+    name !== undefined || description !== undefined || nextSlug !== undefined
+
+  if (hasChanges) {
+    try {
+      await updateSpace(c.env.DB, prefix, access.space.id, {
+        name,
+        description,
+        slug: nextSlug,
+        updatedAt: now
+      })
+    } catch (err) {
+      if (isSpaceSlugConflict(err)) {
+        return c.json(
+          {
+            error: "Space slug is already taken",
+            code: "SPACE_SLUG_TAKEN"
+          },
+          409
+        )
+      }
+      throw err
+    }
+  }
 
   return c.json(
     toSpaceDto(
       {
         ...access.space,
+        slug: nextSlug ?? access.space.slug,
         name: name ?? access.space.name,
         description: description ?? access.space.description,
-        updated_at: now
+        updated_at: hasChanges ? now : access.space.updated_at
       },
       access.role
     )

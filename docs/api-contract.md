@@ -10,7 +10,7 @@
 | ---------------------- | ------------------------------------- | ----------------------------------------------------------------- |
 | 页面/空间/用户/评论 id | 36 位 UUID 字符串                     | 正整数（JSON number）                                             |
 | 版本标识               | `revision.id`（UUID）                 | `versionNo`（页内 1,2,3…，`id` 不再对外）                         |
-| 空间入口               | `/s/:id`                              | `/s/:slug`（`slug` 由名称派生、创建后不可改）                     |
+| 空间入口               | `/s/:id`                              | `/s/:slug`（`slug` 由名称派生、改名不自动变，可在空间设置中修改） |
 | 页面入口               | `/p/:id`                              | `/p/:id`（id 现在是整数，路径形状不变）                           |
 | 页面详情正文           | `GET /api/pages/:id` 带 `contentJson` | 详情**不含** `contentJson`；要正文（编辑态）加 `?format=json`     |
 | 用户对外身份           | `id` + `publicId`                     | 只剩 `username`（`publicId` 字段已删除，别读它）                  |
@@ -296,17 +296,17 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 
 ### spaces
 
-| 列                     | 类型                       | 说明                                                |
-| ---------------------- | -------------------------- | --------------------------------------------------- |
-| id                     | INTEGER PK AUTOINCREMENT   | 空间 id（整数）                                     |
-| slug                   | TEXT NOT NULL              | 对外路由用的短名（`/s/<slug>`），唯一、创建后不可改 |
-| name                   | TEXT NOT NULL              | 名称，1–64 码点、不含控制字符                       |
-| description            | TEXT NOT NULL DEFAULT ''   | 描述，≤500 码点（允许换行）                         |
-| is_default             | INTEGER NOT NULL DEFAULT 0 | 1 = 默认空间；部分唯一索引保证全库只有一条          |
-| created_by             | INTEGER NOT NULL DEFAULT 0 | 创建者用户 id；0 = 无（播种时还没有用户）           |
-| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                            |
+| 列                     | 类型                       | 说明                                                                    |
+| ---------------------- | -------------------------- | ----------------------------------------------------------------------- |
+| id                     | INTEGER PK AUTOINCREMENT   | 空间 id（整数）                                                         |
+| slug                   | TEXT NOT NULL              | 对外路由用的短名（`/s/<slug>`），唯一、改名不自动变，可在空间设置中修改 |
+| name                   | TEXT NOT NULL              | 名称，1–64 码点、不含控制字符                                           |
+| description            | TEXT NOT NULL DEFAULT ''   | 描述，≤500 码点（允许换行）                                             |
+| is_default             | INTEGER NOT NULL DEFAULT 0 | 1 = 默认空间；部分唯一索引保证全库只有一条                              |
+| created_by             | INTEGER NOT NULL DEFAULT 0 | 创建者用户 id；0 = 无（播种时还没有用户）                               |
+| created_at, updated_at | TEXT NOT NULL              | ISO 时间                                                                |
 
-`slug` 的派生规则（创建空间时一次性决定，之后不再变）：名称小写、非字母数字换成 `-`、去首尾 `-`、最多 48 字符；结果为空或已被占用时用 `space-<id>`（数字 id，天然唯一，冲突再追加 `-2`、`-3`…）。前端拿到 `slug` 拼 `/s/<slug>/…` 即可，**不要用 id 拼空间路由**。
+`slug` 的派生规则：创建空间时由名称生成（改名不自动变，可在空间设置中修改）：名称小写、非字母数字换成 `-`、去首尾 `-`、最多 48 字符；结果为空或已被占用时用 `space-<id>`（数字 id，天然唯一，冲突再追加 `-2`、`-3`…）。前端拿到 `slug` 拼 `/s/<slug>/…` 即可，**不要用 id 拼空间路由**。
 
 默认空间不可删除；其它空间只有在没有任何页面行（含回收站）时才可删除。
 
@@ -1590,7 +1590,7 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
 { "name": "研发空间", "description": "可选，≤500 字符" }
 ```
 
-201 返回 `Space`（`myRole: "admin"`）。名称 trim 后 1–64 码点、不含控制字符（400 `code:"INVALID_SPACE_NAME"`），描述 ≤500 码点、只允许换行（400 `code:"INVALID_SPACE_DESCRIPTION"`）。空间名不要求唯一，`slug` 由服务端按名称派生（规则见「spaces」表），创建后不可改；前端应拿响应里的 `slug` 拼 `/s/<slug>/…`。
+201 返回 `Space`（`myRole: "admin"`）。名称 trim 后 1–64 码点、不含控制字符（400 `code:"INVALID_SPACE_NAME"`），描述 ≤500 码点、只允许换行（400 `code:"INVALID_SPACE_DESCRIPTION"`）。空间名不要求唯一，`slug` 由服务端按名称派生（规则见「spaces」表），改名不自动变、可在空间设置中修改；前端应拿响应里的 `slug` 拼 `/s/<slug>/…`。
 
 #### GET /api/spaces/:id
 
@@ -1599,10 +1599,13 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
 #### PUT /api/spaces/:id
 
 ```json
-{ "name": "新名称", "description": "新描述" }
+{ "name": "新名称", "description": "新描述", "slug": "new-slug" }
 ```
 
-字段均可选但至少给一个（否则 400 `Nothing to update`）。仅空间 `admin` / 站点管理员；返回更新后的 `Space`。
+字段均可选（`name`、`description`、`slug`）但至少给一个（否则 400 `Nothing to update`）。仅空间 `admin` / 站点管理员；返回更新后的 `Space`。
+
+- `slug`：可选。缺省不改动；带了且与现值相同视为无操作、正常成功；改动时校验格式（`^[a-z0-9]+(-[a-z0-9]+)*$`，1–48 字符，不合法 400 `code:"INVALID_SPACE_SLUG"`）与唯一性（排除自身，冲突 409 `code:"SPACE_SLUG_TAKEN"`）。
+- 任一字段校验失败整单拒绝，原有数据保持不变。
 
 #### DELETE /api/spaces/:id
 
