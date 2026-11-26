@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>QA258 embed probe (contract)</title>
+<style>
+ body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#ffffff;color:#111111;padding:10px}
+ html.dark body{background:#0a0a0a;color:#f5f5f5}
+ .box{background:#eeeeee;color:#111111;padding:10px;border-radius:6px;margin:6px 0}
+ html.dark .box{background:#1c1c1c;color:#f5f5f5}
+ .k{font-size:10px;letter-spacing:.08em;opacity:.75}
+</style></head>
+<body>
+<div class="k">QA258 EMBED PROBE</div>
+<div class="box" id="chip">chip</div>
+<div id="out" class="k">init</div>
+<script>
+(function () {
+  try {
+    var KNOWN = ["nova", "paper", "natural", "eink", "notion", "sketch"];
+    var d = document.documentElement;
+    var out = document.getElementById("out");
+    var count = 0;
+    function report(src, mode, style) {
+      var known = KNOWN.indexOf(style) >= 0;
+      d.setAttribute("data-probe-src", src);
+      d.setAttribute("data-probe-mode", mode || "");
+      d.setAttribute("data-probe-style", style || "");
+      d.setAttribute("data-probe-known", known ? "1" : "0");
+      if (mode === "light" || mode === "dark") d.classList.toggle("dark", mode === "dark");
+      if (known) { d.setAttribute("data-theme", style); } else { d.removeAttribute("data-theme"); }
+      out.textContent = "src=" + src + " mode=" + (mode || "-") + " style=" + (style || "-") +
+        " known=" + (known ? "1" : "0") + " msgs=" + count;
+    }
+    try {
+      var p = new URLSearchParams(location.search);
+      report("url", p.get("mode") || "", p.get("style") || "");
+    } catch (_) {}
+    window.addEventListener("message", function (e) {
+      try {
+        if (e.source !== window.parent) return;
+        var data = e.data;
+        if (!data || typeof data !== "object") return;
+        if (data.type !== "ciki-embed-theme") return;
+        count++;
+        d.setAttribute("data-probe-msg-count", String(count));
+        d.setAttribute("data-probe-msg-mode", data.mode || "");
+        d.setAttribute("data-probe-msg-style", data.style || "");
+        report("msg", data.mode || "", data.style || "");
+      } catch (_) {}
+    });
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>

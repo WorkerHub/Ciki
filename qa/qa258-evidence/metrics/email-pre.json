@@ -1,0 +1,16 @@
+{
+ "headings": [
+  "系统管理",
+  "邮件配置"
+ ],
+ "badges": [
+  {
+   "text": "邮件未配置",
+   "variant": "outline",
+   "bg": "rgba(0, 0, 0, 0)",
+   "color": "rgb(44, 44, 44)",
+   "border": "rgb(184, 176, 160)"
+  }
+ ],
+ "bodyText": "Ciki\n2\nQ\nqa258\n返回文档\n系统管理\n用户管理\n空间总览\n应用设置\n访问与安全\n邮件配置\n其他\n邮件配置\n邮件未配置\n发送通道\n未配置\n未配置\nSMTP\nResend\n保存邮件配置\n发送测试邮件\n收件人\n发送"
+}

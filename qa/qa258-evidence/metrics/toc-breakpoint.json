@@ -1,0 +1,112 @@
+[
+ {
+  "width": 1100,
+  "tocPresent": false,
+  "tocRect": {
+   "left": 225,
+   "right": 1076,
+   "width": 851
+  },
+  "canvasRect": {
+   "left": 225,
+   "right": 1076,
+   "width": 851
+  },
+  "wikiRect": {
+   "left": 225,
+   "right": 1076,
+   "width": 851
+  },
+  "tocRightVsCanvasRight": 0,
+  "containerMaxWidth": "none",
+  "wikiMaxWidth": "none"
+ },
+ {
+  "width": 1279,
+  "tocPresent": false,
+  "tocRect": {
+   "left": 255,
+   "right": 1255,
+   "width": 1000
+  },
+  "canvasRect": {
+   "left": 255,
+   "right": 1255,
+   "width": 1000
+  },
+  "wikiRect": {
+   "left": 255,
+   "right": 1255,
+   "width": 1000
+  },
+  "tocRightVsCanvasRight": 0,
+  "containerMaxWidth": "none",
+  "wikiMaxWidth": "none"
+ },
+ {
+  "width": 1280,
+  "tocPresent": true,
+  "tocRect": {
+   "left": 255,
+   "right": 1256,
+   "width": 1001
+  },
+  "canvasRect": {
+   "left": 255,
+   "right": 1256,
+   "width": 1001
+  },
+  "wikiRect": {
+   "left": 255,
+   "right": 1000,
+   "width": 745
+  },
+  "tocRightVsCanvasRight": 0,
+  "containerMaxWidth": "none",
+  "wikiMaxWidth": "none"
+ },
+ {
+  "width": 1440,
+  "tocPresent": true,
+  "tocRect": {
+   "left": 284,
+   "right": 1416,
+   "width": 1132
+  },
+  "canvasRect": {
+   "left": 284,
+   "right": 1416,
+   "width": 1132
+  },
+  "wikiRect": {
+   "left": 284,
+   "right": 1160,
+   "width": 876
+  },
+  "tocRightVsCanvasRight": 0,
+  "containerMaxWidth": "none",
+  "wikiMaxWidth": "none"
+ },
+ {
+  "width": 1920,
+  "tocPresent": true,
+  "tocRect": {
+   "left": 370,
+   "right": 1896,
+   "width": 1526
+  },
+  "canvasRect": {
+   "left": 370,
+   "right": 1896,
+   "width": 1526
+  },
+  "wikiRect": {
+   "left": 370,
+   "right": 1640,
+   "width": 1270
+  },
+  "tocRightVsCanvasRight": 0,
+  "containerMaxWidth": "none",
+  "wikiMaxWidth": "none"
+ }
+]

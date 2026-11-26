@@ -1,0 +1,16 @@
+{
+ "headings": [
+  "系统管理",
+  "邮件配置"
+ ],
+ "badges": [
+  {
+   "text": "邮件已配置",
+   "variant": "secondary",
+   "bg": "rgb(232, 226, 216)",
+   "color": "rgb(44, 44, 44)",
+   "border": "rgba(0, 0, 0, 0)"
+  }
+ ],
+ "bodyText": "Ciki\n2\nQ\nqa258admin\n返回文档\n系统管理\n用户管理\n空间总览\n应用设置\n访问与安全\n邮件配置\n其他\n邮件配置\n邮件已配置\n发送通道\nSMTP\n未配置\nSMTP\nResend\n服务器\n端口\n加密方式\nSTARTTLS（587 端口，先连接再升级加密）\nTLS（465 端口，全程加密）\nSTARTTLS（587 端口，先连接再升级加密）\n不加密（仅限内网自建服务）\n用户名\n密码\n发件地址\n发件人名称\n保存邮件配置\n发送测试邮件\n收件人\n发送"
+}

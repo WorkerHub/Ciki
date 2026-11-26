@@ -1,0 +1,544 @@
+{
+ "at": "2026-11-26T18:20:20.471Z",
+ "base": "https://ciki.oneboy.app",
+ "results": [
+  {
+   "id": "A1",
+   "pass": true,
+   "detail": "6 个合法风格 PUT /api/me/theme 均 200 且 GET /api/me 回读一致",
+   "evidence": {
+    "nova": {
+     "putStatus": 200,
+     "readBack": "nova"
+    },
+    "paper": {
+     "putStatus": 200,
+     "readBack": "paper"
+    },
+    "natural": {
+     "putStatus": 200,
+     "readBack": "natural"
+    },
+    "eink": {
+     "putStatus": 200,
+     "readBack": "eink"
+    },
+    "notion": {
+     "putStatus": 200,
+     "readBack": "notion"
+    },
+    "sketch": {
+     "putStatus": 200,
+     "readBack": "sketch"
+    }
+   }
+  },
+  {
+   "id": "A2",
+   "pass": true,
+   "detail": "非法值（含 distill）全部 400",
+   "evidence": [
+    {
+     "input": "\"distill\"",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "\"notion2\"",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "\"\"",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "null",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "123",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "\"NOTION\"",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "\"nova \"",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "[\"nova\"]",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    },
+    {
+     "input": "{\"a\":1}",
+     "status": 400,
+     "code": "INVALID_THEME_STYLE",
+     "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+    }
+   ]
+  },
+  {
+   "id": "A3",
+   "pass": true,
+   "detail": "别名端点 /api/me/theme-style 传 distill → 400",
+   "evidence": {
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   }
+  },
+  {
+   "id": "A4",
+   "pass": true,
+   "detail": "预置 theme_style='distill' 账号读取回落 nova",
+   "evidence": {
+    "status": 200,
+    "themeStyle": "nova"
+   }
+  },
+  {
+   "id": "B1",
+   "pass": true,
+   "detail": "设置页风格 radiogroup 恰 6 项且无 distill（实测 6 项：Nova/纸面/自然/墨纸/Notion/手绘）",
+   "evidence": {
+    "groups": [
+     {
+      "ariaLabel": "风格",
+      "items": [
+       {
+        "text": "Nova",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "纸面",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "自然",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "墨纸",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "Notion",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "手绘",
+        "value": null,
+        "state": "on",
+        "checked": "true"
+       }
+      ]
+     },
+     {
+      "ariaLabel": "界面语言",
+      "items": [
+       {
+        "text": "中文",
+        "value": null,
+        "state": "on",
+        "checked": "true"
+       },
+       {
+        "text": "English",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       }
+      ]
+     }
+    ],
+    "styleGroup": {
+     "ariaLabel": "风格",
+     "items": [
+      {
+       "text": "Nova",
+       "value": null,
+       "state": "off",
+       "checked": "false"
+      },
+      {
+       "text": "纸面",
+       "value": null,
+       "state": "off",
+       "checked": "false"
+      },
+      {
+       "text": "自然",
+       "value": null,
+       "state": "off",
+       "checked": "false"
+      },
+      {
+       "text": "墨纸",
+       "value": null,
+       "state": "off",
+       "checked": "false"
+      },
+      {
+       "text": "Notion",
+       "value": null,
+       "state": "off",
+       "checked": "false"
+      },
+      {
+       "text": "手绘",
+       "value": null,
+       "state": "on",
+       "checked": "true"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "B2",
+   "pass": true,
+   "detail": "6 套风格「选择→保存→账号写回→刷新后保持」全部成立",
+   "evidence": [
+    {
+     "style": "nova",
+     "clicked": "clicked",
+     "saveState": {
+      "found": true,
+      "disabledBeforeClick": false
+     },
+     "account": "nova",
+     "afterReload": {
+      "dataTheme": "nova",
+      "dataMode": "light",
+      "checked": "Nova"
+     }
+    },
+    {
+     "style": "paper",
+     "clicked": "clicked",
+     "saveState": {
+      "found": true,
+      "disabledBeforeClick": false
+     },
+     "account": "paper",
+     "afterReload": {
+      "dataTheme": "paper",
+      "dataMode": "light",
+      "checked": "纸面"
+     }
+    },
+    {
+     "style": "natural",
+     "clicked": "clicked",
+     "saveState": {
+      "found": true,
+      "disabledBeforeClick": false
+     },
+     "account": "natural",
+     "afterReload": {
+      "dataTheme": "natural",
+      "dataMode": "light",
+      "checked": "自然"
+     }
+    },
+    {
+     "style": "eink",
+     "clicked": "clicked",
+     "saveState": {
+      "found": true,
+      "disabledBeforeClick": false
+     },
+     "account": "eink",
+     "afterReload": {
+      "dataTheme": "eink",
+      "dataMode": "light",
+      "checked": "墨纸"
+     }
+    },
+    {
+     "style": "notion",
+     "clicked": "clicked",
+     "saveState": {
+      "found": true,
+      "disabledBeforeClick": false
+     },
+     "account": "notion",
+     "afterReload": {
+      "dataTheme": "notion",
+      "dataMode": "light",
+      "checked": "Notion"
+     }
+    },
+    {
+     "style": "sketch",
+     "clicked": "clicked",
+     "saveState": {
+      "found": true,
+      "disabledBeforeClick": false
+     },
+     "account": "sketch",
+     "afterReload": {
+      "dataTheme": "sketch",
+      "dataMode": "light",
+      "checked": "手绘"
+     }
+    }
+   ]
+  },
+  {
+   "id": "B3",
+   "pass": true,
+   "detail": "模式循环 auto→light→dark→auto（设置值实测 light→dark→auto→light，auto 解析为 light），刷新后保持 light",
+   "evidence": {
+    "cycle": [
+     {
+      "clicked": "主题：自动（跟随系统），点击切换",
+      "dataMode": "light",
+      "storedMode": "light"
+     },
+     {
+      "clicked": "主题：浅色，点击切换",
+      "dataMode": "dark",
+      "storedMode": "dark"
+     },
+     {
+      "clicked": "主题：深色，点击切换",
+      "dataMode": "light",
+      "storedMode": "auto"
+     },
+     {
+      "clicked": "主题：自动（跟随系统），点击切换",
+      "dataMode": "light",
+      "storedMode": "light"
+     }
+    ],
+    "afterReload": {
+     "dataMode": "light",
+     "storedMode": "light"
+    },
+    "note": "data-mode=auto 时按系统偏好解析；headless Chromium 系统偏好为 light"
+   }
+  },
+  {
+   "id": "C1",
+   "pass": true,
+   "detail": "distill 账号打开阅读页回落 nova（data-theme=nova，页面正常渲染=true）",
+   "evidence": {
+    "dataTheme": "nova",
+    "dataMode": "light",
+    "hasWiki": true,
+    "bodyText": "Ciki\nQA258 六风格矩阵\n只读\n页面\nQA258 主题全矩阵主样本\n\nCiki · 1.0.0 · bcdac3"
+   }
+  },
+  {
+   "id": "C2",
+   "pass": true,
+   "detail": "distill 账号设置页同样是 6 套风格且无 distill（Nova/纸面/自然/墨纸/Notion/手绘）",
+   "evidence": {
+    "dGroups": [
+     {
+      "ariaLabel": "风格",
+      "items": [
+       {
+        "text": "Nova",
+        "value": null,
+        "state": "on",
+        "checked": "true"
+       },
+       {
+        "text": "纸面",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "自然",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "墨纸",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "Notion",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       },
+       {
+        "text": "手绘",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       }
+      ]
+     },
+     {
+      "ariaLabel": "界面语言",
+      "items": [
+       {
+        "text": "中文",
+        "value": null,
+        "state": "on",
+        "checked": "true"
+       },
+       {
+        "text": "English",
+        "value": null,
+        "state": "off",
+        "checked": "false"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "C3",
+   "pass": true,
+   "detail": "distill 账号可切换并保存其他风格（保存手绘→账号 sketch，刷新后 data-theme=sketch）",
+   "evidence": {
+    "dClicked": {
+     "clicked": true
+    },
+    "dSave": {
+     "saved": true,
+     "disabledBeforeClick": false
+    },
+    "account": "sketch",
+    "afterReload": "sketch"
+   }
+  },
+  {
+   "id": "C4",
+   "pass": true,
+   "detail": "distill 账号全程无前端报错（过滤 CF 注入/沙箱噪声后 0 条）",
+   "evidence": []
+  }
+ ],
+ "apiEvidence": {
+  "valid": {
+   "nova": {
+    "putStatus": 200,
+    "readBack": "nova"
+   },
+   "paper": {
+    "putStatus": 200,
+    "readBack": "paper"
+   },
+   "natural": {
+    "putStatus": 200,
+    "readBack": "natural"
+   },
+   "eink": {
+    "putStatus": 200,
+    "readBack": "eink"
+   },
+   "notion": {
+    "putStatus": 200,
+    "readBack": "notion"
+   },
+   "sketch": {
+    "putStatus": 200,
+    "readBack": "sketch"
+   }
+  },
+  "invalid": [
+   {
+    "input": "\"distill\"",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "\"notion2\"",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "\"\"",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "null",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "123",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "\"NOTION\"",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "\"nova \"",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "[\"nova\"]",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   },
+   {
+    "input": "{\"a\":1}",
+    "status": 400,
+    "code": "INVALID_THEME_STYLE",
+    "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+   }
+  ],
+  "alias": {
+   "status": 400,
+   "code": "INVALID_THEME_STYLE",
+   "error": "themeStyle must be nova, paper, natural, eink, notion or sketch"
+  },
+  "distillAccount": {
+   "status": 200,
+   "themeStyle": "nova"
+  }
+ },
+ "consoleErrors": []
+}

@@ -1,0 +1,1571 @@
+{
+ "at": "2026-11-26T18:23:18.720Z",
+ "pass": 288,
+ "fail": 0,
+ "skipped": 0,
+ "tokens": 24,
+ "cols": 12,
+ "grid": [
+  {
+   "token": "theme-color (meta)",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#ffffff"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "#0a0a0a",
+     "got": "#0a0a0a"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#f7f4ee",
+     "got": "#f7f4ee"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#0b0c0e",
+     "got": "#0b0c0e"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#faf6f1",
+     "got": "#faf6f1"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#191612",
+     "got": "#191612"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#f5f3ea",
+     "got": "#f5f3ea"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#171814",
+     "got": "#171814"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#ffffff"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#191919",
+     "got": "#191919"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#f5f0e8",
+     "got": "#f5f0e8"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#262420",
+     "got": "#262420"
+    }
+   }
+  },
+  {
+   "token": "background",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(1 0 0)",
+     "got": "oklch(100% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.145 0 0)",
+     "got": "oklch(14.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#f7f4ee",
+     "got": "#f7f4ee"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#0b0c0e",
+     "got": "#0b0c0e"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#faf6f1",
+     "got": "#faf6f1"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#191612",
+     "got": "#191612"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#f5f3ea",
+     "got": "#f5f3ea"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#171814",
+     "got": "#171814"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#191919",
+     "got": "#191919"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#f5f0e8",
+     "got": "#f5f0e8"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#262420",
+     "got": "#262420"
+    }
+   }
+  },
+  {
+   "token": "foreground",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.145 0 0)",
+     "got": "oklch(14.5% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.985 0 0)",
+     "got": "oklch(98.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#2a2b2f",
+     "got": "#2a2b2f"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#f2f0eb",
+     "got": "#f2f0eb"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#292524",
+     "got": "#292524"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#ece7dd",
+     "got": "#ece7dd"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#37352f",
+     "got": "#37352f"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#e8e8e6",
+     "got": "#e8e8e6"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "card",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(1 0 0)",
+     "got": "oklch(100% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.205 0 0)",
+     "got": "oklch(20.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#f9f7f2",
+     "got": "#f9f7f2"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#1a1b1f",
+     "got": "#1a1b1f"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#221e18",
+     "got": "#221e18"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#faf8f1",
+     "got": "#faf8f1"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#1f201c",
+     "got": "#1f201c"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#212121",
+     "got": "#212121"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#faf5ed",
+     "got": "#faf5ed"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#2e2b26",
+     "got": "#2e2b26"
+    }
+   }
+  },
+  {
+   "token": "card-foreground",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.145 0 0)",
+     "got": "oklch(14.5% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.985 0 0)",
+     "got": "oklch(98.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#2a2b2f",
+     "got": "#2a2b2f"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#f2f0eb",
+     "got": "#f2f0eb"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#292524",
+     "got": "#292524"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#ece7dd",
+     "got": "#ece7dd"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#37352f",
+     "got": "#37352f"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#e8e8e6",
+     "got": "#e8e8e6"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "popover",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(1 0 0)",
+     "got": "oklch(100% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.205 0 0)",
+     "got": "oklch(20.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#f9f7f2",
+     "got": "#f9f7f2"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#1a1b1f",
+     "got": "#1a1b1f"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#221e18",
+     "got": "#221e18"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#faf8f1",
+     "got": "#faf8f1"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#1f201c",
+     "got": "#1f201c"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#262626",
+     "got": "#262626"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#faf5ed",
+     "got": "#faf5ed"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#2e2b26",
+     "got": "#2e2b26"
+    }
+   }
+  },
+  {
+   "token": "popover-foreground",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.145 0 0)",
+     "got": "oklch(14.5% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.985 0 0)",
+     "got": "oklch(98.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#2a2b2f",
+     "got": "#2a2b2f"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#f2f0eb",
+     "got": "#f2f0eb"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#292524",
+     "got": "#292524"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#ece7dd",
+     "got": "#ece7dd"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#37352f",
+     "got": "#37352f"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#e8e8e6",
+     "got": "#e8e8e6"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "primary",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.205 0 0)",
+     "got": "oklch(20.5% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.922 0 0)",
+     "got": "oklch(92.2% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#e2705a",
+     "got": "#e2705a"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#e8694e",
+     "got": "#e8694e"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#5f7050",
+     "got": "#5f7050"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#a3b18a",
+     "got": "#a3b18a"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#1f76cb",
+     "got": "#1f76cb"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#5aa9d6",
+     "got": "#5aa9d6"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "primary-foreground",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.985 0 0)",
+     "got": "oklch(98.5% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.205 0 0)",
+     "got": "oklch(20.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#1c2317",
+     "got": "#1c2317"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#f5f3ea",
+     "got": "#f5f3ea"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#171814",
+     "got": "#171814"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#ffffff",
+     "got": "#fff"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#10222b",
+     "got": "#10222b"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#f5f0e8",
+     "got": "#f5f0e8"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#262420",
+     "got": "#262420"
+    }
+   }
+  },
+  {
+   "token": "secondary",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.97 0 0)",
+     "got": "oklch(97% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.269 0 0)",
+     "got": "oklch(26.9% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#e9e3da",
+     "got": "#e9e3da"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#24262b",
+     "got": "#24262b"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#e9e0d4",
+     "got": "#e9e0d4"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#2e2a21",
+     "got": "#2e2a21"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#e6e4da",
+     "got": "#e6e4da"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#262720",
+     "got": "#262720"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#f7f6f3",
+     "got": "#f7f6f3"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#262626",
+     "got": "#262626"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#e8e2d8",
+     "got": "#e8e2d8"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#3a372f",
+     "got": "#3a372f"
+    }
+   }
+  },
+  {
+   "token": "secondary-foreground",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.205 0 0)",
+     "got": "oklch(20.5% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.985 0 0)",
+     "got": "oklch(98.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#434247",
+     "got": "#434247"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#c8c5bf",
+     "got": "#c8c5bf"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#44403c",
+     "got": "#44403c"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#d6d0c2",
+     "got": "#d6d0c2"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#37352f",
+     "got": "#37352f"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#e8e8e6",
+     "got": "#e8e8e6"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "muted",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.97 0 0)",
+     "got": "oklch(97% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.269 0 0)",
+     "got": "oklch(26.9% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#e9e3da",
+     "got": "#e9e3da"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#24262b",
+     "got": "#24262b"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#f1ebe1",
+     "got": "#f1ebe1"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#2e2a21",
+     "got": "#2e2a21"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#e6e4da",
+     "got": "#e6e4da"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#262720",
+     "got": "#262720"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#f7f6f3",
+     "got": "#f7f6f3"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#262626",
+     "got": "#262626"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#e8e2d8",
+     "got": "#e8e2d8"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#3a372f",
+     "got": "#3a372f"
+    }
+   }
+  },
+  {
+   "token": "muted-foreground",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.556 0 0)",
+     "got": "oklch(55.6% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.708 0 0)",
+     "got": "oklch(70.8% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#77746f",
+     "got": "#77746f"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#908d87",
+     "got": "#908d87"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#78716c",
+     "got": "#78716c"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#a39e93",
+     "got": "#a39e93"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#555750",
+     "got": "#555750"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#a9a89d",
+     "got": "#a9a89d"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#6e6d68",
+     "got": "#6e6d68"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#9b9b97",
+     "got": "#9b9b97"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#6b6b6b",
+     "got": "#6b6b6b"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#a89f8d",
+     "got": "#a89f8d"
+    }
+   }
+  },
+  {
+   "token": "accent",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.97 0 0)",
+     "got": "oklch(97% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.269 0 0)",
+     "got": "oklch(26.9% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#e9e3da",
+     "got": "#e9e3da"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#24262b",
+     "got": "#24262b"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#e9e0d4",
+     "got": "#e9e0d4"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#2e2a21",
+     "got": "#2e2a21"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#e6e4da",
+     "got": "#e6e4da"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#262720",
+     "got": "#262720"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#efedea",
+     "got": "#efedea"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#2f2f2f",
+     "got": "#2f2f2f"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#e8e2d8",
+     "got": "#e8e2d8"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#3a372f",
+     "got": "#3a372f"
+    }
+   }
+  },
+  {
+   "token": "accent-foreground",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.205 0 0)",
+     "got": "oklch(20.5% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.985 0 0)",
+     "got": "oklch(98.5% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#2a2b2f",
+     "got": "#2a2b2f"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#f2f0eb",
+     "got": "#f2f0eb"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#292524",
+     "got": "#292524"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#ece7dd",
+     "got": "#ece7dd"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#37352f",
+     "got": "#37352f"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#e8e8e6",
+     "got": "#e8e8e6"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "destructive",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.577 0.245 27.325)",
+     "got": "oklch(57.7% .245 27.325)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.704 0.191 22.216)",
+     "got": "oklch(70.4% .191 22.216)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "oklch(0.577 0.245 27.325)",
+     "got": "oklch(57.7% .245 27.325)"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "oklch(0.704 0.191 22.216)",
+     "got": "oklch(70.4% .191 22.216)"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "oklch(0.577 0.245 27.325)",
+     "got": "oklch(57.7% .245 27.325)"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "oklch(0.704 0.191 22.216)",
+     "got": "oklch(70.4% .191 22.216)"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "oklch(0.577 0.245 27.325)",
+     "got": "oklch(57.7% .245 27.325)"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "oklch(0.704 0.191 22.216)",
+     "got": "oklch(70.4% .191 22.216)"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "oklch(0.577 0.245 27.325)",
+     "got": "oklch(57.7% .245 27.325)"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "oklch(0.704 0.191 22.216)",
+     "got": "oklch(70.4% .191 22.216)"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "oklch(0.577 0.245 27.325)",
+     "got": "oklch(57.7% .245 27.325)"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "oklch(0.704 0.191 22.216)",
+     "got": "oklch(70.4% .191 22.216)"
+    }
+   }
+  },
+  {
+   "token": "border",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.922 0 0)",
+     "got": "oklch(92.2% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(1 0 0 / 10%)",
+     "got": "oklch(100% 0 0/.1)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#dfdbd2",
+     "got": "#dfdbd2"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#26282d",
+     "got": "#26282d"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#e6dfd2",
+     "got": "#e6dfd2"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#332e25",
+     "got": "#332e25"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#bab9b0",
+     "got": "#bab9b0"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#44453f",
+     "got": "#44453f"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#e9e9e7",
+     "got": "#e9e9e7"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#2f2f2f",
+     "got": "#2f2f2f"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#b8b0a0",
+     "got": "#b8b0a0"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#575344",
+     "got": "#575344"
+    }
+   }
+  },
+  {
+   "token": "input",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.922 0 0)",
+     "got": "oklch(92.2% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(1 0 0 / 15%)",
+     "got": "oklch(100% 0 0/.15)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#dfdbd2",
+     "got": "#dfdbd2"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#26282d",
+     "got": "#26282d"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#e6dfd2",
+     "got": "#e6dfd2"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#332e25",
+     "got": "#332e25"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#bab9b0",
+     "got": "#bab9b0"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#44453f",
+     "got": "#44453f"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#e9e9e7",
+     "got": "#e9e9e7"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#2f2f2f",
+     "got": "#2f2f2f"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#b8b0a0",
+     "got": "#b8b0a0"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#575344",
+     "got": "#575344"
+    }
+   }
+  },
+  {
+   "token": "ring",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.708 0 0)",
+     "got": "oklch(70.8% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.556 0 0)",
+     "got": "oklch(55.6% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "#f3bcae",
+     "got": "#f3bcae"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "#94402e",
+     "got": "#94402e"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#c3cfb2",
+     "got": "#c3cfb2"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#8b9d77",
+     "got": "#8b9d77"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#9fc6ee",
+     "got": "#9fc6ee"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#5aa9d6",
+     "got": "#5aa9d6"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "chart-1",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.87 0 0)",
+     "got": "oklch(87% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.87 0 0)",
+     "got": "oklch(87% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "oklch(0.87 0 0)",
+     "got": "oklch(87% 0 0)"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "oklch(0.87 0 0)",
+     "got": "oklch(87% 0 0)"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#8b9d77",
+     "got": "#8b9d77"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#a3b18a",
+     "got": "#a3b18a"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#555750",
+     "got": "#555750"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#eceade",
+     "got": "#eceade"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#2eaadc",
+     "got": "#2eaadc"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#2eaadc",
+     "got": "#2eaadc"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2c2c2c",
+     "got": "#2c2c2c"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#ece5d8",
+     "got": "#ece5d8"
+    }
+   }
+  },
+  {
+   "token": "chart-2",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.556 0 0)",
+     "got": "oklch(55.6% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.556 0 0)",
+     "got": "oklch(55.6% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "oklch(0.556 0 0)",
+     "got": "oklch(55.6% 0 0)"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "oklch(0.556 0 0)",
+     "got": "oklch(55.6% 0 0)"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#d4a373",
+     "got": "#d4a373"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#d4a373",
+     "got": "#d4a373"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#8a8b83",
+     "got": "#8a8b83"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#bab9b0",
+     "got": "#bab9b0"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#eb5757",
+     "got": "#eb5757"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#eb5757",
+     "got": "#eb5757"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#c0392b",
+     "got": "#c0392b"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#e5735f",
+     "got": "#e5735f"
+    }
+   }
+  },
+  {
+   "token": "chart-3",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.439 0 0)",
+     "got": "oklch(43.9% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.439 0 0)",
+     "got": "oklch(43.9% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "oklch(0.439 0 0)",
+     "got": "oklch(43.9% 0 0)"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "oklch(0.439 0 0)",
+     "got": "oklch(43.9% 0 0)"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#75a191",
+     "got": "#75a191"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#75a191",
+     "got": "#75a191"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#20211e",
+     "got": "#20211e"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#8a8b83",
+     "got": "#8a8b83"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#0f7b6c",
+     "got": "#0f7b6c"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#4ec9a2",
+     "got": "#4ec9a2"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#2471a3",
+     "got": "#2471a3"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#6fb3e0",
+     "got": "#6fb3e0"
+    }
+   }
+  },
+  {
+   "token": "chart-4",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.371 0 0)",
+     "got": "oklch(37.1% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.371 0 0)",
+     "got": "oklch(37.1% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "oklch(0.371 0 0)",
+     "got": "oklch(37.1% 0 0)"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "oklch(0.371 0 0)",
+     "got": "oklch(37.1% 0 0)"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#5f7050",
+     "got": "#5f7050"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#8b9d77",
+     "got": "#8b9d77"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#bab9b0",
+     "got": "#bab9b0"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#555750",
+     "got": "#555750"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#e3a008",
+     "got": "#e3a008"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#e3a008",
+     "got": "#e3a008"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#1e8449",
+     "got": "#1e8449"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#58b368",
+     "got": "#58b368"
+    }
+   }
+  },
+  {
+   "token": "chart-5",
+   "cells": {
+    "nova-light": {
+     "status": "pass",
+     "expected": "oklch(0.269 0 0)",
+     "got": "oklch(26.9% 0 0)"
+    },
+    "nova-dark": {
+     "status": "pass",
+     "expected": "oklch(0.269 0 0)",
+     "got": "oklch(26.9% 0 0)"
+    },
+    "paper-light": {
+     "status": "pass",
+     "expected": "oklch(0.269 0 0)",
+     "got": "oklch(26.9% 0 0)"
+    },
+    "paper-dark": {
+     "status": "pass",
+     "expected": "oklch(0.269 0 0)",
+     "got": "oklch(26.9% 0 0)"
+    },
+    "natural-light": {
+     "status": "pass",
+     "expected": "#292524",
+     "got": "#292524"
+    },
+    "natural-dark": {
+     "status": "pass",
+     "expected": "#e9e0d4",
+     "got": "#e9e0d4"
+    },
+    "eink-light": {
+     "status": "pass",
+     "expected": "#44453f",
+     "got": "#44453f"
+    },
+    "eink-dark": {
+     "status": "pass",
+     "expected": "#44453f",
+     "got": "#44453f"
+    },
+    "notion-light": {
+     "status": "pass",
+     "expected": "#7c5cd6",
+     "got": "#7c5cd6"
+    },
+    "notion-dark": {
+     "status": "pass",
+     "expected": "#a083ff",
+     "got": "#a083ff"
+    },
+    "sketch-light": {
+     "status": "pass",
+     "expected": "#b9770e",
+     "got": "#b9770e"
+    },
+    "sketch-dark": {
+     "status": "pass",
+     "expected": "#f0b429",
+     "got": "#f0b429"
+    }
+   }
+  }
+ ],
+ "fails": []
+}

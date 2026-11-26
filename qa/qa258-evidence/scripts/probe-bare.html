@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>QA258 embed probe (bare)</title>
+<style>
+ body{margin:0;font-family:system-ui,sans-serif;padding:8px;font-size:12px}
+</style></head>
+<body>
+<div id="bare">QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果</div>
+<script>
+(function () {
+  try {
+    var d = document.documentElement;
+    function snap(tag) {
+      d.setAttribute("data-bare-" + tag, JSON.stringify({
+        theme: d.getAttribute("data-theme"),
+        dark: d.classList.contains("dark"),
+        mode: d.getAttribute("data-mode") || ""
+      }));
+    }
+    snap("init");
+    window.addEventListener("load", function () { snap("load"); });
+    setTimeout(function () { snap("late"); }, 400);
+    window.addEventListener("message", function (e) {
+      try {
+        if (e.source !== window.parent) return;
+        var data = e.data;
+        if (!data || typeof data !== "object") return;
+        if (data.type !== "ciki-embed-theme") return;
+        var n = Number(d.getAttribute("data-bare-msg-count") || "0") + 1;
+        d.setAttribute("data-bare-msg-count", String(n));
+        d.setAttribute("data-bare-msg-style", data.style || "");
+        d.setAttribute("data-bare-msg-mode", data.mode || "");
+        snap("msg");
+      } catch (_) {}
+    });
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>

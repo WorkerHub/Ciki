@@ -1,0 +1,280 @@
+{
+ "at": "2026-11-26T18:28:15.074Z",
+ "steps": [
+  {
+   "label": "notifications(recipient in QA)",
+   "sql": "DELETE FROM notifications WHERE recipient_id IN (SELECT id FROM users WHERE email LIKE '%qa258%')",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "comments(QA page)",
+   "sql": "DELETE FROM comments WHERE page_id = ?",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "page_revisions(QA page)",
+   "sql": "DELETE FROM page_revisions WHERE page_id = ?",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "pages_fts(QA page)",
+   "sql": "DELETE FROM pages_fts WHERE page_id = ?",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "pages(QA page)",
+   "sql": "DELETE FROM pages WHERE id = ?",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "space_members(QA space)",
+   "sql": "DELETE FROM space_members WHERE space_id = ?",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "spaces(QA space)",
+   "sql": "DELETE FROM spaces WHERE id = ?",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "sessions(QA users)",
+   "sql": "DELETE FROM sessions WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%qa258%')",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "api_tokens(QA users)",
+   "sql": "DELETE FROM api_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%qa258%')",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "import_tokens(QA users)",
+   "sql": "DELETE FROM import_tokens WHERE user_id IN (SELECT id FROM users WHERE email LIKE '%qa258%')",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  },
+  {
+   "label": "users(QA)",
+   "sql": "DELETE FROM users WHERE email LIKE '%qa258%'",
+   "before": 0,
+   "after": 0,
+   "meta": [
+    [
+     []
+    ]
+   ]
+  }
+ ],
+ "counts": {
+  "users": 4,
+  "spaces": 7,
+  "space_members": 21,
+  "pages": 380,
+  "pages_active": 380,
+  "comments": 5,
+  "notifications": 0,
+  "sessions": 14,
+  "api_tokens": 9,
+  "page_revisions": 815,
+  "import_tokens": 1,
+  "pages_fts": 367
+ },
+ "baseline": {
+  "users": 4,
+  "spaces": 7,
+  "space_members": 21,
+  "pages": 380,
+  "comments": 5,
+  "notifications": 0,
+  "sessions": 14,
+  "api_tokens": 9,
+  "page_revisions": 815,
+  "import_tokens": 1,
+  "pages_active": 380
+ },
+ "cmp": {
+  "users": {
+   "base": 4,
+   "now": 4,
+   "same": true
+  },
+  "spaces": {
+   "base": 7,
+   "now": 7,
+   "same": true
+  },
+  "space_members": {
+   "base": 21,
+   "now": 21,
+   "same": true
+  },
+  "pages": {
+   "base": 380,
+   "now": 380,
+   "same": true
+  },
+  "comments": {
+   "base": 5,
+   "now": 5,
+   "same": true
+  },
+  "notifications": {
+   "base": 0,
+   "now": 0,
+   "same": true
+  },
+  "sessions": {
+   "base": 14,
+   "now": 14,
+   "same": true
+  },
+  "api_tokens": {
+   "base": 9,
+   "now": 9,
+   "same": true
+  },
+  "page_revisions": {
+   "base": 815,
+   "now": 815,
+   "same": true
+  },
+  "import_tokens": {
+   "base": 1,
+   "now": 1,
+   "same": true
+  },
+  "pages_active": {
+   "base": 380,
+   "now": 380,
+   "same": true
+  }
+ },
+ "residual": {
+  "qaUsers": [],
+  "qaSpaces": [],
+  "qaPages": [],
+  "qaComments": [],
+  "qaNotifications": [],
+  "qaSessions": [],
+  "qaMembers": [],
+  "qaRevisions": {
+   "c": 0
+  },
+  "qaFts": [
+   {
+    "c": 0
+   }
+  ],
+  "orphanFts": [
+   {
+    "c": 0
+   }
+  ],
+  "orphanRevisions": [
+   {
+    "c": 0
+   }
+  ],
+  "orphanMembers": [
+   {
+    "c": 0
+   }
+  ],
+  "orphanSessions": [
+   {
+    "c": 5
+   }
+  ],
+  "orphanComments": [
+   {
+    "c": 0
+   }
+  ],
+  "orphanNotifs": [
+   {
+    "c": 0
+   }
+  ]
+ },
+ "assetDiff": {
+  "added": [],
+  "removed": []
+ },
+ "contentDiff": {
+  "added": [],
+  "removed": []
+ },
+ "authCountersBefore": 168,
+ "authCountersAfter": 168,
+ "deadLogin": {
+  "status": 401,
+  "body": "{\"error\":\"Invalid credentials\"}"
+ },
+ "newAssets": [
+  "embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html",
+  "embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html",
+  "pages/d11b04b8-513a-48b2-8dd5-01692460502b.json",
+  "pages/dffaa3e3-e656-4ef0-add0-67f3fdedfe66.png"
+ ],
+ "newContents": [
+  "content/df8ecdae38e02a4d5d84b8d5f581ae00527373c328167f8704a569b3591deadb"
+ ]
+}

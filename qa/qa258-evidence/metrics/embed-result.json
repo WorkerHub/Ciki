@@ -1,0 +1,806 @@
+{
+ "at": "2026-11-26T18:23:05.192Z",
+ "base": "https://ciki.oneboy.app",
+ "results": [
+  {
+   "id": "E1",
+   "pass": true,
+   "detail": "12 格首帧 URL 参数 mode/style 与当前风格+明暗一一对应（无 distill）",
+   "evidence": [
+    {
+     "style": "nova",
+     "mode": "light",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=nova"
+    },
+    {
+     "style": "nova",
+     "mode": "dark",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=nova"
+    },
+    {
+     "style": "paper",
+     "mode": "light",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=paper"
+    },
+    {
+     "style": "paper",
+     "mode": "dark",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=paper"
+    },
+    {
+     "style": "natural",
+     "mode": "light",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=natural"
+    },
+    {
+     "style": "natural",
+     "mode": "dark",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=natural"
+    },
+    {
+     "style": "eink",
+     "mode": "light",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=eink"
+    },
+    {
+     "style": "eink",
+     "mode": "dark",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=eink"
+    },
+    {
+     "style": "notion",
+     "mode": "light",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notion"
+    },
+    {
+     "style": "notion",
+     "mode": "dark",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=notion"
+    },
+    {
+     "style": "sketch",
+     "mode": "light",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=sketch"
+    },
+    {
+     "style": "sketch",
+     "mode": "dark",
+     "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=sketch"
+    }
+   ]
+  },
+  {
+   "id": "E2",
+   "pass": true,
+   "detail": "12 格 ciki-embed-theme 消息的 style 均为 6 合法值之一、mode 与明暗一致，且全程无 distill",
+   "evidence": [
+    {
+     "style": "nova",
+     "mode": "light",
+     "msgStyle": "nova",
+     "msgMode": "light",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "nova",
+     "mode": "dark",
+     "msgStyle": "nova",
+     "msgMode": "dark",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "paper",
+     "mode": "light",
+     "msgStyle": "paper",
+     "msgMode": "light",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "paper",
+     "mode": "dark",
+     "msgStyle": "paper",
+     "msgMode": "dark",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "natural",
+     "mode": "light",
+     "msgStyle": "natural",
+     "msgMode": "light",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "natural",
+     "mode": "dark",
+     "msgStyle": "natural",
+     "msgMode": "dark",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "eink",
+     "mode": "light",
+     "msgStyle": "eink",
+     "msgMode": "light",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "eink",
+     "mode": "dark",
+     "msgStyle": "eink",
+     "msgMode": "dark",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "notion",
+     "mode": "light",
+     "msgStyle": "notion",
+     "msgMode": "light",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "notion",
+     "mode": "dark",
+     "msgStyle": "notion",
+     "msgMode": "dark",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "sketch",
+     "mode": "light",
+     "msgStyle": "sketch",
+     "msgMode": "light",
+     "known": "1",
+     "msgCount": "2"
+    },
+    {
+     "style": "sketch",
+     "mode": "dark",
+     "msgStyle": "sketch",
+     "msgMode": "dark",
+     "known": "1",
+     "msgCount": "2"
+    }
+   ]
+  },
+  {
+   "id": "E3",
+   "pass": true,
+   "detail": "消息与 URL 中均未出现 distill",
+   "evidence": {
+    "anyDistillInMsg": false
+   }
+  },
+  {
+   "id": "E4",
+   "pass": true,
+   "detail": "旧 Embed 直开 style=distill / 未知值 / 空值：均不套用未知值（known=0）、页面照常渲染不崩",
+   "evidence": [
+    {
+     "style": "distill",
+     "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=distill",
+     "dataTheme": null,
+     "probeKnown": "0",
+     "probeStyle": "distill",
+     "bodyText": "QA258 EMBED PROBE\nchip\nsrc=url mode=light style=distill known=0 msgs=0",
+     "hasProbe": true
+    },
+    {
+     "style": "notarealstyle",
+     "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notarealstyle",
+     "dataTheme": null,
+     "probeKnown": "0",
+     "probeStyle": "notarealstyle",
+     "bodyText": "QA258 EMBED PROBE\nchip\nsrc=url mode=light style=notarealstyle known=0 msgs=0",
+     "hasProbe": true
+    },
+    {
+     "style": "",
+     "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=",
+     "dataTheme": null,
+     "probeKnown": "0",
+     "probeStyle": "",
+     "bodyText": "QA258 EMBED PROBE\nchip\nsrc=url mode=light style=- known=0 msgs=0",
+     "hasProbe": true
+    }
+   ]
+  },
+  {
+   "id": "E5",
+   "pass": true,
+   "detail": "服务端注入脚本：dark 类正常下发给全部风格；未知值 distill 不被套用且不崩",
+   "evidence": [
+    {
+     "style": "nova",
+     "dataTheme": "nova",
+     "darkClass": true,
+     "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+     "bareLoad": "{\"theme\":\"nova\",\"dark\":true,\"mode\":\"\"}",
+     "bareLate": "{\"theme\":\"nova\",\"dark\":true,\"mode\":\"\"}",
+     "bareMsg": null,
+     "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+    },
+    {
+     "style": "paper",
+     "dataTheme": "paper",
+     "darkClass": true,
+     "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+     "bareLoad": "{\"theme\":\"paper\",\"dark\":true,\"mode\":\"\"}",
+     "bareLate": "{\"theme\":\"paper\",\"dark\":true,\"mode\":\"\"}",
+     "bareMsg": null,
+     "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+    },
+    {
+     "style": "natural",
+     "dataTheme": null,
+     "darkClass": true,
+     "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+     "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareMsg": null,
+     "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+    },
+    {
+     "style": "eink",
+     "dataTheme": null,
+     "darkClass": true,
+     "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+     "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareMsg": null,
+     "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+    },
+    {
+     "style": "notion",
+     "dataTheme": null,
+     "darkClass": true,
+     "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+     "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareMsg": null,
+     "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+    },
+    {
+     "style": "sketch",
+     "dataTheme": null,
+     "darkClass": true,
+     "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+     "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareMsg": null,
+     "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+    },
+    {
+     "style": "distill",
+     "dataTheme": null,
+     "darkClass": true,
+     "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+     "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+     "bareMsg": null,
+     "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+    }
+   ]
+  },
+  {
+   "id": "E6",
+   "pass": true,
+   "detail": "【观察项 #259】注入脚本仅对 nova/paper 设置 data-theme；natural/eink/notion/sketch/distill 由注入脚本时不设 data-theme（需作者侧按 agent-guide §6.2 自行实现）",
+   "evidence": {
+    "injected": [
+     "nova",
+     "paper"
+    ],
+    "notInjected": [
+     "natural",
+     "eink",
+     "notion",
+     "sketch",
+     "distill"
+    ]
+   }
+  },
+  {
+   "id": "E7",
+   "pass": true,
+   "detail": "存量 distill 账号在页面里回落 nova：iframe src=/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=nova，消息 style=nova（无 distill）",
+   "evidence": {
+    "dSrc": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=nova",
+    "dFrame": {
+     "dataTheme": "nova",
+     "darkClass": false,
+     "probeSrc": "msg",
+     "probeMode": "light",
+     "probeStyle": "nova",
+     "probeKnown": "1",
+     "msgCount": "2",
+     "msgMode": "light",
+     "msgStyle": "nova",
+     "bareInit": null,
+     "bareLoad": null,
+     "bareLate": null,
+     "bareMsg": null,
+     "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=light style=nova known=1 msgs=2",
+     "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=nova"
+    }
+   }
+  },
+  {
+   "id": "E8",
+   "pass": true,
+   "detail": "Embed 全部用例无前端报错（过滤 CF 注入/沙箱 localStorage 噪声后 0 条）",
+   "evidence": [
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=distill",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notarealstyle",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=nova",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=paper",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=natural",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=eink",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=notion",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=sketch",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    },
+    {
+     "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=distill",
+     "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+    }
+   ]
+  }
+ ],
+ "cells": [
+  {
+   "style": "nova",
+   "mode": "light",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=nova",
+   "frame": {
+    "dataTheme": "nova",
+    "darkClass": false,
+    "probeSrc": "msg",
+    "probeMode": "light",
+    "probeStyle": "nova",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "light",
+    "msgStyle": "nova",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=light style=nova known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=nova"
+   }
+  },
+  {
+   "style": "nova",
+   "mode": "dark",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=nova",
+   "frame": {
+    "dataTheme": "nova",
+    "darkClass": true,
+    "probeSrc": "msg",
+    "probeMode": "dark",
+    "probeStyle": "nova",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "dark",
+    "msgStyle": "nova",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=dark style=nova known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=nova"
+   }
+  },
+  {
+   "style": "paper",
+   "mode": "light",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=paper",
+   "frame": {
+    "dataTheme": "paper",
+    "darkClass": false,
+    "probeSrc": "msg",
+    "probeMode": "light",
+    "probeStyle": "paper",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "light",
+    "msgStyle": "paper",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=light style=paper known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=paper"
+   }
+  },
+  {
+   "style": "paper",
+   "mode": "dark",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=paper",
+   "frame": {
+    "dataTheme": "paper",
+    "darkClass": true,
+    "probeSrc": "msg",
+    "probeMode": "dark",
+    "probeStyle": "paper",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "dark",
+    "msgStyle": "paper",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=dark style=paper known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=paper"
+   }
+  },
+  {
+   "style": "natural",
+   "mode": "light",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=natural",
+   "frame": {
+    "dataTheme": "natural",
+    "darkClass": false,
+    "probeSrc": "msg",
+    "probeMode": "light",
+    "probeStyle": "natural",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "light",
+    "msgStyle": "natural",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=light style=natural known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=natural"
+   }
+  },
+  {
+   "style": "natural",
+   "mode": "dark",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=natural",
+   "frame": {
+    "dataTheme": "natural",
+    "darkClass": true,
+    "probeSrc": "msg",
+    "probeMode": "dark",
+    "probeStyle": "natural",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "dark",
+    "msgStyle": "natural",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=dark style=natural known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=natural"
+   }
+  },
+  {
+   "style": "eink",
+   "mode": "light",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=eink",
+   "frame": {
+    "dataTheme": "eink",
+    "darkClass": false,
+    "probeSrc": "msg",
+    "probeMode": "light",
+    "probeStyle": "eink",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "light",
+    "msgStyle": "eink",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=light style=eink known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=eink"
+   }
+  },
+  {
+   "style": "eink",
+   "mode": "dark",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=eink",
+   "frame": {
+    "dataTheme": "eink",
+    "darkClass": true,
+    "probeSrc": "msg",
+    "probeMode": "dark",
+    "probeStyle": "eink",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "dark",
+    "msgStyle": "eink",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=dark style=eink known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=eink"
+   }
+  },
+  {
+   "style": "notion",
+   "mode": "light",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notion",
+   "frame": {
+    "dataTheme": "notion",
+    "darkClass": false,
+    "probeSrc": "msg",
+    "probeMode": "light",
+    "probeStyle": "notion",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "light",
+    "msgStyle": "notion",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=light style=notion known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notion"
+   }
+  },
+  {
+   "style": "notion",
+   "mode": "dark",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=notion",
+   "frame": {
+    "dataTheme": "notion",
+    "darkClass": true,
+    "probeSrc": "msg",
+    "probeMode": "dark",
+    "probeStyle": "notion",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "dark",
+    "msgStyle": "notion",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=dark style=notion known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=notion"
+   }
+  },
+  {
+   "style": "sketch",
+   "mode": "light",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=sketch",
+   "frame": {
+    "dataTheme": "sketch",
+    "darkClass": false,
+    "probeSrc": "msg",
+    "probeMode": "light",
+    "probeStyle": "sketch",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "light",
+    "msgStyle": "sketch",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=light style=sketch known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=sketch"
+   }
+  },
+  {
+   "style": "sketch",
+   "mode": "dark",
+   "putStatus": 200,
+   "src": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=sketch",
+   "frame": {
+    "dataTheme": "sketch",
+    "darkClass": true,
+    "probeSrc": "msg",
+    "probeMode": "dark",
+    "probeStyle": "sketch",
+    "probeKnown": "1",
+    "msgCount": "2",
+    "msgMode": "dark",
+    "msgStyle": "sketch",
+    "bareInit": null,
+    "bareLoad": null,
+    "bareLate": null,
+    "bareMsg": null,
+    "text": "QA258 EMBED PROBE\nchip\nsrc=msg mode=dark style=sketch known=1 msgs=2",
+    "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=sketch"
+   }
+  }
+ ],
+ "legacy": [
+  {
+   "style": "distill",
+   "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=distill",
+   "dataTheme": null,
+   "probeKnown": "0",
+   "probeStyle": "distill",
+   "bodyText": "QA258 EMBED PROBE\nchip\nsrc=url mode=light style=distill known=0 msgs=0",
+   "hasProbe": true
+  },
+  {
+   "style": "notarealstyle",
+   "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notarealstyle",
+   "dataTheme": null,
+   "probeKnown": "0",
+   "probeStyle": "notarealstyle",
+   "bodyText": "QA258 EMBED PROBE\nchip\nsrc=url mode=light style=notarealstyle known=0 msgs=0",
+   "hasProbe": true
+  },
+  {
+   "style": "",
+   "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=",
+   "dataTheme": null,
+   "probeKnown": "0",
+   "probeStyle": "",
+   "bodyText": "QA258 EMBED PROBE\nchip\nsrc=url mode=light style=- known=0 msgs=0",
+   "hasProbe": true
+  }
+ ],
+ "bare": [
+  {
+   "style": "nova",
+   "dataTheme": "nova",
+   "darkClass": true,
+   "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+   "bareLoad": "{\"theme\":\"nova\",\"dark\":true,\"mode\":\"\"}",
+   "bareLate": "{\"theme\":\"nova\",\"dark\":true,\"mode\":\"\"}",
+   "bareMsg": null,
+   "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+  },
+  {
+   "style": "paper",
+   "dataTheme": "paper",
+   "darkClass": true,
+   "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+   "bareLoad": "{\"theme\":\"paper\",\"dark\":true,\"mode\":\"\"}",
+   "bareLate": "{\"theme\":\"paper\",\"dark\":true,\"mode\":\"\"}",
+   "bareMsg": null,
+   "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+  },
+  {
+   "style": "natural",
+   "dataTheme": null,
+   "darkClass": true,
+   "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+   "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareMsg": null,
+   "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+  },
+  {
+   "style": "eink",
+   "dataTheme": null,
+   "darkClass": true,
+   "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+   "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareMsg": null,
+   "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+  },
+  {
+   "style": "notion",
+   "dataTheme": null,
+   "darkClass": true,
+   "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+   "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareMsg": null,
+   "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+  },
+  {
+   "style": "sketch",
+   "dataTheme": null,
+   "darkClass": true,
+   "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+   "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareMsg": null,
+   "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+  },
+  {
+   "style": "distill",
+   "dataTheme": null,
+   "darkClass": true,
+   "bareInit": "{\"theme\":null,\"dark\":false,\"mode\":\"\"}",
+   "bareLoad": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareLate": "{\"theme\":null,\"dark\":true,\"mode\":\"\"}",
+   "bareMsg": null,
+   "bodyText": "QA258 BARE PROBE — 不自行设置主题，只记录服务端注入脚本的结果"
+  }
+ ],
+ "consoleErrors": [
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=distill",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notarealstyle",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=nova",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=paper",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=natural",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=eink",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=notion",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=sketch",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  },
+  {
+   "url": "https://ciki.oneboy.app/api/files/embeds/7ab92228-3aea-4e7e-858e-c4ad823095ea.html?mode=dark&style=distill",
+   "text": "pageerror: SecurityError: Failed to read a named property 'document' from 'Window': Blocked a frame with origin \"null\" from accessing a cross-origin frame."
+  }
+ ]
+}

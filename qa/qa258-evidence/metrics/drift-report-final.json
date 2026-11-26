@@ -1,0 +1,3683 @@
+{
+ "at": "2026-11-26T18:24:04.503Z",
+ "compared": 19380,
+ "diffs": 463,
+ "cats": {
+  "设计内差异": {
+   "n": 288,
+   "paths": {
+    "vars.--wiki-max-width": 84,
+    "users.vars.--wiki-max-width": 12,
+    "spaces.vars.--wiki-max-width": 12,
+    "site.vars.--wiki-max-width": 12,
+    "security.vars.--wiki-max-width": 12,
+    "email.vars.--wiki-max-width": 12,
+    "others.vars.--wiki-max-width": 12,
+    "counts.toggleItems": 12,
+    "area.styleItems[*].text": 36,
+    "area.styleItems[*].state": 36,
+    "area.styleItems[*].checked": 36,
+    "area.styleItemCount": 12
+   }
+  },
+  "数据差异": {
+   "n": 130,
+   "paths": {
+    "counts.buttons": 48,
+    "wiki.embedFrameSrc": 12,
+    "text": 12,
+    "spaces.counts.buttons": 12,
+    "email.badge.background-color": 12,
+    "email.badge.color": 5,
+    "email.badge.border-color": 12,
+    "email.area.badge.background-color": 12,
+    "email.area.badge.color": 5
+   }
+  },
+  "取样假象": {
+   "n": 45,
+   "paths": {
+    "input.background-color": 5,
+    "input.border-color": 5,
+    "input.color": 5,
+    "input.border-radius": 5,
+    "tableCell.background-color": 4,
+    "tableCell.color": 4,
+    "tableCell.border-color": 4,
+    "counts.tables": 4,
+    "input": 5,
+    "tableCell": 4
+   }
+  }
+ },
+ "unclassified": [],
+ "report": [
+  {
+   "entry": "nova-light",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "nova-light",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=light&style=nova",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=nova",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "nova-light",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "oklch(0.97 0 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.email.badge.color",
+   "pre": "oklch(0.145 0 0)",
+   "prod": "oklch(0.205 0 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.email.badge.border-color",
+   "pre": "oklch(0.922 0 0)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "oklch(0.97 0 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.email.area.badge.color",
+   "pre": "oklch(0.145 0 0)",
+   "prod": "oklch(0.205 0 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-light",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "nova-light",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-light",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=dark&style=nova",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=nova",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "oklch(0.269 0 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.email.badge.border-color",
+   "pre": "oklch(1 0 0 / 0.1)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "oklch(0.269 0 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.input.background-color",
+   "pre": "oklab(1 0 0 / 0.045)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.input.border-color",
+   "pre": "oklch(1 0 0 / 0.15)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.input.color",
+   "pre": "oklch(0.985 0 0)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.input.border-radius",
+   "pre": "10px",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.tableCell.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.tableCell.color",
+   "pre": "oklch(0.985 0 0)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.tableCell.border-color",
+   "pre": "oklch(1 0 0 / 0.1)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 5,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.counts.tables",
+   "pre": 1,
+   "prod": 0,
+   "cat": "取样假象",
+   "why": "同上（表格计数取样时机）"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.input",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "nova-dark",
+   "path": "mobile.tableCell",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "paper-light",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=light&style=paper",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=paper",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "paper-light",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(233, 227, 218)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.email.badge.color",
+   "pre": "rgb(42, 43, 47)",
+   "prod": "rgb(67, 66, 71)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(223, 219, 210)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(233, 227, 218)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.email.area.badge.color",
+   "pre": "rgb(42, 43, 47)",
+   "prod": "rgb(67, 66, 71)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-light",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.input.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.input.border-color",
+   "pre": "rgb(223, 219, 210)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.input.color",
+   "pre": "rgb(42, 43, 47)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.input.border-radius",
+   "pre": "8px",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.tableCell.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.tableCell.color",
+   "pre": "rgb(42, 43, 47)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.tableCell.border-color",
+   "pre": "rgb(223, 219, 210)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 5,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.counts.tables",
+   "pre": 1,
+   "prod": 0,
+   "cat": "取样假象",
+   "why": "同上（表格计数取样时机）"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.input",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-light",
+   "path": "mobile.tableCell",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 7,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=dark&style=paper",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=paper",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(36, 38, 43)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.email.badge.color",
+   "pre": "rgb(242, 240, 235)",
+   "prod": "rgb(200, 197, 191)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(38, 40, 45)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(36, 38, 43)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.email.area.badge.color",
+   "pre": "rgb(242, 240, 235)",
+   "prod": "rgb(200, 197, 191)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "mobile.input.background-color",
+   "pre": "oklab(0.276852 -0.000269398 -0.0096357 / 0.3)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "mobile.input.border-color",
+   "pre": "rgb(38, 40, 45)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "mobile.input.color",
+   "pre": "rgb(242, 240, 235)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "mobile.input.border-radius",
+   "pre": "8px",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 6,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "paper-dark",
+   "path": "mobile.input",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "natural-light",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=light&style=natural",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=natural",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "natural-light",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(233, 224, 212)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.email.badge.color",
+   "pre": "rgb(41, 37, 36)",
+   "prod": "rgb(68, 64, 60)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(230, 223, 210)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(233, 224, 212)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.email.area.badge.color",
+   "pre": "rgb(41, 37, 36)",
+   "prod": "rgb(68, 64, 60)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-light",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.input.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.input.border-color",
+   "pre": "rgb(230, 223, 210)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.input.color",
+   "pre": "rgb(41, 37, 36)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.input.border-radius",
+   "pre": "12px",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.tableCell.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.tableCell.color",
+   "pre": "rgb(41, 37, 36)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.tableCell.border-color",
+   "pre": "rgb(230, 223, 210)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 5,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.counts.tables",
+   "pre": 1,
+   "prod": 0,
+   "cat": "取样假象",
+   "why": "同上（表格计数取样时机）"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.input",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "natural-light",
+   "path": "mobile.tableCell",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=dark&style=natural",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=natural",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(46, 42, 33)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.email.badge.color",
+   "pre": "rgb(236, 231, 221)",
+   "prod": "rgb(214, 208, 194)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(51, 46, 37)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(46, 42, 33)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.email.area.badge.color",
+   "pre": "rgb(236, 231, 221)",
+   "prod": "rgb(214, 208, 194)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "natural-dark",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "eink-light",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=light&style=eink",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=eink",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "eink-light",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(230, 228, 218)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(186, 185, 176)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(230, 228, 218)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-light",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "eink-light",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-light",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 7,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=dark&style=eink",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=eink",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(38, 39, 32)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(68, 69, 63)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(38, 39, 32)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "eink-dark",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "notion-light",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=light&style=notion",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=notion",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "notion-light",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(247, 246, 243)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(233, 233, 231)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(247, 246, 243)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-light",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "notion-light",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-light",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=dark&style=notion",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=notion",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(38, 38, 38)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(47, 47, 47)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(38, 38, 38)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.input.background-color",
+   "pre": "oklab(0.305189 0.0000139624 0.00000609457 / 0.3)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.input.border-color",
+   "pre": "rgb(47, 47, 47)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.input.color",
+   "pre": "rgb(232, 232, 230)",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.input.border-radius",
+   "pre": "6px",
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.tableCell.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.tableCell.color",
+   "pre": "rgb(232, 232, 230)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.tableCell.border-color",
+   "pre": "rgb(47, 47, 47)",
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 5,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.counts.tables",
+   "pre": 1,
+   "prod": 0,
+   "cat": "取样假象",
+   "why": "同上（表格计数取样时机）"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.input",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "评论输入框在移动端矩阵取样瞬间尚未渲染；explain.mjs 加长等待复测：两侧均为 TEXTAREA，样式逐值一致"
+  },
+  {
+   "entry": "notion-dark",
+   "path": "mobile.tableCell",
+   "prod": null,
+   "cat": "取样假象",
+   "why": "表格单元格在矩阵取样瞬间未渲染；explain.mjs 复测：两侧均 1 表 2 单元格，样式逐值一致"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=light&style=sketch",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=light&style=sketch",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(232, 226, 216)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(184, 176, 160)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(232, 226, 216)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-light",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "read.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "read.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "本地样本有一条“自己写的评论”多出「编辑」按钮（13 vs 12）；生产评论由他人写"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "read.wiki.embedFrameSrc",
+   "pre": "/api/files/embeds/a45e05cf-276f-4d3c-b846-3d3dfa6cdb68.html?mode=dark&style=sketch",
+   "prod": "/api/files/embeds/3d1780d5-0a26-45ee-93c8-da00aa9a310a.html?mode=dark&style=sketch",
+   "cat": "数据差异",
+   "why": "Embed 对象 key 不同（本地样本 vs 生产样本）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "edit.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "comments.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "comments.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "notificationsPanel.text",
+   "pre": "通知2 条未读Qqa258-author4 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-AUTHOR2 作者号评论探针Qqa258",
+   "prod": "通知2 条未读Qqa258author1 小时前评论了文档 QA258 主题全矩阵主样本QA258-COMMENT-2 生产评论区探针二评Qqa258autho",
+   "cat": "数据差异",
+   "why": "通知文案内容随样本数据不同"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "notificationsPage.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "author.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.users.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.spaces.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.spaces.counts.buttons",
+   "pre": 4,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "空间数量不同（本地 1 个空间 vs 生产 8 个空间），按钮数随之不同"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.site.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.security.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.email.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.email.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(58, 55, 47)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.email.badge.border-color",
+   "pre": "rgb(87, 83, 68)",
+   "prod": "rgba(0, 0, 0, 0)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.email.area.badge.background-color",
+   "pre": "rgba(0, 0, 0, 0)",
+   "prod": "rgb(58, 55, 47)",
+   "cat": "数据差异",
+   "why": "本地「邮件未配置」outline 徽章 vs 生产「邮件已配置」secondary 徽章（徽章变体不同故取色不同）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "admin.others.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.counts.buttons",
+   "pre": 13,
+   "prod": 12,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.counts.toggleItems",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "风格组 7→6、语言组 2 不变，合计 9 → 8"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[6].text",
+   "pre": "学术",
+   "prod": "中文",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[6].state",
+   "pre": "off",
+   "prod": "on",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[6].checked",
+   "pre": "false",
+   "prod": "true",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[7].text",
+   "pre": "中文",
+   "prod": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[7].state",
+   "pre": "on",
+   "prod": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[7].checked",
+   "pre": "true",
+   "prod": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[8].text",
+   "pre": "English",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[8].state",
+   "pre": "off",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItems[8].checked",
+   "pre": "false",
+   "cat": "设计内差异",
+   "why": "设置页风格项 7 项（删前）→ 6 项（删后），索引整体位移"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "settings.area.styleItemCount",
+   "pre": 9,
+   "prod": 8,
+   "cat": "设计内差异",
+   "why": "同上，数量 7 → 6"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "mobile.vars.--wiki-max-width",
+   "pre": "none",
+   "prod": "",
+   "cat": "设计内差异",
+   "why": "distill 的 42rem 列宽令牌整体删除（各页 vars 一致）"
+  },
+  {
+   "entry": "sketch-dark",
+   "path": "mobile.counts.buttons",
+   "pre": 12,
+   "prod": 11,
+   "cat": "数据差异",
+   "why": "该区块按钮数随生产样本数据量不同（与风格无关）"
+  }
+ ]
+}
