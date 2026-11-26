@@ -324,7 +324,7 @@ describe("E 验证·前端两卡", () => {
     expect(
       screen.getByRole("button", { name: "新建 Token" })
     ).toBeInTheDocument()
-    expect(screen.getByText("还没有插件凭证")).toBeInTheDocument()
+    expect(await screen.findByText("还没有插件凭证")).toBeInTheDocument()
     expect(screen.getByText("浏览器插件")).toBeInTheDocument()
 
     // 中文的空态/按钮/提示里，Token 是英文原词（不是「令牌/凭证」硬译）

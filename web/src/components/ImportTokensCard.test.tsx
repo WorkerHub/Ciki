@@ -55,7 +55,7 @@ describe("浏览器插件凭证卡", () => {
     render(<ImportTokensCard />)
 
     expect(await screen.findByText("浏览器插件")).toBeInTheDocument()
-    expect(screen.getByText("工作机")).toBeInTheDocument()
+    expect(await screen.findByText("工作机")).toBeInTheDocument()
     // formatDateTime 统一按 Asia/Shanghai（UTC+8）展示
     expect(screen.getAllByText(/^创建于 /)[0]).toHaveTextContent(
       "创建于 2026-11-12 10:00"
@@ -122,7 +122,7 @@ describe("浏览器插件凭证卡", () => {
     const user = userEvent.setup()
     render(<ImportTokensCard />)
 
-    await screen.findByText("浏览器插件")
+    await screen.findByText("旧插件")
     await user.click(screen.getAllByRole("button", { name: "吊销" })[0])
     expect(await screen.findByText("吊销这个凭证？")).toBeInTheDocument()
     expect(meApi.revokeImportToken).not.toHaveBeenCalled()
