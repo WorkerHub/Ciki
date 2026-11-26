@@ -415,9 +415,15 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     const naturalBtn = screen.getByRole("radio", { name: "自然" })
     expect(naturalBtn).toBeTruthy()
     expect(naturalBtn.getAttribute("data-state")).toBe("on")
-    expect(screen.getByRole("radio", { name: "墨纸" }).getAttribute("data-state")).toBe("off")
-    expect(screen.getByRole("radio", { name: "Nova" }).getAttribute("data-state")).toBe("off")
-    expect(screen.getByRole("radio", { name: "纸面" }).getAttribute("data-state")).toBe("off")
+    expect(
+      screen.getByRole("radio", { name: "墨纸" }).getAttribute("data-state")
+    ).toBe("off")
+    expect(
+      screen.getByRole("radio", { name: "Nova" }).getAttribute("data-state")
+    ).toBe("off")
+    expect(
+      screen.getByRole("radio", { name: "纸面" }).getAttribute("data-state")
+    ).toBe("off")
 
     rerender(
       React.createElement(ThemeStyleSegmented, {
@@ -427,7 +433,9 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     )
     const einkBtn = screen.getByRole("radio", { name: "墨纸" })
     expect(einkBtn.getAttribute("data-state")).toBe("on")
-    expect(screen.getByRole("radio", { name: "自然" }).getAttribute("data-state")).toBe("off")
+    expect(
+      screen.getByRole("radio", { name: "自然" }).getAttribute("data-state")
+    ).toBe("off")
 
     rerender(
       React.createElement(ThemeStyleSegmented, {

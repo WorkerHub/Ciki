@@ -7,7 +7,7 @@ export const SUPPORTED_THEME_STYLES = [
   "nova",
   "paper",
   "natural",
-  "eink",
+  "eink"
 ] as const
 
 export type ThemeStyle = (typeof SUPPORTED_THEME_STYLES)[number]
