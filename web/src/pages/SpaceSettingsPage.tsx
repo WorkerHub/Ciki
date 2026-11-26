@@ -62,8 +62,13 @@ import {
 } from "@/lib/api"
 import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDate } from "@/lib/format"
-import { adminSpacesPath, spacePath } from "@/lib/routes"
-import { canManage, effectiveRole } from "@/lib/space"
+import { adminSpacesPath, spacePath, spaceSettingsPath } from "@/lib/routes"
+import {
+  canManage,
+  effectiveRole,
+  isValidSpaceSlug,
+  MAX_SPACE_SLUG_LENGTH
+} from "@/lib/space"
 import { countNodes } from "@/lib/tree"
 import { useAuthStore } from "@/stores/auth"
 import { useSpacesStore } from "@/stores/spaces"
@@ -93,6 +98,8 @@ export function SpaceSettingsPage() {
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
+  const [slugValue, setSlugValue] = useState("")
+  const [slugError, setSlugError] = useState("")
   const [savingInfo, setSavingInfo] = useState(false)
   const [infoError, setInfoError] = useState("")
   const [infoMessage, setInfoMessage] = useState("")
@@ -129,6 +136,8 @@ export function SpaceSettingsPage() {
       setSpace(detail)
       setName(detail.name)
       setDescription(detail.description)
+      setSlugValue(detail.slug)
+      setSlugError("")
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) setNotFound(true)
       else setLoadError(describeApiError(error))
@@ -182,6 +191,15 @@ export function SpaceSettingsPage() {
     void loadCounts()
   }, [space, isSiteAdmin, loadMembers, loadCounts])
 
+  const handleSlugChange = (value: string) => {
+    setSlugValue(value)
+    if (!isValidSpaceSlug(value)) {
+      setSlugError(t("space.settings.info.slugFormat"))
+    } else {
+      setSlugError("")
+    }
+  }
+
   const saveInfo = async () => {
     if (!spaceId) return
     const value = name.trim()
@@ -189,21 +207,35 @@ export function SpaceSettingsPage() {
       setInfoError(t("shell.spaces.create.nameRequired"))
       return
     }
+    if (!isValidSpaceSlug(slugValue)) {
+      setSlugError(t("space.settings.info.slugFormat"))
+      return
+    }
     setSavingInfo(true)
     setInfoError("")
     setInfoMessage("")
+    setSlugError("")
     try {
       const updated = await spacesApi.update(spaceId, {
         name: value,
-        description: description.trim()
+        description: description.trim(),
+        slug: slugValue
       })
       setSpace(updated)
       setName(updated.name)
       setDescription(updated.description)
+      setSlugValue(updated.slug)
       upsertSpace(updated)
       setInfoMessage(t("space.settings.info.saved"))
+      if (updated.slug !== slug) {
+        navigate(spaceSettingsPath(updated.slug), { replace: true })
+      }
     } catch (error) {
-      setInfoError(describeApiError(error))
+      if (error instanceof ApiError && error.status === 409) {
+        setSlugError(t("space.settings.info.slugConflict"))
+      } else {
+        setInfoError(describeApiError(error))
+      }
     } finally {
       setSavingInfo(false)
     }
@@ -420,6 +452,36 @@ export function SpaceSettingsPage() {
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="space-slug">
+                {t("space.settings.info.slug")}
+              </Label>
+              <div className="relative">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 font-mono text-sm text-muted-foreground select-none"
+                >
+                  /s/
+                </span>
+                <Input
+                  id="space-slug"
+                  name="space-slug"
+                  maxLength={MAX_SPACE_SLUG_LENGTH}
+                  value={slugValue}
+                  onChange={(event) => handleSlugChange(event.target.value)}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="pl-8 font-mono"
+                  aria-invalid={Boolean(slugError)}
+                />
+              </div>
+              {slugError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {slugError}
+                </p>
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="space-description">

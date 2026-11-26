@@ -1177,6 +1177,9 @@
         "title": "Space information",
         "description": "The name is 1–64 characters, the description up to 500.",
         "name": "Name",
+        "slug": "Space slug",
+        "slugFormat": "Must be 1–48 lowercase letters, numbers, and single hyphens, not starting or ending with a hyphen",
+        "slugConflict": "This space slug is already taken",
         "descriptionLabel": "Description",
         "saved": "Saved; the switcher shows the new name too."
       },
