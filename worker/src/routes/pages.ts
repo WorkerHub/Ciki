@@ -28,10 +28,11 @@ import {
   softDeleteSubtree,
   updatePageCanvasPreview,
   type PageRow,
-  type PageSummaryRow
+  type PageSummaryRow,
+  type TrashRow
 } from "../db/queries/pages"
 import { findUsersByIds, type UserAuthorSummary } from "../db/queries/users"
-import { findDefaultSpace } from "../db/queries/spaces"
+import { findDefaultSpace, listSpacesForUser } from "../db/queries/spaces"
 import {
   deleteRevision,
   getRevision,
@@ -307,22 +308,191 @@ pageRoutes.get("/", async (c) => {
   return c.json(roots)
 })
 
-// 必须注册在 /:id 之前，否则会被当成 id=trash。
-pageRoutes.get("/trash", async (c) => {
-  const target = await spaceTarget(c, c.req.query("spaceId"))
-  if (!target.ok) return target.response
+interface BatchTrashBody {
+  action?: unknown
+  ids?: unknown
+}
 
-  const prefix = getTablePrefix(c.env)
-  const rows = await listTrashRoots(c.env.DB, prefix, target.spaceId)
-  return c.json(
+interface BatchTrashResultItem {
+  id: number
+  ok: boolean
+  error?: string
+  code?: string
+}
+
+// 必须注册在 /:id 之前，否则会被当成 id=trash。
+pageRoutes.get("/trash", async (context) => {
+  const prefix = getTablePrefix(context.env)
+  const rawSpaceId = context.req.query("spaceId")
+
+  let rows: TrashRow[]
+  if (rawSpaceId !== undefined && rawSpaceId.trim() !== "") {
+    const parsed = readSpaceId(rawSpaceId)
+    if (!parsed.ok || parsed.value === null) {
+      return context.json({ error: "spaceId must be an integer or null" }, 400)
+    }
+    const access = await resolveSpaceAccess(
+      context.env.DB,
+      prefix,
+      parsed.value,
+      context.get("userId"),
+      isSiteAdmin(context)
+    )
+    if (!access) return spaceNotFound(context)
+    rows = await listTrashRoots(context.env.DB, prefix, parsed.value)
+  } else if (isSiteAdmin(context)) {
+    rows = await listTrashRoots(context.env.DB, prefix)
+  } else {
+    const userSpaces = await listSpacesForUser(
+      context.env.DB,
+      prefix,
+      context.get("userId")
+    )
+    if (userSpaces.length === 0) {
+      return context.json([])
+    }
+    const spaceIds = userSpaces.map((space) => space.id)
+    rows = await listTrashRoots(context.env.DB, prefix, spaceIds)
+  }
+
+  return context.json(
     rows.map((row) => ({
       id: row.id,
       parentId: row.parent_id,
       title: row.title,
       deletedAt: row.deleted_at,
-      updatedAt: row.updated_at
+      updatedAt: row.updated_at,
+      spaceId: row.space_id,
+      spaceName: row.space_name,
+      createdAt: row.created_at,
+      childCount: row.child_count ?? 0
     }))
   )
+})
+
+pageRoutes.post("/trash/batch", async (context) => {
+  const body = await readJsonBody<BatchTrashBody>(context)
+  if (
+    !body ||
+    (body.action !== "restore" && body.action !== "purge") ||
+    !Array.isArray(body.ids)
+  ) {
+    return context.json(
+      { error: "action must be restore or purge, and ids must be an array" },
+      400
+    )
+  }
+
+  const prefix = getTablePrefix(context.env)
+  const database = context.env.DB
+  const results: BatchTrashResultItem[] = []
+
+  for (const rawId of body.ids) {
+    const pageId =
+      typeof rawId === "number" && Number.isSafeInteger(rawId) && rawId > 0
+        ? rawId
+        : typeof rawId === "string"
+          ? parseId(rawId)
+          : null
+
+    if (pageId === null) {
+      const fallbackId =
+        typeof rawId === "number" && Number.isSafeInteger(rawId) ? rawId : 0
+      results.push({ id: fallbackId, ok: false, error: "Page not found" })
+      continue
+    }
+
+    const page = await getPageRow(database, prefix, pageId)
+
+    if (body.action === "restore") {
+      if (!page?.deleted_at) {
+        results.push({ id: pageId, ok: false, error: "Page not found" })
+        continue
+      }
+
+      const role = await pageSpaceRole(context, page)
+      if (!role) {
+        results.push({ id: pageId, ok: false, error: "Page not found" })
+        continue
+      }
+      if (!canEditPages(role)) {
+        results.push({
+          id: pageId,
+          ok: false,
+          error: "Forbidden",
+          code: "FORBIDDEN"
+        })
+        continue
+      }
+
+      if (page.parent_id !== null) {
+        const parent = await getPageRow(database, prefix, page.parent_id)
+        if (parent?.deleted_at) {
+          results.push({
+            id: pageId,
+            ok: false,
+            error: "Restore the parent page first",
+            code: "PARENT_DELETED"
+          })
+          continue
+        }
+      }
+
+      const rows = await listSubtreeDeletedRows(
+        database,
+        prefix,
+        page.id,
+        page.deleted_at
+      )
+      const now = new Date().toISOString()
+      await database.batch([
+        ...restoreSubtree(database, prefix, page.id, page.deleted_at, now),
+        ...rows.flatMap((row) =>
+          indexPageStatements(database, prefix, {
+            id: row.id,
+            title: row.title,
+            contentText: row.content_text
+          })
+        )
+      ])
+      results.push({ id: pageId, ok: true })
+    } else {
+      if (!page) {
+        results.push({ id: pageId, ok: false, error: "Page not found" })
+        continue
+      }
+
+      const role = await pageSpaceRole(context, page)
+      if (!role) {
+        results.push({ id: pageId, ok: false, error: "Page not found" })
+        continue
+      }
+      if (!canEditPages(role)) {
+        results.push({
+          id: pageId,
+          ok: false,
+          error: "Forbidden",
+          code: "FORBIDDEN"
+        })
+        continue
+      }
+
+      if (!page.deleted_at) {
+        results.push({
+          id: pageId,
+          ok: false,
+          error: "Page is not in trash",
+          code: "PAGE_NOT_DELETED"
+        })
+        continue
+      }
+
+      await database.batch(permanentDeleteSubtree(database, prefix, page.id))
+      results.push({ id: pageId, ok: true })
+    }
+  }
+
+  return context.json({ results })
 })
 
 /**

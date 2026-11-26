@@ -906,6 +906,7 @@
       "create": "New user",
       "table": {
         "email": "Email",
+        "username": "Username",
         "role": "Role",
         "status": "Status",
         "createdAt": "Registered"

@@ -24,6 +24,7 @@ const { adminApi } = await import("@/lib/api")
 const humanUser: AdminUser = {
   id: 10,
   email: "bob@example.com",
+  username: "bob",
   role: "user",
   isActive: true,
   approvalStatus: "approved",
@@ -35,6 +36,7 @@ const humanUser: AdminUser = {
 const agentUser: AdminUser = {
   id: 20,
   email: "ci-agent@internal",
+  username: "ci-agent",
   role: "user",
   isActive: true,
   approvalStatus: "approved",
@@ -123,5 +125,22 @@ describe("UsersTab · 用户批量空间授权入口", () => {
     ).toBeInTheDocument()
     expect(screen.getByText("默认空间")).toBeInTheDocument()
     expect(screen.getByText("团队空间")).toBeInTheDocument()
+  })
+
+  it("用户列表展示「用户名」列并渲染普通用户与 Agent 用户的用户名", async () => {
+    vi.mocked(adminApi.users).mockResolvedValue([humanUser, agentUser])
+
+    render(
+      <MemoryRouter>
+        <UsersTab />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByText("bob@example.com")).toBeInTheDocument()
+    expect(
+      screen.getByRole("columnheader", { name: "用户名" })
+    ).toBeInTheDocument()
+    expect(screen.getByText("bob")).toBeInTheDocument()
+    expect(screen.getByText("ci-agent")).toBeInTheDocument()
   })
 })

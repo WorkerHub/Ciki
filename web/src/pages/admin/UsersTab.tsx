@@ -179,6 +179,7 @@ export function UsersTab() {
           <TableHeader>
             <TableRow>
               <TableHead>{t("admin.users.table.email")}</TableHead>
+              <TableHead>{t("admin.users.table.username")}</TableHead>
               <TableHead>{t("admin.users.table.role")}</TableHead>
               <TableHead>{t("admin.users.table.status")}</TableHead>
               <TableHead>{t("admin.users.table.createdAt")}</TableHead>
@@ -191,7 +192,7 @@ export function UsersTab() {
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="py-6 text-center text-sm text-muted-foreground"
                 >
                   {t("admin.common.loading")}
@@ -200,7 +201,7 @@ export function UsersTab() {
             ) : users.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="py-6 text-center text-sm text-muted-foreground"
                 >
                   {filter === "pending"
@@ -234,6 +235,7 @@ export function UsersTab() {
                         </span>
                       ) : null}
                     </TableCell>
+                    <TableCell>{user.username}</TableCell>
                     <TableCell>
                       {user.role === "admin" ? (
                         <Badge variant="secondary">

@@ -140,6 +140,7 @@ function userDto(user: UserRow, ownerMap?: Map<number, UserOwnerSummary>) {
   return {
     id: user.id,
     email: user.email,
+    username: user.username,
     role: user.role,
     isActive: Boolean(user.is_active),
     approvalStatus: user.approval_status,
