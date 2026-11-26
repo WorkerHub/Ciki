@@ -65,7 +65,7 @@
 - `schema_v10`：为 `users` 表追加 `kind` 列（`TEXT NOT NULL DEFAULT 'human'`）和 `owner_user_id` 列（`INTEGER DEFAULT NULL`），引入 Agent 账号身份模型与归属关系。
 - `schema_v11`：新增 `notifications` 表及 `(recipient_id, read_at)`、`(recipient_id, created_at)` 索引，支撑评论通知持久化与未读/分页查询。
 - `schema_v12`：为 `users` 表追加 `bio` 列（`TEXT NOT NULL DEFAULT ''`），支持作者主页与个人资料展示一句话简介。
-- `schema_v13`：为 `users` 表追加 `theme_style` 列（`TEXT NOT NULL DEFAULT 'nova'`），支持主题风格（Nova / 纸面）与用户账号绑定同步。
+- `schema_v13`：为 `users` 表追加 `theme_style` 列（`TEXT NOT NULL DEFAULT 'nova'`），支持主题风格（Nova / 纸面 / 自然 / 墨纸 / Notion / 手绘 / 学术）与用户账号绑定同步。
 - `schema_v14`：为 `passkey_credentials` 表追加 `name` 列（`TEXT NOT NULL DEFAULT ''`，存量行按创建时间顺序回填「Passkey 1」「Passkey 2」…），为 `user_2fa` 表追加 `totp_name` 列（`TEXT NOT NULL DEFAULT ''`，存量已启用 TOTP 回填「TOTP」），支撑 Passkey 与 TOTP 自定义命名、展示与改名。
 - 已是当前形态的库再点一次只显示 `skipped`（空操作）；升级中断后重跑结果一致（校验全只读、建表全幂等、账本收敛）。
 
@@ -91,7 +91,7 @@
 | approval_status        | TEXT NOT NULL DEFAULT 'approved' | `pending` / `approved` / `rejected`                                                                                                                                                                                                                  |
 | email_verified         | INTEGER NOT NULL DEFAULT 0       | 1 = 邮箱已验证、可登录；自助注册为 0 并立即发验证码，首个管理员与管理员后台建号直接 1，存量用户在结构坍缩（`schema_v1` 之前那版）时已一律置 1                                                                                                        |
 | language               | TEXT NOT NULL DEFAULT 'zh'       | 界面语言，取值仅 `zh` / `en`（支持集在前后端各一份常量）；缺省与管理员建号 `zh`，自助注册按注册入参写入，用户可自改（`PUT /api/me/profile`），非法值不落库。明暗模式等纯前端偏好维持现状只存本地（不进数据库），主题风格跟账号走（存 `theme_style`） |
-| theme_style            | TEXT NOT NULL DEFAULT 'nova'     | 主题风格，取值仅 `nova` / `paper` / `natural` / `eink`；默认 `nova`；通过 `PUT /api/me/theme` 修改，非法值不落库                                                                                                                                     |
+| theme_style            | TEXT NOT NULL DEFAULT 'nova'     | 主题风格，取值仅 `nova` / `paper` / `natural` / `eink` / `notion` / `sketch` / `distill`；默认 `nova`；通过 `PUT /api/me/theme` 修改，非法值不落库                                                                                                   |
 | bio                    | TEXT NOT NULL DEFAULT ''         | 用户一句话简介（纯文本、上限 100 码点，人类用户可自改，Agent 账号恒为空串）                                                                                                                                                                          |
 | kind                   | TEXT NOT NULL DEFAULT 'human'    | 账号类型：`human`（人类用户，默认） / `agent`（Agent 账号）                                                                                                                                                                                          |
 | owner_user_id          | INTEGER DEFAULT NULL             | Agent 账号的所有者用户 ID（对应人类用户的 `id`）；人类用户此列固定为 `NULL`                                                                                                                                                                          |
@@ -870,7 +870,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 
 `id` 是内部整数主键（前端判断「是不是我」可以用它，但不要展示或复制给别人）；对外身份只有 `username`，`publicId` 字段已删除。`avatarUrl` 未设置头像时为 `null`；图片本身要会话才能读。`bio` 是一句话简介（纯文本，人类用户原样输出，Agent 账号恒为空串 `""`）。`language` 是界面语言（`zh` / `en`），登录后前端以它为准。受限会话也可访问（前端据此跳 2FA 设置）。`twofa` 的四个字段并列：`totpEnabled` / `passkeyEnabled` / `passkeyCount` / `emailOtpEnabled`（邮箱验证码开关，前端设置页靠这个字段名显示「已开启」并判断重认证）。
 `twofa` 扩展字段：`totpName`（开启时回显名字，未自定义时为 `"TOTP"`，未开启时为 `null`）；`passkeys` 为凭证列表数组（每项包含 `name`、`createdAt`、`lastUsedAt`、`credentialId`）。
-`themeStyle` 是主题风格（`nova` / `paper` / `natural` / `eink`，默认 `nova`），登录后前端以它为准；历史或非法值归一化兜底 `nova`；Agent 账号不作特殊处理（默认 `nova`）。
+`themeStyle` 是主题风格（`nova` / `paper` / `natural` / `eink` / `notion` / `sketch` / `distill`，默认 `nova`），登录后前端以它为准；历史或非法值归一化兜底 `nova`；Agent 账号不作特殊处理（默认 `nova`）。
 
 #### PUT /api/me/profile
 
@@ -899,8 +899,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```
 
 - 独立主题风格保存接口：只写 `users.theme_style` 一个字段，不连带其他资料字段。
-- 入参接受 `themeStyle`（或兼容 `style`），取值严格为 `"nova"`、`"paper"`、`"natural"` 或 `"eink"`。
-- 非法值（如非字符串、未知风格等）返回 400 `{"error":"themeStyle must be nova, paper, natural or eink","code":"INVALID_THEME_STYLE"}`。
+- 入参接受 `themeStyle`（或兼容 `style`），取值严格为 `"nova"`、`"paper"`、`"natural"`、`"eink"`、`"notion"`、`"sketch"` 或 `"distill"`。
+- 非法值（如非字符串、未知风格等）返回 400 `{"error":"themeStyle must be nova, paper, natural, eink, notion, sketch or distill","code":"INVALID_THEME_STYLE"}`。
 - 成功返回与 `GET /api/me` 完全相同的对象（复用 `meDto`）。
 - 同时提供 `PUT /api/me/theme-style` 作为别名端点。
 
@@ -2100,21 +2100,21 @@ CSP sandbox 强制 opaque origin（即便用户顶层打开 URL 亦无法访问�
   ```
 
   父页只在自动高度模式下 clamp 200–4000 后应用高度；固定高度模式不受干扰。
-  2. **主题下发（父→子）**：父页在阅读态下，iframe 的 `src` 追加 `?mode=<resolved>&style=<style>` 参数（`mode` 为已解析的 `"light" | "dark"`，`style` 为 `"nova" | "paper" | "natural" | "eink"`），确保首帧即按当前主题渲染、无亮色闪烁；iframe `load` 时向其 `contentWindow` 发送一次主题消息，且主题 store 的 `resolved` 或 `style` 变化时重发（`targetOrigin: "*"`）：
+  2. **主题下发（父→子）**：父页在阅读态下，iframe 的 `src` 追加 `?mode=<resolved>&style=<style>` 参数（`mode` 为已解析的 `"light" | "dark"`，`style` 为 `"nova" | "paper" | "natural" | "eink" | "notion" | "sketch" | "distill"`），确保首帧即按当前主题渲染、无亮色闪烁；iframe `load` 时向其 `contentWindow` 发送一次主题消息，且主题 store 的 `resolved` 或 `style` 变化时重发（`targetOrigin: "*"`）：
 
   ```json
   { "type": "ciki-embed-theme", "mode": "light", "style": "nova" }
   ```
 
--  子页注入脚本在启动时解析 URL 参数并同步设置 `document.documentElement` 的 `data-theme` 属性（`"nova" | "paper" | "natural" | "eink"`）与 `.dark` class（明暗切换）；同时监听父页 postMessage（严格校验 `event.source === window.parent` 及合法值），实时更新上述 DOM 属性与类名。
-- **作者契约**：注入脚本已自动对齐宿主 DOM 机制：`data-theme` 装风格（`"nova" | "paper" | "natural" | "eink"`），明暗切 `dark` class（与宿主同机制）。废除嵌入侧 `data-theme-style` 与 `data-theme="light|dark"`。嵌入内容作者只需按 `.dark` 与 `[data-theme="paper"]` 等选择器编写 CSS 变量即可无缝跟随站点主题切换；作者亦可自行监听 `ciki-embed-theme` 消息（接收 `mode` 与 `style` 字段）实现更细粒度的动效或逻辑切换。不监听、未写暗色 CSS 的旧嵌入页面行为完全不变。
+-  子页注入脚本在启动时解析 URL 参数并同步设置 `document.documentElement` 的 `data-theme` 属性（`"nova" | "paper" | "natural" | "eink" | "notion" | "sketch" | "distill"`）与 `.dark` class（明暗切换）；同时监听父页 postMessage（严格校验 `event.source === window.parent` 及合法值），实时更新上述 DOM 属性与类名。
+- **作者契约**：注入脚本已自动对齐宿主 DOM 机制：`data-theme` 装风格（`"nova" | "paper" | "natural" | "eink" | "notion" | "sketch" | "distill"`），明暗切 `dark` class（与宿主同机制）。废除嵌入侧 `data-theme-style` 与 `data-theme="light|dark"`。嵌入内容作者只需按 `.dark` 与 `[data-theme="paper"]` 等选择器编写 CSS 变量即可无缝跟随站点主题切换；作者亦可自行监听 `ciki-embed-theme` 消息（接收 `mode` 与 `style` 字段）实现更细粒度的动效或逻辑切换。不监听、未写暗色 CSS 的旧嵌入页面行为完全不变。
 - **三层对应表（定版口径）**：
 
-  | 语义层                       | 风格轴（Theme / Style）                                                                 | 明暗轴（Mode）                                                                            |
-  | ---------------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-  | **产品语义**                 | 产品「主题」（设置页「主题」、跟账号走）                                                | 「外观模式」/ 明暗（跟随系统 / 浅色 / 深色）                                              |
-  | **代码与协议**               | `style`（`ThemeStyle = "nova" \| "paper" \| "natural" \| "eink"`）/ `users.theme_style` | `mode`（`ThemeMode = "auto" \| "light" \| "dark"`，解析后 `resolved: "light" \| "dark"`） |
-  | **DOM 契约（宿主 & Embed）** | `html[data-theme="nova" \| "paper" \| "natural" \| "eink"]`                             | `html.dark`（暗色切 class）；`[data-mode="light" \| "dark"]`（仅宿主）                    |
+  | 语义层                       | 风格轴（Theme / Style）                                                                                                      | 明暗轴（Mode）                                                                            |
+  | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+  | **产品语义**                 | 产品「主题」（设置页「主题」、跟账号走）                                                                                     | 「外观模式」/ 明暗（跟随系统 / 浅色 / 深色）                                              |
+  | **代码与协议**               | `style`（`ThemeStyle = "nova" \| "paper" \| "natural" \| "eink" \| "notion" \| "sketch" \| "distill"`）/ `users.theme_style` | `mode`（`ThemeMode = "auto" \| "light" \| "dark"`，解析后 `resolved: "light" \| "dark"`） |
+  | **DOM 契约（宿主 & Embed）** | `html[data-theme="nova" \| "paper" \| "natural" \| "eink" \| "notion" \| "sketch" \| "distill"]`                             | `html.dark`（暗色切 class）；`[data-mode="light" \| "dark"]`（仅宿主）                    |
 
 - **安全边界不变**：注入脚本采用独立作用域与异常自吞，不得影响原文件自身脚本的执行。注入脚本走现行 CSP（`script-src 'unsafe-inline'` 已放行），不新增任何 CSP 指令或 iframe 权限（不加 allow-same-origin 等）。父页仅处理本 iframe 来源且类型匹配的消息，非法消息或恶意狂发数值均有严格钳制与丢弃机制。
 
@@ -2556,7 +2556,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 「数据库维护」页的最近一轮清理摘要取 `GET /api/admin/r2-cleanup` 的 `lastRun`，渲染一行（运行时间 + 计数）；手动清理走两步 UI：第一步 dry run 预览可清理数（`prunable`）与总大小（`prunableBytes`），第二步确认后实跑（`truncated: true` 时提示还有剩余）；`running` 非空时按钮禁用并显示「清理进行中」。按钮文案与确认细节见前端单。
 - 「数据库维护」页的体积行：一行 `数据库体积 X · 图片体积 Y · 正文体积 Z · 页面 N`，体积一律用 `formatBytes` 渲染（不另写格式化）。`databaseSizeBytes` 为 `null` 时写「不可得」；`assetsSizeBytes` / `contentSizeBytes` 为 `null` 时**整项不渲染**（与 D1 同一降级思路，不显示 0 或估算数），空桶的真 0 照实显示 `0 B`；`*ObjectCount` 本期不显示。
 - 设置页的两张卡：`API Token` 卡用 `GET/POST /api/me/tokens`、`PUT /api/me/tokens/:id/name`、`PUT /api/me/tokens/:id/spaces`、`DELETE /api/me/tokens/:id`（列表只回未吊销，创建 201 回明文一次、成功后面板一律重拉列表，不本地拼行）；「浏览器插件」卡用 `GET/POST /api/me/import-tokens` 与 `DELETE /api/me/import-tokens/:id`。
-- 明暗模式（自动 / 亮色 / 暗色，mode）维持现状只存本地（客户端 localStorage 持久化），主题风格（Nova / 纸面 / 自然 / 墨纸，themeStyle）跟用户账号走（服务端 users.theme_style 持久化，GET /api/me 返回、PUT /api/me/theme 更新）。
+- 明暗模式（自动 / 亮色 / 暗色，mode）维持现状只存本地（客户端 localStorage 持久化），主题风格（Nova / 纸面 / 自然 / 墨纸 / Notion / 手绘 / 学术，themeStyle）跟用户账号走（服务端 users.theme_style 持久化，GET /api/me 返回、PUT /api/me/theme 更新）。
 - 注册后按 `emailVerificationRequired` 分流：`true` → 跳「验证邮箱」页（输入 6 位码调 `POST /api/auth/email/verify`，页面提供重发按钮调 `POST /api/auth/email/resend`）；`false`（首个管理员、管理员后台建号）→ 直接去登录。该字段缺失视为 `false`。
 - 登录拿到 403 `EMAIL_NOT_VERIFIED` → 登录页给出「重新发送验证码」入口（`resend`，按钮按响应的 `cooldownSeconds` 倒计时），不要提示密码错误。403 `ACCOUNT_PENDING_APPROVAL` 是另一件事：等管理员批准。
 - 管理员在后台改用户邮箱只作废该用户未用的验证码、**不回退** `email_verified`（改完仍可登录）；「自助改邮箱后重新验证」属后续小单，本契约不含。

@@ -253,7 +253,7 @@ async function deleteReplacedAvatar(
 
 /**
  * 主题风格独立保存（规格「主题风格跟账号」）：只写 users.theme_style 一个字段，不连带其他资料字段。
- * 入参支持 themeStyle（或兼容 style），取值仅限 nova | paper | natural | eink。
+ * 入参支持 themeStyle（或兼容 style），取值仅限 nova | paper | natural | eink | notion | sketch | distill。
  * 非法值回 400 INVALID_THEME_STYLE，成功返回与 GET /api/me 相同的完整 me DTO。
  */
 async function handleThemeUpdate(c: Context<HonoEnv>) {
@@ -269,7 +269,8 @@ async function handleThemeUpdate(c: Context<HonoEnv>) {
   if (!isThemeStyle(candidate)) {
     return c.json(
       {
-        error: "themeStyle must be nova, paper, natural or eink",
+        error:
+          "themeStyle must be nova, paper, natural, eink, notion, sketch or distill",
         code: "INVALID_THEME_STYLE"
       },
       400
