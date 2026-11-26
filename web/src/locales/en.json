@@ -1233,6 +1233,8 @@
   "trash": {
     "title": "Trash",
     "currentSpace": "Current space: {{name}}.",
+    "allSpacesSummary": "All spaces summary.",
+    "allSpaces": "All spaces",
     "description": "Soft-deleted pages stay here together with their subpages; permanent deletion also clears the version history and cannot be undone.",
     "readOnly": "You are a read-only member and can only look.",
     "loadingLabel": "Loading the trash",
@@ -1241,12 +1243,32 @@
       "description": "Deleted pages land here first; you can restore them or delete them permanently.",
       "action": "Back to pages"
     },
-    "deletedAt": "Deleted {{relative}} ({{absolute}})",
     "restore": "Restore",
     "purge": "Delete permanently",
+    "clearTrash": "Empty trash",
+    "selectAll": "Select all",
+    "selectItem": "Select “{{title}}”",
+    "childCount_one": "Includes {{count}} subpage",
+    "childCount_other": "Includes {{count}} subpages",
+    "columns": {
+      "space": "Space",
+      "title": "Title",
+      "createdAt": "Created at",
+      "deletedAt": "Deleted at",
+      "actions": "Actions"
+    },
+    "batch": {
+      "selectedCount": "{{count}} selected",
+      "restore": "Restore selected",
+      "purge": "Delete permanently"
+    },
+    "batchResult": "{{success}} succeeded, {{failed}} failed",
+    "batchSuccess": "{{count}} succeeded",
     "purgeDialog": {
       "title": "Permanently delete “{{title}}”?",
-      "description": "The page and its entire version history will be deleted for good. This cannot be undone."
+      "batchTitle": "Permanently delete {{count}} items?",
+      "clearTitle": "Empty the trash?",
+      "description": "{{itemCount}} item(s), including {{totalCount}} subpages in total. The page and its entire version history will be deleted for good. This cannot be undone."
     }
   },
   "comments": {

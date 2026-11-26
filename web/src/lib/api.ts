@@ -507,9 +507,24 @@ export interface PageNode {
 export interface TrashNode {
   id: number
   parentId: number | null
+  spaceId: number
+  spaceName: string
   title: string
+  childCount: number
+  createdAt: string
   deletedAt: string
   updatedAt: string
+}
+
+export interface TrashBatchResultItem {
+  id: number
+  ok: boolean
+  error?: string
+  code?: string
+}
+
+export interface TrashBatchResponse {
+  results: TrashBatchResultItem[]
 }
 
 export interface PageDetail {
@@ -1245,6 +1260,8 @@ export const pagesApi = {
     api.get<PageNode[]>(`/pages${spaceQuery(spaceId)}`),
   trash: (spaceId?: number | null) =>
     api.get<TrashNode[]>(`/pages/trash${spaceQuery(spaceId)}`),
+  trashBatch: (action: "restore" | "purge", ids: number[]) =>
+    api.post<TrashBatchResponse>("/pages/trash/batch", { action, ids }),
   get: (id: number) => api.get<PageDetail>(`/pages/${id}`),
   /** 编辑态：在详情上追加 `contentJson`（服务端按 `content_hash` 从 R2 取）。 */
   getForEditor: (id: number) =>

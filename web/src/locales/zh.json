@@ -1218,6 +1218,8 @@
   "trash": {
     "title": "回收站",
     "currentSpace": "当前空间：{{name}}。",
+    "allSpacesSummary": "汇总全部空间。",
+    "allSpaces": "全部空间",
     "description": "软删除的页面会连同子页面一起停在这里；彻底删除会连版本历史一起清掉，无法恢复。",
     "readOnly": "你是只读成员，只能查看。",
     "loadingLabel": "回收站加载中",
@@ -1226,12 +1228,31 @@
       "description": "被删除的页面会先到这里，可以恢复或彻底删除。",
       "action": "回到页面"
     },
-    "deletedAt": "删除于 {{relative}}（{{absolute}}）",
     "restore": "恢复",
     "purge": "彻底删除",
+    "clearTrash": "清空回收站",
+    "selectAll": "全选",
+    "selectItem": "选择「{{title}}」",
+    "childCount_other": "含 {{count}} 个子页面",
+    "columns": {
+      "space": "空间",
+      "title": "标题",
+      "createdAt": "创建时间",
+      "deletedAt": "删除时间",
+      "actions": "操作"
+    },
+    "batch": {
+      "selectedCount": "已选 {{count}} 项",
+      "restore": "批量恢复",
+      "purge": "批量彻底删除"
+    },
+    "batchResult": "成功 {{success}} 项、失败 {{failed}} 项",
+    "batchSuccess": "成功 {{count}} 项",
     "purgeDialog": {
       "title": "彻底删除「{{title}}」？",
-      "description": "页面与它的全部版本记录会被永久删除，无法恢复。"
+      "batchTitle": "彻底删除选中的 {{count}} 项？",
+      "clearTitle": "清空回收站？",
+      "description": "共 {{itemCount}} 项条目，含子页面共 {{totalCount}} 篇。页面与它的全部版本记录会被永久删除，无法恢复。"
     }
   },
   "comments": {
