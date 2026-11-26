@@ -289,7 +289,7 @@ describe("令牌卡接入", () => {
     expect(meApi.tokens).toHaveBeenCalledTimes(1)
     expect(meApi.importTokens).toHaveBeenCalledTimes(1)
     expect(await screen.findByText("还没有 API Token")).toBeInTheDocument()
-    expect(screen.getByText("还没有插件凭证")).toBeInTheDocument()
+    expect(await screen.findByText("还没有插件凭证")).toBeInTheDocument()
     // 旧的三张卡（导入 / 只读 / 读写）不再渲染
     expect(screen.queryByText("导入令牌")).toBeNull()
     expect(screen.queryByText("只读接口令牌")).toBeNull()
@@ -653,8 +653,10 @@ describe("设置页 · 英文界面", () => {
     expect(screen.getByText(/Never used/)).toBeInTheDocument()
     expect(await screen.findByText("API Token")).toBeInTheDocument()
     expect(screen.getByText("Browser extension")).toBeInTheDocument()
-    expect(screen.getByText("No API Token yet")).toBeInTheDocument()
-    expect(screen.getByText("No extension credentials yet")).toBeInTheDocument()
+    expect(await screen.findByText("No API Token yet")).toBeInTheDocument()
+    expect(
+      await screen.findByText("No extension credentials yet")
+    ).toBeInTheDocument()
     expect(screen.getByText("Signed-in devices")).toBeInTheDocument()
   })
 })
