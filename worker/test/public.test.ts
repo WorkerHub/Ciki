@@ -13,7 +13,9 @@ describe("公开端点 GET /api/public", () => {
     expect(data).toEqual({
       name: "Ciki",
       repositoryUrl: "https://github.com/WorkerHub/Ciki",
-      version: "v1.2.3-4-gabcdef"
+      version: "v1.2.3-4-gabcdef",
+      openapi: "/api/openapi.json",
+      agentGuide: "/api/public/agent-guide"
     })
 
     // 防泄露铁律校验：绝无内部状态

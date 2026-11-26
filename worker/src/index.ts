@@ -1,35 +1,36 @@
 import { Hono } from "hono"
 import { DEFAULT_SITE_NAME } from "./core/identity"
-import { getSetting } from "./db/queries/settings"
-import { buildWebAppManifest } from "./lib/manifest"
-import { getTablePrefix, isValidTablePrefix } from "./lib/table-prefix"
+import { runAllBucketCleanups } from "./core/r2-cleanup"
 import { isEncryptionKeyUsable } from "./core/secret-box"
 import { wakerGateState } from "./core/waker-gate"
-import { runAllBucketCleanups } from "./core/r2-cleanup"
+import { getSetting } from "./db/queries/settings"
+import { buildOpenApiSpec } from "./docs/openapi"
+import { buildWebAppManifest } from "./lib/manifest"
+import { getTablePrefix, isValidTablePrefix } from "./lib/table-prefix"
 import { authMiddleware } from "./middleware/auth"
 import {
   commentAuthMiddleware,
   isCommentWriteRoute
 } from "./middleware/comment-auth"
+import { adminRoutes } from "./routes/admin"
 import { authRoutes } from "./routes/auth"
 import { auth2faRoutes } from "./routes/auth-2fa"
-import { meRoutes } from "./routes/me"
-import { adminRoutes } from "./routes/admin"
-import { publicRoutes } from "./routes/public"
-import { setupRoutes } from "./routes/setup"
-import { pageRoutes } from "./routes/pages"
 import { commentRoutes } from "./routes/comments"
-import { notificationRoutes } from "./routes/notifications"
-import { spaceRoutes } from "./routes/spaces"
-import { searchRoutes } from "./routes/search"
 import { fileRoutes } from "./routes/files"
 import { importRoutes } from "./routes/import"
+import { meRoutes } from "./routes/me"
+import { notificationRoutes } from "./routes/notifications"
+import { pageRoutes } from "./routes/pages"
+import { publicRoutes, UNKNOWN_VERSION } from "./routes/public"
 import { readRoutes } from "./routes/read"
-import { writeRoutes } from "./routes/write"
-import { wakerRoutes } from "./routes/waker"
+import { searchRoutes } from "./routes/search"
+import { setupRoutes } from "./routes/setup"
+import { spaceRoutes } from "./routes/spaces"
 import { userRoutes } from "./routes/users"
-import { CALLBACK_MOUNT_PATH } from "./waker"
+import { wakerRoutes } from "./routes/waker"
+import { writeRoutes } from "./routes/write"
 import type { Env, HonoEnv } from "./types"
+import { CALLBACK_MOUNT_PATH } from "./waker"
 
 export const app = new Hono<HonoEnv>()
 
@@ -67,6 +68,7 @@ app.use("/api/*", async (c, next) => {
 const PUBLIC_ROUTES: Array<[string, string]> = [
   ["GET", "/api/health"],
   ["GET", "/api/public"],
+  ["GET", "/api/openapi.json"],
   ["GET", "/api/auth/config"],
   ["POST", "/api/auth/register"],
   ["POST", "/api/auth/login"],
@@ -101,6 +103,8 @@ function isPublicRoute(method: string, path: string): boolean {
   if (path === "/api/read" || path.startsWith("/api/read/")) return true
   // 写接口只认读写令牌（第三张表）：会话 Cookie 与另两种令牌都在它的中间件里被拒。
   if (path === "/api/write" || path.startsWith("/api/write/")) return true
+  if (path === "/api/public" || path.startsWith("/api/public/")) return true
+  if (method === "GET" && path === "/api/openapi.json") return true
   return PUBLIC_ROUTES.some(([m, p]) => m === method && p === path)
 }
 
@@ -138,6 +142,12 @@ app.route("/api/users", userRoutes)
 
 // 存活探针。生效前缀不在这里暴露——它只经 setup / 管理面的接口回显。
 app.get("/api/health", (c) => c.json({ status: "ok" }))
+
+app.get("/api/openapi.json", (c) => {
+  c.header("Cache-Control", "public, max-age=60")
+  const version = (c.env.APP_VERSION ?? "").trim() || UNKNOWN_VERSION
+  return c.json(buildOpenApiSpec(version))
+})
 
 // 未命中的 API 一律 JSON 404：不能落到下面的 SPA 回落，否则调用方会把
 // "接口不存在"当成 200 的 HTML 页面。

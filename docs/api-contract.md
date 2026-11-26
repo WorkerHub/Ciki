@@ -440,11 +440,23 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 {
   "name": "Ciki",
   "repositoryUrl": "https://github.com/WorkerHub/Ciki",
-  "version": "v1.0.0-4-8227065"
+  "version": "v1.0.0-4-8227065",
+  "openapi": "/api/openapi.json",
+  "agentGuide": "/api/public/agent-guide"
 }
 ```
 
 响应头含 `Cache-Control: public, max-age=60`（不含私有字段，允许短期缓存；部署流水线自证时通过 `?t=<timestamp>` 穿透缓存）。防泄露铁律：严禁返回 `tablePrefix`、`setup_page_enabled`、数据库连接等任何内部配置。
+
+#### GET /api/openapi.json（公开，可缓存 60 秒）
+
+公开只读 OpenAPI 3.1 规范元数据，免鉴权，响应 `Content-Type: application/json` 与 `Cache-Control: public, max-age=60`。
+涵盖对外开放的全部令牌读接口（`/api/read/*`）、令牌写接口（`/api/write/*`）、支持 Agent 令牌的评论写接口（`/api/pages/:id/comments*`）与公开端点（`/api/public`）。`info.version` 与部署版本同源（读 `APP_VERSION`），携带契约版本 `x-contract-version: "1.0.0"`。
+
+#### GET /api/public/agent-guide（公开，可缓存 60 秒）
+
+公开只读 Agent 接入指引说明页，免鉴权，响应 `Content-Type: text/markdown; charset=utf-8` 与 `Cache-Control: public, max-age=60`。
+内容随构建打包自 `docs/agent-guide.md`，页首附带同源构建版本与契约版本行，详见 [agent-guide.md](agent-guide.md)。
 
 ### setup
 
@@ -2445,12 +2457,8 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 请求体与响应字段一律 snake_case（本文件 camelCase 通则的例外，见「一、通用约定」）。
 - 正文**只收 TipTap JSON**（`content_json`，字符串或对象均可）：服务端渲染 HTML → 消毒 → 派生纯文本与 MD，入参规范化与体积上限沿用站内口径（400 `code:"INVALID_CONTENT_JSON"`、413 `code:"PAYLOAD_TOO_LARGE"`）。**本期不收 Markdown**——服务端没有 md→JSON 转换链，调用方自行转换。
 - **Agent 画布写入规范（两步范式）与预览图生成回填**：
-  - **废除旧口径**：正式废止「外部调用方必须自行渲染并上传预览图」的旧规定。外部调用方（如 AI Agent）无需自行打包无头浏览器或 Canvas 库渲染预览图，预览图统一由 Ciki 浏览器端在阅读态按标准规格（2x、带背景）即时渲染并向服务端回填。
-  - **标准两步写入范式**：
-    1. 步骤一：通过 `POST /api/write/files` 上传 Excalidraw 场景 JSON 文件，获取返回的 `sceneKey`（形如 `pages/<uuid>.json`）；
-    2. 步骤二：调用 `POST /api/write/pages` 或 `PUT /api/write/pages/:id`，在 `content_json` 中插入 `excalidraw` 节点，节点必须携带合法的 `sceneKey`，并直接**省略 `previewKey`**（或置为空串）；
-  - **兼容性**：若调用方已自行渲染并生成合法预览图，带上合法 `previewKey`（`^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`），服务端继续完全兼容接收、直接落库；
-  - **校验规则**：`excalidraw` 节点中 `sceneKey` 为必填且必须匹配正则（`^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`），缺失或格式非法回 400 `code:"INVALID_CONTENT_JSON"`；`previewKey` 为可选，但若存在则必须匹配 png 正则，格式非法同样回 400 `code:"INVALID_CONTENT_JSON"`。该校验对站内保存与外部写接口同口径生效。
+  - 外部调用方两步法写入：上传场景 JSON（`POST /api/write/files`）获得 `sceneKey`，在 `content_json` 中构造 `excalidraw` 节点并省略 `previewKey`；网页端在阅读态按标准规格即时渲染并向服务端回填预览图。兼容性：若带合法 `previewKey` 照常接收落库。
+  - 校验规则：`excalidraw` 节点 `sceneKey` 必填且匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`；可选 `previewKey` 若存在须匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`；非法均回 400 `code:"INVALID_CONTENT_JSON"`。详细操作指引见 [agent-guide.md](agent-guide.md)（实例端点：`GET /api/public/agent-guide`）。
 - 限流沿用 `auth_counters`：失败按 IP（`write_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`write` 600 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
 - 每次成功调用刷新令牌的 `lastUsedAt`。
 
