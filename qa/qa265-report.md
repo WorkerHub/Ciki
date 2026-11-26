@@ -1,14 +1,17 @@
 ## 验收报告（QA 实测，2026-11-27，生产站点）
 
-**结论：9 项中 8 项完全通过（接口层 + 真实页面双测均通过），第 4 项「长度 >48」子项在页面层不成立 → 整体有条件通过；第 4 项需产品/实现者裁决，其余 8 项签收通过。**
+**最终结论：9 项全部通过，签收通过。**
 
-证据件：本分支 `qa/qa265-evidence/`（指标 JSON、计数器脱敏 dump、GraphQL 只读分析日志、19 张页面截图），本报告：`qa/qa265-report.md`。
+- 首轮（`v1.0.0-320-bcdac31`）：9 项中 8 项通过，第 4 项「长度 >48」子项在页面层不成立（前端 `maxlength=48` 静默截断）。
+- 返修（PR #308 / `2cc27e1`，移除 slug 输入框 `maxLength`）已合入并部署（`v1.0.0-321-2cc27e1`）后，仅重验第 4 项「长度 >48」页面层：7/7 判定全通过（见下文「返修复验」章节）；其余 8 项与第 4 项其余 7 个子项的既有签收结论不变，未重测。
+
+证据件：本分支 `qa/qa265-evidence/`（指标 JSON、计数器脱敏 dump、GraphQL 只读分析日志、22 张页面截图），本报告：`qa/qa265-report.md`。
 
 ### 验收环境
 
-- 生产站点 `https://ciki.oneboy.app`；实测版本 `v1.0.0-320-bcdac31`（页面页脚 `Ciki · 1.0.0 · bcdac31+build.320`）。
+- 生产站点 `https://ciki.oneboy.app`；首轮实测版本 `v1.0.0-320-bcdac31`（页面页脚 `Ciki · 1.0.0 · bcdac31+build.320`），返修复验实测版本 `v1.0.0-321-2cc27e1`（`GET /api/public` 自证）。
 - 规格里记的 main HEAD `d8322dc` 已被生产上的 `bcdac31` 超越；`bcdac31` 包含 PR #305（服务端 slug 写入）+ #306（前端 slug 编辑），故本次验收对象是**含目标提交的更新部署**，不是 `d8322dc` 本身。
-- 测试数据（全部为 QA265 专用，测完已清理）：管理员 `qa265admin`(id 18324)、普通成员 `qa265editor`(id 18325，主测空间内 editor)、主测空间 id 22、冲突对照空间 id 23（slug `qa265-slug-conflict`）、验收页 id 434、read 令牌 id 22（限主测空间）、write 令牌 id 23。
+- 测试数据（全部为 QA265 专用，测完已清理）：首轮 — 管理员 `qa265admin`(id 18324)、普通成员 `qa265editor`(id 18325，主测空间内 editor)、主测空间 id 22、冲突对照空间 id 23（slug `qa265-slug-conflict`）、验收页 id 434、read 令牌 id 22（限主测空间）、write 令牌 id 23；返修复验 — 管理员 `qa265radmin`(id 18326)、专用空间 id 24（slug `qa265r-slug-length`）。
 - 测法：真实 Chromium（Playwright，登录生产真实页面）+ 真实 HTTP 请求；生产写操作只落在上述 QA265 专用空间/用户，未触碰任何其他真实空间。
 
 ### 逐项签收
@@ -36,16 +39,16 @@
 - 结果：通过。`PUT /api/spaces/22 {"slug":"qa265-slug-conflict"}` → **409** `{"error":"Space slug is already taken","code":"SPACE_SLUG_TAKEN"}`；改后读回 slug 仍是 `qa265-slug-renamed`；页面层字段下方红字「这个空间地址已被占用」（`aria-invalid=true`，输入框红框），请求状态 409，slug 未变。
 - 证据：`metrics/api-results.json` → A3；`metrics/ui-results.json` → U3；`shots/u3-conflict.png`。
 
-**4. 格式非法逐项拒绝（字段级报错并拦保存） —— ⚠️ 部分不通过：接口层 8/8 通过；页面层 7/8，「长度 >48」子项不成立**
+**4. 格式非法逐项拒绝（字段级报错并拦保存） —— ✅ 通过（首轮接口层 8/8、页面层 7/8；返修后页面层 8/8）**
 
 - 标准：大写、空格、下划线、首尾连字符、连续连字符、长度 >48、空值 → 字段级报错并拦保存。
 - 测法：接口层 8 种各发一次 `PUT` 并逐条读回 slug；页面层 8 种各在输入框输入并点「保存」，读字段错误文案、`aria-invalid`、是否真的发出 `PUT /api/spaces/:id`。
-- 结果（接口层 8/8 通过）：每种都 **400** `{"code":"INVALID_SPACE_SLUG","error":"Space slug must be 1-48 characters of lowercase letters, numbers and hyphens"}`，且空间 slug 每次都没变。明细：大写 `QA265-Upper`、空格 `qa265 slug`、下划线 `qa265_slug`、首连字符 `-qa265`、尾连字符 `qa265-`、连续连字符 `qa265--x`、49 位、空串。
-- 结果（页面层 7/8 通过）：大写、空格、下划线、首/尾连字符、连续连字符、空值 → 输入框下方红字「只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符」，`aria-invalid=true`，**一次 PUT 都没发出**（0 请求），空间 slug 未变。
-- **不通过子项「长度 >48」**：地址输入框带 `maxlength=48`（DOM 实测 `maxlength="48"`），填入 49 位后浏览器按值清洗规则把内容**静默截断成 48 位**（截断后本身合法），于是既没有字段级报错（`aria-invalid=false`、无红字），保存请求也照常发出（PUT=1），空间 slug 被改成截断后的 48 位 `aaaa…a`（读回 `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`）。也就是说：>48 的非法值确实没能被保存（这点达成），但不是规格写的「字段级报错并拦保存」，用户看不到任何提示。
-  - 复现路径：登录 → 空间设置 → 「空间地址」填 49 个字符 → 点「保存」→ 观察：无报错提示，slug 变成前 48 个字符。
-  - 证据：`metrics/ui-results.json` → U4（`maxlengthAttribute: "48"`、`lengthItemNote`、8 条逐项明细）；`shots/u4-invalid.png`。
-- 待裁决：是否接受「输入框截断」作为 >48 的处理方式。若不接受，需实现者调整（去掉 `maxlength` 或在截断时提示）。QA 不代改代码。
+- 结果（接口层 8/8 通过，首轮实测）：每种都 **400** `{"code":"INVALID_SPACE_SLUG","error":"Space slug must be 1-48 characters of lowercase letters, numbers and hyphens"}`，且空间 slug 每次都没变。明细：大写 `QA265-Upper`、空格 `qa265 slug`、下划线 `qa265_slug`、首连字符 `-qa265`、尾连字符 `qa265-`、连续连字符 `qa265--x`、49 位、空串。
+- 结果（页面层，首轮 7/8）：大写、空格、下划线、首/尾连字符、连续连字符、空值 → 输入框下方红字「只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符」，`aria-invalid=true`，**一次 PUT 都没发出**（0 请求），空间 slug 未变。
+- 首轮唯一不通过子项「长度 >48」：地址输入框带 `maxlength=48`（DOM 实测 `maxlength="48"`），填入 49 位后浏览器按值清洗规则把内容**静默截断成 48 位**（截断后本身合法），于是既没有字段级报错（`aria-invalid=false`、无红字），保存请求也照常发出（PUT=1），空间 slug 被改成截断后的 48 位。
+  - 复现路径（首轮）：登录 → 空间设置 → 「空间地址」填 49 个字符 → 点「保存」→ 观察：无报错提示，slug 变成前 48 个字符。
+  - 首轮证据：`metrics/ui-results.json` → U4（`maxlengthAttribute: "48"`、`lengthItemNote`、8 条逐项明细）；`shots/u4-invalid.png`。
+- **返修后的结论（现行为准）**：实现者以 PR #308（`2cc27e1`）移除 slug 输入框的 `maxLength`，改由既有 `isValidSpaceSlug` 即时校验。生产已部署 `v1.0.0-321-2cc27e1`，复验第 4 项「长度 >48」页面层 **7/7 判定全通过**（逐字键入 49 位不截断、字段级报错、`aria-invalid=true`、保存被拦住不发 PUT、slug 不变、改回合法值错误即时清除、改回后可正常保存 200），详见下文「返修复验」。→ **第 4 项整体通过。**
 
 **5. 相同 slug 提交 → 无操作成功 —— ✅ 通过**
 
@@ -78,7 +81,23 @@
 - 结果：通过。200 → `{"spaces":[{"id":22,"name":"QA265-Slug-Primary-Renamed","slug":"qa265-slug-renamed"}]}` —— 返回的是改名后的 slug。
 - 证据：`metrics/api-results.json` → A9。
 
-### 生产数据清理与终核（已完成）
+### 返修复验（PR #308 / `2cc27e1` 已合入并部署，仅重验第 4 项「长度 >48」页面层）
+
+- 背景：首轮第 4 项页面层唯一不通过子项由实现者以 PR #308（`fix(web): remove space slug maxlength and validate length in place`，`2cc27e1`）返修：移除 slug 输入框 `maxLength`，继续用既有 `isValidSpaceSlug` 即时校验与保存前拦截。生产 `GET /api/public` 自证已部署 `v1.0.0-321-2cc27e1`，本节复验以该版本为准。
+- 范围与测法：只重验第 4 项「长度 >48」页面层（其余 8 项与第 4 项其余子项的既有签收不变，不重测）。新铸专用数据：管理员 `qa265radmin`(id 18326) + 空间 id 24（slug `qa265r-slug-length`）；真实 Chromium 逐字键入并读 DOM、字段错误、`aria-invalid`、PUT 请求数与接口读回。
+- 判定 7/7 全部通过：
+  1. slug 输入框已无 `maxlength`（`getAttribute('maxlength')=null`，DOM `maxLength=-1`）；
+  2. 逐字键入 49 位合法字符后值仍为 49 位，不被截断；
+  3. 字段下方出现红字「只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符」，`aria-invalid=true`；
+  4. 点「保存」被拦住：PUT 数=0，接口读回 slug 仍 `qa265r-slug-length`，错误仍在；
+  5. 改回合法值后错误即时清除（错误列表空、`aria-invalid=false`）；
+  6. 改回合法值后保存正常：PUT 200、绿色状态「已保存，切换器里的名称同步更新。」、slug 不变；
+  7. 附加抽检：大写、空值仍字段级报错且不发 PUT（超出本次重验范围，仅确认无回归）。
+  - 控制台错误 0。截图：`shots/r4-length-invalid.png`（49 位 + 红字报错）、`shots/r4-length-save-blocked.png`、`shots/r4-length-cleared.png`（恢复合法值）；结果件：`metrics/ui-recheck-results.json`。
+- 复验数据拆除与终核（对账基线为复验前另取的 `baseline-recheck.json`）：13 项计数逐表与复验前一致（users 4、sessions 14、spaces 7、space_members 21、pages 380、pages_fts 367、page_revisions 815、comments 5、notifications 0、api_tokens 9、token_space_scopes 0、import_tokens 1、pages_active 380）；残留扫描 11 项全 0；孤儿复查与基线一致（sessions 5、api_tokens 4 为基线既有噪音）；R2 `ciki-assets` 1406/1406、`ciki-content` 991/991，无新增无消失；`auth_counters` 现在 168 行 = 复验前基线 168 行，QA265 相关行 0（本轮无令牌调用，未触发 `resetCounter`，无源移行）；已删账号再访问 `/api/spaces/24` → 401。证据：`metrics/recheck-verify.json`、`metrics/baseline-recheck-redacted.json`。
+- 本轮过程脚本全部在 `/tmp/ciki-qa265/`，未进工作树；`state-recheck.json`（含口令）测完已删。
+
+### 生产数据清理与终核（首轮，已完成）
 
 - 删除：`page_revisions(434)`、`pages_fts(434)`、`pages(434)`、`token_space_scopes(22,23)`、`api_tokens(22,23)`、`space_members(22,23)`、`spaces(22,23)`、`sessions(用户 18324/18325)`、`users(18324,18325)`；`auth_counters` 里 key 含 18324/18325 的 **3 行**：`read_token:18324:`（建 read 令牌时写）、`write_token:18324:`（建 write 令牌时写）、`read:18324:`（用 read 令牌调读接口时写）。
 - 终核计数与基线（`2026-11-26T19:47:49Z`）逐表一致：users 4、spaces 7、pages 380、pages_fts 367、page_revisions 815、sessions 14、space_members 21、api_tokens 9、token_space_scopes 0、comments 5、notifications 0、import_tokens 1、pages_active 380。
@@ -118,6 +137,6 @@
 - 入库证据已脱敏：计数器 dump 的 IP 掩码，基线里的真实空间名去掉（只留 id/slug），结果 JSON 与截图中无会话令牌/口令。
 - 页面层控制台错误仅 1 条：`Failed to load resource: the server responded with a status of 409 ()`（第 3 项冲突用例的预期响应），其余无错误。
 
-### 未决（需产品与实现者裁决）
+### 未决事项：已全部关闭
 
-- 第 4 项「长度 >48」：接口层严格 400；页面层因 `maxlength=48` 静默截断，既无字段级提示，又按截断后的 48 位保存。是否接受这种处理方式需产品确认；若不接受，需要实现者调整。QA 只记录，不代改。
+- 第 4 项「长度 >48」：实现者以 PR #308（`2cc27e1`）移除 `maxlength`、改用即时校验拦截，生产已部署 `v1.0.0-321-2cc27e1`；复验 7/7 通过（见上文「返修复验」），第 4 项整体转为通过，**无未决项**。

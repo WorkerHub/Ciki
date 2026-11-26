@@ -1,0 +1,202 @@
+{
+ "at": "2026-11-26T22:14:17.622Z",
+ "minted": {
+  "userId": 18326,
+  "spaceId": 24,
+  "slug": "qa265r-slug-length"
+ },
+ "counts": {
+  "users": 4,
+  "sessions": 14,
+  "spaces": 7,
+  "space_members": 21,
+  "pages": 380,
+  "pages_fts": 367,
+  "page_revisions": 815,
+  "comments": 5,
+  "notifications": 0,
+  "api_tokens": 9,
+  "token_space_scopes": 0,
+  "import_tokens": 1
+ },
+ "baselineCounts": {
+  "users": 4,
+  "sessions": 14,
+  "spaces": 7,
+  "space_members": 21,
+  "pages": 380,
+  "pages_fts": 367,
+  "page_revisions": 815,
+  "comments": 5,
+  "notifications": 0,
+  "api_tokens": 9,
+  "token_space_scopes": 0,
+  "import_tokens": 1,
+  "pages_active": 380,
+  "spaces_of_qa265": 0,
+  "users_of_qa265": 0
+ },
+ "countDiffs": {
+  "users": {
+   "now": 4,
+   "base": 4,
+   "same": true
+  },
+  "sessions": {
+   "now": 14,
+   "base": 14,
+   "same": true
+  },
+  "spaces": {
+   "now": 7,
+   "base": 7,
+   "same": true
+  },
+  "space_members": {
+   "now": 21,
+   "base": 21,
+   "same": true
+  },
+  "pages": {
+   "now": 380,
+   "base": 380,
+   "same": true
+  },
+  "pages_fts": {
+   "now": 367,
+   "base": 367,
+   "same": true
+  },
+  "page_revisions": {
+   "now": 815,
+   "base": 815,
+   "same": true
+  },
+  "comments": {
+   "now": 5,
+   "base": 5,
+   "same": true
+  },
+  "notifications": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  },
+  "api_tokens": {
+   "now": 9,
+   "base": 9,
+   "same": true
+  },
+  "token_space_scopes": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  },
+  "import_tokens": {
+   "now": 1,
+   "base": 1,
+   "same": true
+  }
+ },
+ "residue": [
+  {
+   "t": "users",
+   "n": 0
+  },
+  {
+   "t": "spaces",
+   "n": 0
+  },
+  {
+   "t": "pages",
+   "n": 0
+  },
+  {
+   "t": "sessions",
+   "n": 0
+  },
+  {
+   "t": "space_members",
+   "n": 0
+  },
+  {
+   "t": "api_tokens",
+   "n": 0
+  },
+  {
+   "t": "token_space_scopes",
+   "n": 0
+  },
+  {
+   "t": "page_revisions",
+   "n": 0
+  },
+  {
+   "t": "pages_fts",
+   "n": 0
+  },
+  {
+   "t": "comments",
+   "n": 0
+  },
+  {
+   "t": "auth_counters",
+   "n": 0
+  }
+ ],
+ "orphan": {
+  "pages_fts": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  },
+  "page_revisions": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  },
+  "space_members": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  },
+  "sessions": {
+   "now": 5,
+   "base": 5,
+   "same": true
+  },
+  "api_tokens": {
+   "now": 4,
+   "base": 4,
+   "same": true
+  },
+  "comments": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  }
+ },
+ "r2": {
+  "assets": {
+   "now": 1406,
+   "base": 1406,
+   "added": [],
+   "removed": []
+  },
+  "contents": {
+   "now": 991,
+   "base": 991,
+   "added": [],
+   "removed": []
+  }
+ },
+ "authCounters": {
+  "now": 168,
+  "base": 168,
+  "qaRelated": []
+ },
+ "deletedAccountProbe": {
+  "path": "/api/spaces/24",
+  "status": 401
+ }
+}

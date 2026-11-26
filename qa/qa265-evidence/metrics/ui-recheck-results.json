@@ -1,0 +1,140 @@
+{
+ "at": "2026-11-26T22:12:57.431Z",
+ "base": "https://ciki.oneboy.app",
+ "deployedVersion": null,
+ "space": {
+  "id": 24,
+  "name": "QA265R-Slug-Length",
+  "slug": "qa265r-slug-length"
+ },
+ "input": "qa265raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+ "results": [
+  {
+   "id": "R1",
+   "criterion": "返修点：slug 输入框已无 maxLength（不再由浏览器静默截断）",
+   "method": "真实 Chromium 打开 /s/<slug>/settings，读取 #space-slug 的 maxlength 属性与 DOM maxLength 属性值",
+   "expected": "maxlength 属性不存在（getAttribute 返回 null），DOM maxLength 为 -1（表示无限制）",
+   "actual": "getAttribute('maxlength')=null；el.maxLength=-1",
+   "result": "PASS",
+   "evidence": {
+    "maxlengthAttribute": null,
+    "domMaxLength": -1,
+    "footerVersion": null,
+    "pageUrl": "https://ciki.oneboy.app/s/qa265r-slug-length/settings"
+   }
+  },
+  {
+   "id": "R2",
+   "criterion": "返修点：键入 49 位合法字符后字段值不再被静默截断",
+   "method": "真实 Chromium 在 #space-slug 里逐字键入 49 个字符（逐键事件，非 fill 赋值）→ 读回字段实际值与长度",
+   "expected": "字段值长度为 49，内容与输入完全一致（无截断）",
+   "actual": "字段值长度=49；内容=\"qa265raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"；maxlength 属性=null；el.maxLength=-1",
+   "result": "PASS",
+   "evidence": {
+    "input": "qa265raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fieldValue": "qa265raaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fieldValueLength": 49,
+    "maxlengthAfterTyping": -1,
+    "domMaxLengthAfterTyping": -1
+   }
+  },
+  {
+   "id": "R3",
+   "criterion": "返修点：超长时显示字段级错误并标记 aria-invalid",
+   "method": "键入 49 位后读取表单内 role=alert 文案与 #space-slug 的 aria-invalid 属性",
+   "expected": "字段下方出现「只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符」，aria-invalid=true",
+   "actual": "字段错误=[\"只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符\"]；aria-invalid=\"true\"",
+   "result": "PASS",
+   "evidence": {
+    "fieldAlerts": [
+     "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+    ],
+    "ariaInvalid": "true",
+    "expectedMessage": "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符",
+    "shot": "shots/r4-length-invalid.png"
+   }
+  },
+  {
+   "id": "R4",
+   "criterion": "返修点：超长时保存被拦住（不发 PUT），slug 不变",
+   "method": "点「保存」→ 统计该次会话内对 /api/spaces/:id 的 PUT 请求数，并从接口读回 slug",
+   "expected": "一次 PUT 都不发；接口读回 slug 仍为原值；字段错误仍在",
+   "actual": "发出的 PUT 数=0；接口读回 slug=qa265r-slug-length；保存后字段错误=[\"只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符\"]",
+   "result": "PASS",
+   "evidence": {
+    "putCalls": [],
+    "apiSlugAfter": "qa265r-slug-length",
+    "expectedSlug": "qa265r-slug-length",
+    "fieldAlertsAfterSave": [
+     "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+    ],
+    "shot": "shots/r4-length-save-blocked.png"
+   }
+  },
+  {
+   "id": "R5",
+   "criterion": "返修点：改回合法值后字段级错误即时清除",
+   "method": "把 #space-slug 改回合法 slug（不点保存）→ 立即读取表单内 role=alert 是否已清空",
+   "expected": "字段错误文案消失（alerts 为空），aria-invalid 复位为 false",
+   "actual": "改回合法值后字段错误=[]；aria-invalid=\"false\"；字段值=\"qa265r-slug-length\"",
+   "result": "PASS",
+   "evidence": {
+    "fieldAlerts": [],
+    "ariaInvalid": "false",
+    "fieldValue": "qa265r-slug-length",
+    "shot": "shots/r4-length-cleared.png"
+   }
+  },
+  {
+   "id": "R6",
+   "criterion": "返修点：改回合法值后保存恢复正常（PUT 200、slug 不变）",
+   "method": "在已清除错误的状态下点「保存」→ 读 PUT 状态、状态提示与接口读回 slug",
+   "expected": "PUT 返回 200；出现成功状态提示；slug 不变；无字段错误",
+   "actual": "PUT 状态=[200]；状态提示=[\"已保存，切换器里的名称同步更新。\"]；字段错误=[]；接口读回 slug=qa265r-slug-length",
+   "result": "PASS",
+   "evidence": {
+    "putStatus": [
+     200
+    ],
+    "statusMsgs": [
+     "已保存，切换器里的名称同步更新。"
+    ],
+    "fieldAlerts": [],
+    "apiSlugAfter": "qa265r-slug-length"
+   }
+  },
+  {
+   "id": "R7",
+   "criterion": "附加抽检（超出本次重验范围）：大写 / 空值 仍显示字段级错误且不发 PUT",
+   "method": "为验证移除 maxLength 未削弱其余子项，顺手抽检 2 个子项（不点保存成功路径，不产生写库变更）",
+   "expected": "大写、空值都出现字段级错误且一次 PUT 都不发；slug 不变",
+   "actual": "抽检结果=[{\"label\":\"大写\",\"输入\":\"QA265R-Upper\",\"字段错误\":[\"只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符\"],\"ariaInvalid\":\"true\",\"发出的PUT数\":0},{\"label\":\"空值\",\"输入\":\"\",\"字段错误\":[\"只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符\"],\"ariaInvalid\":\"true\",\"发出的PUT数\":0}]；接口读回 slug=qa265r-slug-length",
+   "result": "PASS",
+   "evidence": {
+    "spot": [
+     {
+      "label": "大写",
+      "输入": "QA265R-Upper",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0
+     },
+     {
+      "label": "空值",
+      "输入": "",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0
+     }
+    ],
+    "apiSlugAfter": "qa265r-slug-length",
+    "note": "仅抽检 2 项，不替代原第 4 项其余 7 子项的既有签收"
+   }
+  }
+ ],
+ "consoleErrors": []
+}
