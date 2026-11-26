@@ -63,12 +63,7 @@ import {
 import { formatAgentAuthor } from "@/lib/agent-display"
 import { formatDate } from "@/lib/format"
 import { adminSpacesPath, spacePath, spaceSettingsPath } from "@/lib/routes"
-import {
-  canManage,
-  effectiveRole,
-  isValidSpaceSlug,
-  MAX_SPACE_SLUG_LENGTH
-} from "@/lib/space"
+import { canManage, effectiveRole, isValidSpaceSlug } from "@/lib/space"
 import { countNodes } from "@/lib/tree"
 import { useAuthStore } from "@/stores/auth"
 import { useSpacesStore } from "@/stores/spaces"
@@ -467,7 +462,6 @@ export function SpaceSettingsPage() {
                 <Input
                   id="space-slug"
                   name="space-slug"
-                  maxLength={MAX_SPACE_SLUG_LENGTH}
                   value={slugValue}
                   onChange={(event) => handleSlugChange(event.target.value)}
                   autoCapitalize="none"

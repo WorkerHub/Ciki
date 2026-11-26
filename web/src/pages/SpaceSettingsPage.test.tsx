@@ -206,6 +206,7 @@ describe("空间设置与成员管理", () => {
 
     const slugInput = await screen.findByLabelText("空间地址")
     expect(slugInput).toHaveValue("pay-team")
+    expect(slugInput).not.toHaveAttribute("maxLength")
     expect(slugInput).toHaveAttribute("aria-invalid", "false")
 
     // 输入大写与下划线
@@ -229,6 +230,29 @@ describe("空间设置与成员管理", () => {
       )
     ).toBeNull()
     expect(slugInput).toHaveAttribute("aria-invalid", "false")
+  })
+
+  it("空间地址输入超过 48 字符时不截断、显示字段级错误且阻拦保存", async () => {
+    const user = userEvent.setup()
+    renderSettings()
+
+    const slugInput = await screen.findByLabelText("空间地址")
+    expect(slugInput).toHaveValue("pay-team")
+    expect(slugInput).not.toHaveAttribute("maxLength")
+    expect(slugInput).not.toHaveAttribute("maxlength")
+
+    const overLengthSlug = "a".repeat(49)
+    await user.clear(slugInput)
+    await user.type(slugInput, overLengthSlug)
+
+    expect(slugInput).toHaveValue(overLengthSlug)
+    expect(
+      screen.getByText("只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符")
+    ).toBeInTheDocument()
+    expect(slugInput).toHaveAttribute("aria-invalid", "true")
+
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    expect(spacesApi.update).not.toHaveBeenCalled()
   })
 
   it("校验早退时清理旧的成功或错误提示", async () => {
