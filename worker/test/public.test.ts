@@ -3,7 +3,7 @@ import { UNKNOWN_VERSION } from "../src/routes/public"
 import { makeContext, request } from "./support/app"
 
 describe("公开端点 GET /api/public", () => {
-  it("免鉴权访问，返回版本、站点名与仓库地址，且绝不泄露内部配置", async () => {
+  it("免鉴权访问，返回版本与站点名，且绝不泄露内部配置与仓库地址", async () => {
     const { env } = makeContext({ APP_VERSION: "v1.2.3-4-gabcdef" })
 
     const res = await request(env, "/api/public")
@@ -12,13 +12,13 @@ describe("公开端点 GET /api/public", () => {
     const data = (await res.json()) as Record<string, unknown>
     expect(data).toEqual({
       name: "Ciki",
-      repositoryUrl: "https://github.com/WorkerHub/Ciki",
       version: "v1.2.3-4-gabcdef",
       openapi: "/api/openapi.json",
       agentGuide: "/api/public/agent-guide"
     })
 
     // 防泄露铁律校验：绝无内部状态
+    expect(data.repositoryUrl).toBeUndefined()
     expect(data.tablePrefix).toBeUndefined()
     expect(data.setup_page_enabled).toBeUndefined()
     expect(data.setupPageEnabled).toBeUndefined()
