@@ -1,0 +1,12 @@
+HTTP/2 201 
+date: Thu, 26 Nov 2026 08:24:55 GMT
+content-type: application/json
+content-length: 158
+cache-control: no-store
+strict-transport-security: max-age=15552000
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=3I1vKEQwdE58DNFxaDC0bDedRGw1TdfMJWTvdYMOvNBj9b3xKd%2FB6GJ7flaKg1pI%2FGXN0dXyipHeNimRNu6DXdquTZzEx8sLhiBRX2Sl00YLzebFaWZMRO%2Bh2GTloyk84UI%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: a6077fddcb3cc69d-LAX
+alt-svc: h3=":443"; ma=86400
+

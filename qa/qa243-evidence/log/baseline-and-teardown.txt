@@ -1,0 +1,11 @@
+== 生产基线（测试前，2026-11-26）==
+D1 ciki(af4434ef-c73f-4c69-80b7-56695e6737fe) TABLE_PREFIX=无前缀
+users=4 spaces=8 space_members=21 pages=389 active_pages=387 api_tokens=9 sessions=14 comments=8 notifications=0
+R2 bucket ciki-assets 对象数=1389（前缀分布 avatars=2 embeds=376 imports=972 pages=39）
+
+== 测试后（拆除完成）==
+D1 users=4 spaces=8 space_members=21 pages=389 active_pages=387 api_tokens=9 sessions=14 comments=8 notifications=0
+R2 bucket ciki-assets 对象数=1390（= 基线 1389 + 测试期间他人并发上传 1 个 embeds/141c80c2-…html，非本次验收物）
+本次验收物 R2 读回：3 个 key 全部 HTTP 404
+本次铸造行残留：qa_users=0 qa_tokens=0 qa_counters=0
+已吊销令牌复测：/api/read/spaces 返回 401（令牌已失效）

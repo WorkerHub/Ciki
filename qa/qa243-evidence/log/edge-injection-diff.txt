@@ -1,0 +1,22 @@
+== A1(read 令牌) ==
+响应字节数=1477 上传文件字节数=363 插入片段=1114 字节
+插入片段前 80 字节: b'script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.con'
+插入片段后 60 字节: b'State&&(document.onreadystatechange=e,c())}}}})();</script><'
+插入片段含 cdn-cgi: True；含 __CF$cv$params: True
+剥离插入片段后与上传文件逐字节一致: True
+响应含应用侧注入标记 ciki-embed-height: False
+
+== A2(write 令牌) ==
+响应字节数=1477 上传文件字节数=363 插入片段=1114 字节
+插入片段前 80 字节: b'script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.con'
+插入片段后 60 字节: b'State&&(document.onreadystatechange=e,c())}}}})();</script><'
+插入片段含 cdn-cgi: True；含 __CF$cv$params: True
+剥离插入片段后与上传文件逐字节一致: True
+响应含应用侧注入标记 ciki-embed-height: False
+
+A1 与 A2 响应是否相同: False
+A1 头部 cf-ray: ['cf-ray: a6077ff659b5b5d4-LAX']
+A2 头部 cf-ray: ['cf-ray: a6077ffee918adfc-LAX']
+
+== SPA 首页（GET /）同样被注入 → 属 zone 级边缘行为 ==
+root.html 含 __CF$cv$params: True ；含 cdn-cgi: True

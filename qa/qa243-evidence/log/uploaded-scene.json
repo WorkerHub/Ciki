@@ -1,0 +1,66 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "qa243-77c715674ba5",
+  "elements": [
+    {
+      "id": "qa243-rect-1",
+      "type": "rectangle",
+      "x": 10,
+      "y": 20,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#1e1e1e",
+      "backgroundColor": "#ffffff",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "roughness": 1,
+      "opacity": 100,
+      "link": "https://example.com/qa243",
+      "customData": {
+        "secret": "should-be-stripped"
+      }
+    },
+    {
+      "id": "qa243-text-1",
+      "type": "text",
+      "x": 12,
+      "y": 40,
+      "width": 100,
+      "height": 20,
+      "text": "QA243 SCENE 77c715674ba5",
+      "fontSize": 20,
+      "fontFamily": 1,
+      "textAlign": "left",
+      "verticalAlign": "top"
+    },
+    {
+      "id": "qa243-embed-1",
+      "type": "embeddable",
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#FFFFFF",
+    "gridSize": 20,
+    "exportWithDarkMode": false,
+    "exportBackground": true,
+    "exportPadding": 12,
+    "zoom": {
+      "value": 1.3
+    },
+    "theme": "dark"
+  },
+  "files": {
+    "img-1": {
+      "mimeType": "image/png",
+      "dataURL": "data:image/png;base64,AAAA"
+    }
+  },
+  "unknownTopLevel": {
+    "drop": true
+  }
+}
