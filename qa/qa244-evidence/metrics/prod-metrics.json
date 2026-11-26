@@ -1,0 +1,124 @@
+{
+  "base": "https://ciki.pama.workers.dev",
+  "pageId": "417",
+  "host": "ciki.pama.workers.dev",
+  "version": "v1.0.0-306-ecb2780",
+  "toolbar": {
+    "embed": {
+      "class": "lucide lucide-app-window",
+      "inner": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"></rect><path d=\"M10 4v4\"></path><path d=\"M2 8h20\"></path><path d=\"M6 4v4\"></path>",
+      "box": {
+        "w": 16,
+        "h": 16
+      }
+    },
+    "code": {
+      "class": "lucide lucide-code-xml lucide-code-2",
+      "inner": "<path d=\"m18 16 4-4-4-4\"></path><path d=\"m6 8-4 4 4 4\"></path><path d=\"m14.5 4-5 16\"></path>",
+      "box": {
+        "w": 14,
+        "h": 14
+      }
+    },
+    "embedBBox": {
+      "x": 1048.015625,
+      "y": 216.5,
+      "width": 28,
+      "height": 28
+    },
+    "codeBBox": {
+      "x": 851.015625,
+      "y": 216.5,
+      "width": 34,
+      "height": 28
+    },
+    "dividerBBox": {
+      "x": 887.015625,
+      "y": 216.5,
+      "width": 28,
+      "height": 28
+    },
+    "quoteBBox": {
+      "x": 815.015625,
+      "y": 216.5,
+      "width": 34,
+      "height": 28
+    }
+  },
+  "codeBlock": {
+    "before": 0,
+    "after": 1,
+    "viewCount": 1,
+    "icon": {
+      "class": "lucide lucide-code-xml lucide-code-2",
+      "inner": "<path d=\"m18 16 4-4-4-4\"></path><path d=\"m6 8-4 4 4 4\"></path><path d=\"m14.5 4-5 16\"></path>",
+      "box": {
+        "w": 14,
+        "h": 14
+      }
+    }
+  },
+  "fileInput": {
+    "accept": ".html,text/html",
+    "type": "file"
+  },
+  "embedUpload": [
+    {
+      "method": "POST",
+      "url": "https://ciki.pama.workers.dev/api/files/embeds",
+      "status": 201
+    }
+  ],
+  "embedCard": {
+    "icon": {
+      "class": "lucide lucide-app-window h-5 w-5",
+      "inner": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"></rect><path d=\"M10 4v4\"></path><path d=\"M2 8h20\"></path><path d=\"M6 4v4\"></path>"
+    },
+    "nameText": "qa244-sample.html"
+  },
+  "reading": {
+    "src": "/api/files/embeds/85b81153-221a-4b49-bc02-d480fee4d672.html?mode=light&style=nova",
+    "iframeBox": {
+      "x": 284.015625,
+      "y": 298.078125,
+      "width": 1131.984375,
+      "height": 360
+    },
+    "messages": [
+      {
+        "type": "ciki-embed-height",
+        "height": 360
+      },
+      {
+        "type": "ciki-embed-height",
+        "height": 360
+      },
+      {
+        "type": "ciki-embed-height",
+        "height": 360
+      },
+      {
+        "type": "ciki-embed-height",
+        "height": 360
+      },
+      {
+        "type": "ciki-embed-height",
+        "height": 360
+      }
+    ],
+    "srcCheck": {
+      "status": 200,
+      "contentType": "text/html; charset=utf-8",
+      "len": 2514,
+      "hasMarker": true,
+      "hasReporter": true,
+      "cspHeader": "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+    },
+    "heightCheck": {
+      "iframeBoxHeight": 360,
+      "lastReported": 360,
+      "gap": 0
+    }
+  },
+  "newEmbedKey": "embeds/85b81153-221a-4b49-bc02-d480fee4d672.html"
+}

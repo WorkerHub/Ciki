@@ -1,0 +1,266 @@
+{
+  "results": [
+    {
+      "id": "0.1",
+      "check": "生产 /api/public 版本串",
+      "expected": "v1.0.0-306-ecb2780（含 ecb2780 = PR #292 合并提交）",
+      "actual": "v1.0.0-306-ecb2780",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "1.1",
+      "check": "工具栏「插入 HTML 动画」按钮图标类名",
+      "expected": "lucide-app-window（且不含 lucide-code-2）",
+      "actual": "lucide lucide-app-window",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "1.2",
+      "check": "工具栏「代码块」按钮图标类名",
+      "expected": "lucide-code-2（且不含 lucide-app-window）",
+      "actual": "lucide lucide-code-xml lucide-code-2",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "1.3",
+      "check": "两个按钮的 SVG 图形数据不同（一眼可区分的客观依据）",
+      "expected": "两段 innerHTML 不相等",
+      "actual": "不同",
+      "pass": true,
+      "note": "embed=<rect x=\"2\" y=\"4\" …>（窗口+标题栏） / code=<path d=\"m18 16 4-4-4-4\"…>（尖括号）"
+    },
+    {
+      "id": "1.4",
+      "check": "两按钮几何保持既有壳规格（embed=icon-sm 壳、code=sm 壳，未因换图标改变）",
+      "expected": "插入HTML按钮≈插入分割线按钮（icon-sm），代码块按钮≈引用按钮（sm）",
+      "actual": "embed=28×28 divider=28×28 / code=34×28 quote=34×28",
+      "pass": true,
+      "note": "两种壳（icon-sm 28×28、sm 34×28）在工具条中本就混用，尺寸差异为既有设计，非本次改动引入"
+    },
+    {
+      "id": "3.1",
+      "check": "点击「代码块」后编辑器内出现代码块",
+      "expected": "pre 数量 0 → 1",
+      "actual": "0 → 1",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "3.2",
+      "check": "代码块视图渲染（data-code-block）",
+      "expected": "≥1",
+      "actual": "1",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "3.3",
+      "check": "点击后代码块按钮仍为 Code2 图标",
+      "expected": "lucide-code-2",
+      "actual": "lucide lucide-code-xml lucide-code-2",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.1",
+      "check": "工具条内隐藏的文件选择框 accept 属性",
+      "expected": ".html,text/html",
+      "actual": ".html,text/html",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.2",
+      "check": "点击「插入 HTML 动画」触发文件选择器",
+      "expected": "触发 filechooser 事件，input accept=.html,text/html",
+      "actual": "已触发，accept=.html,text/html",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.3",
+      "check": "选择 .html 文件后插入的占位卡出现",
+      "expected": "编辑器内出现 [data-html-embed-card]",
+      "actual": "已出现",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.4",
+      "check": "占位卡插入走 embed 上传接口",
+      "expected": "POST /api/files/embeds 返回 201",
+      "actual": "[{\"method\":\"POST\",\"url\":\"https://ciki.pama.workers.dev/api/files/embeds\",\"status\":201}]",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.5",
+      "check": "占位卡身份图标类名",
+      "expected": "lucide-app-window（且不含 lucide-code-2）",
+      "actual": "lucide lucide-app-window h-5 w-5",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.6",
+      "check": "占位卡显示文件名",
+      "expected": "qa244-sample.html",
+      "actual": "qa244-sample.html",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.7",
+      "check": "阅读态 iframe 内容真实渲染（src 可取且含原文件标记与高度上报脚本）",
+      "expected": "GET src=200 text/html，含 QA244-EMBED-MARKER 与 ciki-embed-height，CSP=sandbox allow-scripts",
+      "actual": "{\"status\":200,\"contentType\":\"text/html; charset=utf-8\",\"len\":2514,\"hasMarker\":true,\"hasReporter\":true,\"cspHeader\":\"sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'\"}",
+      "pass": true,
+      "note": ""
+    },
+    {
+      "id": "2.7b",
+      "check": "iframe 内脚本执行并上报高度（postMessage 到父页）",
+      "expected": "父页收到 ≥1 条 ciki-embed-height 消息",
+      "actual": "收到 5 条",
+      "pass": true,
+      "note": "[{\"type\":\"ciki-embed-height\",\"height\":360},{\"type\":\"ciki-embed-height\",\"height\":360},{\"type\":\"ciki-embed-height\",\"height\":360}]"
+    },
+    {
+      "id": "2.8",
+      "check": "高度自适应：iframe 渲染高度 == 嵌入内容上报高度",
+      "expected": "差值 <1px 且 >0",
+      "actual": "iframe=360px 上报=360px",
+      "pass": true,
+      "note": ""
+    }
+  ],
+  "consoleErrors": [],
+  "failedRequests": [],
+  "metrics": {
+    "base": "https://ciki.pama.workers.dev",
+    "pageId": "417",
+    "host": "ciki.pama.workers.dev",
+    "version": "v1.0.0-306-ecb2780",
+    "toolbar": {
+      "embed": {
+        "class": "lucide lucide-app-window",
+        "inner": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"></rect><path d=\"M10 4v4\"></path><path d=\"M2 8h20\"></path><path d=\"M6 4v4\"></path>",
+        "box": {
+          "w": 16,
+          "h": 16
+        }
+      },
+      "code": {
+        "class": "lucide lucide-code-xml lucide-code-2",
+        "inner": "<path d=\"m18 16 4-4-4-4\"></path><path d=\"m6 8-4 4 4 4\"></path><path d=\"m14.5 4-5 16\"></path>",
+        "box": {
+          "w": 14,
+          "h": 14
+        }
+      },
+      "embedBBox": {
+        "x": 1048.015625,
+        "y": 216.5,
+        "width": 28,
+        "height": 28
+      },
+      "codeBBox": {
+        "x": 851.015625,
+        "y": 216.5,
+        "width": 34,
+        "height": 28
+      },
+      "dividerBBox": {
+        "x": 887.015625,
+        "y": 216.5,
+        "width": 28,
+        "height": 28
+      },
+      "quoteBBox": {
+        "x": 815.015625,
+        "y": 216.5,
+        "width": 34,
+        "height": 28
+      }
+    },
+    "codeBlock": {
+      "before": 0,
+      "after": 1,
+      "viewCount": 1,
+      "icon": {
+        "class": "lucide lucide-code-xml lucide-code-2",
+        "inner": "<path d=\"m18 16 4-4-4-4\"></path><path d=\"m6 8-4 4 4 4\"></path><path d=\"m14.5 4-5 16\"></path>",
+        "box": {
+          "w": 14,
+          "h": 14
+        }
+      }
+    },
+    "fileInput": {
+      "accept": ".html,text/html",
+      "type": "file"
+    },
+    "embedUpload": [
+      {
+        "method": "POST",
+        "url": "https://ciki.pama.workers.dev/api/files/embeds",
+        "status": 201
+      }
+    ],
+    "embedCard": {
+      "icon": {
+        "class": "lucide lucide-app-window h-5 w-5",
+        "inner": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"></rect><path d=\"M10 4v4\"></path><path d=\"M2 8h20\"></path><path d=\"M6 4v4\"></path>"
+      },
+      "nameText": "qa244-sample.html"
+    },
+    "reading": {
+      "src": "/api/files/embeds/85b81153-221a-4b49-bc02-d480fee4d672.html?mode=light&style=nova",
+      "iframeBox": {
+        "x": 284.015625,
+        "y": 298.078125,
+        "width": 1131.984375,
+        "height": 360
+      },
+      "messages": [
+        {
+          "type": "ciki-embed-height",
+          "height": 360
+        },
+        {
+          "type": "ciki-embed-height",
+          "height": 360
+        },
+        {
+          "type": "ciki-embed-height",
+          "height": 360
+        },
+        {
+          "type": "ciki-embed-height",
+          "height": 360
+        },
+        {
+          "type": "ciki-embed-height",
+          "height": 360
+        }
+      ],
+      "srcCheck": {
+        "status": 200,
+        "contentType": "text/html; charset=utf-8",
+        "len": 2514,
+        "hasMarker": true,
+        "hasReporter": true,
+        "cspHeader": "sandbox allow-scripts; default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; font-src data:; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+      },
+      "heightCheck": {
+        "iframeBoxHeight": 360,
+        "lastReported": 360,
+        "gap": 0
+      }
+    },
+    "newEmbedKey": "embeds/85b81153-221a-4b49-bc02-d480fee4d672.html"
+  }
+}

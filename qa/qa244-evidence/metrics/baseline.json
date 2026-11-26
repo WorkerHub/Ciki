@@ -1,0 +1,22 @@
+{
+  "counts": {
+    "users": 4,
+    "spaces": 8,
+    "space_members": 21,
+    "pages_active": 387,
+    "pages_total": 389,
+    "page_revisions": 825,
+    "sessions": 14,
+    "api_tokens": 9,
+    "comments": 8,
+    "notifications": 0
+  },
+  "r2": {
+    "ciki-assets": {
+      "count": 1389
+    },
+    "ciki-content": {
+      "count": 975
+    }
+  }
+}
