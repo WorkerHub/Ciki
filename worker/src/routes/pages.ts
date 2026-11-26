@@ -32,11 +32,7 @@ import {
   type TrashRow
 } from "../db/queries/pages"
 import { findUsersByIds, type UserAuthorSummary } from "../db/queries/users"
-import {
-  findDefaultSpace,
-  listAllSpaces,
-  listSpacesForUser
-} from "../db/queries/spaces"
+import { findDefaultSpace, listSpacesForUser } from "../db/queries/spaces"
 import {
   deleteRevision,
   getRevision,
@@ -333,10 +329,7 @@ pageRoutes.get("/trash", async (context) => {
   if (rawSpaceId !== undefined && rawSpaceId.trim() !== "") {
     const parsed = readSpaceId(rawSpaceId)
     if (!parsed.ok || parsed.value === null) {
-      return context.json(
-        { error: "spaceId must be an integer or null" },
-        400
-      )
+      return context.json({ error: "spaceId must be an integer or null" }, 400)
     }
     const access = await resolveSpaceAccess(
       context.env.DB,
@@ -399,8 +392,8 @@ pageRoutes.post("/trash/batch", async (context) => {
       typeof rawId === "number" && Number.isSafeInteger(rawId) && rawId > 0
         ? rawId
         : typeof rawId === "string"
-        ? parseId(rawId)
-        : null
+          ? parseId(rawId)
+          : null
 
     if (pageId === null) {
       const fallbackId =

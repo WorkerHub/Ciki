@@ -100,13 +100,7 @@ async function createPageHelper(
   if (spaceId !== undefined) {
     payload.spaceId = spaceId
   }
-  const response = await jsonRequest(
-    env,
-    "POST",
-    "/api/pages",
-    payload,
-    cookie
-  )
+  const response = await jsonRequest(env, "POST", "/api/pages", payload, cookie)
   expect(response.status).toBe(201)
   return (await response.json()) as PageDto
 }
@@ -132,13 +126,7 @@ describe("回收站跨空间汇总与批量处理接口", () => {
       techSpace.id,
       techParent.id
     )
-    await createPageHelper(
-      env,
-      admin,
-      "索引细节",
-      techSpace.id,
-      techChild.id
-    )
+    await createPageHelper(env, admin, "索引细节", techSpace.id, techChild.id)
 
     const designPage = await createPageHelper(
       env,
@@ -219,13 +207,7 @@ describe("回收站跨空间汇总与批量处理接口", () => {
     const joinedSpace = await createSpaceHelper(env, admin, "成员可见空间")
     const secretSpace = await createSpaceHelper(env, admin, "保密空间")
 
-    await addSpaceMember(
-      env,
-      admin,
-      joinedSpace.id,
-      memberUserId,
-      "viewer"
-    )
+    await addSpaceMember(env, admin, joinedSpace.id, memberUserId, "viewer")
 
     const visiblePage = await createPageHelper(
       env,
@@ -367,13 +349,7 @@ describe("回收站跨空间汇总与批量处理接口", () => {
       parent.id
     )
 
-    await jsonRequest(
-      env,
-      "DELETE",
-      `/api/pages/${child.id}`,
-      undefined,
-      admin
-    )
+    await jsonRequest(env, "DELETE", `/api/pages/${child.id}`, undefined, admin)
     await jsonRequest(
       env,
       "DELETE",
@@ -420,13 +396,7 @@ describe("回收站跨空间汇总与批量处理接口", () => {
     )
     const activePage = await createPageHelper(env, admin, "未删页", space.id)
 
-    await jsonRequest(
-      env,
-      "DELETE",
-      `/api/pages/${pageA.id}`,
-      undefined,
-      admin
-    )
+    await jsonRequest(env, "DELETE", `/api/pages/${pageA.id}`, undefined, admin)
 
     const viewerPurge = await jsonRequest(
       env,
