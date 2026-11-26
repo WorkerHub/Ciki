@@ -1,0 +1,1902 @@
+[
+ {
+  "name": "read nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "read nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "read nova/light 影子零漂移（fa3d679 vs 生产 computed）",
+  "pass": true,
+  "detail": "全部一致"
+ },
+ {
+  "name": "read nova/light embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=light&style=nova probeTheme=nova/light body=rgb(255, 255, 255),oklch(0.145 0 0) chip=oklch(0.205 0 0),oklch(0.985 0 0)"
+ },
+ {
+  "name": "read nova/light embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read nova/light 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(246, 248, 250)\",\"color\":\"rgb(36, 41, 47)\"}"
+ },
+ {
+  "name": "read nova/light 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"oklch(0.97 0 0)\",\"color\":\"oklch(0.145 0 0)\",\"borderBottomColor\":\"oklch(0.922 0 0)\"}"
+ },
+ {
+  "name": "read nova/light 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read nova/light 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"oklch(0.145 0 0)\"}"
+ },
+ {
+  "name": "edit nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "edit nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "edit nova/light embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit nova/light ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"oklch(0.145 0 0)\",\"caretColor\":\"oklch(0.145 0 0)\"}"
+ },
+ {
+  "name": "notifications nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "notifications nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "notifications nova/light 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "author nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "settings nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "settings nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "settings nova/light 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "admin-users nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "admin-users nova/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "admin-spaces nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "admin-spaces nova/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "admin-site nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "admin-site nova/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "admin-security nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "admin-security nova/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "admin-email nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "admin-email nova/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "admin-others nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "admin-others nova/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console nova/light 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "read nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "read nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "read nova/dark 影子零漂移（fa3d679 vs 生产 computed）",
+  "pass": true,
+  "detail": "全部一致"
+ },
+ {
+  "name": "read nova/dark embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=dark&style=nova probeTheme=nova/dark body=oklch(0.145 0 0),oklch(0.985 0 0) chip=oklch(0.205 0 0),oklch(0.985 0 0)"
+ },
+ {
+  "name": "read nova/dark embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read nova/dark 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(22, 27, 34)\",\"color\":\"rgb(230, 237, 243)\"}"
+ },
+ {
+  "name": "read nova/dark 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"oklch(0.269 0 0)\",\"color\":\"oklch(0.985 0 0)\",\"borderBottomColor\":\"oklch(1 0 0 / 0.1)\"}"
+ },
+ {
+  "name": "read nova/dark 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read nova/dark 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"oklch(0.985 0 0)\"}"
+ },
+ {
+  "name": "edit nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "edit nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "edit nova/dark embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit nova/dark ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"oklch(0.985 0 0)\",\"caretColor\":\"oklch(0.985 0 0)\"}"
+ },
+ {
+  "name": "notifications nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "notifications nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "notifications nova/dark 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "author nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "settings nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "settings nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "settings nova/dark 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "admin-users nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "admin-users nova/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "admin-spaces nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "admin-spaces nova/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "admin-site nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "admin-site nova/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "admin-security nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "admin-security nova/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "admin-email nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "admin-email nova/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "admin-others nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "admin-others nova/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console nova/dark 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "read paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "read paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "read paper/light 影子零漂移（fa3d679 vs 生产 computed）",
+  "pass": true,
+  "detail": "全部一致"
+ },
+ {
+  "name": "read paper/light embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=light&style=paper probeTheme=paper/light body=rgb(247, 244, 238),rgb(42, 43, 47) chip=rgb(226, 112, 90),rgb(255, 255, 255)"
+ },
+ {
+  "name": "read paper/light embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read paper/light 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(233, 227, 218)\",\"color\":\"rgb(42, 43, 47)\"}"
+ },
+ {
+  "name": "read paper/light 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(233, 227, 218)\",\"color\":\"rgb(42, 43, 47)\",\"borderBottomColor\":\"rgb(223, 219, 210)\"}"
+ },
+ {
+  "name": "read paper/light 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read paper/light 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(42, 43, 47)\"}"
+ },
+ {
+  "name": "edit paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "edit paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "edit paper/light embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit paper/light ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(42, 43, 47)\",\"caretColor\":\"rgb(42, 43, 47)\"}"
+ },
+ {
+  "name": "notifications paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "notifications paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "notifications paper/light 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "author paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "settings paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "settings paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "settings paper/light 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "admin-users paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "admin-users paper/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "admin-spaces paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "admin-spaces paper/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "admin-site paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "admin-site paper/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "admin-security paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "admin-security paper/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "admin-email paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "admin-email paper/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "admin-others paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "admin-others paper/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console paper/light 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "read paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "read paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "read paper/dark 影子零漂移（fa3d679 vs 生产 computed）",
+  "pass": true,
+  "detail": "全部一致"
+ },
+ {
+  "name": "read paper/dark embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=dark&style=paper probeTheme=paper/dark body=rgb(11, 12, 14),rgb(242, 240, 235) chip=rgb(232, 105, 78),rgb(255, 255, 255)"
+ },
+ {
+  "name": "read paper/dark embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read paper/dark 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(16, 17, 20)\",\"color\":\"rgb(233, 230, 224)\"}"
+ },
+ {
+  "name": "read paper/dark 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(36, 38, 43)\",\"color\":\"rgb(242, 240, 235)\",\"borderBottomColor\":\"rgb(38, 40, 45)\"}"
+ },
+ {
+  "name": "read paper/dark 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read paper/dark 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(242, 240, 235)\"}"
+ },
+ {
+  "name": "edit paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "edit paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "edit paper/dark embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit paper/dark ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(242, 240, 235)\",\"caretColor\":\"rgb(242, 240, 235)\"}"
+ },
+ {
+  "name": "notifications paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "notifications paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "notifications paper/dark 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "author paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "settings paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "settings paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "settings paper/dark 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "admin-users paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "admin-users paper/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "admin-spaces paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "admin-spaces paper/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "admin-site paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "admin-site paper/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "admin-security paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "admin-security paper/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "admin-email paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "admin-email paper/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "admin-others paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "admin-others paper/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console paper/dark 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "read natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "read natural/light 令牌与规格一致",
+  "pass": true,
+  "detail": "17 项全对"
+ },
+ {
+  "name": "read natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "read natural/light embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=light&style=natural probeTheme=natural/light body=rgb(250, 246, 241),rgb(41, 37, 36) chip=rgb(95, 112, 80),rgb(255, 255, 255)"
+ },
+ {
+  "name": "read natural/light embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read natural/light 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(239, 233, 221)\",\"color\":\"rgb(41, 37, 36)\"}"
+ },
+ {
+  "name": "read natural/light 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(241, 235, 225)\",\"color\":\"rgb(41, 37, 36)\",\"borderBottomColor\":\"rgb(230, 223, 210)\"}"
+ },
+ {
+  "name": "read natural/light 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read natural/light 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(41, 37, 36)\"}"
+ },
+ {
+  "name": "edit natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "edit natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "edit natural/light embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit natural/light ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(41, 37, 36)\",\"caretColor\":\"rgb(41, 37, 36)\"}"
+ },
+ {
+  "name": "notifications natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "notifications natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "notifications natural/light 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "author natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "settings natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "settings natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "settings natural/light 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "admin-users natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "admin-users natural/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "admin-spaces natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "admin-spaces natural/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "admin-site natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "admin-site natural/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "admin-security natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "admin-security natural/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "admin-email natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "admin-email natural/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "admin-others natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "admin-others natural/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console natural/light 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "read natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "read natural/dark 令牌与规格一致",
+  "pass": true,
+  "detail": "17 项全对"
+ },
+ {
+  "name": "read natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "read natural/dark embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=dark&style=natural probeTheme=natural/dark body=rgb(25, 22, 18),rgb(236, 231, 221) chip=rgb(163, 177, 138),rgb(28, 35, 23)"
+ },
+ {
+  "name": "read natural/dark embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read natural/dark 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(34, 30, 24)\",\"color\":\"rgb(236, 231, 221)\"}"
+ },
+ {
+  "name": "read natural/dark 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(46, 42, 33)\",\"color\":\"rgb(236, 231, 221)\",\"borderBottomColor\":\"rgb(51, 46, 37)\"}"
+ },
+ {
+  "name": "read natural/dark 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read natural/dark 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(236, 231, 221)\"}"
+ },
+ {
+  "name": "edit natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "edit natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "edit natural/dark embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit natural/dark ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(236, 231, 221)\",\"caretColor\":\"rgb(236, 231, 221)\"}"
+ },
+ {
+  "name": "notifications natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "notifications natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "notifications natural/dark 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "author natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "settings natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "settings natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "settings natural/dark 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "admin-users natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "admin-users natural/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "admin-spaces natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "admin-spaces natural/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "admin-site natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "admin-site natural/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "admin-security natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "admin-security natural/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "admin-email natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "admin-email natural/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "admin-others natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "admin-others natural/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console natural/dark 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "read eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "read eink/light 令牌与规格一致",
+  "pass": true,
+  "detail": "17 项全对"
+ },
+ {
+  "name": "read eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "read eink/light embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=light&style=eink probeTheme=eink/light body=rgb(245, 243, 234),rgb(32, 33, 30) chip=rgb(32, 33, 30),rgb(245, 243, 234)"
+ },
+ {
+  "name": "read eink/light embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read eink/light 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(230, 228, 218)\",\"color\":\"rgb(32, 33, 30)\"}"
+ },
+ {
+  "name": "read eink/light 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(230, 228, 218)\",\"color\":\"rgb(32, 33, 30)\",\"borderBottomColor\":\"rgb(186, 185, 176)\"}"
+ },
+ {
+  "name": "read eink/light 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read eink/light 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(32, 33, 30)\"}"
+ },
+ {
+  "name": "edit eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "edit eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "edit eink/light embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit eink/light ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(32, 33, 30)\",\"caretColor\":\"rgb(32, 33, 30)\"}"
+ },
+ {
+  "name": "notifications eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "notifications eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "notifications eink/light 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "author eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "settings eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "settings eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "settings eink/light 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "admin-users eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "admin-users eink/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "admin-spaces eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "admin-spaces eink/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "admin-site eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "admin-site eink/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "admin-security eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "admin-security eink/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "admin-email eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "admin-email eink/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "admin-others eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "admin-others eink/light 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console eink/light 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "read eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "read eink/dark 令牌与规格一致",
+  "pass": true,
+  "detail": "17 项全对"
+ },
+ {
+  "name": "read eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "read eink/dark embed 属性/URL 参数/探针底字色/chip",
+  "pass": true,
+  "detail": "src=/api/files/embeds/494c21d2-5f9a-4a51-8557-6bc83988c7ec.html?mode=dark&style=eink probeTheme=eink/dark body=rgb(23, 24, 20),rgb(236, 234, 222) chip=rgb(236, 234, 222),rgb(23, 24, 20)"
+ },
+ {
+  "name": "read eink/dark embed 固定高度不受上报干扰",
+  "pass": true,
+  "detail": "{\"before\":360,\"afterReport420\":360}"
+ },
+ {
+  "name": "read eink/dark 代码块有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(38, 39, 32)\",\"color\":\"rgb(236, 234, 222)\"}"
+ },
+ {
+  "name": "read eink/dark 表格有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgb(38, 39, 32)\",\"color\":\"rgb(236, 234, 222)\",\"borderBottomColor\":\"rgb(68, 69, 63)\"}"
+ },
+ {
+  "name": "read eink/dark 画布预览存在",
+  "pass": true,
+  "detail": "canvas img"
+ },
+ {
+  "name": "read eink/dark 评论有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(236, 234, 222)\"}"
+ },
+ {
+  "name": "edit eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "edit eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "edit eink/dark embed 卡片存在且无 iframe",
+  "pass": true,
+  "detail": "card=1 iframe=0"
+ },
+ {
+  "name": "edit eink/dark ProseMirror 有读数",
+  "pass": true,
+  "detail": "{\"backgroundColor\":\"rgba(0, 0, 0, 0)\",\"color\":\"rgb(236, 234, 222)\",\"caretColor\":\"rgb(236, 234, 222)\"}"
+ },
+ {
+  "name": "notifications eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "notifications eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "notifications eink/dark 有通知卡片",
+  "pass": true,
+  "detail": "items=2"
+ },
+ {
+  "name": "author eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "author eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "settings eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "settings eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "settings eink/dark 四风格选项可见",
+  "pass": true,
+  "detail": "have=Nova/纸面/自然/墨纸"
+ },
+ {
+  "name": "admin-users eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "admin-users eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "admin-users eink/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-spaces eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "admin-spaces eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "admin-spaces eink/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-site eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "admin-site eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "admin-site eink/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-security eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "admin-security eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "admin-security eink/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-email eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "admin-email eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "admin-email eink/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "admin-others eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "admin-others eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ },
+ {
+  "name": "admin-others eink/dark 页面加载",
+  "pass": true,
+  "detail": "heading=系统管理"
+ },
+ {
+  "name": "console eink/dark 无主题相关报错",
+  "pass": true,
+  "detail": "pageerror: SecurityError: Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag."
+ },
+ {
+  "name": "switch nova 初始 auto=light",
+  "pass": true,
+  "detail": "mode=light theme=nova ls="
+ },
+ {
+  "name": "switch nova 点击1→light",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"light\",\"style\":\"nova\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch nova 点击2→dark",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"dark\",\"style\":\"nova\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch nova 刷新后保持 dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch nova 点击3→auto(light 系统)",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "switch nova auto+系统暗=dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch nova 系统暗下切 light",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "switch paper 初始 auto=light",
+  "pass": true,
+  "detail": "mode=light theme=paper ls={\"state\":{\"mode\":\"auto\",\"style\":\"paper\",\"migratedAt\":null,\"modeMigratedAt\":null}"
+ },
+ {
+  "name": "switch paper 点击1→light",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"light\",\"style\":\"paper\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch paper 点击2→dark",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"dark\",\"style\":\"paper\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch paper 刷新后保持 dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch paper 点击3→auto(light 系统)",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "switch paper auto+系统暗=dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch paper 系统暗下切 light",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "switch natural 初始 auto=light",
+  "pass": true,
+  "detail": "mode=light theme=natural ls={\"state\":{\"mode\":\"auto\",\"style\":\"natural\",\"migratedAt\":null,\"modeMigratedAt\":nul"
+ },
+ {
+  "name": "switch natural 点击1→light",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"light\",\"style\":\"natural\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch natural 点击2→dark",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"dark\",\"style\":\"natural\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch natural 刷新后保持 dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch natural 点击3→auto(light 系统)",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "switch natural auto+系统暗=dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch natural 系统暗下切 light",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "switch eink 初始 auto=light",
+  "pass": true,
+  "detail": "mode=light theme=eink ls={\"state\":{\"mode\":\"auto\",\"style\":\"eink\",\"migratedAt\":null,\"modeMigratedAt\":null},"
+ },
+ {
+  "name": "switch eink 点击1→light",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"light\",\"style\":\"eink\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch eink 点击2→dark",
+  "pass": true,
+  "detail": "ls={\"state\":{\"mode\":\"dark\",\"style\":\"eink\",\"migratedAt\":null,\"modeMigratedAt\":null},\"version\":0}"
+ },
+ {
+  "name": "switch eink 刷新后保持 dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch eink 点击3→auto(light 系统)",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "switch eink auto+系统暗=dark",
+  "pass": true,
+  "detail": "mode=dark"
+ },
+ {
+  "name": "switch eink 系统暗下切 light",
+  "pass": true,
+  "detail": "mode=light"
+ },
+ {
+  "name": "ui-save natural html 立即生效",
+  "pass": true,
+  "detail": "theme=natural"
+ },
+ {
+  "name": "ui-save natural 服务端落库",
+  "pass": true,
+  "detail": "api=natural"
+ },
+ {
+  "name": "ui-save natural 刷新后保持",
+  "pass": true,
+  "detail": "theme=natural"
+ },
+ {
+  "name": "ui-save eink html 立即生效",
+  "pass": true,
+  "detail": "theme=eink"
+ },
+ {
+  "name": "ui-save eink 服务端落库",
+  "pass": true,
+  "detail": "api=eink"
+ },
+ {
+  "name": "ui-save eink 刷新后保持",
+  "pass": true,
+  "detail": "theme=eink"
+ },
+ {
+  "name": "relogin natural 新会话保留",
+  "pass": true,
+  "detail": "theme=natural"
+ },
+ {
+  "name": "relogin eink 新会话保留",
+  "pass": true,
+  "detail": "theme=eink"
+ },
+ {
+  "name": "mobile nova/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=false mode=light meta=#ffffff want meta=#ffffff"
+ },
+ {
+  "name": "mobile nova/light 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile nova/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=17.18 body=19.80 muted=4.74"
+ },
+ {
+  "name": "mobile nova/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=nova dark=true mode=dark meta=#0a0a0a want meta=#0a0a0a"
+ },
+ {
+  "name": "mobile nova/dark 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile nova/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=14.23 body=18.97 muted=7.66"
+ },
+ {
+  "name": "mobile paper/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=false mode=light meta=#f7f4ee want meta=#f7f4ee"
+ },
+ {
+  "name": "mobile paper/light 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile paper/light 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.13 body=12.88 muted=4.24"
+ },
+ {
+  "name": "mobile paper/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=paper dark=true mode=dark meta=#0b0c0e want meta=#0b0c0e"
+ },
+ {
+  "name": "mobile paper/dark 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile paper/dark 三组对比度记录",
+  "pass": true,
+  "detail": "primary=3.20 body=17.18 muted=5.91"
+ },
+ {
+  "name": "mobile natural/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=false mode=light meta=#faf6f1 want meta=#faf6f1"
+ },
+ {
+  "name": "mobile natural/light 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile natural/light 三组对比度≥4.5",
+  "pass": false,
+  "detail": "primary=5.36 body=14.10 muted=4.46 FAIL:muted 4.46"
+ },
+ {
+  "name": "mobile natural/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=natural dark=true mode=dark meta=#191612 want meta=#191612"
+ },
+ {
+  "name": "mobile natural/dark 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile natural/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=7.08 body=14.63 muted=6.76"
+ },
+ {
+  "name": "mobile eink/light html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=false mode=light meta=#f5f3ea want meta=#f5f3ea"
+ },
+ {
+  "name": "mobile eink/light 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile eink/light 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.56 body=14.56 muted=6.59"
+ },
+ {
+  "name": "mobile eink/dark html[data-theme]/.dark/data-mode/meta",
+  "pass": true,
+  "detail": "theme=eink dark=true mode=dark meta=#171814 want meta=#171814"
+ },
+ {
+  "name": "mobile eink/dark 顶栏可交互",
+  "pass": true,
+  "detail": "topbar button visible"
+ },
+ {
+  "name": "mobile eink/dark 三组对比度≥4.5",
+  "pass": true,
+  "detail": "primary=14.77 body=14.77 muted=7.45"
+ }
+]

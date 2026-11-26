@@ -1,0 +1,15 @@
+
+{
+  "error": {
+    "text": "A request to the Cloudflare API (/accounts/967399d1b7212c427f5c032b7f7618f2/d1/database/af4434ef-c73f-4c69-80b7-56695e6737fe/query) failed.",
+    "notes": [
+      {
+        "text": "unrecognized token: \"\\\" at offset 165: SQLITE_ERROR [code: 7500]"
+      }
+    ],
+    "kind": "error",
+    "name": "APIError",
+    "code": 7500,
+    "accountTag": "967399d1b7212c427f5c032b7f7618f2"
+  }
+}

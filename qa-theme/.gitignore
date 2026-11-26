@@ -1,0 +1,3 @@
+node_modules
+# 含真实 session cookie / 口令，仅留本机
+state.json

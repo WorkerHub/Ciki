@@ -1,0 +1,235 @@
+.qa-shadow-nova-light {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+.qa-shadow-nova-dark {
+  --font-sans-family: "Geist Variable", sans-serif;
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+.qa-shadow-paper-light {
+  /* 字体栈：西文 Inter Variable + 中文回退链；等宽 JetBrains Mono Variable + 回退链 */
+  --font-sans-family:
+    "Inter Variable", "PingFang SC", "Noto Sans CJK SC", "Source Han Sans SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono-family:
+    "JetBrains Mono Variable", "PingFang SC", "Noto Sans CJK SC",
+    "Source Han Sans SC", "Microsoft YaHei", ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+
+  /* 语义色彩令牌 - 浅版 */
+  --background: #f7f4ee;
+  --foreground: #2a2b2f;
+  --card: #f9f7f2;
+  --card-foreground: #2a2b2f;
+  --popover: #f9f7f2;
+  --popover-foreground: #2a2b2f;
+  --coral: #e2705a;
+  --coral-deep: #d6624b;
+  --coral-300: #f3bcae;
+  --coral-200: #f7cec0;
+  --coral-100: #fae0d6;
+  --coral-50: #fcece5;
+  --coral-ink: #ffffff;
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-ink);
+  --secondary: #e9e3da;
+  --secondary-foreground: #434247;
+  --muted: #e9e3da;
+  --muted-foreground: #77746f;
+  --accent: #e9e3da;
+  --accent-foreground: #2a2b2f;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #dfdbd2;
+  --input: #dfdbd2;
+  --ring: #f3bcae;
+
+  /* 侧栏令牌 */
+  --sidebar: #f7f4ee;
+  --sidebar-foreground: #2a2b2f;
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-ink);
+  --sidebar-accent: #e9e3da;
+  --sidebar-accent-foreground: #2a2b2f;
+  --sidebar-border: #dfdbd2;
+  --sidebar-ring: #f3bcae;
+
+  /* 形状与圆角令牌：card 14px / 控件 8px / chip 7px */
+  --r-card: 14px;
+  --r-ctl: 8px;
+  --r-chip: 7px;
+  --radius: 8px;
+  --radius-lg: var(--r-ctl, 8px);
+  --radius-md: var(--r-ctl, 8px);
+  --radius-sm: var(--r-chip, 7px);
+  --radius-xl: var(--r-card, 14px);
+
+  /* 暖色调阴影与顶部内高光：色基 #4a3a28 */
+  --shadow-card:
+    0 1px 0 #ffffffbf inset, 0 1px 2px #4a3a280a, 0 6px 14px -8px #4a3a281f;
+  --shadow-ctl: 0 1px 0 #ffffffcc inset, 0 1px 2px #4a3a280d;
+  --shadow-coral:
+    0 1px 0 #ffffff38 inset, 0 1px 2px #a03c2847, 0 4px 10px -4px #d45f4873;
+  --shadow-pop:
+    0 1px 0 #ffffffbf inset, 0 2px 4px #4a3a280f, 0 30px 60px -22px #4a3a2873;
+
+  /* 纸纹理 */
+  --grain: 0.55;
+  --grain-blend: multiply;
+
+  /* 代码块令牌 */
+  --code-bg: #e9e3da;
+  --code-fg: #2a2b2f;
+  --code-dim: #77746f;
+  --code-kw: #a03e2b;
+  --code-str: #845312;
+  --code-type: #1d685c;
+  --code-border: rgba(42, 43, 47, 0.08);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.7;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+.qa-shadow-paper-dark {
+  /* 语义色彩令牌 - 暗版 */
+  --background: #0b0c0e;
+  --foreground: #f2f0eb;
+  --card: #1a1b1f;
+  --card-foreground: #f2f0eb;
+  --popover: #1a1b1f;
+  --popover-foreground: #f2f0eb;
+  --coral: #e8694e;
+  --coral-deep: #f07a5f;
+  --coral-300: #94402e;
+  --coral-200: #6e2f21;
+  --coral-100: #4c2219;
+  --coral-50: #271612;
+  --coral-ink: #ffffff;
+  --primary: var(--coral);
+  --primary-foreground: var(--coral-ink);
+  --secondary: #24262b;
+  --secondary-foreground: #c8c5bf;
+  --muted: #24262b;
+  --muted-foreground: #908d87;
+  --accent: #24262b;
+  --accent-foreground: #f2f0eb;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #26282d;
+  --input: #26282d;
+  --ring: #94402e;
+
+  /* 侧栏令牌 */
+  --sidebar: #141518;
+  --sidebar-foreground: #f2f0eb;
+  --sidebar-primary: var(--coral);
+  --sidebar-primary-foreground: var(--coral-ink);
+  --sidebar-accent: #24262b;
+  --sidebar-accent-foreground: #f2f0eb;
+  --sidebar-border: #26282d;
+  --sidebar-ring: #94402e;
+
+  /* 暗版阴影：以黑色为主 + inset 白高光 */
+  --shadow-card: 0 1px 0 #ffffff09 inset, 0 10px 24px -14px #000000b3;
+  --shadow-ctl: 0 1px 0 #ffffff0d inset, 0 1px 2px #00000066;
+  --shadow-coral:
+    0 1px 0 #ffffff2e inset, 0 1px 2px #00000080, 0 6px 16px -6px #e8694e80;
+  --shadow-pop:
+    0 1px 0 #ffffff0d inset, 0 0 0 1px #00000080, 0 30px 70px -20px #000000d9;
+
+  /* 纸纹理 */
+  --grain: 0.22;
+  --grain-blend: soft-light;
+
+  /* 代码块令牌 */
+  --code-bg: #101114;
+  --code-fg: #e9e6e0;
+  --code-dim: #9da1b0;
+  --code-kw: #f08a6d;
+  --code-str: #e6c477;
+  --code-type: #93cfc6;
+  --code-border: rgba(255, 255, 255, 0.08);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.7;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}

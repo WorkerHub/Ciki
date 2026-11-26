@@ -1,0 +1,182 @@
+[
+ {
+  "name": "PUT theme=nova → 200 且回读一致",
+  "pass": true,
+  "detail": "status=200 themeStyle=nova"
+ },
+ {
+  "name": "GET /api/me themeStyle=nova 保持",
+  "pass": true,
+  "detail": "themeStyle=nova"
+ },
+ {
+  "name": "D1 users.theme_style=nova 落库",
+  "pass": true,
+  "detail": "db=nova"
+ },
+ {
+  "name": "PUT theme=paper → 200 且回读一致",
+  "pass": true,
+  "detail": "status=200 themeStyle=paper"
+ },
+ {
+  "name": "GET /api/me themeStyle=paper 保持",
+  "pass": true,
+  "detail": "themeStyle=paper"
+ },
+ {
+  "name": "D1 users.theme_style=paper 落库",
+  "pass": true,
+  "detail": "db=paper"
+ },
+ {
+  "name": "PUT theme=natural → 200 且回读一致",
+  "pass": true,
+  "detail": "status=200 themeStyle=natural"
+ },
+ {
+  "name": "GET /api/me themeStyle=natural 保持",
+  "pass": true,
+  "detail": "themeStyle=natural"
+ },
+ {
+  "name": "D1 users.theme_style=natural 落库",
+  "pass": true,
+  "detail": "db=natural"
+ },
+ {
+  "name": "PUT theme=eink → 200 且回读一致",
+  "pass": true,
+  "detail": "status=200 themeStyle=eink"
+ },
+ {
+  "name": "GET /api/me themeStyle=eink 保持",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "D1 users.theme_style=eink 落库",
+  "pass": true,
+  "detail": "db=eink"
+ },
+ {
+  "name": "PUT theme=\"blue\" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT theme=\"NOVA\" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT theme=\"Natural\" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT theme=\"eink \" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT theme=\"\" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT theme=\"dark\" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT theme=\"nova\\n\" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT theme=\"null-ish\" → 400 INVALID_THEME_STYLE",
+  "pass": true,
+  "detail": "status=400 body={\"error\":\"themeStyle must be nova, paper, natural or eink\",\"code\":\"INVALID_THEME_STYLE\"}"
+ },
+ {
+  "name": "  拒绝后 themeStyle 保持 eink",
+  "pass": true,
+  "detail": "themeStyle=eink"
+ },
+ {
+  "name": "PUT {style:'paper'}（兼容字段）→ 200",
+  "pass": true,
+  "detail": "status=200 themeStyle=paper"
+ },
+ {
+  "name": "库内脏值 bogus-value → /api/me 归一化 nova",
+  "pass": true,
+  "detail": "themeStyle=nova"
+ },
+ {
+  "name": "未登录 PUT /api/me/theme → 401",
+  "pass": true,
+  "detail": "status=401"
+ },
+ {
+  "name": "无效会话 PUT → 401",
+  "pass": true,
+  "detail": "status=401"
+ },
+ {
+  "name": "B(普通用户) PUT theme=natural → 200",
+  "pass": true,
+  "detail": "status=200"
+ },
+ {
+  "name": "B(普通用户) PUT theme=eink → 200",
+  "pass": true,
+  "detail": "status=200"
+ },
+ {
+  "name": "B(普通用户) PUT theme=nova → 200",
+  "pass": true,
+  "detail": "status=200"
+ },
+ {
+  "name": "B(普通用户) PUT theme=paper → 200",
+  "pass": true,
+  "detail": "status=200"
+ }
+]
