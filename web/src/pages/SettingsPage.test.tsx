@@ -84,6 +84,7 @@ function setUser(twofa: {
     credentialId: string
   }>
   emailOtpEnabled?: boolean
+  themeStyle?: ThemeStyle
 }) {
   const passkeys =
     twofa.passkeys ??
@@ -105,6 +106,7 @@ function setUser(twofa: {
       role: "admin",
       approvalStatus: "approved",
       createdAt: "2026-11-07T00:00:00.000Z",
+      themeStyle: twofa.themeStyle,
       twofa: {
         totpEnabled: twofa.totpEnabled,
         totpName: twofa.totpEnabled ? (twofa.totpName ?? "TOTP") : null,
@@ -681,6 +683,8 @@ describe("主题风格设置", () => {
     // 包含 Nova 与 纸面 两个风格选项
     expect(screen.getByRole("radio", { name: "Nova" })).toBeInTheDocument()
     expect(screen.getByRole("radio", { name: "纸面" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "自然" })).toBeInTheDocument()
+    expect(screen.getByRole("radio", { name: "墨纸" })).toBeInTheDocument()
 
     // 保存按钮存在且因无变更而处于禁用状态
     const saveBtn = getThemeSaveBtn()
@@ -776,6 +780,34 @@ describe("主题风格设置", () => {
 
     // 保存按钮保持可用以支持重试
     expect(saveBtn).toBeEnabled()
+  })
+
+  it("服务端用户风格为 natural 时，设置页高亮「自然」且保存按钮禁用，切为「墨纸」后可保存", async () => {
+    const userEventSetup = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0, themeStyle: "natural" })
+    useThemeStore.setState({ style: "natural" })
+
+    renderSettings()
+
+    const naturalRadio = screen.getByRole("radio", { name: "自然" })
+    expect(naturalRadio).toHaveAttribute("data-state", "on")
+
+    const saveBtn = getThemeSaveBtn()
+    expect(saveBtn).toBeDisabled()
+
+    const updatedUser = {
+      ...useAuthStore.getState().user!,
+      themeStyle: "eink" as ThemeStyle
+    }
+    vi.mocked(meApi.updateThemeStyle).mockResolvedValue(updatedUser)
+
+    await userEventSetup.click(screen.getByRole("radio", { name: "墨纸" }))
+    expect(saveBtn).toBeEnabled()
+    await userEventSetup.click(saveBtn)
+
+    expect(meApi.updateThemeStyle).toHaveBeenCalledWith("eink")
+    expect(useThemeStore.getState().style).toBe("eink")
+    expect(saveBtn).toBeDisabled()
   })
 })
 

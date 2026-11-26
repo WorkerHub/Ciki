@@ -111,7 +111,7 @@ export function resolveMode(mode: ThemeMode): "light" | "dark" {
 
 /**
  * 把主题与风格落到 <html>：
- * - `data-theme`: "nova" | "paper" 驱动主题风格令牌；
+ * - `data-theme`: "nova" | "paper" | "natural" | "eink" 驱动主题风格令牌；
  * - `.dark` 给 shadcn 令牌用；
  * - `data-mode` + `color-scheme` 给 Kumo 的 light-dark() 用（它在 [data-mode="dark"] 里切 color-scheme）。
  * - `meta[name="theme-color"]`: 对齐对应主题在浅/深下的页面基色。

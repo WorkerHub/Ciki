@@ -47,7 +47,7 @@ import {
 } from "@/lib/api"
 import { formatDateTime, formatRelative } from "@/lib/format"
 import type { Language } from "@/lib/language"
-import type { ThemeStyle } from "@/lib/theme"
+import { DEFAULT_THEME_STYLE, isThemeStyle, type ThemeStyle } from "@/lib/theme"
 import { needsReauthToAddFactor } from "@/lib/two-factor"
 import {
   describeWebAuthnError,
@@ -296,14 +296,17 @@ export function SettingsPage() {
   const hasLanguageChanged = selectedLanguage !== effectiveLanguage
 
   // 主题风格：选择 + 保存按钮写回账号（规格 §7）
-  const accountStyle: ThemeStyle =
-    user?.themeStyle === "paper" ? "paper" : "nova"
+  const accountStyle: ThemeStyle = isThemeStyle(user?.themeStyle)
+    ? user.themeStyle
+    : DEFAULT_THEME_STYLE
   const [selectedStyle, setSelectedStyle] = useState<ThemeStyle>(accountStyle)
   const [savingTheme, setSavingTheme] = useState(false)
 
   useEffect(() => {
     if (user?.themeStyle) {
-      setSelectedStyle(user.themeStyle === "paper" ? "paper" : "nova")
+      setSelectedStyle(
+        isThemeStyle(user.themeStyle) ? user.themeStyle : DEFAULT_THEME_STYLE
+      )
     }
   }, [user?.themeStyle])
 

@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
+  DEFAULT_THEME_STYLE,
+  isThemeStyle,
   THEME_STYLE_OPTIONS,
   type ThemeMode,
   type ThemeStyle
@@ -28,7 +30,9 @@ export function ThemeStyleSegmented({
   disabled
 }: ThemeStyleSegmentedProps) {
   const { t } = useTranslation()
-  const safeValue: ThemeStyle = value === "paper" ? "paper" : "nova"
+  const safeValue: ThemeStyle = isThemeStyle(value)
+    ? value
+    : DEFAULT_THEME_STYLE
   return (
     <ToggleGroup
       type="single"
