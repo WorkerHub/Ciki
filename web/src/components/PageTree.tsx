@@ -101,11 +101,26 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
   const [movedTo, setMovedTo] = useState<string | null>(null)
   const treeRef = useRef<HTMLDivElement>(null)
   const scrollTargetRef = useRef<number | null>(null)
+  const locatedTargetRef = useRef<{
+    spaceId: number | null
+    pageId: number
+  } | null>(null)
 
-  // 当前空间页面树加载完成时、以及当前文档（路由 pageId）变化时，
-  // 对当前文档调用现行 expandTo 展开全部祖先；手动收起时不重新弹回。
+  // 定位当前文档：首次加载、路由切换至新文档、或切换空间时执行一次祖先全展开与滚动定位；
+  // 同一文档停留期间，树的后续变化（拖动排序、移动、改名、增删、写后重拉）不再次弹开祖先，保持用户手动收起状态。
+  // 树异步加载兜底：路由先到而节点尚未进树时，等树到位后再补定位一次并记下标识。
   useEffect(() => {
-    if (loading || activePageId === null) return
+    if (activePageId === null) {
+      locatedTargetRef.current = null
+      return
+    }
+    if (
+      locatedTargetRef.current?.spaceId === currentSpaceId &&
+      locatedTargetRef.current?.pageId === activePageId
+    ) {
+      return
+    }
+    if (loading) return
     if (!findNode(tree, activePageId)) return
 
     expandTo(activePageId)
@@ -119,7 +134,8 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
     } else {
       scrollTargetRef.current = activePageId
     }
-  }, [activePageId, tree, loading, expandTo])
+    locatedTargetRef.current = { spaceId: currentSpaceId, pageId: activePageId }
+  }, [activePageId, currentSpaceId, tree, loading, expandTo])
 
   useEffect(() => {
     if (scrollTargetRef.current === null) return

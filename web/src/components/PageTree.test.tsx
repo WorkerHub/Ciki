@@ -15,7 +15,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
       ...actual.pagesApi,
       tree: vi.fn(),
       create: vi.fn(),
-      move: vi.fn()
+      move: vi.fn(),
+      update: vi.fn()
     }
   }
 })
@@ -450,6 +451,248 @@ describe("目录树自动展开到当前文档与滚动可见", () => {
     expect(collapseButton).toBeTruthy()
     await user.click(collapseButton!)
 
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+  })
+
+  it("拖动排序/移动页面导致树更新后，手动收起的祖先目录保持收起、不被重新展开", async () => {
+    const user = userEvent.setup()
+    vi.mocked(pagesApi.move).mockResolvedValue({ success: true })
+    vi.mocked(pagesApi.tree).mockResolvedValue(nestedTree)
+
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/3")
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+
+    // 手动收起中间目录
+    const middleRow = screen.getByText("中间目录").closest("li")
+    const collapseButton = middleRow?.querySelector(
+      'button[aria-expanded="true"]'
+    ) as HTMLButtonElement
+    await user.click(collapseButton)
+
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+
+    // 模拟移动操作（如拖动排序 movePage）
+    await act(async () => {
+      await usePagesStore.getState().movePage(4, null, 0)
+    })
+
+    // 移动完成后，树引用发生多次变化，但中间目录依然保持收起，当前文档祖先未被弹开
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+  })
+
+  it("行内菜单「上移/下移」与「改名」触发树变化后，手动收起状态保持不变", async () => {
+    const user = userEvent.setup()
+    vi.mocked(pagesApi.move).mockResolvedValue({ success: true })
+    vi.mocked(pagesApi.tree).mockResolvedValue(nestedTree)
+    vi.mocked(pagesApi.update).mockResolvedValue({
+      id: 4,
+      parentId: null,
+      spaceId: 1,
+      title: "另一个目录（已改名）",
+      sortOrder: 1,
+      contentHtml: "",
+      contentText: "",
+      contentMd: "",
+      createdBy: 1,
+      updatedBy: 1,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z",
+      createdByName: "Admin",
+      createdByAvatarUrl: null,
+      updatedByName: "Admin",
+      updatedByAvatarUrl: null
+    })
+
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/3")
+
+    // 手动收起中间目录
+    const middleRow = screen.getByText("中间目录").closest("li")
+    const collapseButton = middleRow?.querySelector(
+      'button[aria-expanded="true"]'
+    ) as HTMLButtonElement
+    await user.click(collapseButton)
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+
+    // 行内菜单「下移」改序
+    await user.click(
+      screen.getByRole("button", { name: "页面「顶级文档」操作" })
+    )
+    const moveDownItem = await screen.findByRole("menuitem", { name: "下移" })
+    await user.click(moveDownItem)
+
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+
+    // 改名操作
+    await user.click(
+      screen.getByRole("button", { name: "页面「另一个目录」操作" })
+    )
+    const renameItem = await screen.findByRole("menuitem", { name: "重命名" })
+    await user.click(renameItem)
+
+    const renameInput = await screen.findByLabelText("标题")
+    await user.clear(renameInput)
+    await user.type(renameInput, "另一个目录（已改名）")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+    expect(screen.queryByText("嵌套文档")).toBeNull()
+  })
+
+  it("切换空间后，新空间深层文档的祖先正常自动展开定位", async () => {
+    const user = userEvent.setup()
+    useSpacesStore.setState({
+      spaces: [
+        space("editor"),
+        {
+          ...space("editor"),
+          id: 2,
+          slug: "space-2",
+          name: "空间二",
+          isDefault: false
+        }
+      ],
+      status: "ready",
+      currentId: 1
+    })
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    render(
+      <MemoryRouter initialEntries={["/p/3"]}>
+        <TestNavApp targetPath="/p/23" label="切空间并跳转" />
+      </MemoryRouter>
+    )
+
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+
+    // 切换到空间 2，页面跳到空间 2 的深层文档 /p/23
+    const space2Tree = [
+      {
+        id: 21,
+        parentId: null,
+        title: "空间2顶级",
+        sortOrder: 0,
+        updatedAt: "2026-11-08T00:00:00.000Z",
+        children: [
+          {
+            id: 22,
+            parentId: 21,
+            title: "空间2中间",
+            sortOrder: 0,
+            updatedAt: "2026-11-08T00:00:00.000Z",
+            children: [
+              {
+                id: 23,
+                parentId: 22,
+                title: "空间2深层",
+                sortOrder: 0,
+                updatedAt: "2026-11-08T00:00:00.000Z",
+                children: []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+
+    act(() => {
+      useSpacesStore.setState({ currentId: 2 })
+      usePagesStore.setState({
+        tree: space2Tree,
+        spaceId: 2,
+        loading: false,
+        expanded: []
+      })
+    })
+
+    await user.click(screen.getByRole("button", { name: "切空间并跳转" }))
+
+    expect(usePagesStore.getState().expanded).toContain(21)
+    expect(usePagesStore.getState().expanded).toContain(22)
+    expect(screen.getByText("空间2深层")).toBeInTheDocument()
+  })
+
+  it("同文档期间异步树到位补定位后，手动收起某祖先，再做改树操作依然保持收起", async () => {
+    const user = userEvent.setup()
+    vi.mocked(pagesApi.move).mockResolvedValue({ success: true })
+    vi.mocked(pagesApi.tree).mockResolvedValue(nestedTree)
+
+    // 路由已在 /p/3，但树尚未加载（异步树）
+    usePagesStore.setState({
+      tree: [],
+      spaceId: 1,
+      loading: true,
+      error: null,
+      expanded: []
+    })
+
+    renderTreeWithRoute("/p/3")
+    expect(usePagesStore.getState().expanded).toEqual([])
+
+    // 树异步加载完成到位：补定位一次
+    act(() => {
+      usePagesStore.setState({
+        tree: nestedTree,
+        loading: false
+      })
+    })
+
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+
+    // 用户手动收起祖先（中间目录）
+    const middleRow = screen.getByText("中间目录").closest("li")
+    const collapseButton = middleRow?.querySelector(
+      'button[aria-expanded="true"]'
+    ) as HTMLButtonElement
+    await user.click(collapseButton)
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+
+    // 随后发生任意树变更（如新建、排序、拉取）
+    act(() => {
+      usePagesStore.setState({
+        tree: [
+          ...nestedTree,
+          {
+            id: 99,
+            parentId: null,
+            title: "新同级文档",
+            sortOrder: 2,
+            updatedAt: "2026-11-26T00:00:00.000Z",
+            children: []
+          }
+        ]
+      })
+    })
+
+    // 中间目录依然保持收起
     expect(usePagesStore.getState().expanded).not.toContain(2)
     expect(screen.queryByText("嵌套文档")).toBeNull()
   })
