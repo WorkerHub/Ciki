@@ -542,6 +542,62 @@ describe("只读接口：GET /api/read/files/:key", () => {
     })
   })
 
+  it("本人可用 read 令牌与 write 令牌读回 embed HTML 资产（200 + 逐字节一致 + Content-Type 为 text/html 口径）", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const writeTokenObj = await createApiToken(env, admin, "write")
+    const readTokenObj = await createApiToken(env, admin, "read")
+
+    // 1. 用 write 令牌上传 embed HTML
+    const htmlContent =
+      "<!DOCTYPE html><html><body><h1>Embed Test Content</h1></body></html>"
+    const htmlBytes = new TextEncoder().encode(htmlContent)
+    const form = new FormData()
+    form.append(
+      "file",
+      new File([htmlBytes], "widget.html", { type: "text/html" })
+    )
+
+    const uploadRes = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { authorization: `Bearer ${writeTokenObj.token}` },
+      body: form
+    })
+    expect(uploadRes.status).toBe(201)
+    const embed = (await uploadRes.json()) as {
+      key: string
+      url: string
+      contentType: string
+      size: number
+    }
+    expect(embed.key).toMatch(/^embeds\/[0-9a-f-]{36}\.html$/)
+
+    // 2. 用同主人的 read 令牌读回
+    const readRes = await readGet(
+      env,
+      readTokenObj.token,
+      `/api/read/files/${embed.key}`
+    )
+    expect(readRes.status).toBe(200)
+    expect(readRes.headers.get("content-type")).toContain("text/html")
+    expect(readRes.headers.get("content-length")).toBe(String(htmlBytes.length))
+    expect(readRes.headers.get("cache-control")).toContain("private")
+    const readBytes = new Uint8Array(await readRes.arrayBuffer())
+    expect(readBytes).toEqual(htmlBytes)
+    expect(new TextDecoder().decode(readBytes)).toBe(htmlContent)
+
+    // 3. 用同主人的 write 令牌读回
+    const writeRes = await readGet(
+      env,
+      writeTokenObj.token,
+      `/api/read/files/${embed.key}`
+    )
+    expect(writeRes.status).toBe(200)
+    expect(writeRes.headers.get("content-type")).toContain("text/html")
+    const writeBytes = new Uint8Array(await writeRes.arrayBuffer())
+    expect(writeBytes).toEqual(htmlBytes)
+  })
+
   it("跨账号归属校验：读他人上传的文件一律 404（不泄露存在性）", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
@@ -576,6 +632,40 @@ describe("只读接口：GET /api/read/files/:key", () => {
     )
     expect(userWrite.status).toBe(404)
     expect(await userWrite.json()).toEqual({ error: "File not found" })
+
+    // Admin 上传 embed 文件
+    const embedHtml = "<!DOCTYPE html><html><body>Admin Embed</body></html>"
+    const embedForm = new FormData()
+    embedForm.append(
+      "file",
+      new File([new TextEncoder().encode(embedHtml)], "admin.html", {
+        type: "text/html"
+      })
+    )
+    const embedUploadRes = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { authorization: `Bearer ${adminWriteToken.token}` },
+      body: embedForm
+    })
+    expect(embedUploadRes.status).toBe(201)
+    const embedObj = (await embedUploadRes.json()) as { key: string }
+
+    // Other user 尝试用 read 令牌和 write 令牌读取 Admin 的 embed 文件
+    const userReadEmbed = await readGet(
+      env,
+      userReadToken.token,
+      `/api/read/files/${embedObj.key}`
+    )
+    expect(userReadEmbed.status).toBe(404)
+    expect(await userReadEmbed.json()).toEqual({ error: "File not found" })
+
+    const userWriteEmbed = await readGet(
+      env,
+      userWriteToken.token,
+      `/api/read/files/${embedObj.key}`
+    )
+    expect(userWriteEmbed.status).toBe(404)
+    expect(await userWriteEmbed.json()).toEqual({ error: "File not found" })
   })
 
   it("无元数据存量对象、对象不存在、key 形状非法一律 404", async () => {
@@ -607,6 +697,10 @@ describe("只读接口：GET /api/read/files/:key", () => {
       `pages/sub/${id}.png`,
       `pages/${id}.svg`,
       `pages/${id.toUpperCase()}.png`,
+      `embeds/${id}.png`,
+      `embeds/sub/${id}.html`,
+      `embeds/${id.toUpperCase()}.html`,
+      `custom-embeds/${id}.html`,
       "invalid-key"
     ]) {
       const bad = await readGet(env, token, `/api/read/files/${badKey}`)

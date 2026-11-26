@@ -439,7 +439,6 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 ```json
 {
   "name": "Ciki",
-  "repositoryUrl": "https://github.com/WorkerHub/Ciki",
   "version": "v1.0.0-4-8227065",
   "openapi": "/api/openapi.json",
   "agentGuide": "/api/public/agent-guide"
@@ -2419,10 +2418,10 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 
 #### GET /api/read/files/:key
 
-接口令牌文件读回端点（数据面新增，供外部连接器自验上传的文件或画布场景 JSON 原文）。
+接口令牌文件读回端点（数据面新增，供外部连接器自验上传的文件、画布场景 JSON 或 Embed HTML 动画原文）。
 
 - 鉴权：只认 `Authorization: Bearer <接口令牌>`，`kind = read` 与 `kind = write` 均可；无令牌、无效、已吊销、主人停用或未批准 → 401 `{"error":"Unauthorized"}`，响应头带 `Cache-Control: no-store`；会话 Cookie、导入令牌不认（401）。
-- key 形状：沿用现有 `UPLOAD_KEY_RE` 同口径（`^(?:(?:avatars|pages|imports)/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp|json)$`），形状不符 → 404 `{"error":"File not found"}`。
+- key 形状：沿用与会话端点同构口径，匹配现有 `UPLOAD_KEY_RE`（`^(?:(?:avatars|pages|imports)/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp|json)$`）或 `EMBED_KEY_RE`（`^embeds/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.html$`），形状不符 → 404 `{"error":"File not found"}`。
 - 归属校验：读 R2 `customMetadata.uploaderId`（十进制字符串），与令牌主人 user id 相等才放行；不相等、无此元数据的存量对象、对象不存在 → 一律 404 `{"error":"File not found"}`，不泄露存在性。
 - 成功：200 返回文件原始字节，`Content-Type` 为上传时类型、`Content-Length` 为文件大小，带 `ETag`（若有）与 `Cache-Control: private, max-age=3600`，与会话端点成功响应一致。
 - 刷新：每次成功调用刷新令牌的 `lastUsedAt`。
@@ -2525,6 +2524,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 鉴权只认 `kind = write` 令牌；`kind = read` 令牌、导入令牌、会话 Cookie 一律 401。
 - 上传没有空间维度，不查令牌空间范围；持 write 令牌且对目标空间有 editor 角色的 agent 可上传拿 key，再在写页 `content_json` 中引用 `htmlEmbed` 节点一条龙写完。
 - 计入现有 `write` 限流桶（600 次 / 5 分钟）。
+- 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回本人上传的文件字节（严格校验上传者归属，跨账号一律 404，不泄露存在性）。
 
 ### 服务端消毒规则（content_html）
 

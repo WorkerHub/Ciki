@@ -55,16 +55,9 @@ export function buildOpenApiSpec(version: string): Record<string, unknown> {
         },
         PublicInfoResponse: {
           type: "object",
-          required: [
-            "name",
-            "repositoryUrl",
-            "version",
-            "openapi",
-            "agentGuide"
-          ],
+          required: ["name", "version", "openapi", "agentGuide"],
           properties: {
             name: { type: "string", description: "站点名称" },
-            repositoryUrl: { type: "string", description: "项目开源仓库地址" },
             version: { type: "string", description: "实例构建版本号" },
             openapi: {
               type: "string",
@@ -359,7 +352,7 @@ export function buildOpenApiSpec(version: string): Record<string, unknown> {
         get: {
           summary: "公开引导与自述发现入口",
           description:
-            "免鉴权只读端点，提供当前部署版本、站点名称、仓库地址及 OpenAPI / Agent 指引发现入口。",
+            "免鉴权只读端点，提供当前部署版本、站点名称及 OpenAPI / Agent 指引发现入口。",
           responses: {
             "200": {
               description: "成功获取公开信息",
@@ -578,7 +571,8 @@ export function buildOpenApiSpec(version: string): Record<string, unknown> {
               in: "path",
               required: true,
               schema: { type: "string" },
-              description: "资源存储键（如 pages/<uuid>.png）"
+              description:
+                "资源存储键（如 pages/<uuid>.png 或 embeds/<uuid>.html）"
             }
           ],
           responses: {
