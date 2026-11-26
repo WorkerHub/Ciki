@@ -1442,12 +1442,18 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
     )
   })
 
-  it("PUT /api/me/theme 成功保存 natural 与 eink 主题风格并持久化", async () => {
+  it("PUT /api/me/theme 成功保存 natural, eink, notion, sketch 与 distill 主题风格并持久化", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const prefix = getTablePrefix(env)
 
-    for (const style of ["natural", "eink"] as const) {
+    for (const style of [
+      "natural",
+      "eink",
+      "notion",
+      "sketch",
+      "distill"
+    ] as const) {
       const res = await jsonRequest(
         env,
         "PUT",
@@ -1499,7 +1505,9 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
       expect(res.status).toBe(400)
       const body = (await res.json()) as { error: string; code: string }
       expect(body.code).toBe("INVALID_THEME_STYLE")
-      expect(body.error).toBe("themeStyle must be nova, paper, natural or eink")
+      expect(body.error).toBe(
+        "themeStyle must be nova, paper, natural, eink, notion, sketch or distill"
+      )
     }
 
     // 空请求体或缺失字段同样 400
