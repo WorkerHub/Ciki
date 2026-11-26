@@ -2,7 +2,8 @@ import {
   commentsTable,
   pagesFtsTable,
   pagesTable,
-  revisionsTable
+  revisionsTable,
+  spacesTable
 } from "../../lib/tables"
 
 /**
@@ -38,10 +39,17 @@ export type PageChildRow = Pick<
   PageRow,
   "id" | "parent_id" | "sort_order" | "created_at"
 >
-export type TrashRow = Pick<
-  PageRow,
-  "id" | "parent_id" | "title" | "deleted_at" | "updated_at"
->
+export interface TrashRow {
+  id: number
+  space_id: number
+  space_name: string
+  parent_id: number | null
+  title: string
+  created_at: string
+  updated_at: string
+  deleted_at: string
+  child_count: number
+}
 /** 恢复时重建 FTS 索引只需要这几个字段。 */
 export type RestoreRow = Pick<PageRow, "id" | "title" | "content_text">
 
@@ -404,25 +412,55 @@ export function permanentDeleteSubtree(
 export async function listTrashRoots(
   db: D1Database,
   prefix: string,
-  spaceId: number
+  spaceIds?: number | number[]
 ): Promise<TrashRow[]> {
   const table = pagesTable(prefix)
-  const rows = await db
-    .prepare(
-      `SELECT p.id, p.parent_id, p.title, p.deleted_at, p.updated_at FROM ${table} p
-        WHERE p.deleted_at IS NOT NULL AND p.space_id = ?
-          AND (
-            p.parent_id IS NULL
-            OR NOT EXISTS (
-              SELECT 1 FROM ${table} parent
-               WHERE parent.id = p.parent_id
-                 AND parent.deleted_at IS NOT NULL
-                 AND parent.deleted_at = p.deleted_at
-            )
-          )
-        ORDER BY p.deleted_at DESC, p.sort_order`
-    )
-    .bind(spaceId)
-    .all<TrashRow>()
+  const spaces = spacesTable(prefix)
+  let spaceFilter = ""
+  let binds: unknown[] = []
+
+  if (spaceIds !== undefined) {
+    const ids = Array.isArray(spaceIds) ? spaceIds : [spaceIds]
+    if (ids.length === 0) return []
+    spaceFilter = `AND p.space_id IN (${ids.map(() => "?").join(", ")})`
+    binds = ids
+  }
+
+  const query = `SELECT
+      p.id,
+      p.space_id,
+      COALESCE(s.name, '') AS space_name,
+      p.parent_id,
+      p.title,
+      p.created_at,
+      p.updated_at,
+      p.deleted_at,
+      (
+        WITH RECURSIVE sub(id) AS (
+          SELECT p.id
+          UNION ALL
+          SELECT c.id FROM ${table} c JOIN sub ON c.parent_id = sub.id
+           WHERE c.deleted_at = p.deleted_at
+        )
+        SELECT COUNT(*) - 1 FROM sub
+      ) AS child_count
+    FROM ${table} p
+    LEFT JOIN ${spaces} s ON s.id = p.space_id
+    WHERE p.deleted_at IS NOT NULL
+      ${spaceFilter}
+      AND (
+        p.parent_id IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM ${table} parent
+           WHERE parent.id = p.parent_id
+             AND parent.deleted_at IS NOT NULL
+             AND parent.deleted_at = p.deleted_at
+        )
+      )
+    ORDER BY p.deleted_at DESC, p.sort_order`
+
+  const stmt = db.prepare(query)
+  const bound = binds.length > 0 ? stmt.bind(...binds) : stmt
+  const rows = await bound.all<TrashRow>()
   return rows.results
 }
