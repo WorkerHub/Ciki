@@ -1442,6 +1442,36 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
     )
   })
 
+  it("PUT /api/me/theme 成功保存 natural 与 eink 主题风格并持久化", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const prefix = getTablePrefix(env)
+
+    for (const style of ["natural", "eink"] as const) {
+      const res = await jsonRequest(
+        env,
+        "PUT",
+        "/api/me/theme",
+        { themeStyle: style },
+        admin
+      )
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { themeStyle: string }
+      expect(body.themeStyle).toBe(style)
+
+      // GET /api/me 回读确认
+      const meRes = await jsonRequest(env, "GET", "/api/me", undefined, admin)
+      expect(meRes.status).toBe(200)
+      expect(((await meRes.json()) as { themeStyle: string }).themeStyle).toBe(
+        style
+      )
+
+      // 底层 users.theme_style 持久化确认
+      const row = await findUserByEmail(env.DB, prefix, "admin@example.com")
+      expect(row?.theme_style).toBe(style)
+    }
+  })
+
   it("PUT /api/me/theme 非法值校验：非法 style 返回 400 INVALID_THEME_STYLE", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
@@ -1469,6 +1499,7 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
       expect(res.status).toBe(400)
       const body = (await res.json()) as { error: string; code: string }
       expect(body.code).toBe("INVALID_THEME_STYLE")
+      expect(body.error).toBe("themeStyle must be nova, paper, natural or eink")
     }
 
     // 空请求体或缺失字段同样 400
