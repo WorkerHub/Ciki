@@ -131,16 +131,12 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("sketch")
     expect(localStorage.getItem("ciki-theme")).toContain('"style":"sketch"')
 
-    useThemeStore.getState().setStyle("distill")
-    expect(document.documentElement.getAttribute("data-theme")).toBe("distill")
-    expect(localStorage.getItem("ciki-theme")).toContain('"style":"distill"')
-
     useThemeStore.getState().setStyle("nova")
     expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
     expect(localStorage.getItem("ciki-theme")).toContain('"style":"nova"')
   })
 
-  it("7 主题 × 2 模式矩阵：各组合下属性、meta theme-color 与类名准确落定", () => {
+  it("6 主题 × 2 模式矩阵：各组合下属性、meta theme-color 与类名准确落定", () => {
     let meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) {
       meta = document.createElement("meta")
@@ -243,22 +239,6 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
     expect(isDark()).toBe(true)
     expect(meta.getAttribute("content")).toBe("#262420")
-
-    // 13. 学术 浅色
-    useThemeStore.getState().setStyle("distill")
-    useThemeStore.getState().setMode("light")
-    expect(document.documentElement.getAttribute("data-theme")).toBe("distill")
-    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
-    expect(isDark()).toBe(false)
-    expect(meta.getAttribute("content")).toBe("#ffffff")
-
-    // 14. 学术 深色
-    useThemeStore.getState().setStyle("distill")
-    useThemeStore.getState().setMode("dark")
-    expect(document.documentElement.getAttribute("data-theme")).toBe("distill")
-    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
-    expect(isDark()).toBe(true)
-    expect(meta.getAttribute("content")).toBe("#11161b")
   })
 
   it("THEME_META_COLORS 与各主题 light/dark 颜色保持单一真源", () => {
@@ -274,11 +254,9 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(THEME_META_COLORS.notion.dark).toBe("#191919")
     expect(THEME_META_COLORS.sketch.light).toBe("#f5f0e8")
     expect(THEME_META_COLORS.sketch.dark).toBe("#262420")
-    expect(THEME_META_COLORS.distill.light).toBe("#ffffff")
-    expect(THEME_META_COLORS.distill.dark).toBe("#11161b")
   })
 
-  it("THEME_STYLES 注册表包含全部 7 套风格", () => {
+  it("THEME_STYLES 注册表包含全部 6 套风格", () => {
     const ids = THEME_STYLES.map((s) => s.id)
     expect(ids).toEqual([
       "nova",
@@ -286,14 +264,12 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
       "natural",
       "eink",
       "notion",
-      "sketch",
-      "distill"
+      "sketch"
     ])
     expect(isThemeStyle("natural")).toBe(true)
     expect(isThemeStyle("eink")).toBe(true)
     expect(isThemeStyle("notion")).toBe(true)
     expect(isThemeStyle("sketch")).toBe(true)
-    expect(isThemeStyle("distill")).toBe(true)
     expect(isThemeStyle("paper")).toBe(true)
     expect(isThemeStyle("nova")).toBe(true)
     expect(isThemeStyle("invalid")).toBe(false)
@@ -350,30 +326,23 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("sketch")
     expect(meta.getAttribute("content")).toBe("#262420")
 
-    // 学术 浅色
-    applyTheme("light", "distill")
-    expect(document.documentElement.getAttribute("data-theme")).toBe("distill")
-    expect(meta.getAttribute("content")).toBe("#ffffff")
-
     // 非法风格安全回退 nova
     applyTheme("light", "unknown-style" as any)
     expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
     expect(meta.getAttribute("content")).toBe("#ffffff")
   })
 
-  it("阅读正文宽度收敛至 --wiki-max-width 令牌：默认 none，仅 distill 收敛至 42rem，死令牌彻底清理", () => {
+  it("阅读正文列宽不限宽：无 max-width 封顶且无残留列宽令牌", () => {
     const cssContent = fs.readFileSync(
       path.resolve(import.meta.dirname, "../index.css"),
       "utf-8"
     )
     expect(cssContent).not.toContain("--wiki-read-max-width")
-    expect(cssContent).toMatch(
-      /\[data-readview-container\]\s*\{[^}]*max-width:\s*var\(--wiki-max-width/
+    expect(cssContent).not.toContain("--wiki-max-width")
+    expect(cssContent).not.toMatch(
+      /\[data-readview-container\]\s*\{[^}]*max-width/
     )
-    // 默认值与既有风格均为 none，仅 distill 为 42rem
-    expect(cssContent).toContain("--wiki-max-width: none")
-    expect(cssContent).toContain("--wiki-max-width: 42rem")
-    // 7 套主题浅暗令牌块全部齐全
+    // 6 套主题浅暗令牌块全部齐全，distill 彻底移除
     expect(cssContent).toContain('html[data-theme="natural"]')
     expect(cssContent).toContain('html[data-theme="natural"].dark')
     expect(cssContent).toContain('html[data-theme="eink"]')
@@ -382,8 +351,7 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(cssContent).toContain('html[data-theme="notion"].dark')
     expect(cssContent).toContain('html[data-theme="sketch"]')
     expect(cssContent).toContain('html[data-theme="sketch"].dark')
-    expect(cssContent).toContain('html[data-theme="distill"]')
-    expect(cssContent).toContain('html[data-theme="distill"].dark')
+    expect(cssContent).not.toContain('html[data-theme="distill"]')
     expect(cssContent).toContain("--r-card: 0px")
     expect(cssContent).toContain("--shadow-card: none")
   })
@@ -515,18 +483,6 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     await useThemeStore.persist.rehydrate()
     expect(useThemeStore.getState().style).toBe("sketch")
     expect(document.documentElement.getAttribute("data-theme")).toBe("sketch")
-
-    // distill + light
-    localStorage.setItem(
-      "ciki-theme",
-      JSON.stringify({
-        state: { mode: "light", style: "distill" },
-        version: 0
-      })
-    )
-    await useThemeStore.persist.rehydrate()
-    expect(useThemeStore.getState().style).toBe("distill")
-    expect(document.documentElement.getAttribute("data-theme")).toBe("distill")
   })
 
   it("setMode 传入非法值防御：归一为 auto", () => {
@@ -552,7 +508,7 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(useThemeStore.getState().mode).toBe("light")
   })
 
-  it("ThemeStyleSegmented 渲染全部 7 个选项，且能正确识别合法风格与非法回退", () => {
+  it("ThemeStyleSegmented 渲染全部 6 个选项，且能正确识别合法风格与非法回退", () => {
     const { rerender } = render(
       React.createElement(ThemeStyleSegmented, {
         value: "natural",
@@ -576,9 +532,6 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     ).toBe("off")
     expect(
       screen.getByRole("radio", { name: "手绘" }).getAttribute("data-state")
-    ).toBe("off")
-    expect(
-      screen.getByRole("radio", { name: "学术" }).getAttribute("data-state")
     ).toBe("off")
 
     rerender(
@@ -611,16 +564,6 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     )
     expect(
       screen.getByRole("radio", { name: "手绘" }).getAttribute("data-state")
-    ).toBe("on")
-
-    rerender(
-      React.createElement(ThemeStyleSegmented, {
-        value: "distill",
-        onChange: () => {}
-      })
-    )
-    expect(
-      screen.getByRole("radio", { name: "学术" }).getAttribute("data-state")
     ).toBe("on")
 
     rerender(
@@ -826,13 +769,6 @@ describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
     await syncAccountTheme(userWithSketch)
     expect(useThemeStore.getState().style).toBe("sketch")
     expect(document.documentElement.getAttribute("data-theme")).toBe("sketch")
-
-    // 5. distill
-    useThemeStore.setState({ mode: "light", style: "nova" })
-    const userWithDistill: Me = { ...baseUser, themeStyle: "distill" }
-    await syncAccountTheme(userWithDistill)
-    expect(useThemeStore.getState().style).toBe("distill")
-    expect(document.documentElement.getAttribute("data-theme")).toBe("distill")
   })
 
   it("服务端为默认 nova 且本地镜像为 nova 时，不回写服务端，保持现状", async () => {
@@ -1064,15 +1000,6 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
       fixedTime
     )
     expect(resSketch.state.style).toBe("sketch")
-
-    const resDistill = migrateThemeStorage(
-      JSON.stringify({
-        state: { style: "distill" },
-        version: 0
-      }),
-      fixedTime
-    )
-    expect(resDistill.state.style).toBe("distill")
   })
 })
 
@@ -1177,15 +1104,7 @@ describe("index.html 首屏内联脚本执行（新旧结构均不出错）", ()
       }
     } catch {}
     if (mode !== "light" && mode !== "dark") mode = "auto"
-    const validStyles = [
-      "nova",
-      "paper",
-      "natural",
-      "eink",
-      "notion",
-      "sketch",
-      "distill"
-    ]
+    const validStyles = ["nova", "paper", "natural", "eink", "notion", "sketch"]
     if (!validStyles.includes(style)) style = "nova"
     const dark =
       mode === "dark" ||
@@ -1281,7 +1200,7 @@ describe("index.html 首屏内联脚本执行（新旧结构均不出错）", ()
     expect(document.documentElement.classList.contains("dark")).toBe(false)
   })
 
-  it("新结构 style=notion / sketch / distill：首屏脚本安全解析，准确应用对应主题与颜色", () => {
+  it("新结构 style=notion / sketch：首屏脚本安全解析，准确应用对应主题与颜色", () => {
     localStorage.setItem(
       "ciki-theme",
       JSON.stringify({
@@ -1302,21 +1221,10 @@ describe("index.html 首屏内联脚本执行（新旧结构均不出错）", ()
     expect(() => runInlineScript()).not.toThrow()
     expect(document.documentElement.getAttribute("data-theme")).toBe("sketch")
     expect(document.documentElement.classList.contains("dark")).toBe(true)
-
-    localStorage.setItem(
-      "ciki-theme",
-      JSON.stringify({
-        state: { mode: "light", style: "distill" },
-        version: 0
-      })
-    )
-    expect(() => runInlineScript()).not.toThrow()
-    expect(document.documentElement.getAttribute("data-theme")).toBe("distill")
-    expect(document.documentElement.classList.contains("dark")).toBe(false)
   })
 })
 
-describe("新增三套主题专有作用域规则与契约", () => {
+describe("手绘主题专有作用域规则与契约", () => {
   it("手绘主题：outline 按钮与分隔线 hr 为 dashed 边框，纸纹理生效", () => {
     const cssPath = path.resolve(import.meta.dirname, "../index.css")
     const css = fs.readFileSync(cssPath, "utf-8")
@@ -1328,30 +1236,5 @@ describe("新增三套主题专有作用域规则与契约", () => {
       /html\[data-theme="sketch"\]\s+\.wiki-content\s+hr[\s\S]*?border-top-style:\s*dashed/
     )
     expect(css).toMatch(/html\[data-theme="sketch"\]\s+body::after/)
-  })
-
-  it("学术主题：正文衬线字体栈、无阴影、正文链接学术蓝、正文窄列 42rem", () => {
-    const cssPath = path.resolve(import.meta.dirname, "../index.css")
-    const css = fs.readFileSync(cssPath, "utf-8")
-
-    // 衬线字体栈
-    expect(css).toMatch(
-      /html\[data-theme="distill"\][\s\S]*?--font-sans-family:[\s\S]*?"Georgia"/
-    )
-    // 正文链接浅暗学术蓝
-    expect(css).toMatch(
-      /html\[data-theme="distill"\]\s+\.wiki-content\s+a[\s\S]*?color:\s*#2a7ae2/
-    )
-    expect(css).toMatch(
-      /html\[data-theme="distill"\]\.dark\s+\.wiki-content\s+a[\s\S]*?color:\s*#6fa8f5/
-    )
-    // 无阴影覆盖
-    expect(css).toMatch(
-      /html\[data-theme="distill"\]\s+\[data-slot="card"\][\s\S]*?box-shadow:\s*none/
-    )
-    // 窄列 42rem
-    expect(css).toMatch(
-      /html\[data-theme="distill"\][\s\S]*?--wiki-max-width:\s*42rem/
-    )
   })
 })
