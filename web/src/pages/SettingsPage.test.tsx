@@ -809,6 +809,34 @@ describe("主题风格设置", () => {
     expect(useThemeStore.getState().style).toBe("eink")
     expect(saveBtn).toBeDisabled()
   })
+
+  it("服务端用户风格为 notion 时高亮「Notion」，可切换为「手绘」或「学术」并持久化保存", async () => {
+    const userEventSetup = userEvent.setup()
+    setUser({ totpEnabled: false, passkeyCount: 0, themeStyle: "notion" })
+    useThemeStore.setState({ style: "notion" })
+
+    renderSettings()
+
+    const notionRadio = screen.getByRole("radio", { name: "Notion" })
+    expect(notionRadio).toHaveAttribute("data-state", "on")
+
+    const saveBtn = getThemeSaveBtn()
+    expect(saveBtn).toBeDisabled()
+
+    const updatedUser = {
+      ...useAuthStore.getState().user!,
+      themeStyle: "sketch" as ThemeStyle
+    }
+    vi.mocked(meApi.updateThemeStyle).mockResolvedValue(updatedUser)
+
+    await userEventSetup.click(screen.getByRole("radio", { name: "手绘" }))
+    expect(saveBtn).toBeEnabled()
+    await userEventSetup.click(saveBtn)
+
+    expect(meApi.updateThemeStyle).toHaveBeenCalledWith("sketch")
+    expect(useThemeStore.getState().style).toBe("sketch")
+    expect(saveBtn).toBeDisabled()
+  })
 })
 
 describe("Passkey 与 TOTP 加名字与管理功能", () => {

@@ -26,7 +26,10 @@
         nova: { light: "#ffffff", dark: "#0a0a0a" },
         paper: { light: "#f7f4ee", dark: "#0b0c0e" },
         natural: { light: "#faf6f1", dark: "#191612" },
-        eink: { light: "#f5f3ea", dark: "#171814" }
+        eink: { light: "#f5f3ea", dark: "#171814" },
+        notion: { light: "#ffffff", dark: "#191919" },
+        sketch: { light: "#f5f0e8", dark: "#262420" },
+        distill: { light: "#ffffff", dark: "#11161b" }
       }
       ;(() => {
         const root = document.documentElement
@@ -48,7 +51,15 @@
           // localStorage 被禁用时按浅色走，不阻塞渲染
         }
         if (mode !== "light" && mode !== "dark") mode = "auto"
-        const validStyles = ["nova", "paper", "natural", "eink"]
+        const validStyles = [
+          "nova",
+          "paper",
+          "natural",
+          "eink",
+          "notion",
+          "sketch",
+          "distill"
+        ]
         if (!validStyles.includes(style)) style = "nova"
         const dark =
           mode === "dark" ||

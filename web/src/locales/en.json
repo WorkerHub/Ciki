@@ -24,7 +24,10 @@
         "nova": "Nova",
         "paper": "Paper",
         "natural": "Natural",
-        "eink": "E-Ink"
+        "eink": "E-Ink",
+        "notion": "Notion",
+        "sketch": "Sketch",
+        "distill": "Distill"
       },
       "modeLabel": "Mode",
       "mode": {
