@@ -343,7 +343,11 @@ describe("空间设置与成员管理", () => {
       {
         id: 9,
         parentId: null,
+        spaceId: 1,
+        spaceName: "默认空间",
         title: "回收站页面",
+        childCount: 0,
+        createdAt: "2026-11-08T00:00:00.000Z",
         deletedAt: "2026-11-08T00:00:00.000Z",
         updatedAt: "2026-11-08T00:00:00.000Z"
       }

@@ -3,6 +3,7 @@ import {
   describeApiError,
   type PageDetail,
   type PageNode,
+  type TrashBatchResponse,
   pagesApi
 } from "@/lib/api"
 import {
@@ -44,6 +45,10 @@ interface PagesState {
   removePage: (id: number) => Promise<void>
   restorePage: (id: number) => Promise<void>
   purgePage: (id: number) => Promise<void>
+  batchTrash: (
+    action: "restore" | "purge",
+    ids: number[]
+  ) => Promise<TrashBatchResponse>
 }
 
 /**
@@ -291,6 +296,12 @@ export const usePagesStore = create<PagesState>((set, get) => {
     purgePage: async (id) => {
       await pagesApi.removePermanent(id)
       await load()
+    },
+
+    batchTrash: async (action, ids) => {
+      const res = await pagesApi.trashBatch(action, ids)
+      await load()
+      return res
     }
   }
 })
