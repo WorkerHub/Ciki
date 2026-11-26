@@ -743,6 +743,7 @@ export interface FileDownload {
 }
 
 export interface AdminUser extends User {
+  username: string
   isActive: boolean
   approvalStatus: ApprovalStatus
   createdAt: string
