@@ -7,15 +7,14 @@ import {
 } from "../src/core/theme-style"
 
 describe("theme-style 核心定义与校验", () => {
-  it("支持集与默认值：nova, paper, natural, eink, notion, sketch, distill，默认值为 nova", () => {
+  it("支持集与默认值：nova, paper, natural, eink, notion, sketch，默认值为 nova", () => {
     expect(SUPPORTED_THEME_STYLES).toEqual([
       "nova",
       "paper",
       "natural",
       "eink",
       "notion",
-      "sketch",
-      "distill"
+      "sketch"
     ])
     expect(DEFAULT_THEME_STYLE).toBe("nova")
   })
@@ -27,7 +26,7 @@ describe("theme-style 核心定义与校验", () => {
     expect(isThemeStyle("eink")).toBe(true)
     expect(isThemeStyle("notion")).toBe(true)
     expect(isThemeStyle("sketch")).toBe(true)
-    expect(isThemeStyle("distill")).toBe(true)
+    expect(isThemeStyle("distill")).toBe(false)
 
     expect(isThemeStyle("dark")).toBe(false)
     expect(isThemeStyle("light")).toBe(false)
@@ -48,7 +47,7 @@ describe("theme-style 核心定义与校验", () => {
     expect(normalizeThemeStyle("eink")).toBe("eink")
     expect(normalizeThemeStyle("notion")).toBe("notion")
     expect(normalizeThemeStyle("sketch")).toBe("sketch")
-    expect(normalizeThemeStyle("distill")).toBe("distill")
+    expect(normalizeThemeStyle("distill")).toBe("nova")
 
     expect(normalizeThemeStyle("unknown")).toBe("nova")
     expect(normalizeThemeStyle("")).toBe("nova")
