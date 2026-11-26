@@ -1,0 +1,30 @@
+# QA #295 验收指标汇总（生产真跑）
+# 被测：https://ciki.oneboy.app  版本：v1.0.0-308-7fcfde1（= PR #295 合并提交 7fcfde1）
+# 运行时刻：2026-11-26T10:43:35.579Z
+# 方式：真实浏览器（Chromium 159 / playwright-core）真实登录表单 + 真实渲染 + 生产 D1 直查比对
+
+TOTAL=20  PASS=20  FAIL=0
+
+ID   结果   验收点
+L1   PASS 生产登录表单可用（QA 管理员会话建立）
+H1   PASS 中文表头序列 = 邮箱/用户名/角色/状态/注册于/操作（「用户名」紧跟「邮箱」）
+H2   PASS 「用户名」列位于「邮箱」列之后（列序第 2 位）
+H3   PASS 表头列数 = 6
+U1   PASS 每行「用户名」单元格 = 库内 users.username（普通用户行 + agent 行全部覆盖）
+U2   PASS 普通用户行 username 与库内一致（至少 1 行）
+U3   PASS agent 行 username 与库内一致（至少 1 行）
+U4   PASS 后端 userDto 下发 username 字段，且与库内一致（每个用户都有该字段）
+C2   PASS 角色/状态/注册于/操作 四列取值仍与库内一致（每行 6 格）
+C3   PASS 行序 = 库内 created_at DESC（新增列未改变排序）
+C1   PASS 其余列（角色/状态/注册于/操作）仍渲染，每行 6 个单元格
+A1   PASS agent 行的 Agent 标记仍在第一列（有 owner → 「（owner 的 Agent）」形态；无 owner → Agent 徽标形态）
+A2   PASS 「（你）」标记仍在第一列，且只出现在本人行
+L2   PASS 加载态单元格 colSpan = 6
+L3   PASS 空态单元格 colSpan = 6 且文案为待批准空态
+E1   PASS 英文表头序列 = Email/Username/Role/Status/Registered/Actions
+E2   PASS 英文下「（你）」标记变为 (you) 且仍在第一列
+E3   PASS 中英切换后「用户名」列取值不变（同一批用户、同一批库内值）
+E4   PASS 页面 html lang = en
+E5   PASS 语言切换已写回账号（库内 users.language = en）
+
+结论：全部通过，无失败项，建议签收

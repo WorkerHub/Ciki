@@ -1,0 +1,21 @@
+# 生产版本确认（验收前置条件）
+# 口径：先以 /api/public 确认生产版本 = PR #295 合并提交 7fcfde1，再逐项验收
+
+GET https://ciki.oneboy.app/api/public
+HTTP/2 200 
+date: Thu, 26 Nov 2026 10:44:58 GMT
+content-type: application/json
+content-length: 115
+cache-control: public, max-age=60
+strict-transport-security: max-age=15552000
+report-to: {"group":"cf-nel","max_age":604800,"endpoints":[{"url":"https://a.nel.cloudflare.com/report/v4?s=HwzLgUKzkI%2BXjD%2BYJP24ah7Qc%2FT2Lhcvzjv9lLYC7jTi0%2F8WJ1IxueUbAbn5zhDBYmyT2I8%2BPA3SR%2FvLoHax0KiAgLSR8Z0BudRYXZgDL5PSVasE4CdIhqZlTfwWLgGP9%2Bg%3D"}]}
+nel: {"report_to":"cf-nel","success_fraction":0.0,"max_age":604800}
+server: cloudflare
+cf-ray: a6084d0bdb54c090-SJC
+alt-svc: h3=":443"; ma=86400
+
+{"name":"Ciki","version":"v1.0.0-308-7fcfde1","openapi":"/api/openapi.json","agentGuide":"/api/public/agent-guide"}
+
+结论：生产版本 v1.0.0-308-7fcfde1 == PR #295 合并提交 7fcfde1 ✅
+（origin/main HEAD 抓取后即为 7fcfde1，git merge-base --is-ancestor 7fcfde1 origin/main = true）
+注：ciki.pama.workers.dev 证书名不匹配，本轮统一用 ciki.oneboy.app。

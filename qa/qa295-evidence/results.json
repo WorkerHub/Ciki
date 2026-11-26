@@ -1,0 +1,460 @@
+{
+  "ranAt": "2026-11-26T10:43:35.579Z",
+  "base": "https://ciki.oneboy.app",
+  "results": [
+    {
+      "id": "L1",
+      "desc": "生产登录表单可用（QA 管理员会话建立）",
+      "pass": true,
+      "detail": {
+        "url": "https://ciki.oneboy.app/"
+      }
+    },
+    {
+      "id": "H1",
+      "desc": "中文表头序列 = 邮箱/用户名/角色/状态/注册于/操作（「用户名」紧跟「邮箱」）",
+      "pass": true,
+      "detail": {
+        "got": [
+          "邮箱",
+          "用户名",
+          "角色",
+          "状态",
+          "注册于",
+          "操作"
+        ],
+        "expected": [
+          "邮箱",
+          "用户名",
+          "角色",
+          "状态",
+          "注册于",
+          "操作"
+        ]
+      }
+    },
+    {
+      "id": "H2",
+      "desc": "「用户名」列位于「邮箱」列之后（列序第 2 位）",
+      "pass": true,
+      "detail": {
+        "headers": [
+          "邮箱",
+          "用户名",
+          "角色",
+          "状态",
+          "注册于",
+          "操作"
+        ]
+      }
+    },
+    {
+      "id": "H3",
+      "desc": "表头列数 = 6",
+      "pass": true,
+      "detail": {
+        "n": 6
+      }
+    },
+    {
+      "id": "U1",
+      "desc": "每行「用户名」单元格 = 库内 users.username（普通用户行 + agent 行全部覆盖）",
+      "pass": true,
+      "detail": [
+        {
+          "id": 18315,
+          "kind": "agent",
+          "dbUsername": "qa295_agent_orphan",
+          "uiUsername": "qa295_agent_orphan",
+          "apiUsername": "qa295_agent_orphan",
+          "firstCell": "qa295agent@qa.testAgent",
+          "ok": true
+        },
+        {
+          "id": 18314,
+          "kind": "human",
+          "dbUsername": "qa295_admin",
+          "uiUsername": "qa295_admin",
+          "apiUsername": "qa295_admin",
+          "firstCell": "qa295admin@qa.test（你）",
+          "ok": true
+        },
+        {
+          "id": 18306,
+          "kind": "human",
+          "dbUsername": "",
+          "uiUsername": "",
+          "apiUsername": "",
+          "firstCell": "qa234-embed@qa.local",
+          "ok": true
+        },
+        {
+          "id": 6,
+          "kind": "human",
+          "dbUsername": "mapan",
+          "uiUsername": "mapan",
+          "apiUsername": "mapan",
+          "firstCell": "mapan@muse.ai",
+          "ok": true
+        },
+        {
+          "id": 5,
+          "kind": "agent",
+          "dbUsername": "Muse",
+          "uiUsername": "Muse",
+          "apiUsername": "Muse",
+          "firstCell": "Muse@internal（Pama 的 Agent）",
+          "ok": true
+        },
+        {
+          "id": 1,
+          "kind": "human",
+          "dbUsername": "Pama",
+          "uiUsername": "Pama",
+          "apiUsername": "Pama",
+          "firstCell": "ciki@comail.eu.org",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "U2",
+      "desc": "普通用户行 username 与库内一致（至少 1 行）",
+      "pass": true,
+      "detail": [
+        {
+          "id": 18314,
+          "kind": "human",
+          "dbUsername": "qa295_admin",
+          "uiUsername": "qa295_admin",
+          "apiUsername": "qa295_admin",
+          "firstCell": "qa295admin@qa.test（你）",
+          "ok": true
+        },
+        {
+          "id": 18306,
+          "kind": "human",
+          "dbUsername": "",
+          "uiUsername": "",
+          "apiUsername": "",
+          "firstCell": "qa234-embed@qa.local",
+          "ok": true
+        },
+        {
+          "id": 6,
+          "kind": "human",
+          "dbUsername": "mapan",
+          "uiUsername": "mapan",
+          "apiUsername": "mapan",
+          "firstCell": "mapan@muse.ai",
+          "ok": true
+        },
+        {
+          "id": 1,
+          "kind": "human",
+          "dbUsername": "Pama",
+          "uiUsername": "Pama",
+          "apiUsername": "Pama",
+          "firstCell": "ciki@comail.eu.org",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "U3",
+      "desc": "agent 行 username 与库内一致（至少 1 行）",
+      "pass": true,
+      "detail": [
+        {
+          "id": 18315,
+          "kind": "agent",
+          "dbUsername": "qa295_agent_orphan",
+          "uiUsername": "qa295_agent_orphan",
+          "apiUsername": "qa295_agent_orphan",
+          "firstCell": "qa295agent@qa.testAgent",
+          "ok": true
+        },
+        {
+          "id": 5,
+          "kind": "agent",
+          "dbUsername": "Muse",
+          "uiUsername": "Muse",
+          "apiUsername": "Muse",
+          "firstCell": "Muse@internal（Pama 的 Agent）",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "U4",
+      "desc": "后端 userDto 下发 username 字段，且与库内一致（每个用户都有该字段）",
+      "pass": true,
+      "detail": {
+        "apiCount": 6
+      }
+    },
+    {
+      "id": "C2",
+      "desc": "角色/状态/注册于/操作 四列取值仍与库内一致（每行 6 格）",
+      "pass": true,
+      "detail": [
+        {
+          "id": 18315,
+          "roleCell": "普通用户",
+          "expectRole": "普通用户",
+          "roleOk": true,
+          "statusCell": "正常",
+          "expectStatus": "正常",
+          "statusOk": true,
+          "dateCell": "2026-11-26",
+          "dbCreatedAt": "2026-11-26T10:34:48.243Z",
+          "dateOk": true,
+          "actionsOk": true,
+          "actionButtons": 1,
+          "cells": 6,
+          "ok": true
+        },
+        {
+          "id": 18314,
+          "roleCell": "管理员",
+          "expectRole": "管理员",
+          "roleOk": true,
+          "statusCell": "正常",
+          "expectStatus": "正常",
+          "statusOk": true,
+          "dateCell": "2026-11-26",
+          "dbCreatedAt": "2026-11-26T10:34:12.514Z",
+          "dateOk": true,
+          "actionsOk": true,
+          "actionButtons": 1,
+          "cells": 6,
+          "ok": true
+        },
+        {
+          "id": 18306,
+          "roleCell": "普通用户",
+          "expectRole": "普通用户",
+          "roleOk": true,
+          "statusCell": "正常",
+          "expectStatus": "正常",
+          "statusOk": true,
+          "dateCell": "2026-11-25",
+          "dbCreatedAt": "2026-11-25T15:09:56.000Z",
+          "dateOk": true,
+          "actionsOk": true,
+          "actionButtons": 1,
+          "cells": 6,
+          "ok": true
+        },
+        {
+          "id": 6,
+          "roleCell": "普通用户",
+          "expectRole": "普通用户",
+          "roleOk": true,
+          "statusCell": "正常",
+          "expectStatus": "正常",
+          "statusOk": true,
+          "dateCell": "2026-11-23",
+          "dbCreatedAt": "2026-11-23T07:01:14.574Z",
+          "dateOk": true,
+          "actionsOk": true,
+          "actionButtons": 1,
+          "cells": 6,
+          "ok": true
+        },
+        {
+          "id": 5,
+          "roleCell": "普通用户",
+          "expectRole": "普通用户",
+          "roleOk": true,
+          "statusCell": "正常",
+          "expectStatus": "正常",
+          "statusOk": true,
+          "dateCell": "2026-11-22",
+          "dbCreatedAt": "2026-11-22T13:32:06.145Z",
+          "dateOk": true,
+          "actionsOk": true,
+          "actionButtons": 1,
+          "cells": 6,
+          "ok": true
+        },
+        {
+          "id": 1,
+          "roleCell": "管理员",
+          "expectRole": "管理员",
+          "roleOk": true,
+          "statusCell": "正常",
+          "expectStatus": "正常",
+          "statusOk": true,
+          "dateCell": "2026-11-09",
+          "dbCreatedAt": "2026-11-09T01:38:08.018Z",
+          "dateOk": true,
+          "actionsOk": true,
+          "actionButtons": 1,
+          "cells": 6,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "desc": "行序 = 库内 created_at DESC（新增列未改变排序）",
+      "pass": true,
+      "detail": {
+        "orderUi": [
+          18315,
+          18314,
+          18306,
+          6,
+          5,
+          1
+        ],
+        "orderDb": [
+          18315,
+          18314,
+          18306,
+          6,
+          5,
+          1
+        ]
+      }
+    },
+    {
+      "id": "C1",
+      "desc": "其余列（角色/状态/注册于/操作）仍渲染，每行 6 个单元格",
+      "pass": true,
+      "detail": {
+        "rowCellCounts": [
+          6,
+          6,
+          6,
+          6,
+          6,
+          6
+        ]
+      }
+    },
+    {
+      "id": "A1",
+      "desc": "agent 行的 Agent 标记仍在第一列（有 owner → 「（owner 的 Agent）」形态；无 owner → Agent 徽标形态）",
+      "pass": true,
+      "detail": [
+        {
+          "i": 0,
+          "firstCell": "qa295agent@qa.testAgent",
+          "ownerForm": false,
+          "badge": true
+        },
+        {
+          "i": 4,
+          "firstCell": "Muse@internal（Pama 的 Agent）",
+          "ownerForm": true,
+          "badge": false
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "desc": "「（你）」标记仍在第一列，且只出现在本人行",
+      "pass": true,
+      "detail": [
+        {
+          "i": 1,
+          "firstCell": "qa295admin@qa.test（你）"
+        }
+      ]
+    },
+    {
+      "id": "L2",
+      "desc": "加载态单元格 colSpan = 6",
+      "pass": true,
+      "detail": {
+        "loadingSpan": "6"
+      }
+    },
+    {
+      "id": "L3",
+      "desc": "空态单元格 colSpan = 6 且文案为待批准空态",
+      "pass": true,
+      "detail": {
+        "colspan": "6",
+        "text": "没有待批准的注册申请。"
+      }
+    },
+    {
+      "id": "E1",
+      "desc": "英文表头序列 = Email/Username/Role/Status/Registered/Actions",
+      "pass": true,
+      "detail": {
+        "got": [
+          "Email",
+          "Username",
+          "Role",
+          "Status",
+          "Registered",
+          "Actions"
+        ],
+        "expected": [
+          "Email",
+          "Username",
+          "Role",
+          "Status",
+          "Registered",
+          "Actions"
+        ]
+      }
+    },
+    {
+      "id": "E2",
+      "desc": "英文下「（你）」标记变为 (you) 且仍在第一列",
+      "pass": true,
+      "detail": [
+        "qa295agent@qa.testAgent",
+        "qa295admin@qa.test(you)",
+        "qa234-embed@qa.local",
+        "mapan@muse.ai",
+        "Muse@internal (Pama's Agent)",
+        "ciki@comail.eu.org"
+      ]
+    },
+    {
+      "id": "E3",
+      "desc": "中英切换后「用户名」列取值不变（同一批用户、同一批库内值）",
+      "pass": true,
+      "detail": {
+        "enUsernames": [
+          "qa295_agent_orphan",
+          "qa295_admin",
+          "",
+          "mapan",
+          "Muse",
+          "Pama"
+        ],
+        "zhUsernames": [
+          "qa295_agent_orphan",
+          "qa295_admin",
+          "",
+          "mapan",
+          "Muse",
+          "Pama"
+        ]
+      }
+    },
+    {
+      "id": "E4",
+      "desc": "页面 html lang = en",
+      "pass": true,
+      "detail": {
+        "htmlLang": "en"
+      }
+    },
+    {
+      "id": "E5",
+      "desc": "语言切换已写回账号（库内 users.language = en）",
+      "pass": true,
+      "detail": {
+        "dbLang": "en"
+      }
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+# 生产前端产物逐字节取证：确认线上跑的就是 PR #295 的构建
+# （不依赖版本号字符串，独立佐证线上 bundle 含新增列）
+
+[1] 线上 UsersTab 路由 chunk（来自 index.html 引用的 108 个 asset 之一）
+    GET https://ciki.oneboy.app/assets/UsersTab-BhxeUf8R.js
+    命中 t("admin.users.table.username") 片段：
+-sm text-destructive`,children:I}):null,(0,P.jsx)(`div`,{className:`rounded-xl border border-border`,children:(0,P.jsxs)(ve,{children:[(0,P.jsx)(ge,{children:(0,P.jsxs)(T,{children:[(0,P.jsx)(w,{children:r(`admin.users.table.email`)}),(0,P.jsx)(w,{children:r(`admin.users.table.username`)}),(0,P.jsx)(w,{children:r(`admin.users.table.role`)}),(0,P.jsx)(w,{children:r(`admin.users.table.status`)}),(0,P.jsx)(w,{children:r
+
+[2] 线上 i18n locale chunk api-uww3rM7l.js 中的中文表头映射：
+`邮件配置`,others:`其他`},common:{loading:`加载中…`,refresh:`刷新`,saving:`保存中…`},roles:{admin:`管理员`,user:`普通用户`},users:{filterLabel:`用户筛选`,filterAll:`全部用户`,create:`新建用户`,table:{email:`邮箱`,username:`用户名`,role:`角色`,status:`状态`,createdAt:`注册于`},emptyPending:`没有待批准的注册申请。`,empty:`还没有用户。`,you:`（你）`,actionsLabel:`{{email}} 的操作`,menuLabel:`账号操作`,approve:`批准并激活`,reject:`拒绝申请`,setUser:`设为普通用户`,setAdmin:`设为管理员`,deactivate:`停用账号`,activate:`启用账号`,resetPassword:`重置密码`,delete:`删除用
+
+[3] 线上 locale 中的英文表头映射（同一 chunk 内 en 段）
+（未在该 chunk 命中 en 表头字面量，en 段以浏览器实测为准，见 results.json E1）
