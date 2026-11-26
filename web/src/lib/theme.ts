@@ -1,8 +1,8 @@
 /** 主题明暗模式：亮 / 暗 / 自动三档（规格 §3B）。 */
 export type ThemeMode = "auto" | "light" | "dark"
 
-/** 主题风格（外观）：现行 Nova / 新增 纸面 (Paper) */
-export type ThemeStyle = "nova" | "paper"
+/** 主题风格（外观）：现行 Nova / 纸面 (Paper) / 自然 (Natural) / 墨纸 (E-Ink) */
+export type ThemeStyle = "nova" | "paper" | "natural" | "eink"
 
 /** zustand persist 的存储键；web/index.html 的内联脚本也读这个键。 */
 export const THEME_STORAGE_KEY = "ciki-theme"
@@ -29,7 +29,9 @@ export const THEME_META_COLORS: Record<
     }
   ).__THEME_META_COLORS__) || {
   nova: { light: "#ffffff", dark: "#0a0a0a" },
-  paper: { light: "#f7f4ee", dark: "#0b0c0e" }
+  paper: { light: "#f7f4ee", dark: "#0b0c0e" },
+  natural: { light: "#faf6f1", dark: "#191612" },
+  eink: { light: "#f5f3ea", dark: "#171814" }
 }
 
 export const THEME_STYLES: ThemeDefinition[] = [
@@ -42,10 +44,24 @@ export const THEME_STYLES: ThemeDefinition[] = [
     id: "paper",
     labelKey: "common.theme.style.paper",
     metaColor: THEME_META_COLORS.paper
+  },
+  {
+    id: "natural",
+    labelKey: "common.theme.style.natural",
+    metaColor: THEME_META_COLORS.natural
+  },
+  {
+    id: "eink",
+    labelKey: "common.theme.style.eink",
+    metaColor: THEME_META_COLORS.eink
   }
 ]
 
 export const DEFAULT_THEME_STYLE: ThemeStyle = "nova"
+
+export function isThemeStyle(style: unknown): style is ThemeStyle {
+  return typeof style === "string" && THEME_STYLES.some((s) => s.id === style)
+}
 
 export function getThemeDefinition(style: ThemeStyle): ThemeDefinition {
   return THEME_STYLES.find((s) => s.id === style) ?? THEME_STYLES[0]
@@ -95,7 +111,7 @@ export function resolveMode(mode: ThemeMode): "light" | "dark" {
 
 /**
  * 把主题与风格落到 <html>：
- * - `data-theme`: "nova" | "paper" 驱动主题风格令牌；
+ * - `data-theme`: "nova" | "paper" | "natural" | "eink" 驱动主题风格令牌；
  * - `.dark` 给 shadcn 令牌用；
  * - `data-mode` + `color-scheme` 给 Kumo 的 light-dark() 用（它在 [data-mode="dark"] 里切 color-scheme）。
  * - `meta[name="theme-color"]`: 对齐对应主题在浅/深下的页面基色。
@@ -107,8 +123,9 @@ export function applyTheme(
 ): "light" | "dark" {
   const safeMode: ThemeMode =
     mode === "light" || mode === "dark" ? mode : "auto"
-  const safeStyle: ThemeStyle =
-    style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+  const safeStyle: ThemeStyle = isThemeStyle(style)
+    ? style
+    : DEFAULT_THEME_STYLE
   if (typeof document === "undefined") return resolveMode(safeMode)
   const resolved = resolveMode(safeMode)
   const dark = resolved === "dark"

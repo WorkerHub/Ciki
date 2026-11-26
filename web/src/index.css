@@ -326,6 +326,364 @@ html[data-theme="paper"].dark {
   --wiki-heading-6: 0.95em;
 }
 
+/* ------------------------------------------------------------------ *
+ * 主题 3：自然（Natural，StyleKit natural-organic，大地色系）
+ * 浅版与暗版真源实测值映射至 Ciki 语义令牌体系
+ * ------------------------------------------------------------------ */
+html[data-theme="natural"] {
+  /* 字体栈：正文与等宽沿用现行栈；标题用衬线栈 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading-family:
+    "Georgia", "Songti SC", "Noto Serif CJK SC", "Source Han Sans SC", serif;
+  --font-heading: var(--font-heading-family);
+
+  /* 风格私有色阶 - 浅版 */
+  --sage: #8b9d77;
+  --sage-deep: #5f7050;
+  --sage-300: #c3cfb2;
+  --sage-200: #d9e1cb;
+  --sage-100: #e9eee0;
+  --sage-50: #f3f5ec;
+  --ochre: #d4a373;
+
+  /* 语义色彩令牌 - 浅版 */
+  --background: #faf6f1;
+  --foreground: #292524;
+  --card: #ffffff;
+  --card-foreground: #292524;
+  --popover: #ffffff;
+  --popover-foreground: #292524;
+  --primary: var(--sage-deep);
+  --primary-foreground: #ffffff;
+  --secondary: #e9e0d4;
+  --secondary-foreground: #44403c;
+  --muted: #f1ebe1;
+  --muted-foreground: #78716c;
+  --accent: #e9e0d4;
+  --accent-foreground: #292524;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #e6dfd2;
+  --input: #e6dfd2;
+  --ring: var(--sage-300);
+  --chart-1: #8b9d77;
+  --chart-2: #d4a373;
+  --chart-3: #75a191;
+  --chart-4: #5f7050;
+  --chart-5: #292524;
+
+  /* 侧栏令牌 */
+  --sidebar: #faf6f1;
+  --sidebar-foreground: #292524;
+  --sidebar-primary: var(--sage-deep);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1ebe1;
+  --sidebar-accent-foreground: #292524;
+  --sidebar-border: #e6dfd2;
+  --sidebar-ring: var(--sage-300);
+
+  /* 形状与圆角令牌：card 20px / 控件 12px / chip 999px */
+  --r-card: 20px;
+  --r-ctl: 12px;
+  --r-chip: 999px;
+  --radius: 12px;
+  --radius-lg: var(--r-ctl, 12px);
+  --radius-md: var(--r-ctl, 12px);
+  --radius-sm: var(--r-chip, 999px);
+  --radius-xl: var(--r-card, 20px);
+
+  /* 阴影柔和暖色、无内高光 */
+  --shadow-card: 0 1px 2px #44403c0a, 0 8px 24px -12px #44403c26;
+  --shadow-ctl: 0 1px 2px #44403c14;
+  --shadow-coral: 0 1px 2px #5f70502e, 0 6px 16px -6px #5f705047;
+  --shadow-pop: 0 2px 6px #44403c14, 0 24px 48px -20px #44403c38;
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #efe9dd;
+  --code-fg: #292524;
+  --code-dim: #78716c;
+  --code-kw: #96603a;
+  --code-str: #5f7050;
+  --code-type: #3f7a68;
+  --code-border: rgba(41, 37, 36, 0.08);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+html[data-theme="natural"].dark {
+  /* 字体栈：正文与等宽沿用现行栈；标题用衬线栈 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading-family:
+    "Georgia", "Songti SC", "Noto Serif CJK SC", "Source Han Sans SC", serif;
+  --font-heading: var(--font-heading-family);
+
+  /* 风格私有色阶 - 暗版 */
+  --sage: #a3b18a;
+  --sage-deep: #8b9d77;
+  --sage-300: #5f7050;
+  --sage-200: #47543c;
+  --sage-100: #333d2b;
+  --sage-50: #232a1e;
+  --ochre: #d4a373;
+
+  /* 语义色彩令牌 - 暗版 */
+  --background: #191612;
+  --foreground: #ece7dd;
+  --card: #221e18;
+  --card-foreground: #ece7dd;
+  --popover: #221e18;
+  --popover-foreground: #ece7dd;
+  --primary: var(--sage);
+  --primary-foreground: #1c2317;
+  --secondary: #2e2a21;
+  --secondary-foreground: #d6d0c2;
+  --muted: #2e2a21;
+  --muted-foreground: #a39e93;
+  --accent: #2e2a21;
+  --accent-foreground: #ece7dd;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #332e25;
+  --input: #332e25;
+  --ring: var(--sage-deep);
+  --chart-1: #a3b18a;
+  --chart-2: #d4a373;
+  --chart-3: #75a191;
+  --chart-4: #8b9d77;
+  --chart-5: #e9e0d4;
+
+  /* 侧栏令牌 */
+  --sidebar: #14120e;
+  --sidebar-foreground: #ece7dd;
+  --sidebar-primary: var(--sage);
+  --sidebar-primary-foreground: #1c2317;
+  --sidebar-accent: #2e2a21;
+  --sidebar-accent-foreground: #ece7dd;
+  --sidebar-border: #332e25;
+  --sidebar-ring: var(--sage-deep);
+
+  /* 形状与圆角令牌：card 20px / 控件 12px / chip 999px */
+  --r-card: 20px;
+  --r-ctl: 12px;
+  --r-chip: 999px;
+  --radius: 12px;
+  --radius-lg: var(--r-ctl, 12px);
+  --radius-md: var(--r-ctl, 12px);
+  --radius-sm: var(--r-chip, 999px);
+  --radius-xl: var(--r-card, 20px);
+
+  /* 暗版阴影：同结构、色基改黑（#00000066 / #00000080 级） */
+  --shadow-card: 0 1px 2px #00000066, 0 8px 24px -12px #00000080;
+  --shadow-ctl: 0 1px 2px #00000066;
+  --shadow-coral: 0 1px 2px #00000080, 0 6px 16px -6px #a3b18a66;
+  --shadow-pop: 0 2px 6px #00000066, 0 24px 48px -20px #000000cc;
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #221e18;
+  --code-fg: #ece7dd;
+  --code-dim: #a39e93;
+  --code-kw: #d4a373;
+  --code-str: #a3b18a;
+  --code-type: #7fb3a1;
+  --code-border: rgba(236, 231, 221, 0.1);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+/* ------------------------------------------------------------------ *
+ * 主题 4：墨纸（E-Ink，StyleKit e-ink，有限灰阶 + 纸底墨字）
+ * 浅版与暗版真源实测值映射至 Ciki 语义令牌体系
+ * ------------------------------------------------------------------ */
+html[data-theme="eink"] {
+  /* 字体栈：全部沿用现行栈，不改 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading: var(--font-sans);
+
+  /* 语义色彩令牌 - 浅版 */
+  --background: #f5f3ea;
+  --foreground: #20211e;
+  --card: #faf8f1;
+  --card-foreground: #20211e;
+  --popover: #faf8f1;
+  --popover-foreground: #20211e;
+  --primary: #20211e;
+  --primary-foreground: #f5f3ea;
+  --secondary: #e6e4da;
+  --secondary-foreground: #20211e;
+  --muted: #e6e4da;
+  --muted-foreground: #555750;
+  --accent: #e6e4da;
+  --accent-foreground: #20211e;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #bab9b0;
+  --input: #bab9b0;
+  --ring: #20211e;
+  --chart-1: #555750;
+  --chart-2: #8a8b83;
+  --chart-3: #20211e;
+  --chart-4: #bab9b0;
+  --chart-5: #44453f;
+
+  /* 侧栏令牌 */
+  --sidebar: #f5f3ea;
+  --sidebar-foreground: #20211e;
+  --sidebar-primary: #20211e;
+  --sidebar-primary-foreground: #f5f3ea;
+  --sidebar-accent: #e6e4da;
+  --sidebar-accent-foreground: #20211e;
+  --sidebar-border: #bab9b0;
+  --sidebar-ring: #20211e;
+
+  /* 形状与圆角令牌：全直角 */
+  --r-card: 0px;
+  --r-ctl: 0px;
+  --r-chip: 0px;
+  --radius: 0px;
+  --radius-lg: 0px;
+  --radius-md: 0px;
+  --radius-sm: 0px;
+  --radius-xl: 0px;
+
+  /* 无阴影 */
+  --shadow-card: none;
+  --shadow-ctl: none;
+  --shadow-coral: none;
+  --shadow-pop: none;
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #e6e4da;
+  --code-fg: #20211e;
+  --code-dim: #555750;
+  --code-kw: #20211e;
+  --code-str: #44453f;
+  --code-type: #555750;
+  --code-border: rgba(32, 33, 30, 0.14);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+html[data-theme="eink"].dark {
+  /* 字体栈：全部沿用现行栈，不改 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading: var(--font-sans);
+
+  /* 语义色彩令牌 - 暗版（反转墨色） */
+  --background: #171814;
+  --foreground: #eceade;
+  --card: #1f201c;
+  --card-foreground: #eceade;
+  --popover: #1f201c;
+  --popover-foreground: #eceade;
+  --primary: #eceade;
+  --primary-foreground: #171814;
+  --secondary: #262720;
+  --secondary-foreground: #eceade;
+  --muted: #262720;
+  --muted-foreground: #a9a89d;
+  --accent: #262720;
+  --accent-foreground: #eceade;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #44453f;
+  --input: #44453f;
+  --ring: #eceade;
+  --chart-1: #eceade;
+  --chart-2: #bab9b0;
+  --chart-3: #8a8b83;
+  --chart-4: #555750;
+  --chart-5: #44453f;
+
+  /* 侧栏令牌 */
+  --sidebar: #121310;
+  --sidebar-foreground: #eceade;
+  --sidebar-primary: #eceade;
+  --sidebar-primary-foreground: #171814;
+  --sidebar-accent: #262720;
+  --sidebar-accent-foreground: #eceade;
+  --sidebar-border: #44453f;
+  --sidebar-ring: #eceade;
+
+  /* 形状与圆角令牌：全直角 */
+  --r-card: 0px;
+  --r-ctl: 0px;
+  --r-chip: 0px;
+  --radius: 0px;
+  --radius-lg: 0px;
+  --radius-md: 0px;
+  --radius-sm: 0px;
+  --radius-xl: 0px;
+
+  /* 无阴影 */
+  --shadow-card: none;
+  --shadow-ctl: none;
+  --shadow-coral: none;
+  --shadow-pop: none;
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #262720;
+  --code-fg: #eceade;
+  --code-dim: #a9a89d;
+  --code-kw: #f5f3ea;
+  --code-str: #bab9b0;
+  --code-type: #d8d7cc;
+  --code-border: rgba(236, 234, 222, 0.14);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -1128,6 +1486,137 @@ html[data-theme="paper"]
     var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
     var(--tw-shadow, 0 0 #0000);
 }
+
+/* ================================================================== *
+ * 自然主题组件与正文细节覆盖
+ * ================================================================== */
+
+/* 自然主题标题字体栈：只在 natural 作用域生效 */
+html[data-theme="natural"] h1,
+html[data-theme="natural"] h2,
+html[data-theme="natural"] h3,
+html[data-theme="natural"] h4,
+html[data-theme="natural"] h5,
+html[data-theme="natural"] h6,
+html[data-theme="natural"] .font-heading {
+  font-family: var(
+    --font-heading-family,
+    "Georgia",
+    "Songti SC",
+    "Noto Serif CJK SC",
+    "Source Han Sans SC",
+    serif
+  );
+}
+
+/* 自然主题圆角与阴影落地 */
+html[data-theme="natural"] [data-slot="card"],
+html[data-theme="natural"] .bg-card {
+  border-radius: var(--r-card, 20px);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-theme="natural"] [data-slot="popover"],
+html[data-theme="natural"] [data-slot="dropdown-menu-content"],
+html[data-theme="natural"] [data-slot="select-content"],
+html[data-theme="natural"] [role="dialog"] {
+  box-shadow: var(--shadow-pop);
+}
+
+html[data-theme="natural"] [data-slot="button"],
+html[data-theme="natural"] [data-slot="input"],
+html[data-theme="natural"] [data-slot="select-trigger"] {
+  border-radius: var(--r-ctl, 12px);
+}
+
+html[data-theme="natural"] .chip,
+html[data-theme="natural"] [data-slot="badge"] {
+  border-radius: var(--r-chip, 999px);
+}
+
+html[data-theme="natural"] [data-slot="button"][data-variant="default"] {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-coral);
+}
+
+html[data-theme="natural"] [data-slot="button"][data-variant="default"]:hover,
+html[data-theme="natural"] [data-slot="button"][data-variant="default"]:active {
+  background-color: var(--sage-deep);
+  border-color: var(--sage-deep);
+}
+
+html[data-theme="natural"] [data-slot="button"][data-variant="secondary"] {
+  border-color: var(--secondary);
+  box-shadow: var(--shadow-ctl);
+}
+
+html[data-theme="natural"] [data-slot="button"][data-variant="secondary"]:hover,
+html[data-theme="natural"]
+  [data-slot="button"][data-variant="secondary"]:active {
+  background-color: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
+  border-color: color-mix(in oklch, var(--secondary), var(--foreground) 5%);
+}
+
+html[data-theme="natural"] [data-slot="button"][data-variant="outline"] {
+  box-shadow: var(--shadow-ctl);
+}
+
+html[data-theme="natural"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="natural"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible {
+  border-color: var(--ring);
+}
+
+html[data-theme="natural"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="natural"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible,
+html[data-theme="natural"]
+  [data-slot="button"][data-variant="outline"]:focus-visible {
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    var(--tw-shadow, 0 0 #0000);
+}
+
+/* ================================================================== *
+ * 墨纸主题组件与正文细节覆盖
+ * ================================================================== */
+
+/* 墨纸主题全直角与无阴影覆盖 */
+html[data-theme="eink"] [data-slot="card"],
+html[data-theme="eink"] .bg-card {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-theme="eink"] [data-slot="popover"],
+html[data-theme="eink"] [data-slot="dropdown-menu-content"],
+html[data-theme="eink"] [data-slot="select-content"],
+html[data-theme="eink"] [role="dialog"] {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-theme="eink"] [data-slot="button"],
+html[data-theme="eink"] [data-slot="input"],
+html[data-theme="eink"] [data-slot="select-trigger"] {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-theme="eink"] .chip,
+html[data-theme="eink"] [data-slot="badge"] {
+  border-radius: 0;
+}
+
+html[data-theme="eink"] [data-slot="button"][data-variant="default"],
+html[data-theme="eink"] [data-slot="button"][data-variant="secondary"],
+html[data-theme="eink"] [data-slot="button"][data-variant="outline"] {
+  box-shadow: none;
+}
+
 /* 纸纹理：轻微纸张质感，不遮挡交互与可读性 */
 html[data-theme="paper"] body::after {
   content: "";
@@ -1140,34 +1629,60 @@ html[data-theme="paper"] body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .36 0 0 0 0 .28 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* 纸面主题下的代码块视觉与高亮配色 */
+/* 纸面、自然、墨纸主题下的代码块视觉与高亮配色 */
 html[data-theme="paper"] .wiki-content .code-block,
-html[data-theme="paper"] .wiki-content.comment-body pre {
+html[data-theme="paper"] .wiki-content.comment-body pre,
+html[data-theme="natural"] .wiki-content .code-block,
+html[data-theme="natural"] .wiki-content.comment-body pre,
+html[data-theme="eink"] .wiki-content .code-block,
+html[data-theme="eink"] .wiki-content.comment-body pre {
   background: var(--code-bg);
   border-color: var(--border);
   border-radius: var(--r-card, 14px);
   box-shadow: var(--shadow-card);
 }
 
-html[data-theme="paper"] .wiki-content .code-block > pre {
+html[data-theme="paper"] .wiki-content .code-block > pre,
+html[data-theme="natural"] .wiki-content .code-block > pre,
+html[data-theme="eink"] .wiki-content .code-block > pre {
   background: var(--code-bg);
   color: var(--code-fg);
   font-family: var(--font-mono-family);
 }
 
-/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+/* biome-ignore lint/style/noDescendingSpecificity: 主题专有代码块与高亮样式覆盖基础高亮 */
 html[data-theme="paper"] .wiki-content .code-block > button,
-html[data-theme="paper"] .wiki-content .code-block [data-code-header] {
+html[data-theme="natural"] .wiki-content .code-block > button,
+html[data-theme="eink"] .wiki-content .code-block > button,
+html[data-theme="paper"] .wiki-content .code-block [data-code-header],
+html[data-theme="natural"] .wiki-content .code-block [data-code-header],
+html[data-theme="eink"] .wiki-content .code-block [data-code-header] {
   background: var(--code-bg);
   border-bottom: 1px solid var(--code-border, rgba(255, 255, 255, 0.08));
   color: var(--code-dim);
 }
 
-/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+/* biome-ignore lint/style/noDescendingSpecificity: 主题专有代码块与高亮样式覆盖基础高亮 */
 html[data-theme="paper"] .wiki-content .code-block > button span,
+html[data-theme="natural"] .wiki-content .code-block > button span,
+html[data-theme="eink"] .wiki-content .code-block > button span,
 html[data-theme="paper"] .wiki-content .code-block [data-code-header] button,
+html[data-theme="natural"] .wiki-content .code-block [data-code-header] button,
+html[data-theme="eink"] .wiki-content .code-block [data-code-header] button,
 html[data-theme="paper"] .wiki-content .code-block [data-code-header] span,
+html[data-theme="natural"] .wiki-content .code-block [data-code-header] span,
+html[data-theme="eink"] .wiki-content .code-block [data-code-header] span,
 html[data-theme="paper"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  [data-code-language],
+html[data-theme="natural"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  [data-code-language],
+html[data-theme="eink"]
   .wiki-content
   .code-block
   [data-code-header]
@@ -1175,9 +1690,21 @@ html[data-theme="paper"]
   color: var(--code-dim);
 }
 
-/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+/* biome-ignore lint/style/noDescendingSpecificity: 主题专有代码块与高亮样式覆盖基础高亮 */
 html[data-theme="paper"] .wiki-content .code-block > button:hover,
+html[data-theme="natural"] .wiki-content .code-block > button:hover,
+html[data-theme="eink"] .wiki-content .code-block > button:hover,
 html[data-theme="paper"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  button:hover,
+html[data-theme="natural"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  button:hover,
+html[data-theme="eink"]
   .wiki-content
   .code-block
   [data-code-header]
@@ -1186,7 +1713,9 @@ html[data-theme="paper"]
   color: var(--code-fg);
 }
 
-html[data-theme="paper"] .wiki-content.comment-body pre {
+html[data-theme="paper"] .wiki-content.comment-body pre,
+html[data-theme="natural"] .wiki-content.comment-body pre,
+html[data-theme="eink"] .wiki-content.comment-body pre {
   color: var(--code-fg);
   font-family: var(--font-mono-family);
 }
@@ -1196,32 +1725,64 @@ html[data-theme="paper"] .wiki-content .hljs-keyword,
 html[data-theme="paper"] .wiki-content .hljs-tag,
 html[data-theme="paper"] .wiki-content .hljs-selector-tag,
 html[data-theme="paper"] .wiki-content .hljs-doctag,
-html[data-theme="paper"] .wiki-content .hljs-template-tag {
+html[data-theme="paper"] .wiki-content .hljs-template-tag,
+html[data-theme="natural"] .wiki-content .hljs-keyword,
+html[data-theme="natural"] .wiki-content .hljs-tag,
+html[data-theme="natural"] .wiki-content .hljs-selector-tag,
+html[data-theme="natural"] .wiki-content .hljs-doctag,
+html[data-theme="natural"] .wiki-content .hljs-template-tag,
+html[data-theme="eink"] .wiki-content .hljs-keyword,
+html[data-theme="eink"] .wiki-content .hljs-tag,
+html[data-theme="eink"] .wiki-content .hljs-selector-tag,
+html[data-theme="eink"] .wiki-content .hljs-doctag,
+html[data-theme="eink"] .wiki-content .hljs-template-tag {
   color: var(--code-kw, #f08a6d);
 }
 
-/* biome-ignore lint/style/noDescendingSpecificity: 纸面主题专有代码块与高亮样式覆盖基础高亮 */
+/* biome-ignore lint/style/noDescendingSpecificity: 主题专有代码块与高亮样式覆盖基础高亮 */
 html[data-theme="paper"] .wiki-content .hljs-string,
+html[data-theme="natural"] .wiki-content .hljs-string,
+html[data-theme="eink"] .wiki-content .hljs-string,
 html[data-theme="paper"] .wiki-content .hljs-regexp,
-html[data-theme="paper"] .wiki-content .hljs-meta .hljs-string {
+html[data-theme="natural"] .wiki-content .hljs-regexp,
+html[data-theme="eink"] .wiki-content .hljs-regexp,
+html[data-theme="paper"] .wiki-content .hljs-meta .hljs-string,
+html[data-theme="natural"] .wiki-content .hljs-meta .hljs-string,
+html[data-theme="eink"] .wiki-content .hljs-meta .hljs-string {
   color: var(--code-str, #e6c477);
 }
 
 html[data-theme="paper"] .wiki-content .hljs-type,
 html[data-theme="paper"] .wiki-content .hljs-title.class_,
 html[data-theme="paper"] .wiki-content .hljs-built_in,
-html[data-theme="paper"] .wiki-content .hljs-builtin-name {
+html[data-theme="paper"] .wiki-content .hljs-builtin-name,
+html[data-theme="natural"] .wiki-content .hljs-type,
+html[data-theme="natural"] .wiki-content .hljs-title.class_,
+html[data-theme="natural"] .wiki-content .hljs-built_in,
+html[data-theme="natural"] .wiki-content .hljs-builtin-name,
+html[data-theme="eink"] .wiki-content .hljs-type,
+html[data-theme="eink"] .wiki-content .hljs-title.class_,
+html[data-theme="eink"] .wiki-content .hljs-built_in,
+html[data-theme="eink"] .wiki-content .hljs-builtin-name {
   color: var(--code-type, #93cfc6);
 }
 
 html[data-theme="paper"] .wiki-content .hljs-comment,
-html[data-theme="paper"] .wiki-content .hljs-punctuation {
+html[data-theme="paper"] .wiki-content .hljs-punctuation,
+html[data-theme="natural"] .wiki-content .hljs-comment,
+html[data-theme="natural"] .wiki-content .hljs-punctuation,
+html[data-theme="eink"] .wiki-content .hljs-comment,
+html[data-theme="eink"] .wiki-content .hljs-punctuation {
   color: var(--code-dim);
   font-style: italic;
 }
 
 html[data-theme="paper"] .wiki-content .hljs-number,
-html[data-theme="paper"] .wiki-content .hljs-literal {
+html[data-theme="paper"] .wiki-content .hljs-literal,
+html[data-theme="natural"] .wiki-content .hljs-number,
+html[data-theme="natural"] .wiki-content .hljs-literal,
+html[data-theme="eink"] .wiki-content .hljs-number,
+html[data-theme="eink"] .wiki-content .hljs-literal {
   color: var(--code-str, #e6c477);
 }
 
@@ -1230,23 +1791,41 @@ html[data-theme="paper"] .wiki-content .hljs-title.function_,
 html[data-theme="paper"] .wiki-content .hljs-section,
 html[data-theme="paper"] .wiki-content .hljs-attr,
 html[data-theme="paper"] .wiki-content .hljs-attribute,
-html[data-theme="paper"] .wiki-content .hljs-variable {
+html[data-theme="paper"] .wiki-content .hljs-variable,
+html[data-theme="natural"] .wiki-content .hljs-title,
+html[data-theme="natural"] .wiki-content .hljs-title.function_,
+html[data-theme="natural"] .wiki-content .hljs-section,
+html[data-theme="natural"] .wiki-content .hljs-attr,
+html[data-theme="natural"] .wiki-content .hljs-attribute,
+html[data-theme="natural"] .wiki-content .hljs-variable,
+html[data-theme="eink"] .wiki-content .hljs-title,
+html[data-theme="eink"] .wiki-content .hljs-title.function_,
+html[data-theme="eink"] .wiki-content .hljs-section,
+html[data-theme="eink"] .wiki-content .hljs-attr,
+html[data-theme="eink"] .wiki-content .hljs-attribute,
+html[data-theme="eink"] .wiki-content .hljs-variable {
   color: var(--code-fg, #e9e6e0);
 }
 
-/* 纸面主题下的链接与行内元素 */
-html[data-theme="paper"] .wiki-content a {
+/* 主题下的链接与行内元素 */
+html[data-theme="paper"] .wiki-content a,
+html[data-theme="natural"] .wiki-content a,
+html[data-theme="eink"] .wiki-content a {
   color: var(--primary);
   text-decoration-color: var(--primary);
 }
 
-html[data-theme="paper"] .wiki-content blockquote {
+html[data-theme="paper"] .wiki-content blockquote,
+html[data-theme="natural"] .wiki-content blockquote,
+html[data-theme="eink"] .wiki-content blockquote {
   border-left-color: var(--primary);
   background: var(--muted);
   color: var(--foreground);
 }
 
-html[data-theme="paper"] .wiki-content :not(pre) > code {
+html[data-theme="paper"] .wiki-content :not(pre) > code,
+html[data-theme="natural"] .wiki-content :not(pre) > code,
+html[data-theme="eink"] .wiki-content :not(pre) > code {
   font-family: var(--font-mono-family);
   background: var(--muted);
   color: var(--foreground);

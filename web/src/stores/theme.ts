@@ -3,9 +3,10 @@ import { persist, type StorageValue } from "zustand/middleware"
 import { type Me, meApi } from "@/lib/api"
 import {
   applyTheme,
+  DEFAULT_THEME_STYLE,
+  isThemeStyle,
   resolveMode,
   THEME_STORAGE_KEY,
-  DEFAULT_THEME_STYLE,
   type ThemeMode,
   type ThemeStyle
 } from "@/lib/theme"
@@ -90,7 +91,7 @@ export function migrateThemeStorage(
     const mode: ThemeMode =
       rawMode === "light" || rawMode === "dark" ? rawMode : "auto"
     const style: ThemeStyle =
-      stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+      isThemeStyle(stateObj.style) ? stateObj.style : DEFAULT_THEME_STYLE
     const migratedAt =
       typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
     const modeMigratedAt =
@@ -114,7 +115,7 @@ export function migrateThemeStorage(
     const mode: ThemeMode =
       rawTheme === "light" || rawTheme === "dark" ? rawTheme : "auto"
     const style: ThemeStyle =
-      stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+      isThemeStyle(stateObj.style) ? stateObj.style : DEFAULT_THEME_STYLE
     // 严格保留既有账号风格迁移标记 migratedAt（若原为 null 则保持 null，严禁破坏 syncAccountTheme）
     const migratedAt =
       typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
@@ -131,7 +132,7 @@ export function migrateThemeStorage(
 
   // 类 2: 无旧字段（未设置过明暗，或无 theme 也无 mode）
   const style: ThemeStyle =
-    stateObj.style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+    isThemeStyle(stateObj.style) ? stateObj.style : DEFAULT_THEME_STYLE
   const migratedAt =
     typeof stateObj.migratedAt === "number" ? stateObj.migratedAt : null
   const modeMigratedAt =
@@ -163,7 +164,7 @@ export const useThemeStore = create<ThemeState>()(
       },
       setStyle: (style) => {
         const safeStyle: ThemeStyle =
-          style === "paper" ? "paper" : DEFAULT_THEME_STYLE
+          isThemeStyle(style) ? style : DEFAULT_THEME_STYLE
         const mode = get().mode
         set({ style: safeStyle, resolved: applyTheme(mode, safeStyle) })
       },
@@ -228,7 +229,7 @@ export const useThemeStore = create<ThemeState>()(
         if (state.mode !== "light" && state.mode !== "dark") {
           state.mode = "auto"
         }
-        if (!state.style || (state.style !== "nova" && state.style !== "paper"))
+        if (!state.style || !isThemeStyle(state.style))
           state.style = DEFAULT_THEME_STYLE
         if (state.migratedAt === undefined) state.migratedAt = null
         if (state.modeMigratedAt === undefined) state.modeMigratedAt = null
@@ -254,7 +255,9 @@ export function _resetThemeMigratingForTest() {
  */
 export async function syncAccountTheme(user: Me | null): Promise<void> {
   if (!user || migrating) return
-  const serverStyle: ThemeStyle = user.themeStyle === "paper" ? "paper" : "nova"
+  const serverStyle: ThemeStyle = isThemeStyle(user.themeStyle)
+    ? user.themeStyle
+    : DEFAULT_THEME_STYLE
   const themeStore = useThemeStore.getState()
   const localStyle: ThemeStyle = themeStore.style
   const hasMigrated = Boolean(themeStore.migratedAt)

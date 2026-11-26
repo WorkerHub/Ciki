@@ -24,7 +24,9 @@
       // 颜色真源挂在 window.__THEME_META_COLORS__，与 web/src/lib/theme.ts 对齐。
       window.__THEME_META_COLORS__ = {
         nova: { light: "#ffffff", dark: "#0a0a0a" },
-        paper: { light: "#f7f4ee", dark: "#0b0c0e" }
+        paper: { light: "#f7f4ee", dark: "#0b0c0e" },
+        natural: { light: "#faf6f1", dark: "#191612" },
+        eink: { light: "#f5f3ea", dark: "#171814" }
       }
       ;(() => {
         const root = document.documentElement
@@ -46,7 +48,8 @@
           // localStorage 被禁用时按浅色走，不阻塞渲染
         }
         if (mode !== "light" && mode !== "dark") mode = "auto"
-        if (style !== "paper") style = "nova"
+        const validStyles = ["nova", "paper", "natural", "eink"]
+        if (!validStyles.includes(style)) style = "nova"
         const dark =
           mode === "dark" ||
           (mode === "auto" &&

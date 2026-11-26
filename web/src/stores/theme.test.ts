@@ -1,11 +1,16 @@
 import fs from "node:fs"
 import path from "node:path"
 import React from "react"
-import { fireEvent, render } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { ThemeCycleButton } from "@/components/ThemeToggle"
+import { ThemeCycleButton, ThemeStyleSegmented } from "@/components/ThemeToggle"
 import type { Me } from "@/lib/api"
-import { THEME_META_COLORS } from "@/lib/theme"
+import {
+  applyTheme,
+  isThemeStyle,
+  THEME_META_COLORS,
+  THEME_STYLES
+} from "@/lib/theme"
 import { useAuthStore } from "@/stores/auth"
 import {
   _resetThemeMigratingForTest,
@@ -105,17 +110,25 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(isDark()).toBe(true)
   })
 
-  it("风格切换：切至纸面写 data-theme=paper 并持久化，切回 Nova 写 data-theme=nova", () => {
+  it("风格切换：切至纸面、自然、墨纸写 data-theme 并持久化，切回 Nova 写 data-theme=nova", () => {
     useThemeStore.getState().setStyle("paper")
     expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
     expect(localStorage.getItem("ciki-theme")).toContain('"style":"paper"')
+
+    useThemeStore.getState().setStyle("natural")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(localStorage.getItem("ciki-theme")).toContain('"style":"natural"')
+
+    useThemeStore.getState().setStyle("eink")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(localStorage.getItem("ciki-theme")).toContain('"style":"eink"')
 
     useThemeStore.getState().setStyle("nova")
     expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
     expect(localStorage.getItem("ciki-theme")).toContain('"style":"nova"')
   })
 
-  it("2 主题 × 2 模式矩阵：各组合下属性、meta theme-color 与类名准确落定", () => {
+  it("4 主题 × 2 模式矩阵：各组合下属性、meta theme-color 与类名准确落定", () => {
     let meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) {
       meta = document.createElement("meta")
@@ -154,6 +167,38 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
     expect(isDark()).toBe(true)
     expect(meta.getAttribute("content")).toBe("#0b0c0e")
+
+    // 5. 自然 浅色
+    useThemeStore.getState().setStyle("natural")
+    useThemeStore.getState().setMode("light")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#faf6f1")
+
+    // 6. 自然 深色
+    useThemeStore.getState().setStyle("natural")
+    useThemeStore.getState().setMode("dark")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#191612")
+
+    // 7. 墨纸 浅色
+    useThemeStore.getState().setStyle("eink")
+    useThemeStore.getState().setMode("light")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#f5f3ea")
+
+    // 8. 墨纸 深色
+    useThemeStore.getState().setStyle("eink")
+    useThemeStore.getState().setMode("dark")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#171814")
   })
 
   it("THEME_META_COLORS 与各主题 light/dark 颜色保持单一真源", () => {
@@ -161,6 +206,57 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(THEME_META_COLORS.nova.dark).toBe("#0a0a0a")
     expect(THEME_META_COLORS.paper.light).toBe("#f7f4ee")
     expect(THEME_META_COLORS.paper.dark).toBe("#0b0c0e")
+    expect(THEME_META_COLORS.natural.light).toBe("#faf6f1")
+    expect(THEME_META_COLORS.natural.dark).toBe("#191612")
+    expect(THEME_META_COLORS.eink.light).toBe("#f5f3ea")
+    expect(THEME_META_COLORS.eink.dark).toBe("#171814")
+  })
+
+  it("THEME_STYLES 注册表包含全部 4 套风格", () => {
+    const ids = THEME_STYLES.map((s) => s.id)
+    expect(ids).toEqual(["nova", "paper", "natural", "eink"])
+    expect(isThemeStyle("natural")).toBe(true)
+    expect(isThemeStyle("eink")).toBe(true)
+    expect(isThemeStyle("paper")).toBe(true)
+    expect(isThemeStyle("nova")).toBe(true)
+    expect(isThemeStyle("invalid")).toBe(false)
+  })
+
+  it("applyTheme 直接调用：准确应用自然与墨纸的 data-theme、data-mode 与 meta[theme-color]，非法风格回退 nova", () => {
+    const meta = document.querySelector('meta[name="theme-color"]')!
+
+    // 自然 浅色
+    applyTheme("light", "natural")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#faf6f1")
+
+    // 自然 深色
+    applyTheme("dark", "natural")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#191612")
+
+    // 墨纸 浅色
+    applyTheme("light", "eink")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+    expect(isDark()).toBe(false)
+    expect(meta.getAttribute("content")).toBe("#f5f3ea")
+
+    // 墨纸 深色
+    applyTheme("dark", "eink")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.getAttribute("data-mode")).toBe("dark")
+    expect(isDark()).toBe(true)
+    expect(meta.getAttribute("content")).toBe("#171814")
+
+    // 非法风格安全回退 nova
+    applyTheme("light", "unknown-style" as any)
+    expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
+    expect(meta.getAttribute("content")).toBe("#ffffff")
   })
 
   it("纸面与 Nova 阅读版式一致：无正文列宽封顶且清理死令牌", () => {
@@ -172,6 +268,13 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(cssContent).not.toMatch(
       /\[data-readview-container\]\s*\{[^}]*max-width/
     )
+    // 自然与墨纸令牌块齐全
+    expect(cssContent).toContain('html[data-theme="natural"]')
+    expect(cssContent).toContain('html[data-theme="natural"].dark')
+    expect(cssContent).toContain('html[data-theme="eink"]')
+    expect(cssContent).toContain('html[data-theme="eink"].dark')
+    expect(cssContent).toContain("--r-card: 0px")
+    expect(cssContent).toContain("--shadow-card: none")
   })
 
   it("存储含非法 mode 值时：rehydrate 校验回退 auto，resolved 正常生效且不崩溃", async () => {
@@ -247,6 +350,38 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(isDark()).toBe(true)
   })
 
+  it("合法 natural 与 eink 风格值：rehydrate 正常还原且不被重置为 nova", async () => {
+    // natural + dark
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { mode: "dark", style: "natural" },
+        version: 0
+      })
+    )
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().mode).toBe("dark")
+    expect(useThemeStore.getState().style).toBe("natural")
+    expect(useThemeStore.getState().resolved).toBe("dark")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(isDark()).toBe(true)
+
+    // eink + light
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { mode: "light", style: "eink" },
+        version: 0
+      })
+    )
+    await useThemeStore.persist.rehydrate()
+    expect(useThemeStore.getState().mode).toBe("light")
+    expect(useThemeStore.getState().style).toBe("eink")
+    expect(useThemeStore.getState().resolved).toBe("light")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(isDark()).toBe(false)
+  })
+
   it("setMode 传入非法值防御：归一为 auto", () => {
     useThemeStore.getState().setMode("paper" as any)
     expect(useThemeStore.getState().mode).toBe("auto")
@@ -268,6 +403,40 @@ describe("主题三档（亮 / 暗 / 自动）", () => {
     expect(button).toBeTruthy()
     fireEvent.click(button!)
     expect(useThemeStore.getState().mode).toBe("light")
+  })
+
+  it("ThemeStyleSegmented 渲染全部 4 个选项，且能正确识别合法风格与非法回退", () => {
+    const { rerender } = render(
+      React.createElement(ThemeStyleSegmented, {
+        value: "natural",
+        onChange: () => {}
+      })
+    )
+    const naturalBtn = screen.getByRole("radio", { name: "自然" })
+    expect(naturalBtn).toBeTruthy()
+    expect(naturalBtn.getAttribute("data-state")).toBe("on")
+    expect(screen.getByRole("radio", { name: "墨纸" }).getAttribute("data-state")).toBe("off")
+    expect(screen.getByRole("radio", { name: "Nova" }).getAttribute("data-state")).toBe("off")
+    expect(screen.getByRole("radio", { name: "纸面" }).getAttribute("data-state")).toBe("off")
+
+    rerender(
+      React.createElement(ThemeStyleSegmented, {
+        value: "eink",
+        onChange: () => {}
+      })
+    )
+    const einkBtn = screen.getByRole("radio", { name: "墨纸" })
+    expect(einkBtn.getAttribute("data-state")).toBe("on")
+    expect(screen.getByRole("radio", { name: "自然" }).getAttribute("data-state")).toBe("off")
+
+    rerender(
+      React.createElement(ThemeStyleSegmented, {
+        value: "invalid-style" as any,
+        onChange: () => {}
+      })
+    )
+    const novaBtn = screen.getByRole("radio", { name: "Nova" })
+    expect(novaBtn.getAttribute("data-state")).toBe("on")
   })
 })
 
@@ -429,6 +598,26 @@ describe("账号主题同步与一次性迁移 (syncAccountTheme)", () => {
     // 应用服务端 paper 风格
     expect(useThemeStore.getState().style).toBe("paper")
     expect(document.documentElement.getAttribute("data-theme")).toBe("paper")
+  })
+
+  it("服务端为 natural 或 eink 时，不回写服务端，直接应用服务端风格", async () => {
+    // 1. natural
+    useThemeStore.setState({ mode: "light", style: "nova" })
+    const userWithNatural: Me = { ...baseUser, themeStyle: "natural" }
+    await syncAccountTheme(userWithNatural)
+
+    expect(meApi.updateThemeStyle).not.toHaveBeenCalled()
+    expect(useThemeStore.getState().style).toBe("natural")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+
+    // 2. eink
+    useThemeStore.setState({ mode: "light", style: "nova" })
+    const userWithEink: Me = { ...baseUser, themeStyle: "eink" }
+    await syncAccountTheme(userWithEink)
+
+    expect(meApi.updateThemeStyle).not.toHaveBeenCalled()
+    expect(useThemeStore.getState().style).toBe("eink")
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
   })
 
   it("服务端为默认 nova 且本地镜像为 nova 时，不回写服务端，保持现状", async () => {
@@ -621,6 +810,28 @@ describe("持久化数据迁移 (migrateThemeStorage) 三类输入覆盖", () =>
     expect(resMigrated.state.migratedAt).toBe(1732500000000)
     expect(resMigrated.state.modeMigratedAt).toBeNull()
   })
+
+  it("迁移时若包含 natural 或 eink 风格：准确保留风格，不被误置为 nova", () => {
+    const resNatural = migrateThemeStorage(
+      JSON.stringify({
+        state: { theme: "light", style: "natural" },
+        version: 0
+      }),
+      fixedTime
+    )
+    expect(resNatural.migrated).toBe(true)
+    expect(resNatural.state.mode).toBe("light")
+    expect(resNatural.state.style).toBe("natural")
+
+    const resEink = migrateThemeStorage(
+      JSON.stringify({
+        state: { style: "eink" },
+        version: 0
+      }),
+      fixedTime
+    )
+    expect(resEink.state.style).toBe("eink")
+  })
 })
 
 describe("localStorage 水合迁移与回写（Jim 验收项 1）", () => {
@@ -724,7 +935,8 @@ describe("index.html 首屏内联脚本执行（新旧结构均不出错）", ()
       }
     } catch {}
     if (mode !== "light" && mode !== "dark") mode = "auto"
-    if (style !== "paper") style = "nova"
+    const validStyles = ["nova", "paper", "natural", "eink"]
+    if (!validStyles.includes(style)) style = "nova"
     const dark =
       mode === "dark" ||
       (mode === "auto" &&
@@ -791,5 +1003,31 @@ describe("index.html 首屏内联脚本执行（新旧结构均不出错）", ()
     expect(document.documentElement.getAttribute("data-theme")).toBe("nova")
     expect(document.documentElement.classList.contains("dark")).toBe(false)
     expect(document.documentElement.getAttribute("data-mode")).toBe("light")
+  })
+
+  it("新结构 style=natural：首屏脚本安全解析，准确应用 natural", () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { mode: "dark", style: "natural" },
+        version: 0
+      })
+    )
+    expect(() => runInlineScript()).not.toThrow()
+    expect(document.documentElement.getAttribute("data-theme")).toBe("natural")
+    expect(document.documentElement.classList.contains("dark")).toBe(true)
+  })
+
+  it("新结构 style=eink：首屏脚本安全解析，准确应用 eink", () => {
+    localStorage.setItem(
+      "ciki-theme",
+      JSON.stringify({
+        state: { mode: "light", style: "eink" },
+        version: 0
+      })
+    )
+    expect(() => runInlineScript()).not.toThrow()
+    expect(document.documentElement.getAttribute("data-theme")).toBe("eink")
+    expect(document.documentElement.classList.contains("dark")).toBe(false)
   })
 })

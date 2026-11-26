@@ -22,7 +22,9 @@
       "styleLabel": "风格",
       "style": {
         "nova": "Nova",
-        "paper": "纸面"
+        "paper": "纸面",
+        "natural": "自然",
+        "eink": "墨纸"
       },
       "modeLabel": "模式",
       "mode": {
