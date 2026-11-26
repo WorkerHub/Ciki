@@ -122,6 +122,15 @@ describe("工具条随选区实时更新", () => {
 
     const button = screen.getByRole("button", { name: "插入 HTML 动画" })
     expect(button).toBeInTheDocument()
+    const icon = button.querySelector("svg")
+    expect(icon).toHaveClass("lucide-app-window")
+    expect(icon).not.toHaveClass("lucide-code-2")
+
+    const codeBlockBtn = screen.getByRole("button", { name: "代码块" })
+    const codeBlockIcon = codeBlockBtn.querySelector("svg")
+    expect(codeBlockIcon).toHaveClass("lucide-code-2")
+    expect(codeBlockIcon).not.toHaveClass("lucide-app-window")
+
     const fileInput = container.querySelector(
       'input[type="file"][accept=".html,text/html"]'
     )

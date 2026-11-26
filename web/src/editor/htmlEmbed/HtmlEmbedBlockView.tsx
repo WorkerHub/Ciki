@@ -1,5 +1,11 @@
 import { type NodeViewProps, NodeViewWrapper } from "@tiptap/react"
-import { AlertCircle, Code2, Loader2, RefreshCw, Trash2 } from "lucide-react"
+import {
+  AlertCircle,
+  AppWindow,
+  Loader2,
+  RefreshCw,
+  Trash2
+} from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -294,7 +300,7 @@ export function HtmlEmbedBlockView({
       >
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-            <Code2 className="h-5 w-5" />
+            <AppWindow className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
             <div

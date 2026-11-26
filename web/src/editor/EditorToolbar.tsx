@@ -1,5 +1,6 @@
 import { type Editor, useEditorState } from "@tiptap/react"
 import {
+  AppWindow,
   Baseline,
   Bold,
   Code2,
@@ -435,7 +436,7 @@ export function EditorToolbar({
         title={t("editor.toolbar.htmlEmbed")}
         onClick={() => embedInput.current?.click()}
       >
-        <Code2 aria-hidden="true" />
+        <AppWindow aria-hidden="true" />
       </Button>
       <input
         ref={imageInput}
