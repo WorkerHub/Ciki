@@ -167,6 +167,7 @@ describe("系统管理 · 真实路由子导航", () => {
       {
         id: 2,
         email: "agent-bot@internal",
+        username: "agent-bot",
         role: "user",
         isActive: true,
         approvalStatus: "approved",
@@ -188,6 +189,7 @@ describe("系统管理 · 真实路由子导航", () => {
       {
         id: 2,
         email: "agent-bot@internal",
+        username: "agent-bot",
         role: "user",
         isActive: true,
         approvalStatus: "approved",

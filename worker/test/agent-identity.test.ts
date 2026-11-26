@@ -418,6 +418,7 @@ describe("Admin 用户管理接口对 Agent 的保护与约束", () => {
     expect(res.status).toBe(200)
     const users = (await res.json()) as Array<{
       id: number
+      username: string
       kind: string
       isAgent: boolean
       ownerUserId: number | null
@@ -427,6 +428,7 @@ describe("Admin 用户管理接口对 Agent 的保护与约束", () => {
 
     const agentDto = users.find((u) => u.id === agentId)
     expect(agentDto).toBeDefined()
+    expect(agentDto?.username).toBe("ciki-bot")
     expect(agentDto?.isAgent).toBe(true)
     expect(agentDto?.kind).toBe("agent")
     expect(agentDto?.ownerUserId).toBe(owner!.id)
@@ -438,6 +440,7 @@ describe("Admin 用户管理接口对 Agent 的保护与约束", () => {
 
     const humanDto = users.find((u) => u.id === owner!.id)
     expect(humanDto).toBeDefined()
+    expect(humanDto?.username).toBe(owner!.username)
     expect(humanDto?.isAgent).toBe(false)
     expect(humanDto?.kind).toBe("human")
     expect(humanDto?.ownerUserId).toBeNull()

@@ -20,6 +20,7 @@ vi.mock("@/lib/api", async (importOriginal) => {
 const MOCK_USER: AdminUser = {
   id: 42,
   email: "alice@example.com",
+  username: "alice",
   role: "user",
   isActive: true,
   approvalStatus: "approved",
