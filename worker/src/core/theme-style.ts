@@ -1,15 +1,20 @@
 /**
- * 主题风格（Theme Style）：Nova / 纸面（Paper）。
+ * 主题风格（Theme Style）：Nova / 纸面（Paper） / 自然（Natural） / 墨纸（E-Ink）。
  * 服务端存储于 users.theme_style（TEXT NOT NULL DEFAULT 'nova'）。
  */
 
-export const SUPPORTED_THEME_STYLES = ["nova", "paper"] as const
+export const SUPPORTED_THEME_STYLES = [
+  "nova",
+  "paper",
+  "natural",
+  "eink",
+] as const
 
 export type ThemeStyle = (typeof SUPPORTED_THEME_STYLES)[number]
 
 export const DEFAULT_THEME_STYLE: ThemeStyle = "nova"
 
-/** 精确匹配：仅 'nova' 或 'paper'。 */
+/** 精确匹配：仅 'nova' | 'paper' | 'natural' | 'eink'。 */
 export function isThemeStyle(value: unknown): value is ThemeStyle {
   return (
     typeof value === "string" &&
