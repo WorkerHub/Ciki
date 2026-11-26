@@ -106,6 +106,7 @@
   --radius-4xl: calc(var(--radius) * 2.6);
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.75;
+  --wiki-max-width: none;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -248,6 +249,7 @@ html[data-theme="paper"] {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.7;
+  --wiki-max-width: none;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -318,6 +320,7 @@ html[data-theme="paper"].dark {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.7;
+  --wiki-max-width: none;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -415,6 +418,7 @@ html[data-theme="natural"] {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.75;
+  --wiki-max-width: none;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -508,6 +512,7 @@ html[data-theme="natural"].dark {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.75;
+  --wiki-max-width: none;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -594,6 +599,7 @@ html[data-theme="eink"] {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.75;
+  --wiki-max-width: none;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -676,6 +682,539 @@ html[data-theme="eink"].dark {
   /* 排版令牌 */
   --wiki-font-size: 0.9375rem;
   --wiki-line-height: 1.75;
+  --wiki-max-width: none;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+/* ------------------------------------------------------------------ *
+ * 主题 5：Notion（内容优先、极简微质感）
+ * 浅版与暗版真源实测值映射至 Ciki 语义令牌体系
+ * ------------------------------------------------------------------ */
+html[data-theme="notion"] {
+  /* 字体栈：全部沿用现行栈 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading: var(--font-sans);
+
+  /* 语义色彩令牌 - 浅版 */
+  --background: #ffffff;
+  --foreground: #37352f;
+  --card: #ffffff;
+  --card-foreground: #37352f;
+  --popover: #ffffff;
+  --popover-foreground: #37352f;
+  --primary: #1f76cb;
+  --primary-foreground: #ffffff;
+  --secondary: #f7f6f3;
+  --secondary-foreground: #37352f;
+  --muted: #f7f6f3;
+  --muted-foreground: #6e6d68;
+  --accent: #efedea;
+  --accent-foreground: #37352f;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #e9e9e7;
+  --input: #e9e9e7;
+  --ring: #9fc6ee;
+  --chart-1: #2eaadc;
+  --chart-2: #eb5757;
+  --chart-3: #0f7b6c;
+  --chart-4: #e3a008;
+  --chart-5: #7c5cd6;
+
+  /* 侧栏令牌 */
+  --sidebar: #f7f6f3;
+  --sidebar-foreground: #37352f;
+  --sidebar-primary: #1f76cb;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #efedea;
+  --sidebar-accent-foreground: #37352f;
+  --sidebar-border: #e9e9e7;
+  --sidebar-ring: #9fc6ee;
+
+  /* 形状与圆角令牌：card 10px / 控件 6px / chip 4px */
+  --r-card: 10px;
+  --r-ctl: 6px;
+  --r-chip: 4px;
+  --radius: 6px;
+  --radius-lg: var(--r-ctl, 6px);
+  --radius-md: var(--r-ctl, 6px);
+  --radius-sm: var(--r-chip, 4px);
+  --radius-xl: var(--r-card, 10px);
+
+  /* 阴影极淡 */
+  --shadow-card:
+    0 1px 2px rgba(15, 15, 15, 0.04), 0 4px 12px -6px rgba(15, 15, 15, 0.06);
+  --shadow-ctl: 0 1px 2px rgba(15, 15, 15, 0.05);
+  --shadow-coral: 0 1px 2px rgba(31, 118, 203, 0.25);
+  --shadow-pop:
+    0 4px 8px rgba(15, 15, 15, 0.04), 0 16px 32px -12px rgba(15, 15, 15, 0.12);
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #f7f6f3;
+  --code-fg: #37352f;
+  --code-dim: #787774;
+  --code-kw: #eb5757;
+  --code-str: #0f7b6c;
+  --code-type: #2eaadc;
+  --code-border: rgba(55, 53, 47, 0.09);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-max-width: none;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+html[data-theme="notion"].dark {
+  /* 字体栈：全部沿用现行栈 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading: var(--font-sans);
+
+  /* 语义色彩令牌 - 暗版 */
+  --background: #191919;
+  --foreground: #e8e8e6;
+  --card: #212121;
+  --card-foreground: #e8e8e6;
+  --popover: #262626;
+  --popover-foreground: #e8e8e6;
+  --primary: #5aa9d6;
+  --primary-foreground: #10222b;
+  --secondary: #262626;
+  --secondary-foreground: #e8e8e6;
+  --muted: #262626;
+  --muted-foreground: #9b9b97;
+  --accent: #2f2f2f;
+  --accent-foreground: #e8e8e6;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #2f2f2f;
+  --input: #2f2f2f;
+  --ring: #5aa9d6;
+  --chart-1: #2eaadc;
+  --chart-2: #eb5757;
+  --chart-3: #4ec9a2;
+  --chart-4: #e3a008;
+  --chart-5: #a083ff;
+
+  /* 侧栏令牌 */
+  --sidebar: #202020;
+  --sidebar-foreground: #e8e8e6;
+  --sidebar-primary: #5aa9d6;
+  --sidebar-primary-foreground: #10222b;
+  --sidebar-accent: #2f2f2f;
+  --sidebar-accent-foreground: #e8e8e6;
+  --sidebar-border: #2f2f2f;
+  --sidebar-ring: #5aa9d6;
+
+  /* 形状与圆角令牌：card 10px / 控件 6px / chip 4px */
+  --r-card: 10px;
+  --r-ctl: 6px;
+  --r-chip: 4px;
+  --radius: 6px;
+  --radius-lg: var(--r-ctl, 6px);
+  --radius-md: var(--r-ctl, 6px);
+  --radius-sm: var(--r-chip, 4px);
+  --radius-xl: var(--r-card, 10px);
+
+  /* 暗版阴影：色基改黑 */
+  --shadow-card:
+    0 1px 2px rgba(0, 0, 0, 0.25), 0 4px 12px -6px rgba(0, 0, 0, 0.35);
+  --shadow-ctl: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-coral: 0 1px 2px rgba(90, 169, 214, 0.35);
+  --shadow-pop:
+    0 4px 8px rgba(0, 0, 0, 0.3), 0 16px 32px -12px rgba(0, 0, 0, 0.45);
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #262626;
+  --code-fg: #e8e8e6;
+  --code-dim: #9b9b97;
+  --code-kw: #ff7b72;
+  --code-str: #4ec9a2;
+  --code-type: #5aa9d6;
+  --code-border: rgba(232, 232, 230, 0.12);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-max-width: none;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+/* ------------------------------------------------------------------ *
+ * 主题 6：手绘（Sketch，铅笔手绘，米纸 + 铅笔灰 + 彩铅点缀）
+ * 浅版与暗版真源实测值映射至 Ciki 语义令牌体系
+ * ------------------------------------------------------------------ */
+html[data-theme="sketch"] {
+  /* 字体栈：全部沿用现行栈 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading: var(--font-sans);
+
+  /* 风格私有色阶 - 浅版 */
+  --pencil-red: #c0392b;
+  --pencil-blue: #2471a3;
+  --pencil-green: #1e8449;
+  --pencil-orange: #b9770e;
+
+  /* 语义色彩令牌 - 浅版 */
+  --background: #f5f0e8;
+  --foreground: #2c2c2c;
+  --card: #faf5ed;
+  --card-foreground: #2c2c2c;
+  --popover: #faf5ed;
+  --popover-foreground: #2c2c2c;
+  --primary: #2c2c2c;
+  --primary-foreground: #f5f0e8;
+  --secondary: #e8e2d8;
+  --secondary-foreground: #2c2c2c;
+  --muted: #e8e2d8;
+  --muted-foreground: #6b6b6b;
+  --accent: #e8e2d8;
+  --accent-foreground: #2c2c2c;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #b8b0a0;
+  --input: #b8b0a0;
+  --ring: #2c2c2c;
+  --chart-1: #2c2c2c;
+  --chart-2: var(--pencil-red);
+  --chart-3: var(--pencil-blue);
+  --chart-4: var(--pencil-green);
+  --chart-5: var(--pencil-orange);
+
+  /* 侧栏令牌 */
+  --sidebar: #f5f0e8;
+  --sidebar-foreground: #2c2c2c;
+  --sidebar-primary: #2c2c2c;
+  --sidebar-primary-foreground: #f5f0e8;
+  --sidebar-accent: #e8e2d8;
+  --sidebar-accent-foreground: #2c2c2c;
+  --sidebar-border: #b8b0a0;
+  --sidebar-ring: #2c2c2c;
+
+  /* 形状与圆角令牌：card 4px / 控件 3px / chip 2px */
+  --r-card: 4px;
+  --r-ctl: 3px;
+  --r-chip: 2px;
+  --radius: 3px;
+  --radius-lg: var(--r-ctl, 3px);
+  --radius-md: var(--r-ctl, 3px);
+  --radius-sm: var(--r-chip, 2px);
+  --radius-xl: var(--r-card, 4px);
+
+  /* 硬偏移「铅笔影」 */
+  --shadow-card: 2px 2px 0 rgba(44, 44, 44, 0.08);
+  --shadow-ctl: 1px 1px 0 rgba(44, 44, 44, 0.1);
+  --shadow-coral: 2px 2px 0 rgba(44, 44, 44, 0.18);
+  --shadow-pop: 4px 4px 0 rgba(44, 44, 44, 0.1);
+
+  /* 纸纹理 */
+  --grain: 0.3;
+  --grain-blend: multiply;
+
+  /* 代码块令牌 */
+  --code-bg: #e8e2d8;
+  --code-fg: #2c2c2c;
+  --code-dim: #6b6b6b;
+  --code-kw: var(--pencil-red);
+  --code-str: var(--pencil-green);
+  --code-type: var(--pencil-blue);
+  --code-border: rgba(44, 44, 44, 0.12);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-max-width: none;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+html[data-theme="sketch"].dark {
+  /* 字体栈：全部沿用现行栈 */
+  --font-sans-family: "Geist Variable", sans-serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading: var(--font-sans);
+
+  /* 风格私有色阶 - 暗版（提亮） */
+  --pencil-red: #e5735f;
+  --pencil-blue: #6fb3e0;
+  --pencil-green: #58b368;
+  --pencil-orange: #f0b429;
+
+  /* 语义色彩令牌 - 暗版（炭笔夜纸） */
+  --background: #262420;
+  --foreground: #ece5d8;
+  --card: #2e2b26;
+  --card-foreground: #ece5d8;
+  --popover: #2e2b26;
+  --popover-foreground: #ece5d8;
+  --primary: #ece5d8;
+  --primary-foreground: #262420;
+  --secondary: #3a372f;
+  --secondary-foreground: #ece5d8;
+  --muted: #3a372f;
+  --muted-foreground: #a89f8d;
+  --accent: #3a372f;
+  --accent-foreground: #ece5d8;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #575344;
+  --input: #575344;
+  --ring: #ece5d8;
+  --chart-1: #ece5d8;
+  --chart-2: var(--pencil-red);
+  --chart-3: var(--pencil-blue);
+  --chart-4: var(--pencil-green);
+  --chart-5: var(--pencil-orange);
+
+  /* 侧栏令牌 */
+  --sidebar: #201e1a;
+  --sidebar-foreground: #ece5d8;
+  --sidebar-primary: #ece5d8;
+  --sidebar-primary-foreground: #262420;
+  --sidebar-accent: #3a372f;
+  --sidebar-accent-foreground: #ece5d8;
+  --sidebar-border: #575344;
+  --sidebar-ring: #ece5d8;
+
+  /* 形状与圆角令牌：card 4px / 控件 3px / chip 2px */
+  --r-card: 4px;
+  --r-ctl: 3px;
+  --r-chip: 2px;
+  --radius: 3px;
+  --radius-lg: var(--r-ctl, 3px);
+  --radius-md: var(--r-ctl, 3px);
+  --radius-sm: var(--r-chip, 2px);
+  --radius-xl: var(--r-card, 4px);
+
+  /* 暗版硬偏移铅笔影：色基改黑 */
+  --shadow-card: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  --shadow-ctl: 1px 1px 0 rgba(0, 0, 0, 0.35);
+  --shadow-coral: 2px 2px 0 rgba(0, 0, 0, 0.45);
+  --shadow-pop: 4px 4px 0 rgba(0, 0, 0, 0.35);
+
+  /* 纸纹理 */
+  --grain: 0.18;
+  --grain-blend: soft-light;
+
+  /* 代码块令牌 */
+  --code-bg: #2e2b26;
+  --code-fg: #ece5d8;
+  --code-dim: #a89f8d;
+  --code-kw: var(--pencil-red);
+  --code-str: var(--pencil-green);
+  --code-type: var(--pencil-blue);
+  --code-border: rgba(236, 229, 216, 0.12);
+
+  /* 排版令牌 */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-max-width: none;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+/* ------------------------------------------------------------------ *
+ * 主题 7：学术（Distill，学术科普，衬线 + 窄列 + 发丝线）
+ * 浅版与暗版真源实测值映射至 Ciki 语义令牌体系
+ * ------------------------------------------------------------------ */
+html[data-theme="distill"] {
+  /* 字体栈：正文字体栈换衬线；标题经 --font-heading 同源同栈；等宽沿用现行栈 */
+  --font-sans-family:
+    "Georgia", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading-family:
+    "Georgia", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --font-heading: var(--font-heading-family);
+
+  /* 语义色彩令牌 - 浅版 */
+  --background: #ffffff;
+  --foreground: #1f2933;
+  --card: #ffffff;
+  --card-foreground: #1f2933;
+  --popover: #ffffff;
+  --popover-foreground: #1f2933;
+  --primary: #1f2933;
+  --primary-foreground: #ffffff;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #1f2933;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --accent: #f3f4f6;
+  --accent-foreground: #1f2933;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #e5e7eb;
+  --input: #e5e7eb;
+  --ring: #2a7ae2;
+  --chart-1: #2a7ae2;
+  --chart-2: #e4572e;
+  --chart-3: #1f2933;
+  --chart-4: #6b7280;
+  --chart-5: #9ca3af;
+
+  /* 侧栏令牌 */
+  --sidebar: #f9fafb;
+  --sidebar-foreground: #1f2933;
+  --sidebar-primary: #1f2933;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f3f4f6;
+  --sidebar-accent-foreground: #1f2933;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #2a7ae2;
+
+  /* 形状与圆角令牌：card 6px / 控件 6px / chip 4px */
+  --r-card: 6px;
+  --r-ctl: 6px;
+  --r-chip: 4px;
+  --radius: 6px;
+  --radius-lg: var(--r-ctl, 6px);
+  --radius-md: var(--r-ctl, 6px);
+  --radius-sm: var(--r-chip, 4px);
+  --radius-xl: var(--r-card, 6px);
+
+  /* 无阴影 */
+  --shadow-card: none;
+  --shadow-ctl: none;
+  --shadow-coral: none;
+  --shadow-pop: none;
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #f3f4f6;
+  --code-fg: #1f2933;
+  --code-dim: #6b7280;
+  --code-kw: #2a7ae2;
+  --code-str: #b23c17;
+  --code-type: #52606d;
+  --code-border: rgba(31, 41, 51, 0.08);
+
+  /* 排版令牌：阅读窄列 42rem */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-max-width: 42rem;
+  --wiki-heading-1: 2.125em;
+  --wiki-heading-2: 1.6em;
+  --wiki-heading-3: 1.3em;
+  --wiki-heading-4: 1.15em;
+  --wiki-heading-5: 1.05em;
+  --wiki-heading-6: 0.95em;
+}
+
+html[data-theme="distill"].dark {
+  /* 字体栈：正文字体栈换衬线；标题经 --font-heading 同源同栈；等宽沿用现行栈 */
+  --font-sans-family:
+    "Georgia", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --font-mono-family: ui-monospace, monospace;
+  --font-mono: var(--font-mono-family);
+  --font-heading-family:
+    "Georgia", "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", serif;
+  --font-heading: var(--font-heading-family);
+
+  /* 语义色彩令牌 - 暗版 */
+  --background: #11161b;
+  --foreground: #e5e7eb;
+  --card: #171d24;
+  --card-foreground: #e5e7eb;
+  --popover: #171d24;
+  --popover-foreground: #e5e7eb;
+  --primary: #e5e7eb;
+  --primary-foreground: #11161b;
+  --secondary: #1d242e;
+  --secondary-foreground: #e5e7eb;
+  --muted: #1d242e;
+  --muted-foreground: #9ca3af;
+  --accent: #1d242e;
+  --accent-foreground: #e5e7eb;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: #26303b;
+  --input: #26303b;
+  --ring: #6fa8f5;
+  --chart-1: #6fa8f5;
+  --chart-2: #f07f5a;
+  --chart-3: #e5e7eb;
+  --chart-4: #9ca3af;
+  --chart-5: #6b7280;
+
+  /* 侧栏令牌 */
+  --sidebar: #0d1116;
+  --sidebar-foreground: #e5e7eb;
+  --sidebar-primary: #e5e7eb;
+  --sidebar-primary-foreground: #11161b;
+  --sidebar-accent: #1d242e;
+  --sidebar-accent-foreground: #e5e7eb;
+  --sidebar-border: #26303b;
+  --sidebar-ring: #6fa8f5;
+
+  /* 形状与圆角令牌：card 6px / 控件 6px / chip 4px */
+  --r-card: 6px;
+  --r-ctl: 6px;
+  --r-chip: 4px;
+  --radius: 6px;
+  --radius-lg: var(--r-ctl, 6px);
+  --radius-md: var(--r-ctl, 6px);
+  --radius-sm: var(--r-chip, 4px);
+  --radius-xl: var(--r-card, 6px);
+
+  /* 无阴影 */
+  --shadow-card: none;
+  --shadow-ctl: none;
+  --shadow-coral: none;
+  --shadow-pop: none;
+
+  /* 无纹理 */
+  --grain: 0;
+  --grain-blend: normal;
+
+  /* 代码块令牌 */
+  --code-bg: #1d242e;
+  --code-fg: #e5e7eb;
+  --code-dim: #9ca3af;
+  --code-kw: #6fa8f5;
+  --code-str: #f07f5a;
+  --code-type: #9ca3af;
+  --code-border: rgba(229, 231, 235, 0.1);
+
+  /* 排版令牌：阅读窄列 42rem */
+  --wiki-font-size: 0.9375rem;
+  --wiki-line-height: 1.75;
+  --wiki-max-width: 42rem;
   --wiki-heading-1: 2.125em;
   --wiki-heading-2: 1.6em;
   --wiki-heading-3: 1.3em;
@@ -694,6 +1233,11 @@ html[data-theme="eink"].dark {
   html {
     font-family: var(--font-sans-family, "Geist Variable", sans-serif);
   }
+}
+
+/* 阅读正文列宽：由 --wiki-max-width 令牌驱动，默认 none，distill 主题收敛至 42rem */
+[data-readview-container] {
+  max-width: var(--wiki-max-width, none);
 }
 
 /* ------------------------------------------------------------------ *
@@ -1617,8 +2161,201 @@ html[data-theme="eink"] [data-slot="button"][data-variant="outline"] {
   box-shadow: none;
 }
 
+/* ================================================================== *
+ * Notion 主题组件与细节覆盖
+ * ================================================================== */
+html[data-theme="notion"] [data-slot="card"],
+html[data-theme="notion"] .bg-card {
+  border-radius: var(--r-card, 10px);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-theme="notion"] [data-slot="popover"],
+html[data-theme="notion"] [data-slot="dropdown-menu-content"],
+html[data-theme="notion"] [data-slot="select-content"],
+html[data-theme="notion"] [role="dialog"] {
+  border-radius: var(--r-ctl, 6px);
+  box-shadow: var(--shadow-pop);
+}
+
+html[data-theme="notion"] [data-slot="button"],
+html[data-theme="notion"] [data-slot="input"],
+html[data-theme="notion"] [data-slot="select-trigger"] {
+  border-radius: var(--r-ctl, 6px);
+}
+
+html[data-theme="notion"] .chip,
+html[data-theme="notion"] [data-slot="badge"] {
+  border-radius: var(--r-chip, 4px);
+}
+
+html[data-theme="notion"] [data-slot="button"][data-variant="default"] {
+  box-shadow: var(--shadow-coral);
+}
+
+html[data-theme="notion"] [data-slot="button"][data-variant="secondary"],
+html[data-theme="notion"] [data-slot="button"][data-variant="outline"] {
+  box-shadow: var(--shadow-ctl);
+}
+
+html[data-theme="notion"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="notion"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible {
+  border-color: var(--ring);
+}
+
+html[data-theme="notion"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="notion"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible,
+html[data-theme="notion"]
+  [data-slot="button"][data-variant="outline"]:focus-visible {
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    var(--tw-shadow, 0 0 #0000);
+}
+
+/* ================================================================== *
+ * 手绘主题组件与细节覆盖
+ * ================================================================== */
+html[data-theme="sketch"] [data-slot="card"],
+html[data-theme="sketch"] .bg-card {
+  border-radius: var(--r-card, 4px);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-theme="sketch"] [data-slot="popover"],
+html[data-theme="sketch"] [data-slot="dropdown-menu-content"],
+html[data-theme="sketch"] [data-slot="select-content"],
+html[data-theme="sketch"] [role="dialog"] {
+  border-radius: var(--r-ctl, 3px);
+  box-shadow: var(--shadow-pop);
+}
+
+html[data-theme="sketch"] [data-slot="button"],
+html[data-theme="sketch"] [data-slot="input"],
+html[data-theme="sketch"] [data-slot="select-trigger"] {
+  border-radius: var(--r-ctl, 3px);
+}
+
+html[data-theme="sketch"] .chip,
+html[data-theme="sketch"] [data-slot="badge"] {
+  border-radius: var(--r-chip, 2px);
+}
+
+html[data-theme="sketch"] [data-slot="button"][data-variant="default"] {
+  box-shadow: var(--shadow-coral);
+}
+
+html[data-theme="sketch"] [data-slot="button"][data-variant="secondary"] {
+  box-shadow: var(--shadow-ctl);
+}
+
+/* 手绘作用域规则：outline 变体按钮与正文分隔线（hr）用 dashed 边框 */
+html[data-theme="sketch"] [data-slot="button"][data-variant="outline"] {
+  border-style: dashed;
+  box-shadow: var(--shadow-ctl);
+}
+
+html[data-theme="sketch"] hr,
+html[data-theme="sketch"] .wiki-content hr {
+  border-top-style: dashed;
+}
+
+html[data-theme="sketch"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="sketch"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible {
+  border-color: var(--ring);
+}
+
+html[data-theme="sketch"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="sketch"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible,
+html[data-theme="sketch"]
+  [data-slot="button"][data-variant="outline"]:focus-visible {
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    var(--tw-shadow, 0 0 #0000);
+}
+
+/* ================================================================== *
+ * 学术主题组件与细节覆盖
+ * ================================================================== */
+html[data-theme="distill"] h1,
+html[data-theme="distill"] h2,
+html[data-theme="distill"] h3,
+html[data-theme="distill"] h4,
+html[data-theme="distill"] h5,
+html[data-theme="distill"] h6,
+html[data-theme="distill"] .font-heading {
+  font-family: var(
+    --font-heading-family,
+    "Georgia",
+    "Songti SC",
+    "Noto Serif CJK SC",
+    "Source Han Serif SC",
+    serif
+  );
+}
+
+html[data-theme="distill"] [data-slot="card"],
+html[data-theme="distill"] .bg-card {
+  border-radius: var(--r-card, 6px);
+  box-shadow: none;
+}
+
+html[data-theme="distill"] [data-slot="popover"],
+html[data-theme="distill"] [data-slot="dropdown-menu-content"],
+html[data-theme="distill"] [data-slot="select-content"],
+html[data-theme="distill"] [role="dialog"] {
+  border-radius: var(--r-ctl, 6px);
+  box-shadow: none;
+}
+
+html[data-theme="distill"] [data-slot="button"],
+html[data-theme="distill"] [data-slot="input"],
+html[data-theme="distill"] [data-slot="select-trigger"] {
+  border-radius: var(--r-ctl, 6px);
+}
+
+html[data-theme="distill"] .chip,
+html[data-theme="distill"] [data-slot="badge"] {
+  border-radius: var(--r-chip, 4px);
+}
+
+html[data-theme="distill"] [data-slot="button"][data-variant="default"],
+html[data-theme="distill"] [data-slot="button"][data-variant="secondary"],
+html[data-theme="distill"] [data-slot="button"][data-variant="outline"] {
+  box-shadow: none;
+}
+
+html[data-theme="distill"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="distill"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible {
+  border-color: var(--ring);
+}
+
+html[data-theme="distill"]
+  [data-slot="button"][data-variant="default"]:focus-visible,
+html[data-theme="distill"]
+  [data-slot="button"][data-variant="secondary"]:focus-visible,
+html[data-theme="distill"]
+  [data-slot="button"][data-variant="outline"]:focus-visible {
+  box-shadow:
+    var(--tw-inset-shadow, 0 0 #0000), var(--tw-inset-ring-shadow, 0 0 #0000),
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    var(--tw-shadow, 0 0 #0000);
+}
+
 /* 纸纹理：轻微纸张质感，不遮挡交互与可读性 */
-html[data-theme="paper"] body::after {
+html[data-theme="paper"] body::after,
+html[data-theme="sketch"] body::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -1629,13 +2366,19 @@ html[data-theme="paper"] body::after {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .36 0 0 0 0 .28 0 0 0 .16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* 纸面、自然、墨纸主题下的代码块视觉与高亮配色 */
+/* 各主题下的代码块视觉与高亮配色 */
 html[data-theme="paper"] .wiki-content .code-block,
 html[data-theme="paper"] .wiki-content.comment-body pre,
 html[data-theme="natural"] .wiki-content .code-block,
 html[data-theme="natural"] .wiki-content.comment-body pre,
 html[data-theme="eink"] .wiki-content .code-block,
-html[data-theme="eink"] .wiki-content.comment-body pre {
+html[data-theme="eink"] .wiki-content.comment-body pre,
+html[data-theme="notion"] .wiki-content .code-block,
+html[data-theme="notion"] .wiki-content.comment-body pre,
+html[data-theme="sketch"] .wiki-content .code-block,
+html[data-theme="sketch"] .wiki-content.comment-body pre,
+html[data-theme="distill"] .wiki-content .code-block,
+html[data-theme="distill"] .wiki-content.comment-body pre {
   background: var(--code-bg);
   border-color: var(--border);
   border-radius: var(--r-card, 14px);
@@ -1644,7 +2387,10 @@ html[data-theme="eink"] .wiki-content.comment-body pre {
 
 html[data-theme="paper"] .wiki-content .code-block > pre,
 html[data-theme="natural"] .wiki-content .code-block > pre,
-html[data-theme="eink"] .wiki-content .code-block > pre {
+html[data-theme="eink"] .wiki-content .code-block > pre,
+html[data-theme="notion"] .wiki-content .code-block > pre,
+html[data-theme="sketch"] .wiki-content .code-block > pre,
+html[data-theme="distill"] .wiki-content .code-block > pre {
   background: var(--code-bg);
   color: var(--code-fg);
   font-family: var(--font-mono-family);
@@ -1654,9 +2400,15 @@ html[data-theme="eink"] .wiki-content .code-block > pre {
 html[data-theme="paper"] .wiki-content .code-block > button,
 html[data-theme="natural"] .wiki-content .code-block > button,
 html[data-theme="eink"] .wiki-content .code-block > button,
+html[data-theme="notion"] .wiki-content .code-block > button,
+html[data-theme="sketch"] .wiki-content .code-block > button,
+html[data-theme="distill"] .wiki-content .code-block > button,
 html[data-theme="paper"] .wiki-content .code-block [data-code-header],
 html[data-theme="natural"] .wiki-content .code-block [data-code-header],
-html[data-theme="eink"] .wiki-content .code-block [data-code-header] {
+html[data-theme="eink"] .wiki-content .code-block [data-code-header],
+html[data-theme="notion"] .wiki-content .code-block [data-code-header],
+html[data-theme="sketch"] .wiki-content .code-block [data-code-header],
+html[data-theme="distill"] .wiki-content .code-block [data-code-header] {
   background: var(--code-bg);
   border-bottom: 1px solid var(--code-border, rgba(255, 255, 255, 0.08));
   color: var(--code-dim);
@@ -1666,12 +2418,21 @@ html[data-theme="eink"] .wiki-content .code-block [data-code-header] {
 html[data-theme="paper"] .wiki-content .code-block > button span,
 html[data-theme="natural"] .wiki-content .code-block > button span,
 html[data-theme="eink"] .wiki-content .code-block > button span,
+html[data-theme="notion"] .wiki-content .code-block > button span,
+html[data-theme="sketch"] .wiki-content .code-block > button span,
+html[data-theme="distill"] .wiki-content .code-block > button span,
 html[data-theme="paper"] .wiki-content .code-block [data-code-header] button,
 html[data-theme="natural"] .wiki-content .code-block [data-code-header] button,
 html[data-theme="eink"] .wiki-content .code-block [data-code-header] button,
+html[data-theme="notion"] .wiki-content .code-block [data-code-header] button,
+html[data-theme="sketch"] .wiki-content .code-block [data-code-header] button,
+html[data-theme="distill"] .wiki-content .code-block [data-code-header] button,
 html[data-theme="paper"] .wiki-content .code-block [data-code-header] span,
 html[data-theme="natural"] .wiki-content .code-block [data-code-header] span,
 html[data-theme="eink"] .wiki-content .code-block [data-code-header] span,
+html[data-theme="notion"] .wiki-content .code-block [data-code-header] span,
+html[data-theme="sketch"] .wiki-content .code-block [data-code-header] span,
+html[data-theme="distill"] .wiki-content .code-block [data-code-header] span,
 html[data-theme="paper"]
   .wiki-content
   .code-block
@@ -1683,6 +2444,21 @@ html[data-theme="natural"]
   [data-code-header]
   [data-code-language],
 html[data-theme="eink"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  [data-code-language],
+html[data-theme="notion"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  [data-code-language],
+html[data-theme="sketch"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  [data-code-language],
+html[data-theme="distill"]
   .wiki-content
   .code-block
   [data-code-header]
@@ -1694,6 +2470,9 @@ html[data-theme="eink"]
 html[data-theme="paper"] .wiki-content .code-block > button:hover,
 html[data-theme="natural"] .wiki-content .code-block > button:hover,
 html[data-theme="eink"] .wiki-content .code-block > button:hover,
+html[data-theme="notion"] .wiki-content .code-block > button:hover,
+html[data-theme="sketch"] .wiki-content .code-block > button:hover,
+html[data-theme="distill"] .wiki-content .code-block > button:hover,
 html[data-theme="paper"]
   .wiki-content
   .code-block
@@ -1708,6 +2487,21 @@ html[data-theme="eink"]
   .wiki-content
   .code-block
   [data-code-header]
+  button:hover,
+html[data-theme="notion"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  button:hover,
+html[data-theme="sketch"]
+  .wiki-content
+  .code-block
+  [data-code-header]
+  button:hover,
+html[data-theme="distill"]
+  .wiki-content
+  .code-block
+  [data-code-header]
   button:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--code-fg);
@@ -1715,7 +2509,10 @@ html[data-theme="eink"]
 
 html[data-theme="paper"] .wiki-content.comment-body pre,
 html[data-theme="natural"] .wiki-content.comment-body pre,
-html[data-theme="eink"] .wiki-content.comment-body pre {
+html[data-theme="eink"] .wiki-content.comment-body pre,
+html[data-theme="notion"] .wiki-content.comment-body pre,
+html[data-theme="sketch"] .wiki-content.comment-body pre,
+html[data-theme="distill"] .wiki-content.comment-body pre {
   color: var(--code-fg);
   font-family: var(--font-mono-family);
 }
@@ -1735,7 +2532,22 @@ html[data-theme="eink"] .wiki-content .hljs-keyword,
 html[data-theme="eink"] .wiki-content .hljs-tag,
 html[data-theme="eink"] .wiki-content .hljs-selector-tag,
 html[data-theme="eink"] .wiki-content .hljs-doctag,
-html[data-theme="eink"] .wiki-content .hljs-template-tag {
+html[data-theme="eink"] .wiki-content .hljs-template-tag,
+html[data-theme="notion"] .wiki-content .hljs-keyword,
+html[data-theme="notion"] .wiki-content .hljs-tag,
+html[data-theme="notion"] .wiki-content .hljs-selector-tag,
+html[data-theme="notion"] .wiki-content .hljs-doctag,
+html[data-theme="notion"] .wiki-content .hljs-template-tag,
+html[data-theme="sketch"] .wiki-content .hljs-keyword,
+html[data-theme="sketch"] .wiki-content .hljs-tag,
+html[data-theme="sketch"] .wiki-content .hljs-selector-tag,
+html[data-theme="sketch"] .wiki-content .hljs-doctag,
+html[data-theme="sketch"] .wiki-content .hljs-template-tag,
+html[data-theme="distill"] .wiki-content .hljs-keyword,
+html[data-theme="distill"] .wiki-content .hljs-tag,
+html[data-theme="distill"] .wiki-content .hljs-selector-tag,
+html[data-theme="distill"] .wiki-content .hljs-doctag,
+html[data-theme="distill"] .wiki-content .hljs-template-tag {
   color: var(--code-kw, #f08a6d);
 }
 
@@ -1743,12 +2555,21 @@ html[data-theme="eink"] .wiki-content .hljs-template-tag {
 html[data-theme="paper"] .wiki-content .hljs-string,
 html[data-theme="natural"] .wiki-content .hljs-string,
 html[data-theme="eink"] .wiki-content .hljs-string,
+html[data-theme="notion"] .wiki-content .hljs-string,
+html[data-theme="sketch"] .wiki-content .hljs-string,
+html[data-theme="distill"] .wiki-content .hljs-string,
 html[data-theme="paper"] .wiki-content .hljs-regexp,
 html[data-theme="natural"] .wiki-content .hljs-regexp,
 html[data-theme="eink"] .wiki-content .hljs-regexp,
+html[data-theme="notion"] .wiki-content .hljs-regexp,
+html[data-theme="sketch"] .wiki-content .hljs-regexp,
+html[data-theme="distill"] .wiki-content .hljs-regexp,
 html[data-theme="paper"] .wiki-content .hljs-meta .hljs-string,
 html[data-theme="natural"] .wiki-content .hljs-meta .hljs-string,
-html[data-theme="eink"] .wiki-content .hljs-meta .hljs-string {
+html[data-theme="eink"] .wiki-content .hljs-meta .hljs-string,
+html[data-theme="notion"] .wiki-content .hljs-meta .hljs-string,
+html[data-theme="sketch"] .wiki-content .hljs-meta .hljs-string,
+html[data-theme="distill"] .wiki-content .hljs-meta .hljs-string {
   color: var(--code-str, #e6c477);
 }
 
@@ -1763,7 +2584,19 @@ html[data-theme="natural"] .wiki-content .hljs-builtin-name,
 html[data-theme="eink"] .wiki-content .hljs-type,
 html[data-theme="eink"] .wiki-content .hljs-title.class_,
 html[data-theme="eink"] .wiki-content .hljs-built_in,
-html[data-theme="eink"] .wiki-content .hljs-builtin-name {
+html[data-theme="eink"] .wiki-content .hljs-builtin-name,
+html[data-theme="notion"] .wiki-content .hljs-type,
+html[data-theme="notion"] .wiki-content .hljs-title.class_,
+html[data-theme="notion"] .wiki-content .hljs-built_in,
+html[data-theme="notion"] .wiki-content .hljs-builtin-name,
+html[data-theme="sketch"] .wiki-content .hljs-type,
+html[data-theme="sketch"] .wiki-content .hljs-title.class_,
+html[data-theme="sketch"] .wiki-content .hljs-built_in,
+html[data-theme="sketch"] .wiki-content .hljs-builtin-name,
+html[data-theme="distill"] .wiki-content .hljs-type,
+html[data-theme="distill"] .wiki-content .hljs-title.class_,
+html[data-theme="distill"] .wiki-content .hljs-built_in,
+html[data-theme="distill"] .wiki-content .hljs-builtin-name {
   color: var(--code-type, #93cfc6);
 }
 
@@ -1772,7 +2605,13 @@ html[data-theme="paper"] .wiki-content .hljs-punctuation,
 html[data-theme="natural"] .wiki-content .hljs-comment,
 html[data-theme="natural"] .wiki-content .hljs-punctuation,
 html[data-theme="eink"] .wiki-content .hljs-comment,
-html[data-theme="eink"] .wiki-content .hljs-punctuation {
+html[data-theme="eink"] .wiki-content .hljs-punctuation,
+html[data-theme="notion"] .wiki-content .hljs-comment,
+html[data-theme="notion"] .wiki-content .hljs-punctuation,
+html[data-theme="sketch"] .wiki-content .hljs-comment,
+html[data-theme="sketch"] .wiki-content .hljs-punctuation,
+html[data-theme="distill"] .wiki-content .hljs-comment,
+html[data-theme="distill"] .wiki-content .hljs-punctuation {
   color: var(--code-dim);
   font-style: italic;
 }
@@ -1782,7 +2621,13 @@ html[data-theme="paper"] .wiki-content .hljs-literal,
 html[data-theme="natural"] .wiki-content .hljs-number,
 html[data-theme="natural"] .wiki-content .hljs-literal,
 html[data-theme="eink"] .wiki-content .hljs-number,
-html[data-theme="eink"] .wiki-content .hljs-literal {
+html[data-theme="eink"] .wiki-content .hljs-literal,
+html[data-theme="notion"] .wiki-content .hljs-number,
+html[data-theme="notion"] .wiki-content .hljs-literal,
+html[data-theme="sketch"] .wiki-content .hljs-number,
+html[data-theme="sketch"] .wiki-content .hljs-literal,
+html[data-theme="distill"] .wiki-content .hljs-number,
+html[data-theme="distill"] .wiki-content .hljs-literal {
   color: var(--code-str, #e6c477);
 }
 
@@ -1803,21 +2648,55 @@ html[data-theme="eink"] .wiki-content .hljs-title.function_,
 html[data-theme="eink"] .wiki-content .hljs-section,
 html[data-theme="eink"] .wiki-content .hljs-attr,
 html[data-theme="eink"] .wiki-content .hljs-attribute,
-html[data-theme="eink"] .wiki-content .hljs-variable {
+html[data-theme="eink"] .wiki-content .hljs-variable,
+html[data-theme="notion"] .wiki-content .hljs-title,
+html[data-theme="notion"] .wiki-content .hljs-title.function_,
+html[data-theme="notion"] .wiki-content .hljs-section,
+html[data-theme="notion"] .wiki-content .hljs-attr,
+html[data-theme="notion"] .wiki-content .hljs-attribute,
+html[data-theme="notion"] .wiki-content .hljs-variable,
+html[data-theme="sketch"] .wiki-content .hljs-title,
+html[data-theme="sketch"] .wiki-content .hljs-title.function_,
+html[data-theme="sketch"] .wiki-content .hljs-section,
+html[data-theme="sketch"] .wiki-content .hljs-attr,
+html[data-theme="sketch"] .wiki-content .hljs-attribute,
+html[data-theme="sketch"] .wiki-content .hljs-variable,
+html[data-theme="distill"] .wiki-content .hljs-title,
+html[data-theme="distill"] .wiki-content .hljs-title.function_,
+html[data-theme="distill"] .wiki-content .hljs-section,
+html[data-theme="distill"] .wiki-content .hljs-attr,
+html[data-theme="distill"] .wiki-content .hljs-attribute,
+html[data-theme="distill"] .wiki-content .hljs-variable {
   color: var(--code-fg, #e9e6e0);
 }
 
 /* 主题下的链接与行内元素 */
 html[data-theme="paper"] .wiki-content a,
 html[data-theme="natural"] .wiki-content a,
-html[data-theme="eink"] .wiki-content a {
+html[data-theme="eink"] .wiki-content a,
+html[data-theme="notion"] .wiki-content a,
+html[data-theme="sketch"] .wiki-content a {
   color: var(--primary);
   text-decoration-color: var(--primary);
 }
 
+/* 学术主题正文链接作用域规则：正文链接色为学术蓝（浅 #2a7ae2 / 暗 #6fa8f5） */
+html[data-theme="distill"] .wiki-content a {
+  color: #2a7ae2;
+  text-decoration-color: #2a7ae2;
+}
+
+html[data-theme="distill"].dark .wiki-content a {
+  color: #6fa8f5;
+  text-decoration-color: #6fa8f5;
+}
+
 html[data-theme="paper"] .wiki-content blockquote,
 html[data-theme="natural"] .wiki-content blockquote,
-html[data-theme="eink"] .wiki-content blockquote {
+html[data-theme="eink"] .wiki-content blockquote,
+html[data-theme="notion"] .wiki-content blockquote,
+html[data-theme="sketch"] .wiki-content blockquote,
+html[data-theme="distill"] .wiki-content blockquote {
   border-left-color: var(--primary);
   background: var(--muted);
   color: var(--foreground);
@@ -1825,7 +2704,10 @@ html[data-theme="eink"] .wiki-content blockquote {
 
 html[data-theme="paper"] .wiki-content :not(pre) > code,
 html[data-theme="natural"] .wiki-content :not(pre) > code,
-html[data-theme="eink"] .wiki-content :not(pre) > code {
+html[data-theme="eink"] .wiki-content :not(pre) > code,
+html[data-theme="notion"] .wiki-content :not(pre) > code,
+html[data-theme="sketch"] .wiki-content :not(pre) > code,
+html[data-theme="distill"] .wiki-content :not(pre) > code {
   font-family: var(--font-mono-family);
   background: var(--muted);
   color: var(--foreground);

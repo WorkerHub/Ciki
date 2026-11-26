@@ -1,8 +1,15 @@
 /** 主题明暗模式：亮 / 暗 / 自动三档（规格 §3B）。 */
 export type ThemeMode = "auto" | "light" | "dark"
 
-/** 主题风格（外观）：现行 Nova / 纸面 (Paper) / 自然 (Natural) / 墨纸 (E-Ink) */
-export type ThemeStyle = "nova" | "paper" | "natural" | "eink"
+/** 主题风格（外观）：现行 Nova / 纸面 (Paper) / 自然 (Natural) / 墨纸 (E-Ink) / Notion / 手绘 (Sketch) / 学术 (Distill) */
+export type ThemeStyle =
+  | "nova"
+  | "paper"
+  | "natural"
+  | "eink"
+  | "notion"
+  | "sketch"
+  | "distill"
 
 /** zustand persist 的存储键；web/index.html 的内联脚本也读这个键。 */
 export const THEME_STORAGE_KEY = "ciki-theme"
@@ -31,7 +38,10 @@ export const THEME_META_COLORS: Record<
   nova: { light: "#ffffff", dark: "#0a0a0a" },
   paper: { light: "#f7f4ee", dark: "#0b0c0e" },
   natural: { light: "#faf6f1", dark: "#191612" },
-  eink: { light: "#f5f3ea", dark: "#171814" }
+  eink: { light: "#f5f3ea", dark: "#171814" },
+  notion: { light: "#ffffff", dark: "#191919" },
+  sketch: { light: "#f5f0e8", dark: "#262420" },
+  distill: { light: "#ffffff", dark: "#11161b" }
 }
 
 export const THEME_STYLES: ThemeDefinition[] = [
@@ -54,6 +64,21 @@ export const THEME_STYLES: ThemeDefinition[] = [
     id: "eink",
     labelKey: "common.theme.style.eink",
     metaColor: THEME_META_COLORS.eink
+  },
+  {
+    id: "notion",
+    labelKey: "common.theme.style.notion",
+    metaColor: THEME_META_COLORS.notion
+  },
+  {
+    id: "sketch",
+    labelKey: "common.theme.style.sketch",
+    metaColor: THEME_META_COLORS.sketch
+  },
+  {
+    id: "distill",
+    labelKey: "common.theme.style.distill",
+    metaColor: THEME_META_COLORS.distill
   }
 ]
 
@@ -111,7 +136,7 @@ export function resolveMode(mode: ThemeMode): "light" | "dark" {
 
 /**
  * 把主题与风格落到 <html>：
- * - `data-theme`: "nova" | "paper" | "natural" | "eink" 驱动主题风格令牌；
+ * - `data-theme`: "nova" | "paper" | "natural" | "eink" | "notion" | "sketch" | "distill" 驱动主题风格令牌；
  * - `.dark` 给 shadcn 令牌用；
  * - `data-mode` + `color-scheme` 给 Kumo 的 light-dark() 用（它在 [data-mode="dark"] 里切 color-scheme）。
  * - `meta[name="theme-color"]`: 对齐对应主题在浅/深下的页面基色。
