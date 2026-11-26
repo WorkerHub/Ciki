@@ -137,16 +137,22 @@ export async function findDefaultSpace(
     .first<SpaceRow>()
 }
 
-/** 某个 slug 是否已被占用（创建空间时定 slug 用）。 */
+/** 某个 slug 是否已被占用（建空间或改 slug 校验唯一性用，可排除自身）。 */
 export async function isSpaceSlugTaken(
   db: D1Database,
   prefix: string,
-  slug: string
+  slug: string,
+  excludeSpaceId?: number
 ): Promise<boolean> {
-  const row = await db
-    .prepare(`SELECT 1 AS hit FROM ${spacesTable(prefix)} WHERE slug = ?`)
-    .bind(slug)
-    .first<{ hit: number }>()
+  const query =
+    excludeSpaceId !== undefined
+      ? `SELECT 1 AS hit FROM ${spacesTable(prefix)} WHERE slug = ? AND id != ?`
+      : `SELECT 1 AS hit FROM ${spacesTable(prefix)} WHERE slug = ?`
+  const stmt =
+    excludeSpaceId !== undefined
+      ? db.prepare(query).bind(slug, excludeSpaceId)
+      : db.prepare(query).bind(slug)
+  const row = await stmt.first<{ hit: number }>()
   return row !== null
 }
 
@@ -212,15 +218,24 @@ export function updateSpaceSlug(
     .bind(slug, id)
 }
 
-/** 改名/改简介：**不动 slug**（规格：创建后不随改名自动变）。 */
+/** 更新空间（改名/改简介/改 slug）：单条动态 SET UPDATE 保持原子更新。 */
 export async function updateSpace(
   db: D1Database,
   prefix: string,
   id: number,
-  patch: { name?: string; description?: string; updatedAt: string }
+  patch: {
+    name?: string
+    description?: string
+    slug?: string
+    updatedAt: string
+  }
 ): Promise<void> {
   const sets: string[] = []
   const values: unknown[] = []
+  if (patch.slug !== undefined) {
+    sets.push("slug = ?")
+    values.push(patch.slug)
+  }
   if (patch.name !== undefined) {
     sets.push("name = ?")
     values.push(patch.name)
