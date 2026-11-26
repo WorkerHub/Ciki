@@ -225,6 +225,10 @@ describe("htmlEmbed 节点契约与规范", () => {
     // 占位卡必须存在
     const card = await screen.findByText(EMBED_NAME)
     expect(card).toBeInTheDocument()
+    const cardContainer = container.querySelector("[data-html-embed-card]")
+    const identityIcon = cardContainer?.querySelector("svg")
+    expect(identityIcon).toHaveClass("lucide-app-window")
+    expect(identityIcon).not.toHaveClass("lucide-code-2")
 
     // 验证关键按钮与输入项
     expect(screen.getByRole("button", { name: "更换文件" })).toBeInTheDocument()
