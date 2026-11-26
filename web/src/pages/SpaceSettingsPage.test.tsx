@@ -229,6 +229,34 @@ describe("空间设置与成员管理", () => {
     expect(slugInput).toHaveAttribute("aria-invalid", "false")
   })
 
+  it("校验早退时清理旧的成功或错误提示", async () => {
+    const user = userEvent.setup()
+    vi.mocked(spacesApi.update).mockResolvedValue({
+      ...space,
+      name: "新空间名"
+    })
+    renderSettings()
+
+    // 1. 先触发一次保存成功，产生 infoMessage
+    const nameInput = await screen.findByLabelText("名称")
+    await user.clear(nameInput)
+    await user.type(nameInput, "新空间名")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "切换器里的名称同步更新"
+    )
+
+    // 2. 将 slug 改成非法值再次点击保存，infoMessage 应被清掉，只留 slugError
+    const slugInput = screen.getByLabelText("空间地址")
+    await user.clear(slugInput)
+    await user.type(slugInput, "INVALID_SLUG")
+    await user.click(screen.getByRole("button", { name: "保存" }))
+    expect(screen.queryByRole("status")).toBeNull()
+    expect(
+      screen.getByText("只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符")
+    ).toBeInTheDocument()
+  })
+
   it("后端返回 409 冲突时在空间地址字段下展示已被占用错误，修改后清除", async () => {
     const user = userEvent.setup()
     vi.mocked(spacesApi.update).mockRejectedValue(

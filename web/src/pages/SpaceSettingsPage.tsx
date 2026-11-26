@@ -202,6 +202,9 @@ export function SpaceSettingsPage() {
 
   const saveInfo = async () => {
     if (!spaceId) return
+    setInfoError("")
+    setInfoMessage("")
+    setSlugError("")
     const value = name.trim()
     if (!value) {
       setInfoError(t("shell.spaces.create.nameRequired"))
@@ -212,9 +215,6 @@ export function SpaceSettingsPage() {
       return
     }
     setSavingInfo(true)
-    setInfoError("")
-    setInfoMessage("")
-    setSlugError("")
     try {
       const updated = await spacesApi.update(spaceId, {
         name: value,
