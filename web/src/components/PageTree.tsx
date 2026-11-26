@@ -114,6 +114,14 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
       locatedTargetRef.current = null
       return
     }
+    // 空间或文档变化时立即使旧标识失效，确保切空间（包括回切同空间同一文档）或换文档后重新执行展开定位
+    if (
+      locatedTargetRef.current &&
+      (locatedTargetRef.current.spaceId !== currentSpaceId ||
+        locatedTargetRef.current.pageId !== activePageId)
+    ) {
+      locatedTargetRef.current = null
+    }
     if (
       locatedTargetRef.current?.spaceId === currentSpaceId &&
       locatedTargetRef.current?.pageId === activePageId

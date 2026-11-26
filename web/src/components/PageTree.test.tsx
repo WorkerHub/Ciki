@@ -16,7 +16,8 @@ vi.mock("@/lib/api", async (importOriginal) => {
       tree: vi.fn(),
       create: vi.fn(),
       move: vi.fn(),
-      update: vi.fn()
+      update: vi.fn(),
+      getForEditor: vi.fn()
     }
   }
 })
@@ -66,6 +67,36 @@ function TestNavApp({
     <div>
       <button type="button" onClick={() => navigate(targetPath)}>
         {label}
+      </button>
+      <Routes>
+        <Route path="/p/:pageId" element={<PageTree />} />
+        <Route path="*" element={<PageTree />} />
+      </Routes>
+    </div>
+  )
+}
+
+function MultiSpaceTestApp({
+  onSwitchToSpace2,
+  onSwitchToSpace1
+}: {
+  onSwitchToSpace2: () => void
+  onSwitchToSpace1: () => void
+}) {
+  const navigate = useNavigate()
+  return (
+    <div>
+      <button type="button" onClick={onSwitchToSpace2}>
+        切换到空间2
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onSwitchToSpace1()
+          navigate("/p/3")
+        }}
+      >
+        切回空间1文档3
       </button>
       <Routes>
         <Route path="/p/:pageId" element={<PageTree />} />
@@ -493,8 +524,34 @@ describe("目录树自动展开到当前文档与滚动可见", () => {
 
   it("行内菜单「上移/下移」与「改名」触发树变化后，手动收起状态保持不变", async () => {
     const user = userEvent.setup()
+    const renamedTree = [
+      nestedTree[0],
+      {
+        ...nestedTree[1],
+        title: "另一个目录（已改名）"
+      }
+    ]
     vi.mocked(pagesApi.move).mockResolvedValue({ success: true })
     vi.mocked(pagesApi.tree).mockResolvedValue(nestedTree)
+    vi.mocked(pagesApi.getForEditor).mockResolvedValue({
+      id: 4,
+      parentId: null,
+      spaceId: 1,
+      title: "另一个目录",
+      sortOrder: 1,
+      contentJson: JSON.stringify({ type: "doc", content: [] }),
+      contentHtml: "<p></p>",
+      contentText: "",
+      contentMd: "",
+      createdBy: 1,
+      updatedBy: 1,
+      createdAt: "2026-11-08T00:00:00.000Z",
+      updatedAt: "2026-11-08T00:00:00.000Z",
+      createdByName: "Admin",
+      createdByAvatarUrl: null,
+      updatedByName: "Admin",
+      updatedByAvatarUrl: null
+    })
     vi.mocked(pagesApi.update).mockResolvedValue({
       id: 4,
       parentId: null,
@@ -543,6 +600,7 @@ describe("目录树自动展开到当前文档与滚动可见", () => {
     expect(screen.queryByText("嵌套文档")).toBeNull()
 
     // 改名操作
+    vi.mocked(pagesApi.tree).mockResolvedValue(renamedTree)
     await user.click(
       screen.getByRole("button", { name: "页面「另一个目录」操作" })
     )
@@ -554,8 +612,89 @@ describe("目录树自动展开到当前文档与滚动可见", () => {
     await user.type(renameInput, "另一个目录（已改名）")
     await user.click(screen.getByRole("button", { name: "保存" }))
 
+    expect(pagesApi.getForEditor).toHaveBeenCalledWith(4)
+    expect(pagesApi.update).toHaveBeenCalledWith(
+      4,
+      expect.objectContaining({ title: "另一个目录（已改名）" })
+    )
+    expect(await screen.findByText("另一个目录（已改名）")).toBeInTheDocument()
     expect(usePagesStore.getState().expanded).not.toContain(2)
     expect(screen.queryByText("嵌套文档")).toBeNull()
+  })
+
+  it("切换空间再切回同一空间同一深层文档时，祖先被重新展开定位到位", async () => {
+    const user = userEvent.setup()
+    useSpacesStore.setState({
+      spaces: [
+        space("editor"),
+        {
+          ...space("editor"),
+          id: 2,
+          slug: "space-2",
+          name: "空间二",
+          isDefault: false
+        }
+      ],
+      status: "ready",
+      currentId: 1
+    })
+    usePagesStore.setState({
+      tree: nestedTree,
+      spaceId: 1,
+      loading: false,
+      error: null,
+      expanded: []
+    })
+
+    render(
+      <MemoryRouter initialEntries={["/p/3"]}>
+        <MultiSpaceTestApp
+          onSwitchToSpace2={() => {
+            // 切到空间 2，页面树置空并 loading
+            useSpacesStore.setState({ currentId: 2 })
+            usePagesStore.setState({
+              tree: [],
+              spaceId: 2,
+              loading: true,
+              expanded: []
+            })
+          }}
+          onSwitchToSpace1={() => {
+            // 切回空间 1，路由落在同一文档 /p/3
+            useSpacesStore.setState({ currentId: 1 })
+            usePagesStore.setState({
+              tree: nestedTree,
+              spaceId: 1,
+              loading: false,
+              expanded: []
+            })
+          }}
+        />
+      </MemoryRouter>
+    )
+
+    // 初始进入空间 1 文档 3，祖先全展开
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
+
+    // 用户在停留期间手动收起中间目录（2）
+    const middleRow = screen.getByText("中间目录").closest("li")
+    const collapseButton = middleRow?.querySelector(
+      'button[aria-expanded="true"]'
+    ) as HTMLButtonElement
+    await user.click(collapseButton)
+    expect(usePagesStore.getState().expanded).not.toContain(2)
+
+    // 切换到空间 2（PageTree 不卸载，currentSpaceId 变更为 2，触发 locatedTargetRef 失效）
+    await user.click(screen.getByRole("button", { name: "切换到空间2" }))
+
+    // 再切回空间 1 并打开文档 3：由于空间发生过切换，应当重新展开文档 3 的全部祖先
+    await user.click(screen.getByRole("button", { name: "切回空间1文档3" }))
+
+    expect(usePagesStore.getState().expanded).toContain(1)
+    expect(usePagesStore.getState().expanded).toContain(2)
+    expect(screen.getByText("嵌套文档")).toBeInTheDocument()
   })
 
   it("切换空间后，新空间深层文档的祖先正常自动展开定位", async () => {
