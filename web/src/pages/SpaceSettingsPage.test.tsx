@@ -224,7 +224,9 @@ describe("空间设置与成员管理", () => {
     await user.clear(slugInput)
     await user.type(slugInput, "pay-hub-2")
     expect(
-      screen.queryByText("只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符")
+      screen.queryByText(
+        "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      )
     ).toBeNull()
     expect(slugInput).toHaveAttribute("aria-invalid", "false")
   })
@@ -269,9 +271,7 @@ describe("空间设置与成员管理", () => {
     await user.type(slugInput, "taken-slug")
     await user.click(screen.getByRole("button", { name: "保存" }))
 
-    expect(
-      await screen.findByText("这个空间地址已被占用")
-    ).toBeInTheDocument()
+    expect(await screen.findByText("这个空间地址已被占用")).toBeInTheDocument()
     expect(slugInput).toHaveAttribute("aria-invalid", "true")
 
     // 修改输入后冲突错误清除

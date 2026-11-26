@@ -1389,8 +1389,7 @@ export const spacesApi = {
   update: (
     id: number,
     input: { name?: string; description?: string; slug?: string }
-  ) =>
-    api.put<Space>(`/spaces/${id}`, input),
+  ) => api.put<Space>(`/spaces/${id}`, input),
   remove: (id: number) => api.del<{ success: true }>(`/spaces/${id}`),
   members: (id: number) => api.get<SpaceMember[]>(`/spaces/${id}/members`),
   addMember: (id: number, input: { userId: number; role: SpaceRole }) =>
