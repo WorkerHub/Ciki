@@ -3,12 +3,34 @@
  *
  * 口径定版：由空间名生成——小写、非字母数字转连字符、裁剪；空或撞名兜底
  * `space-<id>` 保唯一；**创建后不随改名自动变**（改 URL 会让既有书签失效）。
+ * 可在空间设置中手动修改（格式与唯一性校验见 spaces 路由）。
  *
  * 纯函数：撞名判定在 `db/queries/spaces.ts`（要查库），这里只负责「名字 → 候选 slug」。
  */
 
 /** slug 长度上限：够表达、又不至于把 URL 拉得太长。 */
 export const MAX_SPACE_SLUG_LENGTH = 48
+
+/**
+ * 空间 slug 合法格式正则。
+ *
+ * 规则：只许小写字母、数字、单连字符分段，首尾不得为连字符、不许连续连字符。
+ */
+export const SPACE_SLUG_REGEX = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+/**
+ * 校验空间 slug 格式是否合法。
+ *
+ * 规则（与生成规则同源）：只许小写字母、数字、单连字符分段，首尾不得为连字符、
+ * 不许连续连字符，长度 1–48（{@link MAX_SPACE_SLUG_LENGTH}）。
+ */
+export function isValidSpaceSlug(slug: unknown): slug is string {
+  if (typeof slug !== "string") return false
+  if (slug.length === 0 || slug.length > MAX_SPACE_SLUG_LENGTH) return false
+  return SPACE_SLUG_REGEX.test(slug)
+}
+
+export { isSpaceSlugConflict } from "../core/identity"
 
 /**
  * 空间名 → slug 候选（可能为空串，表示名字里没有任何可用字符）。

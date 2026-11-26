@@ -8,6 +8,24 @@ import type { Space, SpaceRole } from "@/lib/api"
  * 角色名是界面文案，统一走 locale 的 `common.roles.*`，这里不放中文。
  */
 
+/** 空间 slug 长度上限（与后端 worker/src/lib/slug.ts 一致）。 */
+export const MAX_SPACE_SLUG_LENGTH = 48
+
+/**
+ * 空间 slug 格式（与后端 worker/src/lib/slug.ts 一致）：
+ * 1–48 位，只许小写字母、数字、单连字符分段，首尾不得为连字符、不许连续连字符。
+ */
+export const SPACE_SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+/** 判断空间 slug 是否合法（格式 + 长度）。 */
+export function isValidSpaceSlug(slug: string): boolean {
+  return (
+    slug.length >= 1 &&
+    slug.length <= MAX_SPACE_SLUG_LENGTH &&
+    SPACE_SLUG_PATTERN.test(slug)
+  )
+}
+
 export function effectiveRole(space: Space, isSiteAdmin: boolean): SpaceRole {
   return isSiteAdmin ? "admin" : space.myRole
 }

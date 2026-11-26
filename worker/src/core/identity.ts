@@ -93,20 +93,23 @@ export function isEmailConflict(err: unknown): boolean {
 }
 
 /**
- * 用户名唯一键冲突（`users_username` 索引的并发兜底）。
+ * SQLite 唯一键冲突判定通用工具。
  *
- * SQLite 对**列**唯一索引报 `UNIQUE constraint failed: <表>.username`（带表前缀时
- * 是 `<前缀>users.username`；多列唯一索引用逗号分隔）；只有表达式索引才报
+ * SQLite 对**列**唯一索引报 `UNIQUE constraint failed: <表>.<列>`（带表前缀时
+ * 是 `<前缀><表>.<列>`；多列唯一索引用逗号分隔）；只有表达式索引才报
  * `UNIQUE constraint failed: index '<索引名>'`。
  *
  * 报错尾部两种运行时会各加一段，必须先剔干净再比名字：
  * - 生产 D1：`: SQLITE_CONSTRAINT`；
  * - wrangler dev / workerd（Miniflare）：`: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_UNIQUE)`。
  * 漏掉后者会让并发撞键分类失败、把本可重试的冲突变成 500（#92 A）。
- * 剥离之后按列名 / 索引名**精确匹配**，不用子串猜——否则邮箱冲突会被误当成
- * 用户名冲突，把注册重试烧在错的分支上。
+ * 剥离之后按列名 / 索引名**精确匹配**，不用子串猜。
  */
-export function isUsernameConflict(err: unknown): boolean {
+export function isUniqueConstraintConflict(
+  err: unknown,
+  columnName: string,
+  indexNameSuffix?: string
+): boolean {
   const message = uniqueViolationMessage(err)
   if (!message) return false
   const detail = message
@@ -115,14 +118,25 @@ export function isUsernameConflict(err: unknown): boolean {
     .replace(/\s*:\s*[A-Z_0-9]+$/, "")
     .trim()
     .toLowerCase()
+  const targetCol = columnName.toLowerCase()
   const columns = detail.split(",").map((part) => part.trim())
   if (
     columns.some(
-      (column) => column === "username" || column.endsWith(".username")
+      (column) => column === targetCol || column.endsWith(`.${targetCol}`)
     )
   ) {
     return true
   }
-  // 表达式索引的报法：我们的列索引不会走到这里，留着兜住将来改写成 lower(username) 的情况。
-  return /^index\s+'[^']*_username'$/.test(detail)
+  const suffix = (indexNameSuffix ?? targetCol).toLowerCase()
+  return new RegExp(`^index\\s+'[^']*${suffix}'$`).test(detail)
+}
+
+/** 用户名唯一键冲突（`users_username` 索引的并发兜底）。 */
+export function isUsernameConflict(err: unknown): boolean {
+  return isUniqueConstraintConflict(err, "username", "_username")
+}
+
+/** 空间 slug 唯一键冲突判定（`spaces_slug` 索引的并发兜底）。 */
+export function isSpaceSlugConflict(err: unknown): boolean {
+  return isUniqueConstraintConflict(err, "slug", "spaces_slug")
 }
