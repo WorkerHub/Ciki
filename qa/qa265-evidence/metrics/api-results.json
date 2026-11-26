@@ -1,0 +1,272 @@
+{
+ "at": "2026-11-26T19:49:10.750Z",
+ "base": "https://ciki.oneboy.app",
+ "results": [
+  {
+   "id": "A1",
+   "criterion": "1. slug 编辑成功（接口层）：PUT /api/spaces/:id 改 slug 返回 200 且读回为新 slug",
+   "method": "curl/node fetch：PUT /api/spaces/<主测空间> {slug:'qa265-slug-renamed'} → 再 GET /api/spaces/:id",
+   "expected": "HTTP 200；读回 slug = qa265-slug-renamed",
+   "actual": "PUT → 200 {\"id\":22,\"slug\":\"qa265-slug-renamed\",\"name\":\"QA265-Slug-Primary-Renamed\",\"description\":\"QA265 空间设置 slug 编辑验收主测空间\",\"myRol；GET → 200 slug=qa265-slug-renamed",
+   "result": "PASS",
+   "evidence": {
+    "request": "PUT /api/spaces/22 {\"slug\":\"qa265-slug-renamed\"}",
+    "response": {
+     "id": 22,
+     "slug": "qa265-slug-renamed",
+     "name": "QA265-Slug-Primary-Renamed",
+     "description": "QA265 空间设置 slug 编辑验收主测空间",
+     "myRole": "admin",
+     "isDefault": false,
+     "createdAt": "2026-11-26T19:48:18.504Z",
+     "updatedAt": "2026-11-26T19:48:49.124Z"
+    },
+    "readBack": {
+     "id": 22,
+     "slug": "qa265-slug-renamed",
+     "name": "QA265-Slug-Primary-Renamed",
+     "description": "QA265 空间设置 slug 编辑验收主测空间",
+     "myRole": "admin",
+     "isDefault": false,
+     "createdAt": "2026-11-26T19:48:18.504Z",
+     "updatedAt": "2026-11-26T19:48:49.124Z"
+    }
+   }
+  },
+  {
+   "id": "A3",
+   "criterion": "3. 唯一性冲突（接口层）：改成另一个已存在空间的 slug → 409，且原 slug 不变",
+   "method": "curl/node fetch：PUT /api/spaces/<主测空间> {slug:'qa265-slug-conflict'}（对照空间占用）→ 再 GET 读回",
+   "expected": "HTTP 409 + code=SPACE_SLUG_TAKEN；读回 slug 仍为 qa265-slug-renamed",
+   "actual": "PUT → 409 {\"error\":\"Space slug is already taken\",\"code\":\"SPACE_SLUG_TAKEN\"}；读回 slug=qa265-slug-renamed",
+   "result": "PASS",
+   "evidence": {
+    "request": "PUT /api/spaces/22 {\"slug\":\"qa265-slug-conflict\"}",
+    "response": {
+     "error": "Space slug is already taken",
+     "code": "SPACE_SLUG_TAKEN"
+    },
+    "slugAfter": "qa265-slug-renamed"
+   }
+  },
+  {
+   "id": "A4",
+   "criterion": "4. 格式非法逐项拒绝（接口层）：大写/空格/下划线/首尾连字符/连续连字符/长度>48/空值",
+   "method": "curl/node fetch：对每种非法 slug 各发一次 PUT /api/spaces/:id，逐条读回确认 slug 未变",
+   "expected": "每条都 400 + code=INVALID_SPACE_SLUG，且空间 slug 始终未被改动",
+   "actual": "8 条全部 400 且 slug 未变：是（明细见 evidence）",
+   "result": "PASS",
+   "evidence": [
+    {
+     "label": "大写",
+     "slug": "QA265-Upper",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    },
+    {
+     "label": "含空格",
+     "slug": "qa265 slug",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    },
+    {
+     "label": "含下划线",
+     "slug": "qa265_slug",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    },
+    {
+     "label": "首字符连字符",
+     "slug": "-qa265",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    },
+    {
+     "label": "尾字符连字符",
+     "slug": "qa265-",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    },
+    {
+     "label": "连续连字符",
+     "slug": "qa265--x",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    },
+    {
+     "label": "长度>48",
+     "slug": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    },
+    {
+     "label": "空值",
+     "slug": "",
+     "status": 400,
+     "code": "INVALID_SPACE_SLUG",
+     "error": "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+     "slugUnchanged": true
+    }
+   ]
+  },
+  {
+   "id": "A5",
+   "criterion": "5. 相同 slug 提交 → 无操作成功（不报错）",
+   "method": "curl/node fetch：PUT /api/spaces/:id {slug:<当前 slug>}",
+   "expected": "HTTP 200，无错误码，slug 保持不变",
+   "actual": "PUT → 200 {\"id\":22,\"slug\":\"qa265-slug-renamed\",\"name\":\"QA265-Slug-Primary-Renamed\",\"description\":\"QA265 空间设置 slug 编辑验收主测空间\",\"myRol；slug qa265-slug-renamed → qa265-slug-renamed",
+   "result": "PASS",
+   "evidence": {
+    "request": "PUT /api/spaces/22 {\"slug\":\"qa265-slug-renamed\"}",
+    "response": {
+     "id": 22,
+     "slug": "qa265-slug-renamed",
+     "name": "QA265-Slug-Primary-Renamed",
+     "description": "QA265 空间设置 slug 编辑验收主测空间",
+     "myRole": "admin",
+     "isDefault": false,
+     "createdAt": "2026-11-26T19:48:18.504Z",
+     "updatedAt": "2026-11-26T19:48:49.124Z"
+    }
+   }
+  },
+  {
+   "id": "A6",
+   "criterion": "6. 只改名称、不改 slug → slug 保持不变",
+   "method": "curl/node fetch：PUT /api/spaces/:id 仅带 {name}（不带 slug）→ 再 GET 读回 name/slug",
+   "expected": "HTTP 200；name 变成新名，slug 仍是 qa265-slug-renamed",
+   "actual": "PUT → 200；读回 name=QA265-Slug-Primary-Renamed slug=qa265-slug-renamed",
+   "result": "PASS",
+   "evidence": {
+    "request": "PUT /api/spaces/22 {\"name\":\"QA265-Slug-Primary-Renamed\"}",
+    "response": {
+     "id": 22,
+     "slug": "qa265-slug-renamed",
+     "name": "QA265-Slug-Primary-Renamed",
+     "description": "QA265 空间设置 slug 编辑验收主测空间",
+     "myRole": "admin",
+     "isDefault": false,
+     "createdAt": "2026-11-26T19:48:18.504Z",
+     "updatedAt": "2026-11-26T19:49:08.146Z"
+    },
+    "readBack": {
+     "id": 22,
+     "slug": "qa265-slug-renamed",
+     "name": "QA265-Slug-Primary-Renamed",
+     "description": "QA265 空间设置 slug 编辑验收主测空间",
+     "myRole": "admin",
+     "isDefault": false,
+     "createdAt": "2026-11-26T19:48:18.504Z",
+     "updatedAt": "2026-11-26T19:49:08.146Z"
+    }
+   }
+  },
+  {
+   "id": "A7",
+   "criterion": "7. 非管理员（空间 editor）改 slug → 拒绝，与改名同门槛",
+   "method": "curl/node fetch：用 editor 账号的会话分别 PUT {slug} 与 PUT {name}，再读回 slug",
+   "expected": "两次都 403 Forbidden；slug 与名称都不被改动",
+   "actual": "改 slug → 403 {\"error\":\"Forbidden\"}；改 name → 403 {\"error\":\"Forbidden\"}；slug qa265-slug-renamed → qa265-slug-renamed",
+   "result": "PASS",
+   "evidence": {
+    "slugAttempt": {
+     "status": 403,
+     "body": {
+      "error": "Forbidden"
+     }
+    },
+    "nameAttempt": {
+     "status": 403,
+     "body": {
+      "error": "Forbidden"
+     }
+    },
+    "slugAfter": "qa265-slug-renamed"
+   }
+  },
+  {
+   "id": "A8",
+   "criterion": "8. 不受影响：/p/<id> 页面链接、成员、令牌 API 仍正常",
+   "method": "curl/node fetch：GET /api/pages/:id、GET /api/spaces/:id/members、GET /api/me/tokens（并用 read 令牌再调一次读接口）",
+   "expected": "三者都 200；页面标题不变；令牌列表含本次两枚；read 令牌仍可用",
+   "actual": "pages → 200；members → 200（2 人：qa265admin/admin, qa265editor/editor）；tokens → 200（2 枚）；read 令牌读接口 → 200",
+   "result": "PASS",
+   "evidence": {
+    "page": {
+     "status": 200,
+     "title": "QA265 slug 验收页"
+    },
+    "members": {
+     "status": 200,
+     "count": 2,
+     "list": [
+      {
+       "userId": 18324,
+       "username": "qa265admin",
+       "email": "qa265-admin@example.com",
+       "role": "admin",
+       "avatarUrl": null,
+       "isAgent": false,
+       "ownerName": null,
+       "createdAt": "2026-11-26T19:48:18.504Z"
+      },
+      {
+       "userId": 18325,
+       "username": "qa265editor",
+       "email": "qa265-editor@example.com",
+       "role": "editor",
+       "avatarUrl": null,
+       "isAgent": false,
+       "ownerName": null,
+       "createdAt": "2026-11-26T19:48:19.164Z"
+      }
+     ]
+    },
+    "tokens": {
+     "status": 200,
+     "names": [
+      "QA265 read token",
+      "QA265 write token"
+     ]
+    },
+    "readTokenCall": {
+     "status": 200
+    }
+   }
+  },
+  {
+   "id": "A9",
+   "criterion": "9. GET /api/read/spaces 返回新 slug",
+   "method": "curl/node fetch：用限定在主测空间的 read 令牌 GET /api/read/spaces，比对返回的 slug",
+   "expected": "200，且该空间条目 slug = qa265-slug-renamed（= 改名后的值）",
+   "actual": "→ 200；条目：[{\"id\":22,\"name\":\"QA265-Slug-Primary-Renamed\",\"slug\":\"qa265-slug-renamed\"}]",
+   "result": "PASS",
+   "evidence": {
+    "status": 200,
+    "body": {
+     "spaces": [
+      {
+       "id": 22,
+       "name": "QA265-Slug-Primary-Renamed",
+       "slug": "qa265-slug-renamed"
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

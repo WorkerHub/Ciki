@@ -1,0 +1,378 @@
+{
+ "deletes": [
+  {
+   "count": 51,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T00:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 28,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T01:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 286,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T02:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 221,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T03:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 40,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T04:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 250,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T05:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 460,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T06:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 3,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T07:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 120,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T08:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 4,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T09:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 12,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T10:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE action = ? AND account = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 1,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T10:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 31,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T11:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key = ?"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 0
+   }
+  },
+  {
+   "count": 2,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T12:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key IN ('write:18316:','write:18317:')"
+   },
+   "sum": {
+    "rowsRead": 8,
+    "rowsReturned": 0,
+    "rowsWritten": 4
+   }
+  },
+  {
+   "count": 6,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T20:00:00Z",
+    "query": "DELETE FROM auth_counters WHERE key LIKE '%18324%' OR key LIKE '%18325%'"
+   },
+   "sum": {
+    "rowsRead": 1020,
+    "rowsReturned": 0,
+    "rowsWritten": 18
+   }
+  }
+ ],
+ "inserts": [
+  {
+   "count": 32,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T00:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 32,
+    "rowsReturned": 0,
+    "rowsWritten": 32
+   }
+  },
+  {
+   "count": 84,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T01:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 84,
+    "rowsReturned": 0,
+    "rowsWritten": 84
+   }
+  },
+  {
+   "count": 508,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T02:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 508,
+    "rowsReturned": 0,
+    "rowsWritten": 508
+   }
+  },
+  {
+   "count": 198,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T03:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 198,
+    "rowsReturned": 0,
+    "rowsWritten": 198
+   }
+  },
+  {
+   "count": 51,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T04:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 51,
+    "rowsReturned": 0,
+    "rowsWritten": 51
+   }
+  },
+  {
+   "count": 261,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T05:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 261,
+    "rowsReturned": 0,
+    "rowsWritten": 261
+   }
+  },
+  {
+   "count": 423,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T06:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 423,
+    "rowsReturned": 0,
+    "rowsWritten": 423
+   }
+  },
+  {
+   "count": 1,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T07:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 1,
+    "rowsReturned": 0,
+    "rowsWritten": 1
+   }
+  },
+  {
+   "count": 142,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T08:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 136,
+    "rowsReturned": 0,
+    "rowsWritten": 154
+   }
+  },
+  {
+   "count": 1,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T09:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 1,
+    "rowsReturned": 0,
+    "rowsWritten": 1
+   }
+  },
+  {
+   "count": 6,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T10:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 2,
+    "rowsReturned": 0,
+    "rowsWritten": 14
+   }
+  },
+  {
+   "count": 15,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T11:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 3,
+    "rowsReturned": 0,
+    "rowsWritten": 39
+   }
+  },
+  {
+   "count": 20,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T12:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 20,
+    "rowsReturned": 0,
+    "rowsWritten": 20
+   }
+  },
+  {
+   "count": 4,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T15:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 12
+   }
+  },
+  {
+   "count": 10,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T18:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 0,
+    "rowsReturned": 0,
+    "rowsWritten": 30
+   }
+  },
+  {
+   "count": 1,
+   "dimensions": {
+    "datetimeHour": "2026-11-26T19:00:00Z",
+    "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+   },
+   "sum": {
+    "rowsRead": 1,
+    "rowsReturned": 0,
+    "rowsWritten": 1
+   }
+  }
+ ]
+}

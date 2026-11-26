@@ -1,0 +1,10 @@
+{
+ "at": "2026-11-26T20:06:27.105Z",
+ "bucket": "ciki-content",
+ "key": "content/47b536fb6afe3ce8f15e0865e444dbabb1e388df996c17d71cc93955a0841828",
+ "bytes": 152,
+ "gzip": true,
+ "sha256OfPlain": "47b536fb6afe3ce8f15e0865e444dbabb1e388df996c17d71cc93955a0841828",
+ "matchesMintedContent": true,
+ "deleteStatus": 200
+}

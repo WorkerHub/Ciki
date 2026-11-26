@@ -1,0 +1,244 @@
+{
+ "data": {
+  "viewer": {
+   "accounts": [
+    {
+     "d1QueriesAdaptiveGroups": [
+      {
+       "count": 3,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T19:47:00Z",
+        "query": "SELECT key, action, count FROM auth_counters"
+       },
+       "sum": {
+        "rowsRead": 504,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:07:00Z",
+        "query": "SELECT key, action, count, updated_at FROM auth_counters ORDER BY updated_at DESC LIMIT ?"
+       },
+       "sum": {
+        "rowsRead": 334,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 2,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:05:00Z",
+        "query": "SELECT key, action, account, ip, count FROM auth_counters ORDER BY key"
+       },
+       "sum": {
+        "rowsRead": 334,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 6,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:01:00Z",
+        "query": "DELETE FROM auth_counters WHERE key LIKE '%18324%' OR key LIKE '%18325%'"
+       },
+       "sum": {
+        "rowsRead": 1020,
+        "rowsWritten": 18
+       }
+      },
+      {
+       "count": 2,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:04:00Z",
+        "query": "SELECT COUNT(*) AS n FROM auth_counters"
+       },
+       "sum": {
+        "rowsRead": 334,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:05:00Z",
+        "query": "SELECT key, action, account, ip, count, window_start FROM auth_counters ORDER BY action, account"
+       },
+       "sum": {
+        "rowsRead": 167,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:13:00Z",
+        "query": "SELECT key, action, account, ip, count, updated_at FROM auth_counters ORDER BY key"
+       },
+       "sum": {
+        "rowsRead": 167,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T19:45:00Z",
+        "query": "SELECT count, window_start AS windowStart, locked_until AS lockedUntil\n         FROM auth_counters WHERE key = ?"
+       },
+       "sum": {
+        "rowsRead": 1,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:07:00Z",
+        "query": "SELECT key, action, account, ip, count FROM auth_counters ORDER BY key"
+       },
+       "sum": {
+        "rowsRead": 167,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:07:00Z",
+        "query": "SELECT key, action, count, updated_at FROM auth_counters WHERE updated_at >= 1795722000 ORDER BY updated_at"
+       },
+       "sum": {
+        "rowsRead": 168,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:06:00Z",
+        "query": "SELECT COUNT(*) AS n FROM auth_counters"
+       },
+       "sum": {
+        "rowsRead": 167,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 2,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T19:59:00Z",
+        "query": "SELECT key, action, count FROM auth_counters WHERE key LIKE '%qa265%' OR key LIKE '%18324%' OR key LIKE '%18325%'"
+       },
+       "sum": {
+        "rowsRead": 340,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:30:00Z",
+        "query": "SELECT key, action, account, ip, count, updated_at FROM auth_counters ORDER BY key"
+       },
+       "sum": {
+        "rowsRead": 167,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 3,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:01:00Z",
+        "query": "SELECT count(*) n FROM auth_counters WHERE key LIKE '%18324%' OR key LIKE '%18325%'"
+       },
+       "sum": {
+        "rowsRead": 501,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T19:45:00Z",
+        "query": "INSERT INTO auth_counters (key, action, account, ip, count, window_start, locked_until, updated_at)\n       VALUES (?, ?, ?, ?, 1, ?, NULL, ?)\n       ON CONFLICT(key) DO UPDATE SET\n         count = CASE WHEN window_start <= ? THEN 1 ELSE count + 1 END,\n         window_start = CASE WHEN window_start <= ? THEN ? ELSE window_start END,\n         updated_at = excluded.updated_at"
+       },
+       "sum": {
+        "rowsRead": 1,
+        "rowsWritten": 1
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:07:00Z",
+        "query": "SELECT key, action, count, updated_at FROM auth_counters WHERE updated_at > 1785086820 ORDER BY updated_at"
+       },
+       "sum": {
+        "rowsRead": 334,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 6,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T19:48:00Z",
+        "query": "SELECT count, window_start AS windowStart FROM auth_counters WHERE key = ?"
+       },
+       "sum": {
+        "rowsRead": 6,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T19:45:00Z",
+        "query": "SELECT count, window_start AS windowStart FROM auth_counters WHERE key = ?"
+       },
+       "sum": {
+        "rowsRead": 1,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:07:00Z",
+        "query": "SELECT MAX(updated_at) mx, MIN(updated_at) mn, COUNT(*) c FROM auth_counters"
+       },
+       "sum": {
+        "rowsRead": 167,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 5,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:13:00Z",
+        "query": "SELECT key, count, updated_at FROM auth_counters ORDER BY key"
+       },
+       "sum": {
+        "rowsRead": 835,
+        "rowsWritten": 0
+       }
+      },
+      {
+       "count": 1,
+       "dimensions": {
+        "datetimeMinute": "2026-11-26T20:14:00Z",
+        "query": "SELECT key, action, account, ip, count, window_start, locked_until, updated_at FROM auth_counters ORDER BY updated_at DESC"
+       },
+       "sum": {
+        "rowsRead": 334,
+        "rowsWritten": 0
+       }
+      }
+     ]
+    }
+   ]
+  }
+ },
+ "errors": null
+}

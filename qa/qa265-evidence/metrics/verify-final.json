@@ -1,0 +1,239 @@
+{
+ "at": "2026-11-26T20:09:33.176Z",
+ "counts": {
+  "users": 4,
+  "sessions": 14,
+  "spaces": 7,
+  "space_members": 21,
+  "pages": 380,
+  "pages_fts": 367,
+  "page_revisions": 815,
+  "comments": 5,
+  "notifications": 0,
+  "api_tokens": 9,
+  "token_space_scopes": 0,
+  "import_tokens": 1,
+  "pages_active": 380
+ },
+ "baselineCounts": {
+  "users": 4,
+  "sessions": 14,
+  "spaces": 7,
+  "space_members": 21,
+  "pages": 380,
+  "pages_fts": 367,
+  "page_revisions": 815,
+  "comments": 5,
+  "notifications": 0,
+  "api_tokens": 9,
+  "token_space_scopes": 0,
+  "import_tokens": 1,
+  "pages_active": 380,
+  "spaces_of_qa265": 0,
+  "users_of_qa265": 0
+ },
+ "countDiffs": {
+  "users": {
+   "now": 4,
+   "base": 4,
+   "same": true
+  },
+  "sessions": {
+   "now": 14,
+   "base": 14,
+   "same": true
+  },
+  "spaces": {
+   "now": 7,
+   "base": 7,
+   "same": true
+  },
+  "space_members": {
+   "now": 21,
+   "base": 21,
+   "same": true
+  },
+  "pages": {
+   "now": 380,
+   "base": 380,
+   "same": true
+  },
+  "pages_fts": {
+   "now": 367,
+   "base": 367,
+   "same": true
+  },
+  "page_revisions": {
+   "now": 815,
+   "base": 815,
+   "same": true
+  },
+  "comments": {
+   "now": 5,
+   "base": 5,
+   "same": true
+  },
+  "notifications": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  },
+  "api_tokens": {
+   "now": 9,
+   "base": 9,
+   "same": true
+  },
+  "token_space_scopes": {
+   "now": 0,
+   "base": 0,
+   "same": true
+  },
+  "import_tokens": {
+   "now": 1,
+   "base": 1,
+   "same": true
+  },
+  "pages_active": {
+   "now": 380,
+   "base": 380,
+   "same": true
+  }
+ },
+ "residue": [
+  {
+   "label": "users(qa265)",
+   "n": 0
+  },
+  {
+   "label": "users(18324/18325)",
+   "n": 0
+  },
+  {
+   "label": "spaces(qa265)",
+   "n": 0
+  },
+  {
+   "label": "spaces(22/23)",
+   "n": 0
+  },
+  {
+   "label": "pages(434)",
+   "n": 0
+  },
+  {
+   "label": "pages(标题QA265)",
+   "n": 0
+  },
+  {
+   "label": "sessions(qa users)",
+   "n": 0
+  },
+  {
+   "label": "space_members(qa)",
+   "n": 0
+  },
+  {
+   "label": "api_tokens(qa)",
+   "n": 0
+  },
+  {
+   "label": "token_space_scopes(qa)",
+   "n": 0
+  },
+  {
+   "label": "page_revisions(434)",
+   "n": 0
+  },
+  {
+   "label": "pages_fts(434)",
+   "n": 0
+  },
+  {
+   "label": "comments(qa)",
+   "n": 0
+  },
+  {
+   "label": "notifications(qa)",
+   "n": 0
+  },
+  {
+   "label": "auth_counters(qa)",
+   "n": 0
+  },
+  {
+   "label": "user_2fa(qa)",
+   "n": 0
+  },
+  {
+   "label": "passkeys(qa)",
+   "n": 0
+  },
+  {
+   "label": "email_codes(qa)",
+   "n": 0
+  },
+  {
+   "label": "auth_challenges(qa)",
+   "n": 0
+  },
+  {
+   "label": "import_tokens(qa)",
+   "n": 0
+  }
+ ],
+ "orphan": [
+  {
+   "label": "pages_fts",
+   "now": 0,
+   "base": 0
+  },
+  {
+   "label": "page_revisions",
+   "now": 0,
+   "base": 0
+  },
+  {
+   "label": "space_members",
+   "now": 0,
+   "base": 0
+  },
+  {
+   "label": "sessions",
+   "now": 5,
+   "base": 5
+  },
+  {
+   "label": "comments",
+   "now": 0,
+   "base": 0
+  },
+  {
+   "label": "notifications",
+   "now": 0,
+   "base": 0
+  },
+  {
+   "label": "api_tokens",
+   "now": 4,
+   "base": 4
+  }
+ ],
+ "authCounters": {
+  "now": 167,
+  "base": 168
+ },
+ "r2": {
+  "assets": {
+   "now": 1406,
+   "base": 1406,
+   "added": [],
+   "removed": []
+  },
+  "contents": {
+   "now": 991,
+   "base": 991,
+   "added": [],
+   "removed": []
+  }
+ }
+}

@@ -1,0 +1,57 @@
+{
+ "at": "2026-11-26T19:59:23.049Z",
+ "steps": [
+  {
+   "label": "空间首页",
+   "expectedPath": "/s/qa265-ui-renamed",
+   "url": "/p/434",
+   "navChain": [
+    "/",
+    "/s/qa265-ui-renamed",
+    "/p/434"
+   ],
+   "hitNewSlug": true,
+   "hitOldSlug": false,
+   "notFound": false,
+   "snippet": "Ciki QA265-UI-Name-Only 管理员 页面 QA265 slug 验收页 Ciki · 1.0.0 · bcdac31+build.320 新建页面 Q qa265admin 首页 QA265 slug 验收页 QA265"
+  },
+  {
+   "label": "回收站",
+   "expectedPath": "/s/qa265-ui-renamed/trash",
+   "url": "/s/qa265-ui-renamed/trash",
+   "navChain": [
+    "/s/qa265-ui-renamed/trash"
+   ],
+   "hitNewSlug": true,
+   "hitOldSlug": false,
+   "notFound": false,
+   "snippet": "Ciki Q qa265admin 返回文档 回收站 汇总全部空间。软删除的页面会连同子页面一起停在这里；彻底删除会连版本历史一起清掉，无法恢复。 全部空间 清空回收站 回收站是空的 被删除的页面会先到这里，可以恢复或彻底删除。 回到页面"
+  },
+  {
+   "label": "空间搜索",
+   "expectedPath": "/s/qa265-ui-renamed/search",
+   "url": "/s/qa265-ui-renamed/search?q=QA265",
+   "navChain": [
+    "/p/434",
+    "/p/434",
+    "/s/qa265-ui-renamed/search?q=QA265"
+   ],
+   "hitNewSlug": true,
+   "hitOldSlug": false,
+   "notFound": false,
+   "snippet": "Ciki QA265-UI-Name-Only 管理员 页面 QA265 slug 验收页 Ciki · 1.0.0 · bcdac31+build.320 新建页面 Q qa265admin 搜索 关键词「QA265」· 标题与正文都能命"
+  },
+  {
+   "label": "空间设置",
+   "expectedPath": "/s/qa265-ui-renamed/settings",
+   "url": "/s/qa265-ui-renamed/settings",
+   "navChain": [
+    "/s/qa265-ui-renamed/settings"
+   ],
+   "hitNewSlug": true,
+   "hitOldSlug": false,
+   "notFound": false,
+   "snippet": "Ciki Q qa265admin 返回空间总览 QA265-UI-Name-Only 管理员 空间设置只对空间管理员可见。名称与描述会即时出现在侧栏切换器里。 空间信息 名称 1–64 个字符，描述最多 500 个字符。 名称 空间地址 "
+  }
+ ]
+}

@@ -1,0 +1,330 @@
+{
+ "at": "2026-11-26T19:55:15.192Z",
+ "base": "https://ciki.oneboy.app",
+ "results": [
+  {
+   "id": "U1",
+   "criterion": "1. slug 编辑成功 → 保存后 URL 立即跳转到新 slug 的设置页地址 /s/<新 slug>/settings",
+   "method": "真实 Chromium 登录生产 → 空间设置页改 slug → 点保存 → 读浏览器地址栏、输入框与接口读回",
+   "expected": "地址栏变成 /s/qa265-ui-renamed/settings；输入框与接口读回 slug 都是 qa265-ui-renamed",
+   "actual": "地址栏=/s/qa265-ui-renamed/settings；输入框=qa265-ui-renamed；接口读回=qa265-ui-renamed；PUT 状态=[200]",
+   "result": "PASS",
+   "evidence": {
+    "startSlug": "qa265-ui-renamed",
+    "newSlug": "qa265-ui-renamed",
+    "url": "https://ciki.oneboy.app/s/qa265-ui-renamed/settings",
+    "inputValue": "qa265-ui-renamed",
+    "apiSlug": "qa265-ui-renamed",
+    "apiCalls": [
+     {
+      "label": "U1",
+      "method": "GET",
+      "url": "/api/spaces",
+      "status": 200
+     },
+     {
+      "label": "U1",
+      "method": "GET",
+      "url": "/api/spaces/22",
+      "status": 200
+     },
+     {
+      "label": "U1",
+      "method": "GET",
+      "url": "/api/spaces/22/members",
+      "status": 200
+     },
+     {
+      "label": "U1",
+      "method": "PUT",
+      "url": "/api/spaces/22",
+      "status": 200
+     },
+     {
+      "label": "U1",
+      "method": "GET",
+      "url": "/api/spaces/22/members",
+      "status": 200
+     }
+    ],
+    "shot": "shots/u1-slug-renamed.png"
+   }
+  },
+  {
+   "id": "U2",
+   "criterion": "2. 四个 /s/ 入口（空间首页/回收站/空间搜索/空间设置）用新地址可用，旧地址落到 404 页",
+   "method": "真实 Chromium 依次打开 /s/<新 slug>、/trash、/search、/settings 与对应旧 slug 地址，读取页面正文判定是否落到「页面不存在」",
+   "expected": "新地址 4 个入口都渲染出对应功能页（不出现 404 页）；旧地址 4 个入口都显示「页面不存在」；空间列表里已无旧 slug",
+   "actual": "新地址可用 4/4；旧地址 404 页 4/4；空间列表仍含旧 slug=false",
+   "result": "PASS",
+   "evidence": {
+    "newSlug": "qa265-ui-renamed",
+    "oldSlug": "qa265-slug-renamed",
+    "newResults": [
+     {
+      "label": "空间首页",
+      "path": "/s/qa265-ui-renamed",
+      "httpStatus": 200,
+      "finalUrl": "/p/434",
+      "notFoundPage": false,
+      "marker": "QA265 slug 验收页",
+      "markerHit": true,
+      "snippet": "Ciki QA265-UI-Name-Only 管理员 页面 QA265 slug 验收页 Ciki · 1.0.0 · bcdac31+build.320 新建页面 Q qa265admin 首页 QA265 slug 验收页 QA265 slug 验收页 Q qa265admin 创建于 2026-11-27 编辑 子页面 QA265 slug 验收页："
+     },
+     {
+      "label": "回收站",
+      "path": "/s/qa265-ui-renamed/trash",
+      "httpStatus": 200,
+      "finalUrl": "/s/qa265-ui-renamed/trash",
+      "notFoundPage": false,
+      "marker": "回收站",
+      "markerHit": true,
+      "snippet": "Ciki Q qa265admin 返回文档 回收站 汇总全部空间。软删除的页面会连同子页面一起停在这里；彻底删除会连版本历史一起清掉，无法恢复。 全部空间 清空回收站 回收站是空的 被删除的页面会先到这里，可以恢复或彻底删除。 回到页面"
+     },
+     {
+      "label": "空间搜索",
+      "path": "/s/qa265-ui-renamed/search",
+      "httpStatus": 200,
+      "finalUrl": "/s/qa265-ui-renamed/search",
+      "notFoundPage": false,
+      "marker": "搜索",
+      "markerHit": true,
+      "snippet": "Ciki QA265-UI-Name-Only 管理员 页面 QA265 slug 验收页 Ciki · 1.0.0 · bcdac31+build.320 新建页面 Q qa265admin 搜索 在顶栏输入关键词，回车开始搜索 输入关键词开始搜索 支持多关键词（空格分隔），标题与正文命中都会出现在结果里。"
+     },
+     {
+      "label": "空间设置",
+      "path": "/s/qa265-ui-renamed/settings",
+      "httpStatus": 200,
+      "finalUrl": "/s/qa265-ui-renamed/settings",
+      "notFoundPage": false,
+      "marker": "空间信息",
+      "markerHit": true,
+      "snippet": "Ciki Q qa265admin 返回空间总览 QA265-UI-Name-Only 管理员 空间设置只对空间管理员可见。名称与描述会即时出现在侧栏切换器里。 空间信息 名称 1–64 个字符，描述最多 500 个字符。 名称 空间地址 /s/ 描述 保存 成员 成员从已注册用户里选；每个空间至少要保留一名管理员。 成员 角色 加入时间 操作 Q qa26"
+     }
+    ],
+    "oldResults": [
+     {
+      "label": "空间首页",
+      "path": "/s/qa265-slug-renamed",
+      "httpStatus": 200,
+      "finalUrl": "/s/qa265-slug-renamed",
+      "notFoundPage": true,
+      "snippet": "Ciki QA265-UI-Name-Only 管理员 页面 QA265 slug 验收页 Ciki · 1.0.0 · bcdac31+build.320 新建页面 Q qa265admin 页面不存在 链接可能已经失效，或者页面被移进了回收站。 回到首页"
+     },
+     {
+      "label": "回收站",
+      "path": "/s/qa265-slug-renamed/trash",
+      "httpStatus": 200,
+      "finalUrl": "/s/qa265-slug-renamed/trash",
+      "notFoundPage": true,
+      "snippet": "Ciki Q qa265admin 返回文档 页面不存在 链接可能已经失效，或者页面被移进了回收站。 回到首页"
+     },
+     {
+      "label": "空间搜索",
+      "path": "/s/qa265-slug-renamed/search",
+      "httpStatus": 200,
+      "finalUrl": "/s/qa265-slug-renamed/search",
+      "notFoundPage": true,
+      "snippet": "Ciki QA265-UI-Name-Only 管理员 页面 QA265 slug 验收页 Ciki · 1.0.0 · bcdac31+build.320 新建页面 Q qa265admin 页面不存在 链接可能已经失效，或者页面被移进了回收站。 回到首页"
+     },
+     {
+      "label": "空间设置",
+      "path": "/s/qa265-slug-renamed/settings",
+      "httpStatus": 200,
+      "finalUrl": "/s/qa265-slug-renamed/settings",
+      "notFoundPage": true,
+      "snippet": "Ciki Q qa265admin 页面不存在 链接可能已经失效，或者页面被移进了回收站。 回到首页"
+     }
+    ],
+    "spacesListStillHasOldSlug": false,
+    "note": "旧地址的 HTTP 状态是 SPA 外壳 200，404 由前端路由渲染（/s/:slug 网关按 slug 查空间列表，查不到即渲染 NotFound）"
+   }
+  },
+  {
+   "id": "U3",
+   "criterion": "3. 唯一性冲突：改成另一个已存在空间的 slug → 409、原 slug 不变、UI 字段下显示冲突错误",
+   "method": "真实 Chromium 在空间设置页把 slug 改成对照空间已占用的 slug，点保存 → 读字段错误文案、请求状态与接口读回",
+   "expected": "字段下出现「这个空间地址已被占用」；接口返回 409；slug 仍为 qa265-ui-renamed",
+   "actual": "字段错误=[\"这个空间地址已被占用\"]；PUT 状态=[409]；接口读回 slug=qa265-ui-renamed",
+   "result": "PASS",
+   "evidence": {
+    "currentSlug": "qa265-ui-renamed",
+    "conflictSlug": "qa265-slug-conflict",
+    "fieldAlerts": [
+     "这个空间地址已被占用"
+    ],
+    "putStatus": [
+     409
+    ],
+    "apiSlugAfter": "qa265-ui-renamed",
+    "shot": "shots/u3-conflict.png"
+   }
+  },
+  {
+   "id": "U4",
+   "criterion": "4. 格式非法逐项拒绝：字段级报错并拦保存（不发请求）",
+   "method": "真实 Chromium 逐个输入非法 slug 并点保存 → 读字段错误文案、aria-invalid、字段实际值与是否真的发出 PUT /api/spaces/:id",
+   "expected": "每种非法输入都出现字段级报错、aria-invalid=true，且一次 PUT 都不发；空间 slug 不变",
+   "actual": "7/8 项符合；未符合：长度>48；输入框 maxlength=48；接口读回 slug=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "result": "FAIL",
+   "evidence": {
+    "currentSlug": "qa265-ui-renamed",
+    "maxlengthAttribute": "48",
+    "detail": [
+     {
+      "label": "大写",
+      "输入": "QA265-Upper",
+      "字段实际值": "QA265-Upper",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0,
+      "ok": true
+     },
+     {
+      "label": "含空格",
+      "输入": "qa265 slug",
+      "字段实际值": "qa265 slug",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0,
+      "ok": true
+     },
+     {
+      "label": "含下划线",
+      "输入": "qa265_slug",
+      "字段实际值": "qa265_slug",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0,
+      "ok": true
+     },
+     {
+      "label": "首字符连字符",
+      "输入": "-qa265",
+      "字段实际值": "-qa265",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0,
+      "ok": true
+     },
+     {
+      "label": "尾字符连字符",
+      "输入": "qa265-",
+      "字段实际值": "qa265-",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0,
+      "ok": true
+     },
+     {
+      "label": "连续连字符",
+      "输入": "qa265--x",
+      "字段实际值": "qa265--x",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0,
+      "ok": true
+     },
+     {
+      "label": "长度>48",
+      "输入": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "字段实际值": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "字段错误": [],
+      "ariaInvalid": "false",
+      "发出的PUT数": 1,
+      "ok": false
+     },
+     {
+      "label": "空值",
+      "输入": "",
+      "字段实际值": "",
+      "字段错误": [
+       "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      ],
+      "ariaInvalid": "true",
+      "发出的PUT数": 0,
+      "ok": true
+     }
+    ],
+    "apiSlugAfter": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "lengthItemNote": "输入框带 maxlength=48：填入 49 位后字段值被浏览器截断为 48 位（本身合法），因此未触发字段级报错，保存请求按截断后的值发出（发出 PUT=1）",
+    "shot": "shots/u4-invalid.png"
+   }
+  },
+  {
+   "id": "U5",
+   "criterion": "5. 相同 slug 提交 → 无操作成功（不报错）",
+   "method": "真实 Chromium 不改 slug 直接点保存 → 读字段错误、状态提示、请求状态与地址栏",
+   "expected": "无字段错误；出现「已保存」提示；PUT 返回 200；地址栏不变；slug 不变",
+   "actual": "字段错误=[]；状态提示=[\"已保存，切换器里的名称同步更新。\"]；PUT 状态=[200]；地址栏=/s/qa265-ui-renamed/settings；slug=qa265-ui-renamed",
+   "result": "PASS",
+   "evidence": {
+    "currentSlug": "qa265-ui-renamed",
+    "fieldAlerts": [],
+    "statusMsgs": [
+     "已保存，切换器里的名称同步更新。"
+    ],
+    "putStatus": [
+     200
+    ],
+    "url": "https://ciki.oneboy.app/s/qa265-ui-renamed/settings",
+    "apiSlugAfter": "qa265-ui-renamed",
+    "shot": "shots/u5-same-slug.png"
+   }
+  },
+  {
+   "id": "U6",
+   "criterion": "6. 只改名称、不改 slug → slug 保持不变",
+   "method": "真实 Chromium 只填名称字段并保存 → 读 slug 输入框、地址栏与接口读回",
+   "expected": "slug 输入框仍为 qa265-ui-renamed；地址栏不变；接口读回 slug 不变；名称变为 QA265-UI-Name-Only",
+   "actual": "slug 输入框=qa265-ui-renamed；地址栏=/s/qa265-ui-renamed/settings；接口读回 slug=qa265-ui-renamed；名称=QA265-UI-Name-Only；PUT 状态=[200]",
+   "result": "PASS",
+   "evidence": {
+    "slugBefore": "qa265-ui-renamed",
+    "slugAfter": "qa265-ui-renamed",
+    "inputValue": "qa265-ui-renamed",
+    "url": "https://ciki.oneboy.app/s/qa265-ui-renamed/settings",
+    "nameAfter": "QA265-UI-Name-Only",
+    "putStatus": [
+     200
+    ],
+    "shot": "shots/u6-name-only.png"
+   }
+  },
+  {
+   "id": "U7",
+   "criterion": "7. 非管理员（空间 editor）改 slug → 被拒绝：页面层根本不给改，接口层 403",
+   "method": "真实 Chromium 用 editor 账号打开空间设置页 → 读页面是否给 slug 输入框、是否提示无权限；接口层见 A7（editor 调 PUT 得 403）",
+   "expected": "editor 打开设置页看到「仅空间管理员可以打开空间设置」，没有 slug 输入框与保存按钮，无法发起修改；slug 保持不变",
+   "actual": "提示出现=true；slug 输入框可见=false；表单保存按钮数=0；接口读回 slug=qa265-ui-renamed",
+   "result": "PASS",
+   "evidence": {
+    "slugFieldVisible": false,
+    "saveButtonCount": 0,
+    "forbiddenShown": true,
+    "bodySnippet": "Ciki Q qa265editor 仅空间管理员可以打开空间设置 你在这个空间是编辑或只读成员；改名称、成员与删除空间需要空间管理员权限。 回到页面",
+    "apiSlugAfter": "qa265-ui-renamed",
+    "shot": "shots/u7-editor-blocked.png"
+   }
+  }
+ ],
+ "consoleErrors": [
+  {
+   "label": "U3",
+   "url": "https://ciki.oneboy.app/s/qa265-ui-renamed/settings",
+   "text": "Failed to load resource: the server responded with a status of 409 ()"
+  }
+ ]
+}
