@@ -9,6 +9,7 @@ import { Hono } from "hono"
 import { DEFAULT_SITE_NAME } from "../core/identity"
 import { getSetting } from "../db/queries/settings"
 import { AGENT_GUIDE_TEMPLATE } from "../docs/agent-guide-content"
+import { CONTRACT_VERSION } from "../docs/openapi"
 import { getTablePrefix } from "../lib/table-prefix"
 import type { HonoEnv } from "../types"
 
@@ -36,7 +37,10 @@ publicRoutes.get("/", async (c) => {
 
 publicRoutes.get("/agent-guide", (c) => {
   const version = (c.env.APP_VERSION ?? "").trim() || UNKNOWN_VERSION
-  const content = AGENT_GUIDE_TEMPLATE.replace("{{BUILD_VERSION}}", version)
+  const content = AGENT_GUIDE_TEMPLATE.replace(
+    "{{CONTRACT_VERSION}}",
+    CONTRACT_VERSION
+  ).replace("{{BUILD_VERSION}}", version)
   return new Response(content, {
     status: 200,
     headers: {

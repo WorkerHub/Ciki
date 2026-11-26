@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
+import { CONTRACT_VERSION } from "../src/docs/openapi"
 import { app } from "../src/index"
 import { isCommentWriteRoute } from "../src/middleware/comment-auth"
 import { UNKNOWN_VERSION } from "../src/routes/public"
-import { CONTRACT_VERSION } from "../src/docs/openapi"
 import { makeContext, request } from "./support/app"
 
 describe("实例自述接口与端点测试", () => {

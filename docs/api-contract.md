@@ -456,7 +456,7 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 #### GET /api/public/agent-guide（公开，可缓存 60 秒）
 
 公开只读 Agent 接入指引说明页，免鉴权，响应 `Content-Type: text/markdown; charset=utf-8` 与 `Cache-Control: public, max-age=60`。
-内容随构建打包自 `docs/agent-guide.md`，页首附带同源构建版本与契约版本行，详见 [`docs/agent-guide.md`](file:///Users/mapan/.tds/workspaces/01a2154b-2f21-7ba4-93da-465cb210e413/docs/agent-guide.md)。
+内容随构建打包自 `docs/agent-guide.md`，页首附带同源构建版本与契约版本行，详见 [agent-guide.md](agent-guide.md)。
 
 ### setup
 
@@ -2457,7 +2457,8 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 请求体与响应字段一律 snake_case（本文件 camelCase 通则的例外，见「一、通用约定」）。
 - 正文**只收 TipTap JSON**（`content_json`，字符串或对象均可）：服务端渲染 HTML → 消毒 → 派生纯文本与 MD，入参规范化与体积上限沿用站内口径（400 `code:"INVALID_CONTENT_JSON"`、413 `code:"PAYLOAD_TOO_LARGE"`）。**本期不收 Markdown**——服务端没有 md→JSON 转换链，调用方自行转换。
 - **Agent 画布写入规范（两步范式）与预览图生成回填**：
-  - 外部 Agent 接入的两步法写入、校验规则、Embed 作者契约要点等详细操作规范，统一归入并引用 [`docs/agent-guide.md`](file:///Users/mapan/.tds/workspaces/01a2154b-2f21-7ba4-93da-465cb210e413/docs/agent-guide.md)（实例端点：`GET /api/public/agent-guide`），本文件不复述正文。
+  - 外部调用方两步法写入：上传场景 JSON（`POST /api/write/files`）获得 `sceneKey`，在 `content_json` 中构造 `excalidraw` 节点并省略 `previewKey`；网页端在阅读态按标准规格即时渲染并向服务端回填预览图。兼容性：若带合法 `previewKey` 照常接收落库。
+  - 校验规则：`excalidraw` 节点 `sceneKey` 必填且匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`；可选 `previewKey` 若存在须匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`；非法均回 400 `code:"INVALID_CONTENT_JSON"`。详细操作指引见 [agent-guide.md](agent-guide.md)（实例端点：`GET /api/public/agent-guide`）。
 - 限流沿用 `auth_counters`：失败按 IP（`write_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`write` 600 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
 - 每次成功调用刷新令牌的 `lastUsedAt`。
 
