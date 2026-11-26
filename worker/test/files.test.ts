@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { SUPPORTED_THEME_STYLES } from "../src/core/theme-style"
 import { adminSession, initializedContext, request } from "./support/app"
 
 const PNG = new Uint8Array([
@@ -630,7 +631,10 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
 
     // 3. 验证取值范围白名单：mode 仅限 light/dark，style 仅限 nova/paper
     expect(html).toContain('mode === "light" || mode === "dark"')
-    expect(html).toContain('style === "nova" || style === "paper"')
+    expect(html).toContain(
+      `var supportedStyles = ${JSON.stringify(SUPPORTED_THEME_STYLES)};`
+    )
+    expect(html).toContain("supportedStyles.indexOf(style) !== -1")
   })
 
   it("注入脚本在真实 DOM 环境执行：首屏 query 应用与父级 message 动态切换", async () => {
@@ -709,5 +713,103 @@ describe("Embed 下发注入与高度自适应上报协议（规格 §1/§2/§5�
     )
     expect(docEl.getAttribute("data-theme")).toBe("nova")
     expect(docEl.classList.contains("dark")).toBe(false)
+  })
+
+  it("Embed 独立打开：覆盖现行 6 套风格（nova/paper/natural/eink/notion/sketch）逐一验证 data-theme 取值与非法回退", async () => {
+    const { Window } = await import("happy-dom")
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const rawHtml =
+      "<!DOCTYPE html><html><head></head><body><h1>Standalone Embed</h1></body></html>"
+    const key = "embeds/99999999-aaaa-bbbb-cccc-dddddddddddd.html"
+    await r2.put(key, new TextEncoder().encode(rawHtml), {
+      httpMetadata: { contentType: "text/html; charset=utf-8" },
+      customMetadata: { category: "embeds", uploaderId: "1" }
+    })
+
+    const res = await request(env, `/api/files/${key}`, {
+      headers: { cookie: admin }
+    })
+    expect(res.status).toBe(200)
+    const html = await res.text()
+    const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/i)
+    expect(scriptMatch).not.toBeNull()
+    const scriptCode = scriptMatch![1]
+
+    // 1. 独立打开：遍历全部 6 套合法风格，逐一校验 data-theme 取值与 dark class 状态
+    for (const style of SUPPORTED_THEME_STYLES) {
+      // 验证浅色模式独立打开
+      const lightWindow = new Window({
+        url: `https://example.com/api/files/${key}?mode=light&style=${style}`
+      })
+      lightWindow.document.write(html)
+      lightWindow.eval(scriptCode)
+
+      const lightDocEl = lightWindow.document.documentElement
+      expect(lightDocEl.getAttribute("data-theme")).toBe(style)
+      expect(lightDocEl.classList.contains("dark")).toBe(false)
+
+      // 验证深色模式独立打开
+      const darkWindow = new Window({
+        url: `https://example.com/api/files/${key}?mode=dark&style=${style}`
+      })
+      darkWindow.document.write(html)
+      darkWindow.eval(scriptCode)
+
+      const darkDocEl = darkWindow.document.documentElement
+      expect(darkDocEl.getAttribute("data-theme")).toBe(style)
+      expect(darkDocEl.classList.contains("dark")).toBe(true)
+    }
+
+    // 2. 独立打开：非法风格（如已下线的 distill、未知 neon）与缺省参数时，保持现状回落行为（不设 data-theme）
+    for (const invalidStyle of ["distill", "neon", "cyberpunk", ""]) {
+      const invalidWindow = new Window({
+        url: `https://example.com/api/files/${key}?mode=light&style=${invalidStyle}`
+      })
+      invalidWindow.document.write(html)
+      invalidWindow.eval(scriptCode)
+
+      const invalidDocEl = invalidWindow.document.documentElement
+      expect(invalidDocEl.getAttribute("data-theme")).toBeNull()
+    }
+
+    // 无 style 参数独立打开
+    const noStyleWindow = new Window({
+      url: `https://example.com/api/files/${key}?mode=dark`
+    })
+    noStyleWindow.document.write(html)
+    noStyleWindow.eval(scriptCode)
+
+    const noStyleDocEl = noStyleWindow.document.documentElement
+    expect(noStyleDocEl.getAttribute("data-theme")).toBeNull()
+    expect(noStyleDocEl.classList.contains("dark")).toBe(true)
+
+    // 3. 动态消息切换：覆盖 6 套风格实时跟随
+    const parentWindow = {} as unknown as Window
+    const msgWindow = new Window({
+      url: `https://example.com/api/files/${key}?mode=light&style=nova`
+    })
+    ;(msgWindow as unknown as { parent: unknown }).parent = parentWindow
+    msgWindow.document.write(html)
+    msgWindow.eval(scriptCode)
+
+    const msgDocEl = msgWindow.document.documentElement
+    expect(msgDocEl.getAttribute("data-theme")).toBe("nova")
+
+    for (const style of SUPPORTED_THEME_STYLES) {
+      msgWindow.dispatchEvent(
+        new msgWindow.MessageEvent("message", {
+          source: parentWindow,
+          data: {
+            type: "ciki-embed-theme",
+            mode: "dark",
+            style
+          }
+        })
+      )
+      expect(msgDocEl.getAttribute("data-theme")).toBe(style)
+      expect(msgDocEl.classList.contains("dark")).toBe(true)
+    }
   })
 })

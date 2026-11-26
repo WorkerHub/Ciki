@@ -8,6 +8,7 @@
  */
 import type { Context } from "hono"
 import type { HonoEnv } from "../types"
+import { SUPPORTED_THEME_STYLES } from "../core/theme-style"
 import { sanitizeExcalidrawSceneJson } from "./excalidraw-sanitize"
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
@@ -59,6 +60,7 @@ export const EMBED_HEIGHT_REPORTER_SCRIPT = `<script>
       } catch (_) {}
     };
 
+    var supportedStyles = ${JSON.stringify(SUPPORTED_THEME_STYLES)};
     var applyTheme = function(mode, style) {
       try {
         var de = document.documentElement;
@@ -72,7 +74,7 @@ export const EMBED_HEIGHT_REPORTER_SCRIPT = `<script>
             changed = true;
           }
         }
-        if (style === "nova" || style === "paper") {
+        if (supportedStyles.indexOf(style) !== -1) {
           if (de.getAttribute("data-theme") !== style) {
             de.setAttribute("data-theme", style);
             changed = true;
