@@ -230,9 +230,9 @@ Agent 向页面插入 Excalidraw 画布时，采用标准**两步法写入**，�
 
 嵌入部件支持随 Ciki 主题（风格与明暗）实时切换：
 
-1. **URL 参数（首帧直出）**：父页在加载 iframe 时会在 `src` 中追加参数 `?mode=<light|dark>&style=<nova|paper>`。
+1. **URL 参数（首帧直出）**：父页在加载 iframe 时会在 `src` 中追加参数 `?mode=<light|dark>&style=<nova|paper|natural|eink>`。
 2. **DOM 契约**：页面启动时应解析参数，并设置根元素：
-   - 风格：`document.documentElement.setAttribute("data-theme", "nova" | "paper")`
+   - 风格：`document.documentElement.setAttribute("data-theme", "nova" | "paper" | "natural" | "eink")`
    - 明暗：暗色时添加 `.dark` 类（`document.documentElement.classList.add("dark")`），浅色时移除。
 3. **实时消息监听**：监听宿主下发的 postMessage 消息更新主题：
 ```javascript
@@ -241,7 +241,7 @@ window.addEventListener("message", (event) => {
   const data = event.data
   if (data?.type === "ciki-embed-theme") {
     // data.mode: "light" | "dark"
-    // data.style: "nova" | "paper"
+    // data.style: "nova" | "paper" | "natural" | "eink"
     document.documentElement.setAttribute("data-theme", data.style)
     document.documentElement.classList.toggle("dark", data.mode === "dark")
   }
@@ -254,36 +254,40 @@ window.addEventListener("message", (event) => {
 
 ## 七、主题配色真值表
 
-为方便嵌入式内容（Embed iframe 组件、图表、SVG 画布等）单文件自包含实现与宿主设计语言无缝对齐，下表收录四组核心语义色彩令牌的实际色值（与 `web/src/index.css` 同源、逐字对照一致）。
+为方便嵌入式内容（Embed iframe 组件、图表、SVG 画布等）单文件自包含实现与宿主设计语言无缝对齐，下表收录四套风格共八组核心语义色彩令牌的实际色值（与 `web/src/index.css` 同源、逐字对照一致）。
 
-| 语义色彩令牌           | Nova 浅版 (`:root`)         | Nova 暗版 (`.dark`)         | Paper 浅版 (`html[data-theme="paper"]`) | Paper 暗版 (`html[data-theme="paper"].dark`) |
-| ---------------------- | --------------------------- | --------------------------- | --------------------------------------- | -------------------------------------------- |
-| `background`           | `oklch(1 0 0)`              | `oklch(0.145 0 0)`          | `#f7f4ee`                               | `#0b0c0e`                                    |
-| `foreground`           | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
-| `card`                 | `oklch(1 0 0)`              | `oklch(0.205 0 0)`          | `#f9f7f2`                               | `#1a1b1f`                                    |
-| `card-foreground`      | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
-| `popover`              | `oklch(1 0 0)`              | `oklch(0.205 0 0)`          | `#f9f7f2`                               | `#1a1b1f`                                    |
-| `popover-foreground`   | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
-| `primary`              | `oklch(0.205 0 0)`          | `oklch(0.922 0 0)`          | `var(--coral)` (`#e2705a`)              | `var(--coral)` (`#e8694e`)                   |
-| `primary-foreground`   | `oklch(0.985 0 0)`          | `oklch(0.205 0 0)`          | `var(--coral-ink)` (`#ffffff`)          | `var(--coral-ink)` (`#ffffff`)               |
-| `secondary`            | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    |
-| `secondary-foreground` | `oklch(0.205 0 0)`          | `oklch(0.985 0 0)`          | `#434247`                               | `#c8c5bf`                                    |
-| `muted`                | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    |
-| `muted-foreground`     | `oklch(0.556 0 0)`          | `oklch(0.708 0 0)`          | `#77746f`                               | `#908d87`                                    |
-| `accent`               | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    |
-| `accent-foreground`    | `oklch(0.205 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    |
-| `destructive`          | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | `oklch(0.577 0.245 27.325)`             | `oklch(0.704 0.191 22.216)`                  |
-| `border`               | `oklch(0.922 0 0)`          | `oklch(1 0 0 / 10%)`        | `#dfdbd2`                               | `#26282d`                                    |
-| `input`                | `oklch(0.922 0 0)`          | `oklch(1 0 0 / 15%)`        | `#dfdbd2`                               | `#26282d`                                    |
-| `ring`                 | `oklch(0.708 0 0)`          | `oklch(0.556 0 0)`          | `#f3bcae`                               | `#94402e`                                    |
-| `chart-1`              | `oklch(0.87 0 0)`           | `oklch(0.87 0 0)`           | `oklch(0.87 0 0)`                       | `oklch(0.87 0 0)`                            |
-| `chart-2`              | `oklch(0.556 0 0)`          | `oklch(0.556 0 0)`          | `oklch(0.556 0 0)`                      | `oklch(0.556 0 0)`                           |
-| `chart-3`              | `oklch(0.439 0 0)`          | `oklch(0.439 0 0)`          | `oklch(0.439 0 0)`                      | `oklch(0.439 0 0)`                           |
-| `chart-4`              | `oklch(0.371 0 0)`          | `oklch(0.371 0 0)`          | `oklch(0.371 0 0)`                      | `oklch(0.371 0 0)`                           |
-| `chart-5`              | `oklch(0.269 0 0)`          | `oklch(0.269 0 0)`          | `oklch(0.269 0 0)`                      | `oklch(0.269 0 0)`                           |
+| 语义色彩令牌           | Nova 浅版 (`:root`)         | Nova 暗版 (`.dark`)         | Paper 浅版 (`html[data-theme="paper"]`) | Paper 暗版 (`html[data-theme="paper"].dark`) | Natural 浅版 (`html[data-theme="natural"]`) | Natural 暗版 (`html[data-theme="natural"].dark`) | Eink 浅版 (`html[data-theme="eink"]`) | Eink 暗版 (`html[data-theme="eink"].dark`) |
+| ---------------------- | --------------------------- | --------------------------- | --------------------------------------- | -------------------------------------------- | ------------------------------------------- | ------------------------------------------------ | ------------------------------------- | ------------------------------------------ |
+| `theme-color (meta)`   | `#ffffff`                   | `#0a0a0a`                   | `#f7f4ee`                               | `#0b0c0e`                                    | `#faf6f1`                                   | `#191612`                                        | `#f5f3ea`                             | `#171814`                                  |
+| `background`           | `oklch(1 0 0)`              | `oklch(0.145 0 0)`          | `#f7f4ee`                               | `#0b0c0e`                                    | `#faf6f1`                                   | `#191612`                                        | `#f5f3ea`                             | `#171814`                                  |
+| `foreground`           | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    | `#292524`                                   | `#ece7dd`                                        | `#20211e`                             | `#eceade`                                  |
+| `card`                 | `oklch(1 0 0)`              | `oklch(0.205 0 0)`          | `#f9f7f2`                               | `#1a1b1f`                                    | `#ffffff`                                   | `#221e18`                                        | `#faf8f1`                             | `#1f201c`                                  |
+| `card-foreground`      | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    | `#292524`                                   | `#ece7dd`                                        | `#20211e`                             | `#eceade`                                  |
+| `popover`              | `oklch(1 0 0)`              | `oklch(0.205 0 0)`          | `#f9f7f2`                               | `#1a1b1f`                                    | `#ffffff`                                   | `#221e18`                                        | `#faf8f1`                             | `#1f201c`                                  |
+| `popover-foreground`   | `oklch(0.145 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    | `#292524`                                   | `#ece7dd`                                        | `#20211e`                             | `#eceade`                                  |
+| `primary`              | `oklch(0.205 0 0)`          | `oklch(0.922 0 0)`          | `var(--coral)` (`#e2705a`)              | `var(--coral)` (`#e8694e`)                   | `var(--sage-deep)` (`#5f7050`)              | `var(--sage)` (`#a3b18a`)                        | `#20211e`                             | `#eceade`                                  |
+| `primary-foreground`   | `oklch(0.985 0 0)`          | `oklch(0.205 0 0)`          | `var(--coral-ink)` (`#ffffff`)          | `var(--coral-ink)` (`#ffffff`)               | `#ffffff`                                   | `#1c2317`                                        | `#f5f3ea`                             | `#171814`                                  |
+| `secondary`            | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    | `#e9e0d4`                                   | `#2e2a21`                                        | `#e6e4da`                             | `#262720`                                  |
+| `secondary-foreground` | `oklch(0.205 0 0)`          | `oklch(0.985 0 0)`          | `#434247`                               | `#c8c5bf`                                    | `#44403c`                                   | `#d6d0c2`                                        | `#20211e`                             | `#eceade`                                  |
+| `muted`                | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    | `#f1ebe1`                                   | `#2e2a21`                                        | `#e6e4da`                             | `#262720`                                  |
+| `muted-foreground`     | `oklch(0.556 0 0)`          | `oklch(0.708 0 0)`          | `#77746f`                               | `#908d87`                                    | `#78716c`                                   | `#a39e93`                                        | `#555750`                             | `#a9a89d`                                  |
+| `accent`               | `oklch(0.97 0 0)`           | `oklch(0.269 0 0)`          | `#e9e3da`                               | `#24262b`                                    | `#e9e0d4`                                   | `#2e2a21`                                        | `#e6e4da`                             | `#262720`                                  |
+| `accent-foreground`    | `oklch(0.205 0 0)`          | `oklch(0.985 0 0)`          | `#2a2b2f`                               | `#f2f0eb`                                    | `#292524`                                   | `#ece7dd`                                        | `#20211e`                             | `#eceade`                                  |
+| `destructive`          | `oklch(0.577 0.245 27.325)` | `oklch(0.704 0.191 22.216)` | `oklch(0.577 0.245 27.325)`             | `oklch(0.704 0.191 22.216)`                  | `oklch(0.577 0.245 27.325)`                 | `oklch(0.704 0.191 22.216)`                      | `oklch(0.577 0.245 27.325)`           | `oklch(0.704 0.191 22.216)`                |
+| `border`               | `oklch(0.922 0 0)`          | `oklch(1 0 0 / 10%)`        | `#dfdbd2`                               | `#26282d`                                    | `#e6dfd2`                                   | `#332e25`                                        | `#bab9b0`                             | `#44453f`                                  |
+| `input`                | `oklch(0.922 0 0)`          | `oklch(1 0 0 / 15%)`        | `#dfdbd2`                               | `#26282d`                                    | `#e6dfd2`                                   | `#332e25`                                        | `#bab9b0`                             | `#44453f`                                  |
+| `ring`                 | `oklch(0.708 0 0)`          | `oklch(0.556 0 0)`          | `#f3bcae`                               | `#94402e`                                    | `var(--sage-300)` (`#c3cfb2`)               | `var(--sage-deep)` (`#8b9d77`)                   | `#20211e`                             | `#eceade`                                  |
+| `chart-1`              | `oklch(0.87 0 0)`           | `oklch(0.87 0 0)`           | `oklch(0.87 0 0)`                       | `oklch(0.87 0 0)`                            | `#8b9d77`                                   | `#a3b18a`                                        | `#555750`                             | `#eceade`                                  |
+| `chart-2`              | `oklch(0.556 0 0)`          | `oklch(0.556 0 0)`          | `oklch(0.556 0 0)`                      | `oklch(0.556 0 0)`                           | `#d4a373`                                   | `#d4a373`                                        | `#8a8b83`                             | `#bab9b0`                                  |
+| `chart-3`              | `oklch(0.439 0 0)`          | `oklch(0.439 0 0)`          | `oklch(0.439 0 0)`                      | `oklch(0.439 0 0)`                           | `#75a191`                                   | `#75a191`                                        | `#20211e`                             | `#8a8b83`                                  |
+| `chart-4`              | `oklch(0.371 0 0)`          | `oklch(0.371 0 0)`          | `oklch(0.371 0 0)`                      | `oklch(0.371 0 0)`                           | `#5f7050`                                   | `#8b9d77`                                        | `#bab9b0`                             | `#555750`                                  |
+| `chart-5`              | `oklch(0.269 0 0)`          | `oklch(0.269 0 0)`          | `oklch(0.269 0 0)`                      | `oklch(0.269 0 0)`                           | `#292524`                                   | `#e9e0d4`                                        | `#44453f`                             | `#44453f`                                  |
 
 > [!NOTE]
-> 1. **Paper 主题真源对照**：`web/src/index.css` 中 Paper 主题的 `primary` 声明为 `var(--coral)`、`primary-foreground` 声明为 `var(--coral-ink)`；其实测常量珊瑚色在浅版为 `--coral: #e2705a`、暗版为 `--coral: #e8694e`，墨色均为 `--coral-ink: #ffffff`；`chart-1`–`chart-5` 未在 Paper 作用域覆盖，继承自全局 `:root` / `.dark`。
+> 1. **风格真源与私有色阶对照**：
+>    - **Paper**：`web/src/index.css` 中 Paper 主题的 `primary` 声明为 `var(--coral)`、`primary-foreground` 声明为 `var(--coral-ink)`；其实测常量珊瑚色在浅版为 `--coral: #e2705a`、暗版为 `--coral: #e8694e`，墨色均为 `--coral-ink: #ffffff`；`chart-1`–`chart-5` 未在 Paper 作用域覆盖，继承自全局 `:root` / `.dark`。
+>    - **Natural**：`primary` 声明为 `var(--sage-deep)`（浅版 `#5f7050`）/ `var(--sage)`（暗版 `#a3b18a`）；`ring` 声明为 `var(--sage-300)`（浅版 `#c3cfb2`）/ `var(--sage-deep)`（暗版 `#8b9d77`）。
+>    - **Eink**：采用纯灰阶有限墨阶设计，无彩色令牌；层级主要靠 1px 边框与墨阶表达。
 > 2. **嵌入部件使用方式**：iframe 运行于沙箱隔离环境中，无法直接继承宿主的 CSS 变量。作者可通过第 6 节的 `ciki-embed-theme` 消息或 URL 查询参数（`?mode=&style=`）获知当前激活的主题，在组件内联样式表中选用上述真值，实现首帧无感跟随。
 
 ---
