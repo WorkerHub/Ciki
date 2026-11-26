@@ -30,28 +30,7 @@ export function isValidSpaceSlug(slug: unknown): slug is string {
   return SPACE_SLUG_REGEX.test(slug)
 }
 
-function uniqueViolationMessage(err: unknown): string | null {
-  if (!(err instanceof Error)) return null
-  if (!/UNIQUE constraint failed/i.test(err.message)) return null
-  return err.message
-}
-
-/** 空间 slug 唯一键冲突判定（并发兜底）。 */
-export function isSpaceSlugConflict(err: unknown): boolean {
-  const message = uniqueViolationMessage(err)
-  if (!message) return false
-  const detail = message
-    .replace(/^.*?UNIQUE constraint failed:\s*/i, "")
-    .replace(/\s*\(extended:[^)]*\)\s*$/i, "")
-    .replace(/\s*:\s*[A-Z_0-9]+$/, "")
-    .trim()
-    .toLowerCase()
-  const columns = detail.split(",").map((part) => part.trim())
-  if (columns.some((col) => col === "slug" || col.endsWith(".slug"))) {
-    return true
-  }
-  return /^index\s+'[^']*spaces_slug'$/.test(detail)
-}
+export { isSpaceSlugConflict } from "../core/identity"
 
 /**
  * 空间名 → slug 候选（可能为空串，表示名字里没有任何可用字符）。
