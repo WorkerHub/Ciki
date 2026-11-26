@@ -26,8 +26,7 @@
         "natural": "Natural",
         "eink": "E-Ink",
         "notion": "Notion",
-        "sketch": "Sketch",
-        "distill": "Distill"
+        "sketch": "Sketch"
       },
       "modeLabel": "Mode",
       "mode": {

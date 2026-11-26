@@ -1442,18 +1442,12 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
     )
   })
 
-  it("PUT /api/me/theme 成功保存 natural, eink, notion, sketch 与 distill 主题风格并持久化", async () => {
+  it("PUT /api/me/theme 成功保存 natural, eink, notion 与 sketch 主题风格并持久化", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const prefix = getTablePrefix(env)
 
-    for (const style of [
-      "natural",
-      "eink",
-      "notion",
-      "sketch",
-      "distill"
-    ] as const) {
+    for (const style of ["natural", "eink", "notion", "sketch"] as const) {
       const res = await jsonRequest(
         env,
         "PUT",
@@ -1483,6 +1477,7 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
     const admin = await adminSession(env)
 
     const invalidValues = [
+      "distill",
       "dark",
       "light",
       "auto",
@@ -1506,7 +1501,7 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
       const body = (await res.json()) as { error: string; code: string }
       expect(body.code).toBe("INVALID_THEME_STYLE")
       expect(body.error).toBe(
-        "themeStyle must be nova, paper, natural, eink, notion, sketch or distill"
+        "themeStyle must be nova, paper, natural, eink, notion or sketch"
       )
     }
 
@@ -1535,10 +1530,47 @@ describe("schema_v13 迁移与主题风格 themeStyle 读写与保存", () => {
     )
   })
 
-  it("历史/非法值归一化兜底：底层脏数据回退 nova", async () => {
+  it("历史/非法值归一化兜底：底层存量 distill 或脏数据读取回退 nova，保存合法风格后覆盖", async () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
     const prefix = getTablePrefix(env)
+
+    // 存量 distill 账号不做数据迁移：读取侧按未知值回退 nova
+    await env.DB.prepare(
+      `UPDATE ${usersTable(prefix)} SET theme_style = 'distill'`
+    ).run()
+
+    const distillMeRes = await jsonRequest(
+      env,
+      "GET",
+      "/api/me",
+      undefined,
+      admin
+    )
+    expect(distillMeRes.status).toBe(200)
+    expect(
+      ((await distillMeRes.json()) as { themeStyle: string }).themeStyle
+    ).toBe("nova")
+
+    // 保存合法风格后正常覆盖底层 theme_style
+    const updateRes = await jsonRequest(
+      env,
+      "PUT",
+      "/api/me/theme",
+      { themeStyle: "notion" },
+      admin
+    )
+    expect(updateRes.status).toBe(200)
+    expect(
+      ((await updateRes.json()) as { themeStyle: string }).themeStyle
+    ).toBe("notion")
+
+    const updatedRow = await findUserByEmail(
+      env.DB,
+      prefix,
+      "admin@example.com"
+    )
+    expect(updatedRow?.theme_style).toBe("notion")
 
     // 直接在数据库里写入非合法值 'corrupted_style'
     await env.DB.prepare(

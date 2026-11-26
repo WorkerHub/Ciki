@@ -1,5 +1,5 @@
 /**
- * 主题风格（Theme Style）：Nova / 纸面（Paper） / 自然（Natural） / 墨纸（E-Ink） / Notion / 手绘（Sketch） / 学术（Distill）。
+ * 主题风格（Theme Style）：Nova / 纸面（Paper） / 自然（Natural） / 墨纸（E-Ink） / Notion / 手绘（Sketch）。
  * 服务端存储于 users.theme_style（TEXT NOT NULL DEFAULT 'nova'）。
  */
 
@@ -9,15 +9,14 @@ export const SUPPORTED_THEME_STYLES = [
   "natural",
   "eink",
   "notion",
-  "sketch",
-  "distill"
+  "sketch"
 ] as const
 
 export type ThemeStyle = (typeof SUPPORTED_THEME_STYLES)[number]
 
 export const DEFAULT_THEME_STYLE: ThemeStyle = "nova"
 
-/** 精确匹配：仅 'nova' | 'paper' | 'natural' | 'eink' | 'notion' | 'sketch' | 'distill'。 */
+/** 精确匹配：仅 'nova' | 'paper' | 'natural' | 'eink' | 'notion' | 'sketch'。 */
 export function isThemeStyle(value: unknown): value is ThemeStyle {
   return (
     typeof value === "string" &&

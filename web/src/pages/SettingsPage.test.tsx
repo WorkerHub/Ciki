@@ -810,7 +810,7 @@ describe("主题风格设置", () => {
     expect(saveBtn).toBeDisabled()
   })
 
-  it("服务端用户风格为 notion 时高亮「Notion」，可切换为「手绘」或「学术」并持久化保存", async () => {
+  it("服务端用户风格为 notion 时高亮「Notion」，可切换为「手绘」并持久化保存", async () => {
     const userEventSetup = userEvent.setup()
     setUser({ totpEnabled: false, passkeyCount: 0, themeStyle: "notion" })
     useThemeStore.setState({ style: "notion" })
