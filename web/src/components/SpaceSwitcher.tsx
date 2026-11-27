@@ -1,18 +1,11 @@
 import { cn } from "cn"
 import { Boxes, Check, ChevronsUpDown, Plus, Settings } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
+import { CreateSpaceDialog } from "@/components/CreateSpaceDialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,15 +14,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { describeApiError, type Space } from "@/lib/api"
+import type { Space } from "@/lib/api"
 import { spaceSettingsPath } from "@/lib/routes"
 import { canManage, effectiveRole } from "@/lib/space"
 import { useAuthStore } from "@/stores/auth"
@@ -64,50 +54,17 @@ export function SpaceSwitcher({
   const currentId = useSpacesStore((state) => state.currentId)
   const select = useSpacesStore((state) => state.select)
   const load = useSpacesStore((state) => state.load)
-  const create = useSpacesStore((state) => state.create)
   const isSiteAdmin = useAuthStore((state) => state.user?.role === "admin")
   const current = spaces.find((space) => space.id === currentId) ?? null
   const currentRole = current ? effectiveRole(current, isSiteAdmin) : null
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [busy, setBusy] = useState(false)
-  const [createError, setCreateError] = useState("")
-
-  useEffect(() => {
-    if (createOpen) {
-      setName("")
-      setDescription("")
-      setCreateError("")
-    }
-  }, [createOpen])
 
   const switchTo = (space: Space) => {
     if (space.id !== currentId) select(space.id)
     onNavigate?.()
     // 空间换了，首页会跳到新空间的第一页；系统页（回收站）按自己的 slug 路径留在原地
     navigate(switchPath(space))
-  }
-
-  const submitCreate = async () => {
-    const value = name.trim()
-    if (!value) {
-      setCreateError(t("shell.spaces.create.nameRequired"))
-      return
-    }
-    setBusy(true)
-    setCreateError("")
-    try {
-      await create(value, description.trim())
-      setCreateOpen(false)
-      onNavigate?.()
-      navigate("/")
-    } catch (submitError) {
-      setCreateError(describeApiError(submitError))
-    } finally {
-      setBusy(false)
-    }
   }
 
   if (status === "error" && spaces.length === 0) {
@@ -257,71 +214,11 @@ export function SpaceSwitcher({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("shell.spaces.new")}</DialogTitle>
-            <DialogDescription>
-              {t("shell.spaces.create.hint")}
-            </DialogDescription>
-          </DialogHeader>
-          <form
-            className="space-y-3"
-            onSubmit={(event) => {
-              event.preventDefault()
-              void submitCreate()
-            }}
-          >
-            <div className="space-y-1.5">
-              <Label htmlFor="new-space-name">
-                {t("shell.spaces.create.name")}
-              </Label>
-              <Input
-                id="new-space-name"
-                name="space-name"
-                autoFocus
-                maxLength={64}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={t("shell.spaces.create.namePlaceholder")}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="new-space-description">
-                {t("shell.spaces.create.description")}
-              </Label>
-              <Textarea
-                id="new-space-description"
-                name="space-description"
-                maxLength={500}
-                rows={3}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder={t("shell.spaces.create.descriptionPlaceholder")}
-              />
-            </div>
-            {createError ? (
-              <p role="alert" className="text-xs text-destructive">
-                {createError}
-              </p>
-            ) : null}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setCreateOpen(false)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button type="submit" disabled={busy}>
-                {busy
-                  ? t("shell.spaces.create.creating")
-                  : t("shell.spaces.create.submit")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CreateSpaceDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onSuccess={() => onNavigate?.()}
+      />
     </div>
   )
 }

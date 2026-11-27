@@ -47,6 +47,7 @@ describe("空间 store：本机偏好与回落", () => {
       currentId: null
     })
     vi.mocked(spacesApi.list).mockReset()
+    vi.mocked(spacesApi.create).mockReset()
     vi.mocked(spacesApi.remove).mockReset()
   })
 
@@ -124,5 +125,34 @@ describe("空间 store：本机偏好与回落", () => {
     )
     await useSpacesStore.persist.rehydrate()
     expect(useSpacesStore.getState().currentId).toBeNull()
+  })
+
+  it("新建空间：未传 slug 时 payload 不含 slug，新空间入列表并成为当前空间", async () => {
+    const newSpace: Space = { ...defaultSpace, id: 3, slug: "team-new", name: "新团队" }
+    vi.mocked(spacesApi.create).mockResolvedValue(newSpace)
+
+    const result = await useSpacesStore.getState().create("新团队", "描述")
+
+    expect(spacesApi.create).toHaveBeenCalledWith({
+      name: "新团队",
+      description: "描述"
+    })
+    expect(result).toEqual(newSpace)
+    expect(useSpacesStore.getState().currentId).toBe(3)
+    expect(useSpacesStore.getState().spaces).toContainEqual(newSpace)
+  })
+
+  it("新建空间：指定非空 slug 时 payload 携带 slug", async () => {
+    const customSpace: Space = { ...defaultSpace, id: 4, slug: "custom-slug", name: "自定义" }
+    vi.mocked(spacesApi.create).mockResolvedValue(customSpace)
+
+    await useSpacesStore.getState().create("自定义", "", "custom-slug")
+
+    expect(spacesApi.create).toHaveBeenCalledWith({
+      name: "自定义",
+      description: "",
+      slug: "custom-slug"
+    })
+    expect(useSpacesStore.getState().currentId).toBe(4)
   })
 })

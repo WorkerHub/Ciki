@@ -187,6 +187,33 @@ describe("空间切换器", () => {
     expect(screen.getByTestId("location")).toHaveTextContent("/")
   })
 
+  it("新建空间：手动修改 slug 提交时携带自定义 slug", async () => {
+    const click = userEvent.setup()
+    vi.mocked(spacesApi.create).mockResolvedValue({
+      ...defaultSpace,
+      id: 4,
+      slug: "custom-design",
+      name: "设计",
+      myRole: "admin",
+      isDefault: false
+    })
+    renderSwitcher()
+
+    await click.click(screen.getByRole("button", { name: "切换空间" }))
+    await click.click(await screen.findByRole("menuitem", { name: "新建空间" }))
+    await click.type(await screen.findByLabelText("空间名称"), "设计")
+    const slugInput = screen.getByLabelText("空间地址")
+    await click.type(slugInput, "custom-design")
+    await click.click(screen.getByRole("button", { name: "创建空间" }))
+
+    expect(spacesApi.create).toHaveBeenCalledWith({
+      name: "设计",
+      description: "",
+      slug: "custom-design"
+    })
+    expect(useSpacesStore.getState().currentId).toBe(4)
+  })
+
   it("空间列表加载失败时给出重试入口", async () => {
     useSpacesStore.setState({ spaces: [], status: "error", error: "boom" })
     renderSwitcher()
