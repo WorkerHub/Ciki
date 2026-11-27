@@ -1,10 +1,11 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
-import { Boxes, ExternalLink } from "lucide-react"
+import { Boxes, ExternalLink, Plus } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { CreateSpaceDialog } from "@/components/CreateSpaceDialog"
 import {
   Table,
   TableBody,
@@ -22,6 +23,7 @@ export function SpacesTab() {
   const [spaces, setSpaces] = useState<AdminSpace[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [createOpen, setCreateOpen] = useState(false)
   const { t } = useTranslation()
 
   const load = useCallback(async () => {
@@ -49,15 +51,21 @@ export function SpacesTab() {
             {t("admin.spaces.description")}
           </p>
         </div>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => void load()}
-          disabled={loading}
-        >
-          {t("admin.common.refresh")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus aria-hidden="true" />
+            {t("shell.spaces.new")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => void load()}
+            disabled={loading}
+          >
+            {t("admin.common.refresh")}
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -161,6 +169,8 @@ export function SpacesTab() {
           </Table>
         </div>
       )}
+
+      <CreateSpaceDialog open={createOpen} onOpenChange={setCreateOpen} />
     </section>
   )
 }

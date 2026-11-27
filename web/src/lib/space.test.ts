@@ -6,6 +6,7 @@ import {
   editableSpaces,
   isValidSpaceSlug,
   MAX_SPACE_SLUG_LENGTH,
+  spaceSlugCandidate,
   effectiveRole,
   pickInitialSpace,
   roleForSpace
@@ -106,5 +107,27 @@ describe("空间 slug 校验规则", () => {
     expect(isValidSpaceSlug("pay-")).toBe(false)
     expect(isValidSpaceSlug("pay--team")).toBe(false)
     expect(isValidSpaceSlug("pay/team")).toBe(false)
+  })
+})
+
+describe("空间 slug 候选生成规则", () => {
+  it("常规英文转小写与连字符连接", () => {
+    expect(spaceSlugCandidate("Research Lab")).toBe("research-lab")
+    expect(spaceSlugCandidate("  A  B  ")).toBe("a-b")
+    expect(spaceSlugCandidate("C++ / Rust")).toBe("c-rust")
+  })
+
+  it("超长截断至 48 位并清洗末尾连字符", () => {
+    expect(spaceSlugCandidate("x".repeat(80))).toBe("x".repeat(48))
+    expect(spaceSlugCandidate(`${"x".repeat(47)}-tail`)).toBe("x".repeat(47))
+  })
+
+  it("纯中文等非 ASCII 字符返回空串", () => {
+    expect(spaceSlugCandidate("默认空间")).toBe("")
+    expect(spaceSlugCandidate("研发 空间")).toBe("")
+  })
+
+  it("中英混合提取英文字段并规整", () => {
+    expect(spaceSlugCandidate("研发 Lab 2026")).toBe("lab-2026")
   })
 })

@@ -20,7 +20,7 @@ interface SpacesState {
   currentId: number | null
   load: () => Promise<void>
   select: (id: number) => void
-  create: (name: string, description: string) => Promise<Space>
+  create: (name: string, description?: string, slug?: string) => Promise<Space>
   upsert: (space: Space) => void
   remove: (id: number) => Promise<void>
 }
@@ -50,8 +50,13 @@ export const useSpacesStore = create<SpacesState>()(
 
       select: (id) => set({ currentId: id }),
 
-      create: async (name, description) => {
-        const space = await spacesApi.create({ name, description })
+      create: async (name, description = "", slug?: string) => {
+        const payload: { name: string; description?: string; slug?: string } = {
+          name,
+          description
+        }
+        if (slug) payload.slug = slug
+        const space = await spacesApi.create(payload)
         set((state) => ({
           spaces: [...state.spaces, space],
           currentId: space.id

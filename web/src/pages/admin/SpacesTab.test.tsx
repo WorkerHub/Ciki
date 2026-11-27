@@ -1,19 +1,22 @@
 import { render, screen } from "@testing-library/react"
-import { MemoryRouter } from "react-router"
+import userEvent from "@testing-library/user-event"
+import { MemoryRouter, useLocation } from "react-router"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { i18n } from "@/i18n"
-import type { AdminSpace } from "@/lib/api"
+import type { AdminSpace, Space } from "@/lib/api"
 import { SpacesTab } from "@/pages/admin/SpacesTab"
+import { useSpacesStore } from "@/stores/spaces"
 
 vi.mock("@/lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api")>()
   return {
     ...actual,
-    adminApi: { ...actual.adminApi, spaces: vi.fn() }
+    adminApi: { ...actual.adminApi, spaces: vi.fn() },
+    spacesApi: { ...actual.spacesApi, create: vi.fn() }
   }
 })
 
-const { adminApi } = await import("@/lib/api")
+const { adminApi, spacesApi } = await import("@/lib/api")
 
 const defaultSpace: AdminSpace = {
   id: 1,
@@ -41,9 +44,21 @@ const teamSpace: AdminSpace = {
   trashedPageCount: 0
 }
 
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="location">{location.pathname}</div>
+}
+
 describe("系统管理 · 空间总览", () => {
   beforeEach(() => {
     vi.mocked(adminApi.spaces).mockReset()
+    vi.mocked(spacesApi.create).mockReset()
+    useSpacesStore.setState({
+      spaces: [],
+      status: "ready",
+      error: null,
+      currentId: null
+    })
   })
 
   it("渲染每个空间的成员/页面/回收站统计与默认空间标记", async () => {
@@ -107,6 +122,47 @@ describe("系统管理 · 空间总览", () => {
     )
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
+  })
+
+  it("头部包含新建空间按钮，点击打开共享对话框并创建空间", async () => {
+    const click = userEvent.setup()
+    const createdSpace: Space = {
+      id: 3,
+      slug: "brand-new",
+      name: "总览新建空间",
+      description: "",
+      myRole: "admin",
+      isDefault: false,
+      createdAt: "2026-11-27T00:00:00.000Z",
+      updatedAt: "2026-11-27T00:00:00.000Z"
+    }
+    vi.mocked(adminApi.spaces).mockResolvedValue([defaultSpace, teamSpace])
+    vi.mocked(spacesApi.create).mockResolvedValue(createdSpace)
+
+    render(
+      <MemoryRouter initialEntries={["/admin/spaces"]}>
+        <SpacesTab />
+        <LocationProbe />
+      </MemoryRouter>
+    )
+
+    const createButton = await screen.findByRole("button", { name: "新建空间" })
+    expect(createButton).toBeInTheDocument()
+
+    await click.click(createButton)
+    expect(
+      await screen.findByRole("heading", { name: "新建空间" })
+    ).toBeInTheDocument()
+
+    await click.type(screen.getByLabelText("空间名称"), "总览新建空间")
+    await click.click(screen.getByRole("button", { name: "创建空间" }))
+
+    expect(spacesApi.create).toHaveBeenCalledWith({
+      name: "总览新建空间",
+      description: ""
+    })
+    expect(useSpacesStore.getState().currentId).toBe(3)
+    expect(screen.getByTestId("location")).toHaveTextContent("/")
   })
 })
 

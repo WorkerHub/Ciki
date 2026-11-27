@@ -26,6 +26,21 @@ export function isValidSpaceSlug(slug: string): boolean {
   )
 }
 
+/**
+ * 空间名 → slug 候选（可能为空串，表示名字里没有任何可用字符）。
+ *
+ * 规则（与后端 worker/src/lib/slug.ts 一致）：小写、非字母数字转连字符、裁剪首尾连字符；
+ * 上限 48 位截断并去尾连字符。纯中文等非 ASCII 返回空串。
+ */
+export function spaceSlugCandidate(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+  if (slug.length <= MAX_SPACE_SLUG_LENGTH) return slug
+  return slug.slice(0, MAX_SPACE_SLUG_LENGTH).replace(/-+$/g, "")
+}
+
 export function effectiveRole(space: Space, isSiteAdmin: boolean): SpaceRole {
   return isSiteAdmin ? "admin" : space.myRole
 }

@@ -1384,7 +1384,7 @@ export const searchApi = {
 export const spacesApi = {
   list: () => api.get<Space[]>("/spaces"),
   get: (id: number) => api.get<Space>(`/spaces/${id}`),
-  create: (input: { name: string; description?: string }) =>
+  create: (input: { name: string; description?: string; slug?: string }) =>
     api.post<Space>("/spaces", input),
   update: (
     id: number,
