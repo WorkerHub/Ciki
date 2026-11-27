@@ -183,6 +183,173 @@ describe("建空间时落库的 slug", () => {
     expect(body.name).toBe("另一间实验室")
     expect(body.slug).toBe(created.slug)
   })
+
+  it("传合法未占用 slug：新空间使用指定 slug", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const res = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "My Custom Space", slug: "custom-team-slug" },
+      admin
+    )
+    expect(res.status).toBe(201)
+    const space = (await res.json()) as SpaceDto
+    expect(space.slug).toBe("custom-team-slug")
+    expect(space.name).toBe("My Custom Space")
+
+    const list = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as SpaceDto[]
+    expect(list.some((s) => s.slug === "custom-team-slug")).toBe(true)
+  })
+
+  it("传非法格式 slug 返回 400 INVALID_SPACE_SLUG，且不创建空间行", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const beforeList = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as SpaceDto[]
+
+    const invalidSlugs = [
+      "-invalid",
+      "invalid-",
+      "in--valid",
+      "Upper-Case",
+      "with space",
+      "under_score",
+      "x".repeat(49),
+      123,
+      null,
+      {}
+    ]
+
+    for (const badSlug of invalidSlugs) {
+      const res = await jsonRequest(
+        env,
+        "POST",
+        "/api/spaces",
+        { name: "Invalid Slug Space", slug: badSlug },
+        admin
+      )
+      expect(res.status).toBe(400)
+      expect(await res.json()).toMatchObject({ code: "INVALID_SPACE_SLUG" })
+    }
+
+    const afterList = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as SpaceDto[]
+    expect(afterList.length).toBe(beforeList.length)
+  })
+
+  it("传已被占用的 slug 返回 409 SPACE_SLUG_TAKEN，不自动加后缀，且不创建空间行", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const first = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "First Space", slug: "shared-slug" },
+      admin
+    )
+    expect(first.status).toBe(201)
+
+    const beforeList = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as SpaceDto[]
+
+    const second = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "Second Space", slug: "shared-slug" },
+      admin
+    )
+    expect(second.status).toBe(409)
+    expect(await second.json()).toMatchObject({ code: "SPACE_SLUG_TAKEN" })
+
+    const afterList = (await (
+      await jsonRequest(env, "GET", "/api/spaces", undefined, admin)
+    ).json()) as SpaceDto[]
+    expect(afterList.length).toBe(beforeList.length)
+  })
+
+  it("未传 slug 或传空串：行为与现行完全一致零漂移（候选、中文兜底、撞名后缀）", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 1. 未传 slug: 英文候选
+    const resOmitted = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "Awesome Project" },
+      admin
+    )
+    expect(resOmitted.status).toBe(201)
+    const omitted = (await resOmitted.json()) as SpaceDto
+    expect(omitted.slug).toBe("awesome-project")
+
+    // 2. 传空串: 纯中文名回落 space-<id>
+    const resEmptyChinese = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "中文专属空间", slug: "" },
+      admin
+    )
+    expect(resEmptyChinese.status).toBe(201)
+    const emptyChinese = (await resEmptyChinese.json()) as SpaceDto
+    expect(emptyChinese.slug).toBe(`space-${emptyChinese.id}`)
+
+    // 3. 传空串: 重名英文空间自动回落兜底
+    const resDup1 = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "Awesome Project", slug: "" },
+      admin
+    )
+    expect(resDup1.status).toBe(201)
+    const dup1 = (await resDup1.json()) as SpaceDto
+    expect(dup1.slug).toBe(`space-${dup1.id}`)
+
+    // 4. 重名且兜底 space-<id> 发生冲突时自动追加 -2, -3...
+    const blocker = (await (
+      await jsonRequest(
+        env,
+        "POST",
+        "/api/spaces",
+        { name: "Blocker Pre" },
+        admin
+      )
+    ).json()) as SpaceDto
+    const targetId = blocker.id + 2
+    const resBlocker = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "Blocker Target", slug: `space-${targetId}` },
+      admin
+    )
+    expect(resBlocker.status).toBe(201)
+
+    const resDup2 = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "中文专属空间" },
+      admin
+    )
+    expect(resDup2.status).toBe(201)
+    const dup2 = (await resDup2.json()) as SpaceDto
+    expect(dup2.id).toBe(targetId)
+    expect(dup2.slug).toBe(`space-${dup2.id}-2`)
+  })
 })
 
 describe("修改空间 slug (PUT /api/spaces/:id)", () => {

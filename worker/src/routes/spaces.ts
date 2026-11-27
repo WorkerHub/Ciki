@@ -6,7 +6,7 @@
  * 创建者自动成为该空间 `admin`。
  *
  * id 是整数自增主键；URL 里的空间段用 `slug`（`/s/<slug>/…`，前端从 `GET /api/spaces`
- * 的 `slug` 解析）。slug 在创建时由空间名生成，改名不随之变化，可在空间设置中手动修改。
+ * 的 `slug` 解析）。slug 在创建时可指定（`POST /api/spaces` 可选 `slug`），未指定时由空间名生成，改名不随之变化，可在空间设置中手动修改。
  */
 import { Hono } from "hono"
 import type { Context } from "hono"
@@ -129,7 +129,11 @@ spaceRoutes.get("/", async (c) => {
 })
 
 spaceRoutes.post("/", async (c) => {
-  const body = await readJsonBody<{ name?: unknown; description?: unknown }>(c)
+  const body = await readJsonBody<{
+    name?: unknown
+    description?: unknown
+    slug?: unknown
+  }>(c)
   const name = normalizeSpaceName(body?.name)
   if (!name) {
     return c.json(
@@ -156,6 +160,32 @@ spaceRoutes.post("/", async (c) => {
   }
 
   const prefix = getTablePrefix(c.env)
+  const rawSlug = body?.slug
+  const hasExplicitSlug = rawSlug !== undefined && rawSlug !== ""
+  let customSlug: string | null = null
+  if (hasExplicitSlug) {
+    if (!isValidSpaceSlug(rawSlug)) {
+      return c.json(
+        {
+          error:
+            "Space slug must be 1-48 characters of lowercase letters, numbers and hyphens",
+          code: "INVALID_SPACE_SLUG"
+        },
+        400
+      )
+    }
+    const taken = await isSpaceSlugTaken(c.env.DB, prefix, rawSlug)
+    if (taken) {
+      return c.json(
+        {
+          error: "Space slug is already taken",
+          code: "SPACE_SLUG_TAKEN"
+        },
+        409
+      )
+    }
+    customSlug = rawSlug
+  }
   const userId = c.get("userId")
   const now = new Date().toISOString()
 
@@ -171,20 +201,39 @@ spaceRoutes.post("/", async (c) => {
     })
   ])
   const id = inserted[0].meta.last_row_id
-  const usedSlugs = new Set(await listSpaceSlugs(c.env.DB, prefix))
-  const slug = uniqueSpaceSlug(name, id, (candidate) =>
-    usedSlugs.has(candidate)
-  )
+  let slug: string
+  if (customSlug !== null) {
+    slug = customSlug
+  } else {
+    const usedSlugs = new Set(await listSpaceSlugs(c.env.DB, prefix))
+    slug = uniqueSpaceSlug(name, id, (candidate) => usedSlugs.has(candidate))
+  }
 
-  await c.env.DB.batch([
-    updateSpaceSlug(c.env.DB, prefix, id, slug),
-    insertSpaceMember(c.env.DB, prefix, {
-      space_id: id,
-      user_id: userId,
-      role: "admin",
-      created_at: now
-    })
-  ])
+  try {
+    await c.env.DB.batch([
+      updateSpaceSlug(c.env.DB, prefix, id, slug),
+      insertSpaceMember(c.env.DB, prefix, {
+        space_id: id,
+        user_id: userId,
+        role: "admin",
+        created_at: now
+      })
+    ])
+  } catch (err) {
+    if (isSpaceSlugConflict(err)) {
+      await c.env.DB.batch(deleteSpaceStatements(c.env.DB, prefix, id)).catch(
+        () => {}
+      )
+      return c.json(
+        {
+          error: "Space slug is already taken",
+          code: "SPACE_SLUG_TAKEN"
+        },
+        409
+      )
+    }
+    throw err
+  }
 
   const space: SpaceRow = {
     id,

@@ -6,15 +6,15 @@
 
 本版三件事：**迁移版本号重置为单一条 `schema_v1`**（结构不变）、**自助注册后必须验证邮箱才能登录**、**`users.username` 有唯一索引（大小写不敏感、空串除外，就在 `schema_v1` 基线里）**。下表是上一版完成、本版不变的现行结构（整数 id + 内容上 R2），仍需按它对接：
 
-| 位置                   | 旧                                    | 新                                                                |
-| ---------------------- | ------------------------------------- | ----------------------------------------------------------------- |
-| 页面/空间/用户/评论 id | 36 位 UUID 字符串                     | 正整数（JSON number）                                             |
-| 版本标识               | `revision.id`（UUID）                 | `versionNo`（页内 1,2,3…，`id` 不再对外）                         |
-| 空间入口               | `/s/:id`                              | `/s/:slug`（`slug` 由名称派生、改名不自动变，可在空间设置中修改） |
-| 页面入口               | `/p/:id`                              | `/p/:id`（id 现在是整数，路径形状不变）                           |
-| 页面详情正文           | `GET /api/pages/:id` 带 `contentJson` | 详情**不含** `contentJson`；要正文（编辑态）加 `?format=json`     |
-| 用户对外身份           | `id` + `publicId`                     | 只剩 `username`（`publicId` 字段已删除，别读它）                  |
-| 页面正文存储           | D1 的 `content_json` 列               | 内容桶里的 `content/<sha256>` 对象（D1 只留 `content_hash` 指针） |
+| 位置                   | 旧                                    | 新                                                                                      |
+| ---------------------- | ------------------------------------- | --------------------------------------------------------------------------------------- |
+| 页面/空间/用户/评论 id | 36 位 UUID 字符串                     | 正整数（JSON number）                                                                   |
+| 版本标识               | `revision.id`（UUID）                 | `versionNo`（页内 1,2,3…，`id` 不再对外）                                               |
+| 空间入口               | `/s/:id`                              | `/s/:slug`（`slug` 创建时可指定、未指定时由名称派生、改名不自动变，可在空间设置中修改） |
+| 页面入口               | `/p/:id`                              | `/p/:id`（id 现在是整数，路径形状不变）                                                 |
+| 页面详情正文           | `GET /api/pages/:id` 带 `contentJson` | 详情**不含** `contentJson`；要正文（编辑态）加 `?format=json`                           |
+| 用户对外身份           | `id` + `publicId`                     | 只剩 `username`（`publicId` 字段已删除，别读它）                                        |
+| 页面正文存储           | D1 的 `content_json` 列               | 内容桶里的 `content/<sha256>` 对象（D1 只留 `content_hash` 指针）                       |
 
 - **一次升级、不可回退**：升级前必须用 `wrangler d1 time-travel info <库名>` 记下当前 bookmark 作为回退点（`wrangler d1 export` 因库里的 FTS5 虚拟表不可用）；迁移失败不会改动任何旧数据（详见「schema_v1」）。
 - **正文只在三种情况下读 R2**：`GET /api/pages/:id?format=json`（编辑器）、`GET /api/pages/:id/revisions/:versionNo`（版本查看）、回滚/导入覆盖（服务端读旧内容比对）。阅读页只读 D1 的 `contentHtml` / `contentText` / `contentMd`，不碰 R2。
@@ -306,7 +306,7 @@ passkey 是否可用由该用户是否有行推导，没有开关列。
 | created_by             | INTEGER NOT NULL DEFAULT 0 | 创建者用户 id；0 = 无（播种时还没有用户）                               |
 | created_at, updated_at | TEXT NOT NULL              | ISO 时间                                                                |
 
-`slug` 的派生规则：创建空间时由名称生成（改名不自动变，可在空间设置中修改）：名称小写、非字母数字换成 `-`、去首尾 `-`、最多 48 字符；结果为空或已被占用时用 `space-<id>`（数字 id，天然唯一，冲突再追加 `-2`、`-3`…）。前端拿到 `slug` 拼 `/s/<slug>/…` 即可，**不要用 id 拼空间路由**。
+`slug` 的派生规则：创建空间时可指定（`POST /api/spaces` 可选 `slug`），未指定时由名称生成（改名不自动变，可在空间设置中修改）：名称小写、非字母数字换成 `-`、去首尾 `-`、最多 48 字符；结果为空或已被占用时用 `space-<id>`（数字 id，天然唯一，冲突再追加 `-2`、`-3`…）。前端拿到 `slug` 拼 `/s/<slug>/…` 即可，**不要用 id 拼空间路由**。
 
 默认空间不可删除；其它空间只有在没有任何页面行（含回收站）时才可删除。
 
@@ -1587,10 +1587,14 @@ SpaceCandidate = { userId, username, email, isAgent, ownerName }
 #### POST /api/spaces
 
 ```json
-{ "name": "研发空间", "description": "可选，≤500 字符" }
+{
+  "name": "研发空间",
+  "description": "可选，≤500 字符",
+  "slug": "可选，自定义 slug"
+}
 ```
 
-201 返回 `Space`（`myRole: "admin"`）。名称 trim 后 1–64 码点、不含控制字符（400 `code:"INVALID_SPACE_NAME"`），描述 ≤500 码点、只允许换行（400 `code:"INVALID_SPACE_DESCRIPTION"`）。空间名不要求唯一，`slug` 由服务端按名称派生（规则见「spaces」表），改名不自动变、可在空间设置中修改；前端应拿响应里的 `slug` 拼 `/s/<slug>/…`。
+201 返回 `Space`（`myRole: "admin"`）。名称 trim 后 1–64 码点、不含控制字符（400 `code:"INVALID_SPACE_NAME"`），描述 ≤500 码点、只允许换行（400 `code:"INVALID_SPACE_DESCRIPTION"`）。可选 `slug`：未传或传空串时由服务端按名称派生（规则见「spaces」表）；传非空值时校验格式（`^[a-z0-9]+(-[a-z0-9]+)*$`，1–48 字符，不合法 400 `code:"INVALID_SPACE_SLUG"`）与唯一性（已被占用 409 `code:"SPACE_SLUG_TAKEN"`，不自动加后缀）。空间名不要求唯一，改名不自动变、可在空间设置中修改；前端应拿响应里的 `slug` 拼 `/s/<slug>/…`。
 
 #### GET /api/spaces/:id
 
