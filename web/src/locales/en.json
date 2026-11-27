@@ -1227,6 +1227,7 @@
     "title": "Search",
     "subtitleWithQuery": "“{{query}}” · matches in both titles and bodies",
     "subtitle": "Type a keyword in the top bar and press Enter to search",
+    "allSpaces": "All spaces",
     "loadingLabel": "Searching",
     "empty": {
       "title": "Type a keyword to search",

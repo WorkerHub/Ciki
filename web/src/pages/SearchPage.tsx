@@ -5,9 +5,17 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router"
 import { SearchBox } from "@/components/SearchBox"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { describeApiError, type SearchResponse, searchApi } from "@/lib/api"
 import { formatRelative } from "@/lib/format"
 import { pagePath } from "@/lib/routes"
+import { useSpacesStore } from "@/stores/spaces"
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
@@ -43,8 +51,17 @@ function highlight(text: string, query: string) {
 
 export function SearchPage() {
   const { t } = useTranslation()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const query = (params.get("q") ?? "").trim()
+  const spaceParam = params.get("space")
+
+  const spaces = useSpacesStore((state) => state.spaces)
+  const matchedSpace = spaceParam
+    ? spaces.find((s) => String(s.id) === spaceParam)
+    : undefined
+  const selectedSpaceId = matchedSpace?.id
+  const activeSpaceValue = matchedSpace ? String(matchedSpace.id) : "all"
+
   const [data, setData] = useState<SearchResponse | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -59,7 +76,7 @@ export function SearchPage() {
     setLoading(true)
     setError("")
     searchApi
-      .query(query)
+      .query(query, 20, selectedSpaceId)
       .then((response) => {
         if (alive) setData(response)
       })
@@ -72,20 +89,45 @@ export function SearchPage() {
     return () => {
       alive = false
     }
-  }, [query])
+  }, [query, selectedSpaceId])
+
+  const handleSpaceChange = (val: string) => {
+    const nextParams = new URLSearchParams(params)
+    if (val === "all") {
+      nextParams.delete("space")
+    } else {
+      nextParams.set("space", val)
+    }
+    setParams(nextParams)
+  }
 
   return (
     <div className="space-y-4">
       <SearchBox className="md:hidden" />
-      <header className="space-y-1">
-        <h1 className="font-heading text-xl font-semibold tracking-tight">
-          {t("search.title")}
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          {query
-            ? t("search.subtitleWithQuery", { query })
-            : t("search.subtitle")}
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="font-heading text-xl font-semibold tracking-tight">
+            {t("search.title")}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            {query
+              ? t("search.subtitleWithQuery", { query })
+              : t("search.subtitle")}
+          </p>
+        </div>
+        <Select value={activeSpaceValue} onValueChange={handleSpaceChange}>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder={t("search.allSpaces")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("search.allSpaces")}</SelectItem>
+            {spaces.map((space) => (
+              <SelectItem key={space.id} value={String(space.id)}>
+                {space.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </header>
 
       {error ? (
