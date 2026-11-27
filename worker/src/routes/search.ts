@@ -7,7 +7,7 @@
  *
  * 纯数字查询额外按页面编号精确看一眼（见 {@link parsePageIdQuery}）：命中的那篇
  * 置顶，与 FTS 结果按 pageId 去重。编号不保证出现在标题或正文里，所以这一步走
- * 主键而不是索引；可见性与软删口径与 FTS 路径完全一致。
+ * 主键而不是索引；可见性、空间过滤与软删口径与 FTS 路径完全一致。
  */
 import { Hono } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
@@ -17,6 +17,7 @@ import {
   spaceMembersTable,
   spacesTable
 } from "../lib/tables"
+import { parseId } from "../lib/http"
 import { makeSnippet, toMatchQuery } from "../lib/fts"
 import { toPlainText } from "../lib/sanitize"
 import type { HonoEnv } from "../types"
@@ -62,6 +63,7 @@ searchRoutes.get("/", async (c) => {
     Math.max(Number.isFinite(requested) ? requested : 20, 1),
     50
   )
+  const spaceId = parseId(c.req.query("spaceId")?.trim())
 
   const prefix = getTablePrefix(c.env)
   const fts = pagesFtsTable(prefix)
@@ -75,6 +77,7 @@ searchRoutes.get("/", async (c) => {
     : `AND p.space_id IN (
          SELECT space_id FROM ${members} WHERE user_id = ?
        )`
+  const spaceFilter = spaceId !== null ? "AND p.space_id = ?" : ""
 
   // 编号精确查：命中就置顶，未命中不影响任何非数字查询
   const exactId = parsePageIdQuery(query)
@@ -91,11 +94,22 @@ searchRoutes.get("/", async (c) => {
          JOIN ${spaces} s ON s.id = p.space_id
         WHERE p.id = ?
           AND p.deleted_at IS NULL
+          ${spaceFilter}
           ${membershipFilter}`
     )
     const exactRow = siteAdmin
-      ? await exactStmt.bind(exactId).first<SearchHitRow>()
-      : await exactStmt.bind(exactId, c.get("userId")).first<SearchHitRow>()
+      ? await exactStmt
+          .bind(...[exactId, ...(spaceId !== null ? [spaceId] : [])])
+          .first<SearchHitRow>()
+      : await exactStmt
+          .bind(
+            ...[
+              exactId,
+              ...(spaceId !== null ? [spaceId] : []),
+              c.get("userId")
+            ]
+          )
+          .first<SearchHitRow>()
     if (exactRow) exactResult = toSearchResult(exactRow, query)
   }
 
@@ -116,13 +130,25 @@ searchRoutes.get("/", async (c) => {
         AND p.deleted_at IS NULL
        JOIN ${spaces} s ON s.id = p.space_id
       WHERE ${fts} MATCH ?
+        ${spaceFilter}
         ${membershipFilter}
       ORDER BY bm25(${fts}, 0.0, 10.0, 1.0)
       LIMIT ?`
   )
   const hits = siteAdmin
-    ? await stmt.bind(match, limit).all<SearchHitRow>()
-    : await stmt.bind(match, c.get("userId"), limit).all<SearchHitRow>()
+    ? await stmt
+        .bind(...[match, ...(spaceId !== null ? [spaceId] : []), limit])
+        .all<SearchHitRow>()
+    : await stmt
+        .bind(
+          ...[
+            match,
+            ...(spaceId !== null ? [spaceId] : []),
+            c.get("userId"),
+            limit
+          ]
+        )
+        .all<SearchHitRow>()
 
   const merged = hits.results
     .map((row) => toSearchResult(row, query))
