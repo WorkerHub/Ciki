@@ -881,7 +881,7 @@ export type SpaceRole = "admin" | "editor" | "viewer"
 
 export interface Space {
   id: number
-  /** 对外地址段：由空间名生成、可在空间设置中手动修改（`/s/<slug>/…`）。 */
+  /** 对外地址段：创建时可指定（`POST /api/spaces` 可选 `slug`），未指定时由空间名生成、可在空间设置中手动修改（`/s/<slug>/…`）。 */
   slug: string
   name: string
   description: string
