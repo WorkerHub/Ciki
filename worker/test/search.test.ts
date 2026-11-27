@@ -413,14 +413,10 @@ describe("搜索：可选 spaceId 过滤", () => {
       space.id
     )
 
-    const defaultOnly = await search(
-      env,
-      admin,
-      "规范",
-      undefined,
-      1
-    )
-    expect(defaultOnly.results.map((item) => item.pageId)).toEqual([defaultPage.id])
+    const defaultOnly = await search(env, admin, "规范", undefined, 1)
+    expect(defaultOnly.results.map((item) => item.pageId)).toEqual([
+      defaultPage.id
+    ])
     expect(defaultOnly.results[0].spaceName).toBe("默认空间")
 
     const spaceOnly = await search(env, admin, "规范", undefined, space.id)
@@ -474,12 +470,7 @@ describe("搜索：可选 spaceId 过滤", () => {
     expect(spaceRes.status).toBe(201)
     const space = (await spaceRes.json()) as { id: string }
 
-    const pageInDefault = await createPage(
-      env,
-      admin,
-      "基础配置",
-      "无编号内容"
-    )
+    const pageInDefault = await createPage(env, admin, "基础配置", "无编号内容")
     const pageInSpace = await createPage(
       env,
       admin,
@@ -489,12 +480,20 @@ describe("搜索：可选 spaceId 过滤", () => {
     )
 
     // 搜索安全空间：pageInDefault 不出现，pageInSpace 由 FTS 命中
-    const inSpace = await search(env, admin, pageInDefault.id, undefined, space.id)
+    const inSpace = await search(
+      env,
+      admin,
+      pageInDefault.id,
+      undefined,
+      space.id
+    )
     expect(inSpace.results.map((item) => item.pageId)).toEqual([pageInSpace.id])
 
     // 搜索默认空间：pageInDefault 编号置顶，pageInSpace 不出现
     const inDefault = await search(env, admin, pageInDefault.id, undefined, 1)
-    expect(inDefault.results.map((item) => item.pageId)).toEqual([pageInDefault.id])
+    expect(inDefault.results.map((item) => item.pageId)).toEqual([
+      pageInDefault.id
+    ])
   })
 
   it("不可见空间的 spaceId 传参返回空结果，不泄露标题与片段", async () => {
@@ -521,17 +520,37 @@ describe("搜索：可选 spaceId 过滤", () => {
     )
 
     // 普通用户传不可见空间的 spaceId（无论是 FTS 查词还是精确查编号）
-    const ftsResult = await search(env, user, "商业机密", undefined, secretSpace.id)
+    const ftsResult = await search(
+      env,
+      user,
+      "商业机密",
+      undefined,
+      secretSpace.id
+    )
     expect(ftsResult.results).toEqual([])
     expect(JSON.stringify(ftsResult)).not.toContain("核心商业机密")
 
-    const exactResult = await search(env, user, secretPage.id, undefined, secretSpace.id)
+    const exactResult = await search(
+      env,
+      user,
+      secretPage.id,
+      undefined,
+      secretSpace.id
+    )
     expect(exactResult.results).toEqual([])
     expect(JSON.stringify(exactResult)).not.toContain("核心商业机密")
 
     // 管理员传该 spaceId 可见
-    const adminResult = await search(env, admin, "商业机密", undefined, secretSpace.id)
-    expect(adminResult.results.map((item) => item.pageId)).toEqual([secretPage.id])
+    const adminResult = await search(
+      env,
+      admin,
+      "商业机密",
+      undefined,
+      secretSpace.id
+    )
+    expect(adminResult.results.map((item) => item.pageId)).toEqual([
+      secretPage.id
+    ])
   })
 
   it("宽容解析：未传、空串、非法字符串、0、负数退化为全部可见空间，不报 400", async () => {

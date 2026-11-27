@@ -98,9 +98,17 @@ searchRoutes.get("/", async (c) => {
           ${membershipFilter}`
     )
     const exactRow = siteAdmin
-      ? await exactStmt.bind(...[exactId, ...(spaceId !== null ? [spaceId] : [])]).first<SearchHitRow>()
+      ? await exactStmt
+          .bind(...[exactId, ...(spaceId !== null ? [spaceId] : [])])
+          .first<SearchHitRow>()
       : await exactStmt
-          .bind(...[exactId, ...(spaceId !== null ? [spaceId] : []), c.get("userId")])
+          .bind(
+            ...[
+              exactId,
+              ...(spaceId !== null ? [spaceId] : []),
+              c.get("userId")
+            ]
+          )
           .first<SearchHitRow>()
     if (exactRow) exactResult = toSearchResult(exactRow, query)
   }
@@ -128,9 +136,18 @@ searchRoutes.get("/", async (c) => {
       LIMIT ?`
   )
   const hits = siteAdmin
-    ? await stmt.bind(...[match, ...(spaceId !== null ? [spaceId] : []), limit]).all<SearchHitRow>()
+    ? await stmt
+        .bind(...[match, ...(spaceId !== null ? [spaceId] : []), limit])
+        .all<SearchHitRow>()
     : await stmt
-        .bind(...[match, ...(spaceId !== null ? [spaceId] : []), c.get("userId"), limit])
+        .bind(
+          ...[
+            match,
+            ...(spaceId !== null ? [spaceId] : []),
+            c.get("userId"),
+            limit
+          ]
+        )
         .all<SearchHitRow>()
 
   const merged = hits.results
