@@ -1212,6 +1212,7 @@
     "title": "搜索",
     "subtitleWithQuery": "关键词「{{query}}」· 标题与正文都能命中",
     "subtitle": "在顶栏输入关键词，回车开始搜索",
+    "allSpaces": "全部空间",
     "loadingLabel": "搜索中",
     "empty": {
       "title": "输入关键词开始搜索",

@@ -1377,8 +1377,12 @@ export const notificationsApi = {
 }
 
 export const searchApi = {
-  query: (q: string, limit = 20) =>
-    api.get<SearchResponse>(`/search?q=${encodeURIComponent(q)}&limit=${limit}`)
+  query: (q: string, limit = 20, spaceId?: number) => {
+    const spaceQuery = spaceId ? `&spaceId=${spaceId}` : ""
+    return api.get<SearchResponse>(
+      `/search?q=${encodeURIComponent(q)}&limit=${limit}${spaceQuery}`
+    )
+  }
 }
 
 export const spacesApi = {
