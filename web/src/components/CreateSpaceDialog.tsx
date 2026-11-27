@@ -95,7 +95,8 @@ export function CreateSpaceDialog({
     setCreateError("")
     setSlugError("")
 
-    const slugToSend = slugEdited && trimmedSlug !== "" ? trimmedSlug : undefined
+    const slugToSend =
+      slugEdited && trimmedSlug !== "" ? trimmedSlug : undefined
 
     try {
       const space = await create(trimmedName, description.trim(), slugToSend)
@@ -126,9 +127,7 @@ export function CreateSpaceDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t("shell.spaces.new")}</DialogTitle>
-          <DialogDescription>
-            {t("shell.spaces.create.hint")}
-          </DialogDescription>
+          <DialogDescription>{t("shell.spaces.create.hint")}</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-3"

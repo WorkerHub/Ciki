@@ -150,7 +150,9 @@ describe("系统管理 · 空间总览", () => {
     expect(createButton).toBeInTheDocument()
 
     await click.click(createButton)
-    expect(await screen.findByRole("heading", { name: "新建空间" })).toBeInTheDocument()
+    expect(
+      await screen.findByRole("heading", { name: "新建空间" })
+    ).toBeInTheDocument()
 
     await click.type(screen.getByLabelText("空间名称"), "总览新建空间")
     await click.click(screen.getByRole("button", { name: "创建空间" }))

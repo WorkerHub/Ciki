@@ -52,11 +52,7 @@ export function SpacesTab() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setCreateOpen(true)}
-          >
+          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
             <Plus aria-hidden="true" />
             {t("shell.spaces.new")}
           </Button>
@@ -174,10 +170,7 @@ export function SpacesTab() {
         </div>
       )}
 
-      <CreateSpaceDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-      />
+      <CreateSpaceDialog open={createOpen} onOpenChange={setCreateOpen} />
     </section>
   )
 }

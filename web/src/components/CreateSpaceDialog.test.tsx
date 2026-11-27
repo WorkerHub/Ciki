@@ -73,7 +73,9 @@ describe("新建空间共享对话框 (CreateSpaceDialog)", () => {
 
   it("渲染名称、带 /s/ 前缀的空间地址与描述输入框", () => {
     renderDialog()
-    expect(screen.getByRole("heading", { name: "新建空间" })).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "新建空间" })
+    ).toBeInTheDocument()
     expect(screen.getByLabelText("空间名称")).toBeInTheDocument()
     expect(screen.getByLabelText("空间地址")).toBeInTheDocument()
     expect(screen.getByText("/s/")).toBeInTheDocument()
@@ -155,7 +157,9 @@ describe("新建空间共享对话框 (CreateSpaceDialog)", () => {
     await user.clear(slugInput)
 
     expect(
-      screen.queryByText("只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符")
+      screen.queryByText(
+        "只许 1–48 位小写字母、数字与单连字符，首尾不能为连字符"
+      )
     ).toBeNull()
 
     await user.click(screen.getByRole("button", { name: "创建空间" }))

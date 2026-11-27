@@ -128,7 +128,12 @@ describe("空间 store：本机偏好与回落", () => {
   })
 
   it("新建空间：未传 slug 时 payload 不含 slug，新空间入列表并成为当前空间", async () => {
-    const newSpace: Space = { ...defaultSpace, id: 3, slug: "team-new", name: "新团队" }
+    const newSpace: Space = {
+      ...defaultSpace,
+      id: 3,
+      slug: "team-new",
+      name: "新团队"
+    }
     vi.mocked(spacesApi.create).mockResolvedValue(newSpace)
 
     const result = await useSpacesStore.getState().create("新团队", "描述")
@@ -143,7 +148,12 @@ describe("空间 store：本机偏好与回落", () => {
   })
 
   it("新建空间：指定非空 slug 时 payload 携带 slug", async () => {
-    const customSpace: Space = { ...defaultSpace, id: 4, slug: "custom-slug", name: "自定义" }
+    const customSpace: Space = {
+      ...defaultSpace,
+      id: 4,
+      slug: "custom-slug",
+      name: "自定义"
+    }
     vi.mocked(spacesApi.create).mockResolvedValue(customSpace)
 
     await useSpacesStore.getState().create("自定义", "", "custom-slug")
