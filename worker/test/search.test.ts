@@ -47,12 +47,13 @@ async function search(
   env: Parameters<typeof adminSession>[0],
   cookie: string,
   query: string,
-  limit?: number
+  limit?: number,
+  spaceId?: number | string
 ): Promise<SearchResult> {
   const res = await jsonRequest(
     env,
     "GET",
-    `/api/search?q=${encodeURIComponent(query)}${limit ? `&limit=${limit}` : ""}`,
+    `/api/search?q=${encodeURIComponent(query)}${limit ? `&limit=${limit}` : ""}${spaceId !== undefined ? `&spaceId=${encodeURIComponent(String(spaceId))}` : ""}`,
     undefined,
     cookie
   )
@@ -345,5 +346,223 @@ describe("搜索：纯数字按页面编号置顶", () => {
     expect(result.results.map((item) => item.pageId).sort()).toEqual(
       [first.id, second.id].sort()
     )
+  })
+})
+
+describe("搜索：可选 spaceId 过滤", () => {
+  it("默认未传 spaceId 时搜索全部可见空间（跨空间命中）", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "工程空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const space = (await spaceRes.json()) as { id: string }
+
+    const pageDefault = await createPage(
+      env,
+      admin,
+      "通用架构指南",
+      "默认空间里的微服务架构"
+    )
+    const pageCustom = await createPage(
+      env,
+      admin,
+      "专项架构指南",
+      "工程空间里的存储架构",
+      space.id
+    )
+
+    const result = await search(env, admin, "架构")
+    expect(result.results).toHaveLength(2)
+    const ids = result.results.map((item) => item.pageId)
+    expect(ids).toContain(pageDefault.id)
+    expect(ids).toContain(pageCustom.id)
+  })
+
+  it("传合法 spaceId 时结果仅限该空间页面", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "研发空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const space = (await spaceRes.json()) as { id: string }
+
+    const defaultPage = await createPage(
+      env,
+      admin,
+      "规范总则",
+      "默认空间团队规范"
+    )
+    const spacePage = await createPage(
+      env,
+      admin,
+      "研发规范",
+      "研发空间团队规范",
+      space.id
+    )
+
+    const defaultOnly = await search(
+      env,
+      admin,
+      "规范",
+      undefined,
+      1
+    )
+    expect(defaultOnly.results.map((item) => item.pageId)).toEqual([defaultPage.id])
+    expect(defaultOnly.results[0].spaceName).toBe("默认空间")
+
+    const spaceOnly = await search(env, admin, "规范", undefined, space.id)
+    expect(spaceOnly.results.map((item) => item.pageId)).toEqual([spacePage.id])
+    expect(spaceOnly.results[0].spaceName).toBe("研发空间")
+  })
+
+  it("编号精确查 + 选了编号所属空间置顶，选了其他空间则不置顶、不出现", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "运维空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const space = (await spaceRes.json()) as { id: string }
+
+    const targetPage = await createPage(
+      env,
+      admin,
+      "服务器巡检",
+      "无编号正文",
+      space.id
+    )
+
+    // 选了编号所属空间：置顶命中
+    const hit = await search(env, admin, targetPage.id, undefined, space.id)
+    expect(hit.results.map((item) => item.pageId)).toEqual([targetPage.id])
+    expect(hit.results[0].title).toBe("服务器巡检")
+
+    // 选了默认空间：该编号不出现、不置顶
+    const miss = await search(env, admin, targetPage.id, undefined, 1)
+    expect(miss.results).toEqual([])
+  })
+
+  it("纯数字编号在其他空间有编号而在目标空间有 FTS 命中时正确定向", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "安全空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const space = (await spaceRes.json()) as { id: string }
+
+    const pageInDefault = await createPage(
+      env,
+      admin,
+      "基础配置",
+      "无编号内容"
+    )
+    const pageInSpace = await createPage(
+      env,
+      admin,
+      `${pageInDefault.id} 号应急响应`,
+      "标题包含默认空间页面的编号",
+      space.id
+    )
+
+    // 搜索安全空间：pageInDefault 不出现，pageInSpace 由 FTS 命中
+    const inSpace = await search(env, admin, pageInDefault.id, undefined, space.id)
+    expect(inSpace.results.map((item) => item.pageId)).toEqual([pageInSpace.id])
+
+    // 搜索默认空间：pageInDefault 编号置顶，pageInSpace 不出现
+    const inDefault = await search(env, admin, pageInDefault.id, undefined, 1)
+    expect(inDefault.results.map((item) => item.pageId)).toEqual([pageInDefault.id])
+  })
+
+  it("不可见空间的 spaceId 传参返回空结果，不泄露标题与片段", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const user = await userSession(env, admin)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "机密私密空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const secretSpace = (await spaceRes.json()) as { id: string }
+
+    const secretPage = await createPage(
+      env,
+      admin,
+      "核心商业机密",
+      "机密正文数据与审计日志",
+      secretSpace.id
+    )
+
+    // 普通用户传不可见空间的 spaceId（无论是 FTS 查词还是精确查编号）
+    const ftsResult = await search(env, user, "商业机密", undefined, secretSpace.id)
+    expect(ftsResult.results).toEqual([])
+    expect(JSON.stringify(ftsResult)).not.toContain("核心商业机密")
+
+    const exactResult = await search(env, user, secretPage.id, undefined, secretSpace.id)
+    expect(exactResult.results).toEqual([])
+    expect(JSON.stringify(exactResult)).not.toContain("核心商业机密")
+
+    // 管理员传该 spaceId 可见
+    const adminResult = await search(env, admin, "商业机密", undefined, secretSpace.id)
+    expect(adminResult.results.map((item) => item.pageId)).toEqual([secretPage.id])
+  })
+
+  it("宽容解析：未传、空串、非法字符串、0、负数退化为全部可见空间，不报 400", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "测试空间" },
+      admin
+    )
+    expect(spaceRes.status).toBe(201)
+    const space = (await spaceRes.json()) as { id: string }
+
+    const page1 = await createPage(env, admin, "测试用例A", "正文内容A")
+    const page2 = await createPage(
+      env,
+      admin,
+      "测试用例B",
+      "正文内容B",
+      space.id
+    )
+
+    const invalidInputs = ["", "   ", "abc", "0", "-1", "1.5", "01"]
+    for (const invalid of invalidInputs) {
+      const res = await search(env, admin, "测试用例", undefined, invalid)
+      const ids = res.results.map((item) => item.pageId)
+      expect(ids).toContain(page1.id)
+      expect(ids).toContain(page2.id)
+    }
   })
 })
