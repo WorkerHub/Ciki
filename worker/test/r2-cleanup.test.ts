@@ -14,7 +14,9 @@ import {
   CLEANUP_LOCK_TTL_MS,
   DELETE_LIMIT_PER_RUN,
   R2CleanupBusyError,
+  collectReferencedKeys,
   extractFileKeys,
+  MAX_UNCACHED_IMAGE_SCAN_OBJECTS,
   runR2Cleanup
 } from "../src/core/r2-cleanup"
 import { runContentCleanup } from "../src/core/content-cleanup"
@@ -1144,5 +1146,234 @@ describe("运行态：GET 的 running", () => {
     expect(extractFileKeys(html)).toContain(embedKey1)
     expect(extractFileKeys(md)).toContain(embedKey2)
     expect(extractFileKeys(json)).toContain(embedKey3)
+  })
+})
+
+describe("图片桶扫描缓存与上限语义（schema_v15）", () => {
+  it("夹具数据下缓存全未命中、全命中、部分命中三态，产出的引用集与直扫实现逐一相等（零漂移）；全命中时内容桶 GET 次数为 0", async () => {
+    const context = await initializedContext()
+    const { env, db, content } = context
+    await adminSession(env)
+    db.db
+      .prepare("UPDATE ciki_users SET avatar_key = ? WHERE id = 1")
+      .run(AVATAR_KEY)
+
+    const hashes = await seedReferencedContent(context)
+    const extraKey1 = UUID(8)
+    const extraKey2 = UUID(9)
+    const extraHash1 = await seedContentObject(context, imageDoc(extraKey1))
+    const extraHash2 = await seedContentObject(context, imageDoc(extraKey2))
+    const noImageHash = await seedContentObject(
+      context,
+      JSON.stringify({
+        type: "doc",
+        content: [
+          { type: "paragraph", content: [{ type: "text", text: "no images" }] }
+        ]
+      })
+    )
+
+    insertRevision(db, {
+      id: 10,
+      pageId: 1,
+      versionNo: 2,
+      contentHash: extraHash1
+    })
+    insertRevision(db, {
+      id: 11,
+      pageId: 1,
+      versionNo: 3,
+      contentHash: extraHash2
+    })
+    insertRevision(db, {
+      id: 12,
+      pageId: 1,
+      versionNo: 4,
+      contentHash: noImageHash
+    })
+
+    // 直扫预期：现行口径直接扫描得出的引用集
+    const directExpected = new Set<string>([
+      AVATAR_KEY,
+      PAGE_HTML_KEY,
+      PAGE_MD_KEY,
+      REVISION_KEY,
+      TRASHED_KEY,
+      extraKey1,
+      extraKey2
+    ])
+
+    // 1. 全未命中态（冷缓存）：内容桶正常被读取，引用集与直扫逐一相等，缓存表被回填
+    const coldSet = await collectReferencedKeys(env)
+    expect(coldSet).toEqual(directExpected)
+
+    // 验证 content_ref_scan 确实写入了全部 revision hash
+    const cachedRows = db.db
+      .prepare("SELECT content_hash, file_keys FROM ciki_content_ref_scan")
+      .all() as Array<{ content_hash: string; file_keys: string }>
+    const cachedHashes = new Set(cachedRows.map((r) => r.content_hash))
+    expect(cachedHashes.has(hashes.revisionHash)).toBe(true)
+    expect(cachedHashes.has(extraHash1)).toBe(true)
+    expect(cachedHashes.has(extraHash2)).toBe(true)
+    expect(cachedHashes.has(noImageHash)).toBe(true)
+
+    // 2. 全命中态（热缓存）：内容桶 GET 次数恒为 0，引用集零漂移
+    const getSpy = vi.spyOn(content, "get")
+    const warmSet = await collectReferencedKeys(env)
+    expect(warmSet).toEqual(directExpected)
+    expect(getSpy).toHaveBeenCalledTimes(0)
+
+    // 3. 部分命中态：删掉部分缓存行，只有未命中部分读内容桶并回填
+    db.db
+      .prepare("DELETE FROM ciki_content_ref_scan WHERE content_hash = ?")
+      .run(extraHash1)
+
+    getSpy.mockClear()
+    const partialSet = await collectReferencedKeys(env)
+    expect(partialSet).toEqual(directExpected)
+    // 只有 extraHash1 未命中，GET 只调用 1 次
+    expect(getSpy).toHaveBeenCalledTimes(1)
+
+    // 检查 extraHash1 已被回填
+    const refilled = db.db
+      .prepare(
+        "SELECT file_keys FROM ciki_content_ref_scan WHERE content_hash = ?"
+      )
+      .get(extraHash1) as { file_keys: string } | undefined
+    expect(refilled).toBeDefined()
+    expect(JSON.parse(refilled!.file_keys)).toEqual([extraKey1])
+  })
+
+  it("损坏缓存行按未命中自愈：重读对象、覆写该行且整轮不失败", async () => {
+    const context = await initializedContext()
+    const { env, db, content } = context
+    const hashes = await seedReferencedContent(context)
+
+    // 先跑一轮填充缓存
+    await collectReferencedKeys(env)
+
+    // 人为损坏 revisionHash 的缓存行（非合法 JSON）
+    db.db
+      .prepare(
+        "UPDATE ciki_content_ref_scan SET file_keys = ?, scanned_at = ? WHERE content_hash = ?"
+      )
+      .run(
+        "{broken-json: true",
+        "2026-01-01T00:00:00.000Z",
+        hashes.revisionHash
+      )
+
+    const getSpy = vi.spyOn(content, "get")
+    const resultSet = await collectReferencedKeys(env)
+    expect(resultSet.has(REVISION_KEY)).toBe(true)
+    // 损坏行被重读 1 次
+    expect(getSpy).toHaveBeenCalledTimes(1)
+
+    // 缓存行已被合法 JSON 覆写并自愈
+    const healed = db.db
+      .prepare(
+        "SELECT file_keys, scanned_at FROM ciki_content_ref_scan WHERE content_hash = ?"
+      )
+      .get(hashes.revisionHash) as { file_keys: string; scanned_at: string }
+    expect(JSON.parse(healed.file_keys)).toEqual([REVISION_KEY])
+    expect(healed.scanned_at).not.toBe("2026-01-01T00:00:00.000Z")
+
+    // 下一轮再次命中缓存，不再读取桶
+    getSpy.mockClear()
+    await collectReferencedKeys(env)
+    expect(getSpy).toHaveBeenCalledTimes(0)
+  })
+
+  it("未命中数 >2000 时整轮中止（fail-closed），不读内容桶且不删任何对象", async () => {
+    const context = await initializedContext()
+    const { env, db, content, r2 } = context
+    // 放一个符合删除条件的 >30 天孤儿图片
+    await seedImageObject(r2, OLD_ORPHAN, 35)
+
+    // 批量插入 2001 个不重复且未缓存的版本正文哈希（合法 64 位十六进制）
+    db.db.exec("BEGIN TRANSACTION")
+    for (let i = 1; i <= 2001; i++) {
+      const hexHash = i.toString(16).padStart(64, "0")
+      db.db
+        .prepare(
+          `INSERT INTO ciki_page_revisions
+            (id, page_id, version_no, title, content_hash, editor_id, created_at)
+           VALUES (?, 1, ?, 'v', ?, 1, '2026-01-01T00:00:00.000Z')`
+        )
+        .run(i + 1000, i, hexHash)
+    }
+    db.db.exec("COMMIT")
+
+    const getSpy = vi.spyOn(content, "get")
+
+    // 整轮清理应抛出未命中数超限错误（fail closed）
+    await expect(
+      runR2Cleanup(env, {
+        trigger: "manual",
+        dryRun: false,
+        rerunGuard: "bypass"
+      })
+    ).rejects.toThrow(
+      new RegExp(
+        `too many uncached content objects to scan for image references \\(2001 > ${MAX_UNCACHED_IMAGE_SCAN_OBJECTS}\\); nothing was deleted`
+      )
+    )
+
+    // 内容桶未被读取任何对象
+    expect(getSpy).toHaveBeenCalledTimes(0)
+
+    // 孤儿图片未被删除
+    expect(await r2.get(OLD_ORPHAN)).not.toBeNull()
+
+    // 日志表记录了一轮 failed
+    const run = lastRunRow(db, "images")
+    expect(run.status).toBe("failed")
+    expect(run.deleted).toBe(0)
+  })
+
+  it("生产现量 1031 个冷缓存内容对象在限内（<=2000），首轮成功回填，第二轮全命中", async () => {
+    const context = await initializedContext()
+    const { env, db, content } = context
+
+    const emptyGzip = await gzipText(
+      JSON.stringify({ type: "doc", content: [] })
+    )
+    const withImageGzip = await gzipText(imageDoc(UUID(10)))
+
+    // 构造 1031 个正文对象放入 content 桶，并插入 revisions
+    db.db.exec("BEGIN TRANSACTION")
+    for (let i = 1; i <= 1031; i++) {
+      const hexHash = i.toString(16).padStart(64, "0")
+      const bytes = i === 1 ? withImageGzip : emptyGzip
+      content.store.set(contentObjectKey(hexHash), {
+        bytes,
+        uploaded: new Date(),
+        httpEtag: `"${hexHash}"`
+      })
+      db.db
+        .prepare(
+          `INSERT INTO ciki_page_revisions
+            (id, page_id, version_no, title, content_hash, editor_id, created_at)
+           VALUES (?, 1, ?, 'v', ?, 1, '2026-01-01T00:00:00.000Z')`
+        )
+        .run(i + 5000, i, hexHash)
+    }
+    db.db.exec("COMMIT")
+
+    // 第一轮（冷缓存 1031 个全部未命中）：应在 2000 上限内成功完成，不抛错，全量回填
+    const set1 = await collectReferencedKeys(env)
+    expect(set1.has(UUID(10))).toBe(true)
+
+    // 检查缓存行数量为 1031
+    const countRow = db.db
+      .prepare("SELECT COUNT(*) AS c FROM ciki_content_ref_scan")
+      .get() as { c: number }
+    expect(countRow.c).toBe(1031)
+
+    // 第二轮（全命中）：内容桶读取次数为 0
+    const getSpy = vi.spyOn(content, "get")
+    const set2 = await collectReferencedKeys(env)
+    expect(set2).toEqual(set1)
+    expect(getSpy).toHaveBeenCalledTimes(0)
   })
 })

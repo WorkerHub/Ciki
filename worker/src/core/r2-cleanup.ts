@@ -12,9 +12,11 @@
  */
 import {
   listAvatarKeys,
+  listContentRefScansBatch,
   listDistinctRevisionHashes,
   listPageImageBodiesBatch,
-  MAX_IMAGE_SCAN_OBJECTS
+  upsertContentRefScans,
+  MAX_UNCACHED_IMAGE_SCAN_OBJECTS
 } from "../db/queries/r2-cleanup"
 import {
   BucketCleanupBusyError,
@@ -38,6 +40,10 @@ export {
   cleanupRunDto,
   BucketCleanupBusyError as R2CleanupBusyError
 } from "./bucket-cleanup"
+export {
+  MAX_UNCACHED_IMAGE_SCAN_OBJECTS,
+  MAX_IMAGE_SCAN_OBJECTS
+} from "../db/queries/r2-cleanup"
 
 export type R2CleanupSummary = BucketCleanupSummary
 export type R2CleanupResult = BucketCleanupResult
@@ -86,9 +92,10 @@ function collectKeysInto(target: Set<string>, text: string): void {
  * 建图片引用集。
  *
  * 页面正文按 keyset 分批读 `content_html` / `content_md`（图片引用一定在这两列里，
- * 不必读内容桶）；版本正文只在内容桶里，按内容哈希去重后逐个解压再扫。去重后仍然
- * 超过 {@link MAX_IMAGE_SCAN_OBJECTS} 就抛错中止本轮——宁可这一轮不清理，也不能
- * 因为扫不全而误删图片。
+ * 不必读内容桶）；版本正文改走扫描缓存（`content_ref_scan`）：分批查缓存（每批 ≤100 个），
+ * 命中则解析 key 入集；损坏或未命中则按未命中收集。未命中数超过
+ * {@link MAX_UNCACHED_IMAGE_SCAN_OBJECTS} 时抛错中止本轮（fail closed，不删任何对象）。
+ * 随后逐个读桶解压扫引用，并回填缓存表（INSERT OR REPLACE）。
  */
 export async function collectReferencedKeys(env: Env): Promise<Set<string>> {
   const prefix = getTablePrefix(env)
@@ -111,14 +118,65 @@ export async function collectReferencedKeys(env: Env): Promise<Set<string>> {
   }
 
   const hashes = await listDistinctRevisionHashes(env.DB, prefix)
-  if (hashes.length > MAX_IMAGE_SCAN_OBJECTS) {
+  const cachedRows = await listContentRefScansBatch(env.DB, prefix, hashes)
+  const cacheMap = new Map<string, string>()
+  for (const row of cachedRows) {
+    cacheMap.set(row.content_hash, row.file_keys)
+  }
+
+  const missHashes: string[] = []
+  for (const hash of hashes) {
+    const rawJson = cacheMap.get(hash)
+    if (rawJson !== undefined) {
+      let parsed: unknown = null
+      try {
+        parsed = JSON.parse(rawJson)
+      } catch {
+        parsed = null
+      }
+      if (Array.isArray(parsed) && parsed.every((k) => typeof k === "string")) {
+        for (const key of parsed) {
+          referenced.add(key)
+        }
+        continue
+      }
+      // 缓存行损坏：按未命中处理（后续重读并覆写）
+    }
+    missHashes.push(hash)
+  }
+
+  if (missHashes.length > MAX_UNCACHED_IMAGE_SCAN_OBJECTS) {
     throw new Error(
-      `too many distinct content objects to scan for image references ` +
-        `(${hashes.length} > ${MAX_IMAGE_SCAN_OBJECTS}); nothing was deleted`
+      `too many uncached content objects to scan for image references ` +
+        `(${missHashes.length} > ${MAX_UNCACHED_IMAGE_SCAN_OBJECTS}); nothing was deleted`
     )
   }
-  for (const hash of hashes) {
-    collectKeysInto(referenced, await readContent(env, hash))
+
+  const pendingScans: Array<{
+    content_hash: string
+    file_keys: string[]
+    scanned_at: string
+  }> = []
+
+  for (const hash of missHashes) {
+    const content = await readContent(env, hash)
+    const keys = extractFileKeys(content)
+    for (const key of keys) {
+      referenced.add(key)
+    }
+    pendingScans.push({
+      content_hash: hash,
+      file_keys: keys,
+      scanned_at: new Date().toISOString()
+    })
+    if (pendingScans.length >= 50) {
+      await upsertContentRefScans(env.DB, prefix, pendingScans)
+      pendingScans.length = 0
+    }
+  }
+
+  if (pendingScans.length > 0) {
+    await upsertContentRefScans(env.DB, prefix, pendingScans)
   }
 
   return referenced

@@ -98,3 +98,10 @@ export const wakerExecutionsTable = (prefix: string) =>
  */
 export const notificationsTable = (prefix: string) =>
   tableName(prefix, "notifications")
+
+/**
+ * 孤儿图片清理扫描缓存表（规格「孤儿图片清理扫描缓存」）：
+ * content_hash 主键，file_keys 为提取出的图片 key 数组 JSON，scanned_at 记录扫描时间戳。
+ */
+export const contentRefScanTable = (prefix: string) =>
+  tableName(prefix, "content_ref_scan")
