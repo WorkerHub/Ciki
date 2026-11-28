@@ -1,6 +1,6 @@
 /**
  * 文件上传的单一入口：类型白名单（图片按魔数、场景 JSON 按白名单预检消毒）、
- * 通用图片 ≤10MB / 场景 JSON ≤2MB / 头像图片 ≤2MB、落 R2。
+ * 通用图片 ≤10MB（默认，可在系统管理配置 1–100MB） / 场景 JSON ≤2MB / 头像图片 ≤2MB、落 R2。
  *
  * `/api/files`、`/api/import/files` 与 `/api/me/avatar` 共用同一份实现（规格
  * §12.1 / §1：头像专用口与导入都不复刻一套校验，口径与 /api/files 一致，头像类别单独收紧上限为 2MB）；
@@ -10,6 +10,8 @@ import type { Context } from "hono"
 import type { HonoEnv } from "../types"
 import { SUPPORTED_THEME_STYLES } from "../core/theme-style"
 import { sanitizeExcalidrawSceneJson } from "./excalidraw-sanitize"
+import { getTablePrefix } from "./table-prefix"
+import { readMaxImageUploadBytes } from "../core/upload-limit"
 
 export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
@@ -216,19 +218,47 @@ export type UploadRead =
 
 /**
  * 读取并校验 `multipart/form-data` 单文件：content-length 预检 → 解析表单 →
- * `file` 字段存在 → 大小上限（图片 10MB、场景 JSON 2MB） → 魔数或 JSON 消毒预检。
+ * `file` 字段存在 → 大小上限（图片默认 10MB，可配置 1–100MB；场景 JSON 2MB） → 魔数或 JSON 消毒预检。
  * 失败时把可直接返回的响应带出来，调用方不必重复这套口径。
  */
 export async function readUpload(
   c: Context<HonoEnv>,
   allowJson = true,
-  maxBytes = MAX_UPLOAD_BYTES
+  maxBytes?: number
 ): Promise<UploadRead> {
+  const prefix = getTablePrefix(c.env)
+  const effectiveMaxBytes =
+    maxBytes ?? (await readMaxImageUploadBytes(c.env.DB, prefix))
   const declared = Number.parseInt(c.req.header("content-length") ?? "0", 10)
-  if (declared > maxBytes + 1024 * 1024) {
+  if (declared > effectiveMaxBytes + 1024 * 1024) {
+    let limitBytes = effectiveMaxBytes
+    if (allowJson && c.req.raw.body) {
+      try {
+        const reader = c.req.raw.body.getReader()
+        const { value } = await reader.read()
+        if (value) {
+          const snippet = new TextDecoder().decode(value.slice(0, 1024))
+          if (
+            snippet.includes('.json"') ||
+            snippet.includes("application/json")
+          ) {
+            limitBytes = MAX_SCENE_BYTES
+          }
+        }
+      } catch {
+        // stream already consumed or not readable, fallback to effectiveMaxBytes
+      }
+    }
     return {
       ok: false,
-      response: c.json({ error: "File too large", code: "FILE_TOO_LARGE" }, 413)
+      response: c.json(
+        {
+          error: "File too large",
+          code: "FILE_TOO_LARGE",
+          limitBytes
+        },
+        413
+      )
     }
   }
 
@@ -257,7 +287,11 @@ export async function readUpload(
       return {
         ok: false,
         response: c.json(
-          { error: "File too large", code: "FILE_TOO_LARGE" },
+          {
+            error: "File too large",
+            code: "FILE_TOO_LARGE",
+            limitBytes: MAX_SCENE_BYTES
+          },
           413
         )
       }
@@ -277,7 +311,11 @@ export async function readUpload(
       return {
         ok: false,
         response: c.json(
-          { error: "File too large", code: "FILE_TOO_LARGE" },
+          {
+            error: "File too large",
+            code: "FILE_TOO_LARGE",
+            limitBytes: MAX_SCENE_BYTES
+          },
           413
         )
       }
@@ -290,10 +328,17 @@ export async function readUpload(
     }
   }
 
-  if (file.size > maxBytes) {
+  if (file.size > effectiveMaxBytes) {
     return {
       ok: false,
-      response: c.json({ error: "File too large", code: "FILE_TOO_LARGE" }, 413)
+      response: c.json(
+        {
+          error: "File too large",
+          code: "FILE_TOO_LARGE",
+          limitBytes: effectiveMaxBytes
+        },
+        413
+      )
     }
   }
 
@@ -315,7 +360,11 @@ export async function readUpload(
           return {
             ok: false,
             response: c.json(
-              { error: "File too large", code: "FILE_TOO_LARGE" },
+              {
+                error: "File too large",
+                code: "FILE_TOO_LARGE",
+                limitBytes: MAX_SCENE_BYTES
+              },
               413
             )
           }
@@ -345,9 +394,12 @@ export async function readUpload(
 export async function readImageUpload(
   c: Context<HonoEnv>,
   allowJson = true,
-  maxBytes = MAX_UPLOAD_BYTES
+  maxBytes?: number
 ): Promise<UploadRead> {
-  return readUpload(c, allowJson, maxBytes)
+  const prefix = getTablePrefix(c.env)
+  const effectiveMaxBytes =
+    maxBytes ?? (await readMaxImageUploadBytes(c.env.DB, prefix))
+  return readUpload(c, allowJson, effectiveMaxBytes)
 }
 
 /** 落盘后的元数据：普通上传的响应体就是这个形状。 */
@@ -370,7 +422,11 @@ export async function storeImageUpload(
   category: UploadCategory
 ): Promise<UploadStored> {
   const allowJson = category !== "avatars"
-  const maxBytes = category === "avatars" ? MAX_AVATAR_BYTES : MAX_UPLOAD_BYTES
+  const prefix = getTablePrefix(c.env)
+  const maxBytes =
+    category === "avatars"
+      ? MAX_AVATAR_BYTES
+      : await readMaxImageUploadBytes(c.env.DB, prefix)
   const read = await readUpload(c, allowJson, maxBytes)
   if (!read.ok) return read
 
