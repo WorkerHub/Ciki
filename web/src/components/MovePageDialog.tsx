@@ -162,7 +162,7 @@ export function MovePageDialog({
           </p>
         ) : (
           <form
-            className="space-y-3"
+            className="space-y-3 min-w-0"
             onSubmit={(event) => {
               event.preventDefault()
               void submit()
@@ -173,7 +173,7 @@ export function MovePageDialog({
                 {t("page.move.targetSpace")}
               </Label>
               <Select value={targetId} onValueChange={setTargetId}>
-                <SelectTrigger id="move-page-target" className="w-full">
+                <SelectTrigger id="move-page-target" className="w-full min-w-0">
                   <SelectValue placeholder={t("page.move.targetPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -194,7 +194,7 @@ export function MovePageDialog({
                 onValueChange={setParentValue}
                 disabled={parentsLoading}
               >
-                <SelectTrigger id="move-page-parent" className="w-full">
+                <SelectTrigger id="move-page-parent" className="w-full min-w-0">
                   <SelectValue placeholder={t("page.move.parentPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
