@@ -381,7 +381,7 @@ window.addEventListener("message", (event) => {
 导出流水线：
   [GET /api/read/spaces]                  --> 获取源空间信息 (id, name, slug)
     │
-  [GET /api/read/tree?space_id=:id]       --> 获取未删页面树 (扁平列表，保留 parent_id / sort_order)
+  [GET /api/read/tree]                    --> 获取未删页面树 (扁平列表，按响应中的 space_id 在客户端过滤出目标空间，保留 parent_id / sort_order)
     │
   [GET /api/read/pages/:id?format=json]   --> 逐页拉取完整 content_json (严禁 Markdown 中转)
     │
