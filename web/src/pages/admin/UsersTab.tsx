@@ -510,7 +510,11 @@ export function UsersTab() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle
+              title={t("admin.users.deleteTitle", {
+                email: deleteTarget?.email
+              })}
+            >
               {t("admin.users.deleteTitle", { email: deleteTarget?.email })}
             </AlertDialogTitle>
             <AlertDialogDescription>

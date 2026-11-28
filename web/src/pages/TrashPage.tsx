@@ -501,7 +501,19 @@ export function TrashPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle
+              title={
+                purgeTarget?.type === "single"
+                  ? t("trash.purgeDialog.title", {
+                      title: purgeTarget.items[0]?.title ?? ""
+                    })
+                  : purgeTarget?.type === "clear"
+                    ? t("trash.purgeDialog.clearTitle")
+                    : t("trash.purgeDialog.batchTitle", {
+                        count: purgeTarget?.items.length ?? 0
+                      })
+              }
+            >
               {purgeTarget?.type === "single"
                 ? t("trash.purgeDialog.title", {
                     title: purgeTarget.items[0]?.title ?? ""

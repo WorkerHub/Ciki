@@ -480,7 +480,11 @@ export function PageTree({ onNavigate }: { onNavigate?: () => void }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle
+              title={t("shell.tree.deleteTitle", {
+                title: deleteTarget?.title
+              })}
+            >
               {t("shell.tree.deleteTitle", { title: deleteTarget?.title })}
             </AlertDialogTitle>
             <AlertDialogDescription>

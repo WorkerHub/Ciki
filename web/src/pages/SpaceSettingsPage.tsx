@@ -816,7 +816,11 @@ export function SpaceSettingsPage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle
+              title={t("space.settings.members.removeTitle", {
+                name: removeTarget?.username || removeTarget?.email
+              })}
+            >
               {t("space.settings.members.removeTitle", {
                 name: removeTarget?.username || removeTarget?.email
               })}
@@ -848,7 +852,11 @@ export function SpaceSettingsPage() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle
+              title={t("space.settings.danger.deleteTitle", {
+                name: space.name
+              })}
+            >
               {t("space.settings.danger.deleteTitle", { name: space.name })}
             </AlertDialogTitle>
             <AlertDialogDescription>

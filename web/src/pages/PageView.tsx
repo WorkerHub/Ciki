@@ -696,7 +696,9 @@ export function PageView() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle
+              title={t("page.view.deleteDialog.title", { title: page.title })}
+            >
               {t("page.view.deleteDialog.title", { title: page.title })}
             </AlertDialogTitle>
             <AlertDialogDescription>

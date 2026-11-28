@@ -1484,12 +1484,50 @@ describe("阅读页次要操作收进「更多」菜单", () => {
     await user.click(screen.getByRole("button", { name: "更多" }))
     await user.click(await screen.findByRole("menuitem", { name: "删除" }))
 
-    expect(
-      await screen.findByText("删除「支付服务部署手册」？")
-    ).toBeInTheDocument()
+    const deleteTitle = await screen.findByText("删除「支付服务部署手册」？")
+    expect(deleteTitle).toBeInTheDocument()
+    expect(deleteTitle).toHaveClass("truncate")
+    expect(deleteTitle).toHaveClass("min-w-0")
+    expect(deleteTitle).toHaveAttribute("title", "删除「支付服务部署手册」？")
+
+    const header = deleteTitle.closest("[data-slot='alert-dialog-header']")
+    expect(header).not.toBeNull()
+    expect(header).toHaveClass("min-w-0")
+    expect(header).toHaveClass("w-full")
+
     expect(
       screen.getByText("页面与全部子页面会移入回收站，之后可以在回收站里恢复。")
     ).toBeInTheDocument()
+  })
+
+  it("删除长标题页面时：删除对话框标题与头部具备 min-w-0 与 truncate 收缩截断能力", async () => {
+    const longTitle =
+      '4.1 类与对象：面向对象思想与 "造物之旅"☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆'
+    vi.mocked(pagesApi.get).mockResolvedValueOnce({
+      ...page,
+      title: longTitle
+    })
+
+    const user = userEvent.setup()
+    renderView()
+    await screen.findByText(longTitle)
+
+    await user.click(screen.getByRole("button", { name: "更多" }))
+    await user.click(await screen.findByRole("menuitem", { name: "删除" }))
+
+    const expectedTitle = `删除「${longTitle}」？`
+    const deleteTitle = await screen.findByText(expectedTitle)
+    expect(deleteTitle).toBeInTheDocument()
+    expect(deleteTitle).toHaveClass("truncate")
+    expect(deleteTitle).toHaveClass("min-w-0")
+    expect(deleteTitle).toHaveClass("max-w-full")
+    expect(deleteTitle).toHaveClass("w-full")
+    expect(deleteTitle).toHaveAttribute("title", expectedTitle)
+
+    const header = deleteTitle.closest("[data-slot='alert-dialog-header']")
+    expect(header).not.toBeNull()
+    expect(header).toHaveClass("min-w-0")
+    expect(header).toHaveClass("w-full")
   })
 
   it("原生 DropdownMenu 支持按 Esc 键关闭菜单", async () => {

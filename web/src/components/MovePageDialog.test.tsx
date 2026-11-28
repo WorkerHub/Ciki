@@ -263,4 +263,28 @@ describe("移动页面对话框", () => {
     // depth 为 3，缩进为 3 * 18 = 54px
     expect(span).toHaveStyle({ paddingLeft: "54px" })
   })
+
+  it("移动长标题页面时：对话框标题与头部具备 min-w-0 与 truncate 收缩截断能力", async () => {
+    renderDialog({
+      pageId: 999,
+      pageTitle: LONG_MOVED_TITLE,
+      parentId: null,
+      sourceSpaceId: 1
+    })
+
+    const titleEl = await screen.findByRole("heading", {
+      name: new RegExp(LONG_MOVED_TITLE)
+    })
+    expect(titleEl).toBeInTheDocument()
+    expect(titleEl).toHaveClass("truncate")
+    expect(titleEl).toHaveClass("min-w-0")
+    expect(titleEl).toHaveAttribute(
+      "title",
+      expect.stringContaining(LONG_MOVED_TITLE)
+    )
+
+    const header = titleEl.closest("[data-slot='dialog-header']")
+    expect(header).not.toBeNull()
+    expect(header).toHaveClass("min-w-0")
+  })
 })
