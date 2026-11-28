@@ -16,6 +16,7 @@ export interface ApiErrorBody {
   code?: string
   detail?: string
   retryAfter?: number
+  limitBytes?: number
   detectedPrefixes?: string[]
   resolvedPrefix?: string
 }
@@ -25,6 +26,7 @@ export class ApiError extends Error {
   readonly code?: string
   readonly detail?: string
   readonly retryAfter?: number
+  readonly limitBytes?: number
   /** 原始错误体（例如 409 前缀冲突里的 detectedPrefixes）。 */
   readonly details?: ApiErrorBody
   /** 出错请求的路径（不含 /api 前缀），供 describeApiError 分辨 401 的语义。 */
@@ -37,7 +39,8 @@ export class ApiError extends Error {
     retryAfter?: number,
     details?: ApiErrorBody,
     path?: string,
-    detail?: string
+    detail?: string,
+    limitBytes?: number
   ) {
     super(message)
     this.name = "ApiError"
@@ -45,6 +48,7 @@ export class ApiError extends Error {
     this.code = code
     this.detail = detail ?? details?.detail
     this.retryAfter = retryAfter
+    this.limitBytes = limitBytes ?? details?.limitBytes
     this.details = details
     this.path = path
   }
@@ -156,7 +160,8 @@ function toApiError(res: Response, body: unknown, path: string): ApiError {
     error.retryAfter,
     error,
     path,
-    error.detail
+    error.detail,
+    error.limitBytes
   )
 }
 
@@ -788,6 +793,8 @@ export interface SiteSettings {
   emailConfigured: boolean
   /** 每页保留的历史版本数；null = 不限（后端存空串）。 */
   revisionRetentionLimit: number | null
+  /** 单张图片上传上限（MB，范围 1–100，默认 10）。 */
+  maxImageUploadMb?: number | null
   email?: EmailSettings
 }
 
@@ -846,6 +853,7 @@ export interface AdminSettingsUpdate {
   registrationApprovalRequired?: boolean
   require2fa?: boolean
   revisionRetentionLimit?: number | null
+  maxImageUploadMb?: number | null
   email?: {
     provider: EmailProvider
     smtp: SmtpUpdateInput
@@ -1663,6 +1671,16 @@ export function describeApiError(error: unknown): string {
       ? i18n.t("errors.INVALID_SMTP_CONFIG_REASON", { reason })
       : i18n.t("errors.INVALID_SMTP_CONFIG")
   }
+  if (code === "FILE_TOO_LARGE") {
+    if (typeof error.limitBytes === "number" && error.limitBytes > 0) {
+      const mbNumber = error.limitBytes / (1024 * 1024)
+      const mb = Number.isInteger(mbNumber)
+        ? mbNumber
+        : Math.round(mbNumber * 100) / 100
+      return i18n.t("errors.FILE_TOO_LARGE", { mb })
+    }
+    return i18n.t("errors.tooLarge")
+  }
   if (code && ERROR_TEXT_CODES.has(code)) return i18n.t(`errors.${code}`)
 
   if (
@@ -1700,13 +1718,25 @@ export function describeApiError(error: unknown): string {
   if (error.status === 400 && /revisionRetentionLimit/i.test(error.message)) {
     return i18n.t("errors.retentionLimit")
   }
+  if (error.status === 400 && /maxImageUploadMb/i.test(error.message)) {
+    return i18n.t("admin.uploadLimit.invalid")
+  }
   if (error.status === 400 && /invalid username/i.test(error.message)) {
     return i18n.t("errors.INVALID_USERNAME")
   }
   if (error.status === 400 && /invalid avatar/i.test(error.message)) {
     return i18n.t("errors.INVALID_AVATAR")
   }
-  if (error.status === 413) return i18n.t("errors.tooLarge")
+  if (error.status === 413) {
+    if (typeof error.limitBytes === "number" && error.limitBytes > 0) {
+      const mbNumber = error.limitBytes / (1024 * 1024)
+      const mb = Number.isInteger(mbNumber)
+        ? mbNumber
+        : Math.round(mbNumber * 100) / 100
+      return i18n.t("errors.FILE_TOO_LARGE", { mb })
+    }
+    return i18n.t("errors.tooLarge")
+  }
   if (error.status === 429) return i18n.t("errors.tooFrequent")
   // 清理接口扫描期异常回 500 {"error":"Cleanup failed"}；与同文件其余按原文匹配的
   // 规则一致，这里认的是文案而不是端点，别把英文原文直接摆给管理员

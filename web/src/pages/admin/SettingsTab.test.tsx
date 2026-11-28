@@ -27,7 +27,8 @@ const settings: SiteSettings = {
   registrationApprovalRequired: true,
   require2fa: false,
   emailConfigured: true,
-  revisionRetentionLimit: null
+  revisionRetentionLimit: null,
+  maxImageUploadMb: 10
 }
 
 describe("系统管理 · 站点名称", () => {
@@ -125,5 +126,8 @@ describe("系统管理 · 应用设置 · 英文界面", () => {
     expect(await screen.findByLabelText("Site name")).toHaveValue("Ciki")
     expect(screen.queryByLabelText(/setup page/i)).toBeNull()
     expect(screen.getByText(/Email delivery is configured/)).toBeInTheDocument()
+    expect(await screen.findByLabelText("Image upload limit (MB)")).toHaveValue(
+      10
+    )
   })
 })

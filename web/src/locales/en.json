@@ -71,8 +71,7 @@
       "actions": "Actions"
     },
     "image": {
-      "unsupported": "Only PNG / JPG / GIF / WebP images are supported (no SVG)",
-      "tooLarge": "The image is over 10MB; compress it and upload again"
+      "unsupported": "Only PNG / JPG / GIF / WebP images are supported (no SVG)"
     },
     "embed": {
       "unsupported": "Only .html files are supported",
@@ -1152,6 +1151,14 @@
       "pruneTitle": "Prune all pages by the current setting?",
       "pruneConfirm_one": "Delete {{count}}",
       "pruneConfirm_other": "Delete {{count}}"
+    },
+    "uploadLimit": {
+      "label": "Image upload limit (MB)",
+      "placeholder": "Default 10",
+      "invalid": "Limit must be an integer between 1 and 100, or leave empty for default (10MB).",
+      "notSaved": "Image upload limit was not saved. Refresh and try again.",
+      "savedDefault": "Image upload limit reset to default 10MB.",
+      "saved": "Image upload limit set to {{count}}MB."
     }
   },
   "space": {
@@ -1477,7 +1484,7 @@
     "COMMENT_DELETED": "This comment has been deleted and cannot be edited.",
     "INVALID_CONTENT_JSON": "The page content is not in a valid format and cannot be saved.",
     "PAYLOAD_TOO_LARGE": "The content or image exceeds the per-save limit. Trim it and try again.",
-    "FILE_TOO_LARGE": "The image is over 10MB; compress it and upload again.",
+    "FILE_TOO_LARGE": "The image is over {{mb}}MB; compress it and upload again.",
     "INVALID_USERNAME": "That username is not valid. Check it and try again.",
     "INVALID_BIO": "Invalid bio or exceeds 100 characters.",
     "USERNAME_TAKEN": "That username is taken. Choose another one.",

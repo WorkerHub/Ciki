@@ -247,7 +247,9 @@ describe("补抓事件桥：插件递字节 → TipTap 模型里替换", () => {
   it("上传失败：标黄保留，错误按 src 记在占位上", async () => {
     const active = await createEditor(untransferredHtml(SRC))
     vi.mocked(uploadImage).mockRejectedValue(
-      new ApiError(413, "too large", "FILE_TOO_LARGE")
+      new ApiError(413, "too large", "FILE_TOO_LARGE", undefined, {
+        limitBytes: 10 * 1024 * 1024
+      })
     )
 
     dispatchCaptured(captureDetail(SRC))

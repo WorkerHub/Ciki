@@ -71,8 +71,7 @@
       "actions": "操作"
     },
     "image": {
-      "unsupported": "只支持 PNG / JPG / GIF / WebP 图片（SVG 不收）",
-      "tooLarge": "图片超过 10MB，请压缩后再上传"
+      "unsupported": "只支持 PNG / JPG / GIF / WebP 图片（SVG 不收）"
     },
     "embed": {
       "unsupported": "仅支持 .html 文件",
@@ -1139,6 +1138,14 @@
       "prune": "按当前设置修剪全部页面",
       "pruneTitle": "按当前设置修剪全部页面？",
       "pruneConfirm_other": "删除 {{count}} 条"
+    },
+    "uploadLimit": {
+      "label": "图片上传上限 (MB)",
+      "placeholder": "默认 10",
+      "invalid": "上限需为 1–100 的整数，留空表示恢复默认（10MB）。",
+      "notSaved": "图片上传上限没有保存成功，请刷新后重试。",
+      "savedDefault": "图片上传上限已恢复为默认 10MB。",
+      "saved": "图片上传上限已设为 {{count}}MB。"
     }
   },
   "space": {
@@ -1456,7 +1463,7 @@
     "COMMENT_DELETED": "这条评论已被删除，不能再修改。",
     "INVALID_CONTENT_JSON": "页面内容的格式不正确，无法保存。",
     "PAYLOAD_TOO_LARGE": "内容或图片超过了单次保存上限，请精简后重试。",
-    "FILE_TOO_LARGE": "图片超过 10MB，请压缩后再上传。",
+    "FILE_TOO_LARGE": "图片超过 {{mb}}MB，请压缩后再上传。",
     "INVALID_USERNAME": "用户名不合法，请检查后重试。",
     "INVALID_BIO": "一句话简介格式不正确或超过 100 字。",
     "USERNAME_TAKEN": "这个用户名已经有人用了，请换一个。",
