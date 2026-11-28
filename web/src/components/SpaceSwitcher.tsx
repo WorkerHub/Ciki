@@ -1,11 +1,21 @@
 import { cn } from "cn"
-import { Boxes, Check, ChevronsUpDown, Plus, Settings } from "lucide-react"
+import {
+  Boxes,
+  Check,
+  ChevronsUpDown,
+  Download,
+  Plus,
+  Settings,
+  Upload
+} from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CreateSpaceDialog } from "@/components/CreateSpaceDialog"
+import { ExportSpaceDialog } from "@/components/ExportSpaceDialog"
+import { ImportSpaceDialog } from "@/components/ImportSpaceDialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +69,8 @@ export function SpaceSwitcher({
   const currentRole = current ? effectiveRole(current, isSiteAdmin) : null
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const switchTo = (space: Space) => {
     if (space.id !== currentId) select(space.id)
@@ -197,16 +209,26 @@ export function SpaceSwitcher({
           })}
           <DropdownMenuSeparator />
           {current && canManage(currentRole) ? (
-            <DropdownMenuItem
-              onSelect={() => {
-                onNavigate?.()
-                navigate(spaceSettingsPath(current.slug))
-              }}
-            >
-              <Settings aria-hidden="true" />
-              {t("shell.spaces.settings")}
-            </DropdownMenuItem>
+            <>
+              <DropdownMenuItem
+                onSelect={() => {
+                  onNavigate?.()
+                  navigate(spaceSettingsPath(current.slug))
+                }}
+              >
+                <Settings aria-hidden="true" />
+                {t("shell.spaces.settings")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setExportOpen(true)}>
+                <Download aria-hidden="true" />
+                {t("shell.spaces.export")}
+              </DropdownMenuItem>
+            </>
           ) : null}
+          <DropdownMenuItem onSelect={() => setImportOpen(true)}>
+            <Upload aria-hidden="true" />
+            {t("shell.spaces.import")}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setCreateOpen(true)}>
             <Plus aria-hidden="true" />
             {t("shell.spaces.new")}
@@ -217,6 +239,19 @@ export function SpaceSwitcher({
       <CreateSpaceDialog
         open={createOpen}
         onOpenChange={setCreateOpen}
+        onSuccess={() => onNavigate?.()}
+      />
+      {current ? (
+        <ExportSpaceDialog
+          spaceId={current.id}
+          spaceName={current.name}
+          open={exportOpen}
+          onOpenChange={setExportOpen}
+        />
+      ) : null}
+      <ImportSpaceDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
         onSuccess={() => onNavigate?.()}
       />
     </div>
