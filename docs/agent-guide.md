@@ -168,11 +168,11 @@ Ciki 采用专表与职责分离设计，API 令牌分为两种类型（`kind`�
 
 ### 4.1 三类上传入口与 Key 规则
 
-| 资源类型            | 上传端点                       | 接受文件类型                             | 单文件上限 | 返回 Key 规范        |
-| ------------------- | ------------------------------ | ---------------------------------------- | ---------- | -------------------- |
-| **正文图片**        | `POST /api/write/files`        | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` | 10 MB      | `pages/<uuid>.<ext>` |
-| **画布场景 JSON**   | `POST /api/write/files`        | `.json`（Excalidraw 场景文件）           | 2 MB       | `pages/<uuid>.json`  |
-| **Embed 嵌入 HTML** | `POST /api/write/files/embeds` | `.html`                                  | 1 MB       | `embeds/<uuid>.html` |
+| 资源类型            | 上传端点                       | 接受文件类型                             | 单文件上限                             | 返回 Key 规范        |
+| ------------------- | ------------------------------ | ---------------------------------------- | -------------------------------------- | -------------------- |
+| **正文图片**        | `POST /api/write/files`        | `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp` | 默认 10MB，可在系统管理配置（1–100MB） | `pages/<uuid>.<ext>` |
+| **画布场景 JSON**   | `POST /api/write/files`        | `.json`（Excalidraw 场景文件）           | 2 MB                                   | `pages/<uuid>.json`  |
+| **Embed 嵌入 HTML** | `POST /api/write/files/embeds` | `.html`                                  | 1 MB                                   | `embeds/<uuid>.html` |
 
 ### 4.2 响应格式
 
@@ -328,7 +328,7 @@ window.addEventListener("message", (event) => {
 | **401 Unauthorized**         | 令牌未带、令牌失效或路由混淆 | 1. 检查请求头是否携带 `Authorization: Bearer <token>`；<br>2. **核对端点路径**：外部 Agent 必须调用 `/api/read/*` 与 `/api/write/*`，严禁使用真人前端的会话端点（如 `/api/pages` 等会话端点不接受 API 令牌）；<br>3. 检查令牌是否已在管理后台被吊销，或所属 Agent 账号是否停用。                       |
 | **404 Not Found**            | 资源不存在或无权访问         | 1. 页面确实不存在或已放入回收站；<br>2. 令牌归属账号在目标空间中无对应成员角色（读需成员，写需 editor）；<br>3. 该空间未被包含在令牌授权的空间范围列表中；<br>4. 读文件时，该文件并非由当前令牌归属账号上传。                                                                                          |
 | **400 INVALID_CONTENT_JSON** | TipTap JSON 格式不合规       | 1. `content_json` 必须包含合法的 `type: "doc"` 顶层对象；<br>2. `excalidraw` 节点的 `sceneKey` 必须必填且匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`；若提供 `previewKey` 则须匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`。 |
-| **413 PAYLOAD_TOO_LARGE**    | 内容或文件超限               | 1. 正文 JSON 体积超限（单页上限 5 MB）；<br>2. 上传文件超过相应类型大小限制（图片 10 MB、场景 2 MB、Embed 1 MB）。                                                                                                                                                                                     |
+| **413 PAYLOAD_TOO_LARGE**    | 内容或文件超限               | 1. 正文 JSON 体积超限（单页上限 5 MB）；<br>2. 上传文件超过相应类型大小限制（图片默认 10MB，可在系统管理配置（1–100MB）、场景 2 MB、Embed 1 MB）。                                                                                                                                                     |
 | **429 RATE_LIMITED**         | 触发频控限流                 | 单用户写接口频控为 600 次 / 5 分钟，认证失败为 20 次 / 5 分钟。请遵循响应中的 `retryAfter` 秒数进行退避重试。                                                                                                                                                                                          |
 
 ---

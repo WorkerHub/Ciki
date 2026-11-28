@@ -1359,7 +1359,10 @@ describe("写接口：图片上传（第五端点）", () => {
     big.set(PNG)
     const tooLarge = await writeUpload(env, token, formWith(big, "image/png"))
     expect(tooLarge.status).toBe(413)
-    expect(await tooLarge.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+    expect(await tooLarge.json()).toMatchObject({
+      code: "FILE_TOO_LARGE",
+      limitBytes: 10 * 1024 * 1024
+    })
 
     // 但把这个文件引用到范围外空间建页仍按页面级权限 404。
     const image = (await ok.json()) as UploadedImage

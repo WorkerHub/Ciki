@@ -1,5 +1,5 @@
 /**
- * 图片：仅 png/jpg/jpeg/gif/webp（按魔数校验，不收 svg），单张 ≤10MB，
+ * 图片：仅 png/jpg/jpeg/gif/webp（按魔数校验，不收 svg），单张默认 ≤10MB（可在系统管理配置 1–100MB），
  * 存 R2 bucket ciki-assets；读取必须带会话，不给公开直链（规格 §2.4）。
  *
  * 上传的校验与落盘在 lib/upload.ts（导入接口共用同一份实现）。

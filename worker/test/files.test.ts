@@ -88,7 +88,10 @@ describe("图片：类型校验、大小上限、会话读取", () => {
 
     const res = await upload(env, admin, formWith(big, "image/png"))
     expect(res.status).toBe(413)
-    expect(await res.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+    expect(await res.json()).toMatchObject({
+      code: "FILE_TOO_LARGE",
+      limitBytes: 10 * 1024 * 1024
+    })
   })
 
   it("读接口双认：存量平铺 key 与已知前缀 key 都能读", async () => {
@@ -261,7 +264,10 @@ describe("图片：类型校验、大小上限、会话读取", () => {
 
     const res = await upload(env, admin, form)
     expect(res.status).toBe(413)
-    expect(await res.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+    expect(await res.json()).toMatchObject({
+      code: "FILE_TOO_LARGE",
+      limitBytes: 2 * 1024 * 1024
+    })
   })
 
   it("非法 JSON 或非 Excalidraw 格式返回 400", async () => {

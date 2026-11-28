@@ -43,7 +43,8 @@ import {
   settingsTable,
   tableName,
   user2faTable,
-  usersTable
+  usersTable,
+  contentRefScanTable
 } from "./tables"
 
 /** 迁移执行时能拿到的东西：库、生效前缀、迁移可用的绑定、以及账本快照。 */
@@ -465,6 +466,33 @@ const SCHEMA_V14: Migration = {
   isApplied: schemaV14Applied
 }
 
+export const CONTENT_REF_SCAN_MIGRATION_NAME = "schema_v15"
+
+/**
+ * `schema_v15` —— 孤儿图片清理扫描缓存表（规格「孤儿图片清理扫描缓存」）：
+ * 包含 content_hash (PRIMARY KEY), file_keys (TEXT NOT NULL), scanned_at (TEXT NOT NULL)。
+ */
+function schemaV15(prefix: string): string {
+  const table = contentRefScanTable(prefix)
+  return `CREATE TABLE IF NOT EXISTS ${table} (
+  content_hash TEXT PRIMARY KEY,
+  file_keys    TEXT NOT NULL,
+  scanned_at   TEXT NOT NULL
+)`
+}
+
+async function schemaV15Applied(ctx: MigrationContext): Promise<boolean> {
+  const { db, prefix, applied } = ctx
+  if (applied.has(CONTENT_REF_SCAN_MIGRATION_NAME)) return true
+  return tableExists(db, contentRefScanTable(prefix))
+}
+
+const SCHEMA_V15: Migration = {
+  name: CONTENT_REF_SCAN_MIGRATION_NAME,
+  sql: "",
+  isApplied: schemaV15Applied
+}
+
 export function getMigrations(
   prefix: string,
   language: Language = DEFAULT_LANGUAGE
@@ -494,6 +522,7 @@ export function getMigrations(
     { ...SCHEMA_V11, sql: schemaV11(prefix) },
     { ...SCHEMA_V12, sql: schemaV12(prefix) },
     { ...SCHEMA_V13, sql: schemaV13(prefix) },
-    { ...SCHEMA_V14 }
+    { ...SCHEMA_V14 },
+    { ...SCHEMA_V15, sql: schemaV15(prefix) }
   ]
 }

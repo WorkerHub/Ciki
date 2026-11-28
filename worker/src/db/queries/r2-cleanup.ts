@@ -9,6 +9,7 @@
  * 正文一律分页读（单页正文上限 2MB，一次把整张表读进 Worker 内存会顶到内存上限）。
  */
 import {
+  contentRefScanTable,
   pagesTable,
   r2CleanupRunsTable,
   revisionsTable,
@@ -49,8 +50,17 @@ export interface PageBodyRow {
 /** 每批正文行数：单行正文上限 2MB，5 行一批远低于 isolate 的内存上限。 */
 export const BODY_BATCH_SIZE = 5
 
-/** 内容对象总数上限：超过它就先中止图片扫描（fail closed，不删任何对象）。 */
-export const MAX_IMAGE_SCAN_OBJECTS = 800
+/**
+ * 单轮实际读取的内容对象数上限：未命中缓存的对象数超过它就中止图片扫描（fail closed，不删任何对象）。
+ * 生产冷缓存首轮全量回填（现量 1031）须在此限内。
+ */
+export const MAX_UNCACHED_IMAGE_SCAN_OBJECTS = 2000
+
+/** 兼容旧命名（已废止总量语义，指向单轮实际读取对象数上限）。 */
+export const MAX_IMAGE_SCAN_OBJECTS = MAX_UNCACHED_IMAGE_SCAN_OBJECTS
+
+/** 批量查询扫描缓存的哈希批大小（每批 ≤100 个哈希，避免 D1 绑定参数上限）。 */
+export const CONTENT_SCAN_CACHE_BATCH_SIZE = 100
 
 /** 正文里含 `/api/files/` 的过滤条件（`instr` 不做 LIKE 通配符转义）。 */
 const HAS_FILE_REF = `(instr(content_html, '/api/files/') > 0
@@ -109,6 +119,66 @@ export async function listDistinctRevisionHashes(
     )
     .all<{ content_hash: string }>()
   return rows.results.map((row) => row.content_hash)
+}
+
+/** 扫描缓存行。 */
+export interface ContentRefScanRow {
+  content_hash: string
+  file_keys: string
+  scanned_at: string
+}
+
+/**
+ * 分批读取内容对象的图片引用缓存（每批 ≤100 个哈希，避免 D1 绑定参数上限）。
+ */
+export async function listContentRefScansBatch(
+  db: D1Database,
+  prefix: string,
+  hashes: string[]
+): Promise<ContentRefScanRow[]> {
+  if (hashes.length === 0) return []
+  const table = contentRefScanTable(prefix)
+  const rows: ContentRefScanRow[] = []
+  for (let i = 0; i < hashes.length; i += CONTENT_SCAN_CACHE_BATCH_SIZE) {
+    const chunk = hashes.slice(i, i + CONTENT_SCAN_CACHE_BATCH_SIZE)
+    const placeholders = chunk.map(() => "?").join(",")
+    const result = await db
+      .prepare(
+        `SELECT content_hash, file_keys, scanned_at FROM ${table} WHERE content_hash IN (${placeholders})`
+      )
+      .bind(...chunk)
+      .all<ContentRefScanRow>()
+    rows.push(...result.results)
+  }
+  return rows
+}
+
+/**
+ * 回填内容对象的图片引用缓存（INSERT OR REPLACE，幂等）。
+ * 清理锁已按 kind 串行，回填无并发冲突。
+ */
+export async function upsertContentRefScans(
+  db: D1Database,
+  prefix: string,
+  records: Array<{
+    content_hash: string
+    file_keys: string[]
+    scanned_at: string
+  }>
+): Promise<void> {
+  if (records.length === 0) return
+  const table = contentRefScanTable(prefix)
+  for (let i = 0; i < records.length; i += 50) {
+    const chunk = records.slice(i, i + 50)
+    const statements = chunk.map((r) =>
+      db
+        .prepare(
+          `INSERT OR REPLACE INTO ${table} (content_hash, file_keys, scanned_at) VALUES (?, ?, ?)`
+        )
+        .bind(r.content_hash, JSON.stringify(r.file_keys), r.scanned_at)
+    )
+    await db.batch(statements)
+  }
 }
 
 /**

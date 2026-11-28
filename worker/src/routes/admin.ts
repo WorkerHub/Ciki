@@ -80,6 +80,11 @@ import {
   writeRetentionLimit
 } from "../core/revision-retention"
 import {
+  normalizeMaxImageUploadInput,
+  readMaxImageUploadMb,
+  writeMaxImageUploadMb
+} from "../core/upload-limit"
+import {
   registrationEmailVerificationRequired,
   writeRegistrationEmailVerification
 } from "../lib/settings"
@@ -608,6 +613,7 @@ adminRoutes.get("/settings", async (c) => {
     require2fa: await getBooleanSetting(c.env.DB, prefix, "require_2fa", false),
     // null = 不限（缺行与空串同义，见 core/revision-retention.ts）
     revisionRetentionLimit: await readRetentionLimit(c.env.DB, prefix),
+    maxImageUploadMb: await readMaxImageUploadMb(c.env.DB, prefix),
     emailConfigured: await isEmailConfigured(c.env),
     email: await readEmailSettings(c.env)
   })
@@ -672,6 +678,18 @@ adminRoutes.on(["PUT", "PATCH"], "/settings", async (c) => {
       )
     }
     await writeRetentionLimit(c.env.DB, prefix, parsed.limit)
+  }
+  if (body.maxImageUploadMb !== undefined) {
+    const parsed = normalizeMaxImageUploadInput(body.maxImageUploadMb)
+    if (!parsed.ok) {
+      return c.json(
+        {
+          error: "maxImageUploadMb must be an integer between 1 and 100 or null"
+        },
+        400
+      )
+    }
+    await writeMaxImageUploadMb(c.env.DB, prefix, parsed.mb)
   }
   if (body.email !== undefined) {
     const result = await saveEmailSettings(
