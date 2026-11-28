@@ -4,13 +4,11 @@ import {
   ArrowRight,
   CheckCircle2,
   FileArchive,
-  Loader2,
-  Upload
+  Loader2
 } from "lucide-react"
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -226,7 +224,7 @@ export function ImportSpaceDialog({
                 </div>
                 <div className="max-h-48 overflow-y-auto rounded-lg border border-destructive/20 bg-destructive/10 p-3 space-y-1 text-xs text-destructive">
                   {preflightResult.fatalErrors.map((err, idx) => (
-                    <p key={idx}>• {err.message}</p>
+                    <p key={`fatal-${err.code}-${idx}`}>• {err.message}</p>
                   ))}
                 </div>
               </div>
@@ -348,7 +346,15 @@ export function ImportSpaceDialog({
               <span>{t("space.import.completedTitle")}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg border p-2.5">
+                <span className="text-muted-foreground">
+                  {t("space.import.targetSpaceId")}
+                </span>
+                <p className="text-lg font-semibold tabular-nums mt-0.5">
+                  #{report.targetSpaceId}
+                </p>
+              </div>
               <div className="rounded-lg border p-2.5">
                 <span className="text-muted-foreground">
                   {t("space.import.importedPages")}
@@ -394,6 +400,14 @@ export function ImportSpaceDialog({
               </span>
             </div>
 
+            {report.missingFilesCount > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {t("space.import.missingCount", {
+                  count: report.missingFilesCount
+                })}
+              </div>
+            )}
+
             {report.failedFiles.length > 0 && (
               <div className="space-y-1 max-h-28 overflow-y-auto rounded-lg border border-destructive/20 bg-destructive/10 p-2.5 text-xs text-destructive">
                 <span className="font-medium">
@@ -402,7 +416,7 @@ export function ImportSpaceDialog({
                   })}
                 </span>
                 {report.failedFiles.map((ff, idx) => (
-                  <p key={idx} className="truncate">
+                  <p key={`ff-${ff.originalKey}-${idx}`} className="truncate">
                     • {ff.originalKey} ({ff.reason})
                   </p>
                 ))}
@@ -417,7 +431,7 @@ export function ImportSpaceDialog({
                   })}
                 </span>
                 {report.warnings.map((w, idx) => (
-                  <p key={idx} className="truncate">
+                  <p key={`warn-${idx}-${w.slice(0, 15)}`} className="truncate">
                     • {w}
                   </p>
                 ))}

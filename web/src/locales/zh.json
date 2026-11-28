@@ -1187,6 +1187,7 @@
       "stageSkeleton": "步骤 2/3: 创建页面骨架",
       "stageContent": "步骤 3/3: 填入正文并重映射引用",
       "completedTitle": "空间导入完成",
+      "targetSpaceId": "新空间 ID",
       "importedPages": "导入页数",
       "remappedLinks": "重映射站内链接",
       "failedFilesCount": "上传失败文件 ({{count}})",

@@ -1,10 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MemoryRouter } from "react-router"
 import { ImportSpaceDialog } from "./ImportSpaceDialog"
 import * as importer from "@/lib/space-archive/import"
-import * as checkpoint from "@/lib/space-archive/checkpoint"
 
 vi.mock("@/lib/space-archive/import", async (importOriginal) => {
   const actual =

@@ -2,12 +2,7 @@ import * as fflate from "fflate"
 import { generateHTML, generateText } from "@tiptap/core"
 import { ApiError, api, pagesApi, spacesApi } from "@/lib/api"
 import { createExtensions } from "@/editor/extensions"
-import {
-  calculateSha256,
-  deleteCheckpoint,
-  getCheckpoint,
-  saveCheckpoint
-} from "./checkpoint"
+import { deleteCheckpoint, getCheckpoint, saveCheckpoint } from "./checkpoint"
 import { rewriteContentJson } from "./content-parser"
 import { AbortError, executeWithRetry } from "./scheduler"
 import type {
@@ -122,7 +117,13 @@ export async function preflightSpaceArchive(
     // 过滤系统解压残留的空目录条目
     if (path.endsWith("/")) continue
 
-    if (path.includes("..") || path.startsWith("/") || path.startsWith("\\")) {
+    const segments = path.split(/[/\\]/)
+    const isTraversal =
+      segments.some((segment) => segment === "..") ||
+      path.startsWith("/") ||
+      path.startsWith("\\")
+
+    if (isTraversal) {
       fatalErrors.push({
         code: "PATH_TRAVERSAL",
         message: `检测到路径穿越或非法路径条目: ${path}`

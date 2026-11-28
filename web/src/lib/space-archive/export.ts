@@ -27,6 +27,13 @@ import type {
   SpaceExportManifest
 } from "./types"
 
+/** 剥离会话端点动态注入的高度上报脚本，还原 embed 原始文件逐字字节 */
+export function stripInjectedEmbedScript(html: string): string {
+  const SCRIPT_INJECTION_RE =
+    /<script>\s*\(function\(\)\s*\{\s*try\s*\{\s*var send = function\(\)[\s\S]*?ciki-embed-height[\s\S]*?<\/script>/i
+  return html.replace(SCRIPT_INJECTION_RE, "")
+}
+
 export interface ExportOptions {
   signal?: AbortSignal
   onProgress?: (progress: ExportProgress) => void
@@ -137,6 +144,7 @@ export async function exportSpaceArchive(
 
   interface FetchedPageData {
     node: PageNode
+    detail: PageDetail
     contentJson: string
     contentMd: string
   }
@@ -161,7 +169,7 @@ export async function exportSpaceArchive(
           JSON.stringify({ type: "doc", content: [] })
         const contentMd = detail.contentMd || ""
 
-        fetchedPages.push({ node, contentJson, contentMd })
+        fetchedPages.push({ node, detail, contentJson, contentMd })
 
         // 解析该页引用的文件
         const refs = extractReferencedFiles(contentJson)
@@ -238,8 +246,8 @@ export async function exportSpaceArchive(
       parentExportId: pathInfo.parentExportId,
       title: item.node.title,
       sortOrder: item.node.sortOrder,
-      createdAt: item.node.updatedAt || exportedAt,
-      updatedAt: item.node.updatedAt || exportedAt,
+      createdAt: item.detail.createdAt || exportedAt,
+      updatedAt: item.detail.updatedAt || exportedAt,
       jsonPath: pathInfo.jsonPath,
       mdPath: pathInfo.mdPath
     })
@@ -318,7 +326,12 @@ export async function exportSpaceArchive(
         )
 
         const buffer = await res.arrayBuffer()
-        const bytes = new Uint8Array(buffer)
+        let bytes = new Uint8Array(buffer)
+        if (ref.category === "embeds") {
+          const rawHtml = fflate.strFromU8(bytes)
+          const cleanedHtml = stripInjectedEmbedScript(rawHtml)
+          bytes = fflate.strToU8(cleanedHtml)
+        }
         manifestFile.size = bytes.length
         manifestFile.contentType =
           res.headers.get("content-type") || "application/octet-stream"

@@ -1,6 +1,18 @@
 import type { ManifestFile, ManifestFileCategory } from "./types"
 import { relativePosixPath } from "./path"
 
+/** 对外暴露的站内文件 key 形状：avatars/pages/imports 前缀或平铺 UUID.扩展名 */
+export const UPLOAD_KEY_RE =
+  /^(?:(?:avatars|pages|imports)\/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp|json)$/i
+
+/** embed 文件 key 形状：embeds/<uuid>.html */
+export const EMBED_KEY_RE =
+  /^embeds\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.html$/i
+
+export function isValidFileKey(key: string): boolean {
+  return UPLOAD_KEY_RE.test(key) || EMBED_KEY_RE.test(key)
+}
+
 export interface ExtractedFileRef {
   originalKey: string
   category: ManifestFileCategory
@@ -11,15 +23,14 @@ export interface ExtractedFileRef {
 export function parseFileKeyFromUrl(url: string): string | null {
   if (!url || typeof url !== "string") return null
   const trimmed = url.trim()
-  // 匹配 /api/files/<key> 或 http(s)://.../api/files/<key>
+  // 匹配 /api/files/<key> 或 http(s)://.../api/files/<key>，且必须匹配站内 key 形状
   const match = /(?:^|https?:\/\/[^/]+)\/api\/files\/([^\s?#)]+)/.exec(trimmed)
   if (match) {
-    return decodeURIComponent(match[1])
+    const decoded = decodeURIComponent(match[1])
+    return isValidFileKey(decoded) ? decoded : null
   }
   // 或者本身已经是 key 形式（如 pages/uuid.png, imports/uuid.png, embeds/uuid.html）
-  if (
-    /^(?:pages|imports|embeds)\/[0-9a-fA-F-]+(?:\.[a-zA-Z0-9]+)?$/.test(trimmed)
-  ) {
+  if (isValidFileKey(trimmed)) {
     return trimmed
   }
   return null

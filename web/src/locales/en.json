@@ -1200,6 +1200,7 @@
       "stageSkeleton": "Step 2/3: Creating page skeleton",
       "stageContent": "Step 3/3: Filling content and remapping",
       "completedTitle": "Space import completed",
+      "targetSpaceId": "New space ID",
       "importedPages": "Imported pages",
       "remappedLinks": "Remapped links",
       "failedFilesCount": "Failed files ({{count}})",

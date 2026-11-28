@@ -6,10 +6,13 @@ import {
   executeSpaceImport,
   preflightSpaceArchive
 } from "./import"
-import { exportSpaceArchive } from "./export"
+import { exportSpaceArchive, stripInjectedEmbedScript } from "./export"
 import { deleteCheckpoint, getCheckpoint, saveCheckpoint } from "./checkpoint"
 import {
+  EMBED_KEY_RE,
+  UPLOAD_KEY_RE,
   extractReferencedFiles,
+  parseFileKeyFromUrl,
   rewriteContentJson,
   rewriteMarkdownForExport
 } from "./content-parser"
@@ -41,6 +44,19 @@ vi.mock("@/lib/api", async (importOriginal) => {
   }
 })
 
+// Mock Markdown Download (saveBlob)
+let capturedSavedBlob: Blob | null = null
+vi.mock("@/lib/markdown-download", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/markdown-download")>()
+  return {
+    ...actual,
+    saveBlob: vi.fn((blob: Blob) => {
+      capturedSavedBlob = blob
+    })
+  }
+})
+
 // Mock IndexedDB
 const mockIdbStore = new Map<string, any>()
 vi.mock("./checkpoint", async (importOriginal) => {
@@ -63,6 +79,7 @@ describe("空间导出/导入核心引擎", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIdbStore.clear()
+    capturedSavedBlob = null
   })
 
   describe("路径与改写工具", () => {
@@ -81,28 +98,66 @@ describe("空间导出/导入核心引擎", () => {
       ).toBe("1-next.md")
     })
 
+    it("校验与解析站内文件 key，拦截非法形状与站外外链", () => {
+      // 合法 UPLOAD_KEY 形状
+      expect(
+        parseFileKeyFromUrl(
+          "/api/files/pages/11111111-1111-1111-1111-111111111111.png"
+        )
+      ).toBe("pages/11111111-1111-1111-1111-111111111111.png")
+      expect(
+        parseFileKeyFromUrl(
+          "https://my.domain.com/api/files/imports/22222222-2222-2222-2222-222222222222.jpg"
+        )
+      ).toBe("imports/22222222-2222-2222-2222-222222222222.jpg")
+      expect(
+        parseFileKeyFromUrl("pages/33333333-3333-3333-3333-333333333333.json")
+      ).toBe("pages/33333333-3333-3333-3333-333333333333.json")
+      // 合法 EMBED_KEY 形状
+      expect(
+        parseFileKeyFromUrl(
+          "/api/files/embeds/44444444-4444-4444-4444-444444444444.html"
+        )
+      ).toBe("embeds/44444444-4444-4444-4444-444444444444.html")
+      // 非法形状拦截（非 UUID、未被允许的扩展名、路径穿越等）
+      expect(parseFileKeyFromUrl("/api/files/pages/pic.png")).toBeNull()
+      expect(
+        parseFileKeyFromUrl("https://cdn.example.com/api/files/logo.png")
+      ).toBeNull()
+      expect(parseFileKeyFromUrl("/api/files/../../evil.sh")).toBeNull()
+      expect(parseFileKeyFromUrl("")).toBeNull()
+    })
+
     it("从 TipTap JSON 提取四类文件引用", () => {
       const sampleDoc = {
         type: "doc",
         content: [
           {
             type: "image",
-            attrs: { src: "/api/files/pages/img-1.png" }
+            attrs: {
+              src: "/api/files/pages/11111111-1111-1111-1111-111111111111.png"
+            }
           },
           {
             type: "image",
-            attrs: { originalSrc: "/api/files/imports/img-2.jpg" }
+            attrs: {
+              originalSrc:
+                "/api/files/imports/22222222-2222-2222-2222-222222222222.jpg"
+            }
           },
           {
             type: "excalidraw",
             attrs: {
-              sceneKey: "pages/canvas-scene.json",
-              previewKey: "pages/canvas-prev.png"
+              sceneKey: "pages/33333333-3333-3333-3333-333333333333.json",
+              previewKey: "pages/44444444-4444-4444-4444-444444444444.png"
             }
           },
           {
             type: "htmlEmbed",
-            attrs: { key: "embeds/chart.html", name: "业务图表.html" }
+            attrs: {
+              key: "embeds/55555555-5555-5555-5555-555555555555.html",
+              name: "业务图表.html"
+            }
           }
         ]
       }
@@ -140,22 +195,36 @@ describe("空间导出/导入核心引擎", () => {
           },
           {
             type: "image",
-            attrs: { src: "/api/files/pages/old-img.png" }
+            attrs: {
+              src: "/api/files/pages/11111111-1111-1111-1111-111111111111.png"
+            }
           },
           {
             type: "excalidraw",
             attrs: {
-              sceneKey: "pages/old-scene.json",
-              previewKey: "pages/old-prev.png"
+              sceneKey: "pages/22222222-2222-2222-2222-222222222222.json",
+              previewKey: "pages/33333333-3333-3333-3333-333333333333.png"
+            }
+          },
+          {
+            type: "htmlEmbed",
+            attrs: {
+              key: "embeds/44444444-4444-4444-4444-444444444444.html",
+              name: "嵌入.html"
             }
           }
         ]
       }
 
       const fileKeyMap = {
-        "pages/old-img.png": "pages/new-img.png",
-        "pages/old-scene.json": "pages/new-scene.json",
-        "pages/old-prev.png": "pages/new-prev.png"
+        "pages/11111111-1111-1111-1111-111111111111.png":
+          "pages/99999999-9999-9999-9999-999999999999.png",
+        "pages/22222222-2222-2222-2222-222222222222.json":
+          "pages/88888888-8888-8888-8888-888888888888.json",
+        "pages/33333333-3333-3333-3333-333333333333.png":
+          "pages/77777777-7777-7777-7777-777777777777.png",
+        "embeds/44444444-4444-4444-4444-444444444444.html":
+          "embeds/66666666-6666-6666-6666-666666666666.html"
       }
       const pageIdMap = { 101: 202 }
 
@@ -171,9 +240,25 @@ describe("空间导出/导入核心引擎", () => {
       expect(parsed.content[0].content[1].marks[0].attrs.href).toBe(
         "https://example.com"
       )
-      expect(parsed.content[1].attrs.src).toBe("/api/files/pages/new-img.png")
-      expect(parsed.content[2].attrs.sceneKey).toBe("pages/new-scene.json")
-      expect(parsed.content[2].attrs.previewKey).toBe("pages/new-prev.png")
+      expect(parsed.content[1].attrs.src).toBe(
+        "/api/files/pages/99999999-9999-9999-9999-999999999999.png"
+      )
+      expect(parsed.content[2].attrs.sceneKey).toBe(
+        "pages/88888888-8888-8888-8888-888888888888.json"
+      )
+      expect(parsed.content[2].attrs.previewKey).toBe(
+        "pages/77777777-7777-7777-7777-777777777777.png"
+      )
+      expect(parsed.content[3].attrs.key).toBe(
+        "embeds/66666666-6666-6666-6666-666666666666.html"
+      )
+    })
+
+    it("正确剥离动态注入的 embed 高度上报脚本，还原原始逐字 HTML", () => {
+      const rawHtml = `<!DOCTYPE html><html><head></head><body><h1>动画标题</h1></body></html>`
+      const injectedScript = `<script>(function() { try { var send = function() { var h = document.documentElement.scrollHeight; window.parent.postMessage({ type: 'ciki-embed-height', height: h }, '*'); }; send(); } catch(e){} })();</script>`
+      const deliveredHtml = `${rawHtml}${injectedScript}`
+      expect(stripInjectedEmbedScript(deliveredHtml)).toBe(rawHtml)
     })
 
     it("Markdown 相对化改写：图片、Embed 与站内链接", () => {
@@ -309,6 +394,39 @@ describe("空间导出/导入核心引擎", () => {
       ).toBe(true)
     })
 
+    it("允许文件名中包含 `..` 的合法页面条目通过预检（不误判为路径穿越）", async () => {
+      const validZip = createTestZip({
+        "manifest.json": JSON.stringify({
+          format: "ciki-space-export",
+          formatVersion: 1,
+          pages: [
+            {
+              exportId: "p-1",
+              parentExportId: null,
+              title: "版本 1..2 发布说明",
+              sortOrder: 0,
+              createdAt: "2026-11-28",
+              updatedAt: "2026-11-28",
+              jsonPath: "pages/0-版本 1..2-abc.json",
+              mdPath: "pages/0-版本 1..2-abc.md"
+            }
+          ],
+          files: []
+        }),
+        "pages/0-版本 1..2-abc.json": JSON.stringify({
+          type: "doc",
+          content: []
+        }),
+        "pages/0-版本 1..2-abc.md": "# 版本 1..2 发布说明"
+      })
+      const entries = await decompressZip(validZip)
+      const result = await preflightSpaceArchive(entries, "hash_valid_dots")
+      expect(result.valid).toBe(true)
+      expect(result.fatalErrors.some((e) => e.code === "PATH_TRAVERSAL")).toBe(
+        false
+      )
+    })
+
     it("拒绝页面 JSON 损坏或页面树成环的包", async () => {
       const corruptJsonZip = createTestZip({
         "manifest.json": JSON.stringify({
@@ -402,7 +520,7 @@ describe("空间导出/导入核心引擎", () => {
       ],
       files: [
         {
-          originalKey: "pages/img-1.png",
+          originalKey: "pages/11111111-1111-1111-1111-111111111111.png",
           packagePath: "images/img-1.png",
           category: "images",
           contentType: "image/png",
@@ -427,7 +545,9 @@ describe("空间导出/导入核心引擎", () => {
         },
         {
           type: "image",
-          attrs: { src: "/api/files/pages/img-1.png" }
+          attrs: {
+            src: "/api/files/pages/11111111-1111-1111-1111-111111111111.png"
+          }
         }
       ]
     })
@@ -455,8 +575,8 @@ describe("空间导出/导入核心引擎", () => {
       })
 
       vi.mocked(api.upload).mockResolvedValue({
-        key: "pages/new-uploaded-img.png",
-        url: "/api/files/pages/new-uploaded-img.png",
+        key: "pages/22222222-2222-2222-2222-222222222222.png",
+        url: "/api/files/pages/22222222-2222-2222-2222-222222222222.png",
         contentType: "image/png",
         size: 100
       })
@@ -540,7 +660,7 @@ describe("空间导出/导入核心引擎", () => {
         "/p/102"
       )
       expect(parsedRoot.content[1].attrs.src).toBe(
-        "/api/files/pages/new-uploaded-img.png"
+        "/api/files/pages/22222222-2222-2222-2222-222222222222.png"
       )
     })
 
@@ -550,7 +670,10 @@ describe("空间导出/导入核心引擎", () => {
         zipSha256: "resume_sha",
         targetSpaceId: 99,
         targetSpaceSlug: "resumed-space",
-        fileMap: { "pages/img-1.png": "pages/already-uploaded.png" },
+        fileMap: {
+          "pages/11111111-1111-1111-1111-111111111111.png":
+            "pages/22222222-2222-2222-2222-222222222222.png"
+        },
         pageMap: { "p-1": 201, "p-2": 202 },
         completedPages: { "p-1": true }, // 根页面已完成，子页面待填正文
         failedFiles: [],
@@ -627,7 +750,9 @@ describe("空间导出/导入核心引擎", () => {
       )
 
       expect(report.failedFiles).toHaveLength(1)
-      expect(report.failedFiles[0].originalKey).toBe("pages/img-1.png")
+      expect(report.failedFiles[0].originalKey).toBe(
+        "pages/11111111-1111-1111-1111-111111111111.png"
+      )
       expect(report.failedFiles[0].reason).toBe("FILE_TOO_LARGE")
     })
   })
@@ -690,22 +815,30 @@ describe("空间导出/导入核心引擎", () => {
           },
           {
             type: "image",
-            attrs: { src: "/api/files/pages/pic-1.png", width: 300 }
+            attrs: {
+              src: "/api/files/pages/11111111-1111-1111-1111-111111111111.png",
+              width: 300
+            }
           },
           {
             type: "image",
-            attrs: { src: "/api/files/imports/pic-2.png" }
+            attrs: {
+              src: "/api/files/imports/22222222-2222-2222-2222-222222222222.png"
+            }
           },
           {
             type: "excalidraw",
             attrs: {
-              sceneKey: "pages/canvas-1.json",
-              previewKey: "pages/canvas-prev.png"
+              sceneKey: "pages/33333333-3333-3333-3333-333333333333.json",
+              previewKey: "pages/44444444-4444-4444-4444-444444444444.png"
             }
           },
           {
             type: "htmlEmbed",
-            attrs: { key: "embeds/embed-1.html", name: "动画演示.html" }
+            attrs: {
+              key: "embeds/55555555-5555-5555-5555-555555555555.html",
+              name: "动画演示.html"
+            }
           }
         ]
       })
@@ -755,7 +888,13 @@ describe("空间导出/导入核心引擎", () => {
         return { contentJson: page3Json } as any
       })
       vi.mocked(pagesApi.get).mockImplementation(async (id) => {
-        return { contentMd: `页面 ${id} 正文` } as any
+        return {
+          id,
+          title: `页面 ${id}`,
+          contentMd: `页面 ${id} 正文`,
+          createdAt: "2026-11-28T10:00:00.000Z",
+          updatedAt: "2026-11-28T12:00:00.000Z"
+        } as any
       })
 
       const originalFetch = global.fetch
@@ -768,6 +907,13 @@ describe("空间导出/导入核心引擎", () => {
         }
         if (url.includes("/api/public")) {
           return new Response(JSON.stringify({ version: "v1.0.0-test" }))
+        }
+        if (url.includes("55555555-5555-5555-5555-555555555555.html")) {
+          const rawHtml = `<div>动画演示</div>`
+          const injectedScript = `<script>(function() { try { var send = function() { window.parent.postMessage({ type: 'ciki-embed-height', height: 100 }, '*'); }; send(); } catch(e){} })();</script>`
+          return new Response(rawHtml + injectedScript, {
+            headers: { "content-type": "text/html" }
+          })
         }
         if (url.includes("/api/files/")) {
           return new Response(new Uint8Array([10, 20, 30]), {
@@ -783,6 +929,175 @@ describe("空间导出/导入核心引擎", () => {
       expect(exportResult.manifest.pages).toHaveLength(3)
       expect(exportResult.manifest.files).toHaveLength(5)
       expect(exportResult.filename).toBe("fixture-space-export.zip")
+
+      // 验证 saveBlob 拦截到打包好的二进制文件
+      expect(capturedSavedBlob).not.toBeNull()
+      const arrayBuffer = await capturedSavedBlob!.arrayBuffer()
+      const zipBytes = new Uint8Array(arrayBuffer)
+
+      // 解压导出的真实 zip 数据
+      const entries = await decompressZip(zipBytes)
+
+      // 验证 embed html 文件在包内已剥离高度注入脚本
+      const embedZipKey = Object.keys(entries).find((k) =>
+        k.startsWith("embeds/")
+      )
+      expect(embedZipKey).toBeDefined()
+      expect(fflate.strFromU8(entries[embedZipKey!])).toBe(
+        "<div>动画演示</div>"
+      )
+
+      // 验证 manifest 包含真实 createdAt
+      const manifestInZip = JSON.parse(
+        fflate.strFromU8(entries["manifest.json"])
+      )
+      expect(manifestInZip.pages[0].createdAt).toBe("2026-11-28T10:00:00.000Z")
+
+      // 导入预检
+      const preflight = await preflightSpaceArchive(entries, "roundtrip-sha")
+      expect(preflight.valid).toBe(true)
+      expect(preflight.fatalErrors).toHaveLength(0)
+      expect(preflight.manifest!.pages).toHaveLength(3)
+      expect(preflight.manifest!.files).toHaveLength(5)
+
+      // Mock 导入端点
+      vi.mocked(spacesApi.create).mockResolvedValue({
+        id: 99,
+        name: "测试夹具空间",
+        slug: "fixture-space-imported",
+        description: "往返测试",
+        isDefault: false,
+        createdAt: "2026-11-28",
+        updatedAt: "2026-11-28"
+      } as any)
+
+      let uploadSeq = 0
+      vi.mocked(api.upload).mockImplementation(async (file: File) => {
+        uploadSeq++
+        const ext = file.name.split(".").pop() || "bin"
+        const newKey = `pages/uploaded-${uploadSeq}.${ext}`
+        return {
+          key: newKey,
+          url: `/api/files/${newKey}`,
+          contentType: file.type,
+          size: file.size
+        } as any
+      })
+
+      vi.mocked(api.uploadEmbed).mockImplementation(async (file: File) => {
+        return {
+          key: "embeds/uploaded-embed.html",
+          name: file.name,
+          contentType: "text/html",
+          size: file.size
+        } as any
+      })
+
+      let pageIdCounter = 100
+      const createdPages: Array<{
+        id: number
+        title: string
+        parentId: number | null
+        sortOrder: number
+      }> = []
+
+      vi.mocked(pagesApi.create).mockImplementation(async (data: any) => {
+        pageIdCounter++
+        const newPage = {
+          id: pageIdCounter,
+          title: data.title,
+          parentId: data.parentId ?? null,
+          sortOrder: data.sortOrder ?? 0
+        }
+        createdPages.push(newPage)
+        return newPage as any
+      })
+
+      const updatedPages = new Map<number, any>()
+      vi.mocked(pagesApi.update).mockImplementation(async (pageId, data) => {
+        updatedPages.set(pageId, data)
+        return { id: pageId, ...data } as any
+      })
+
+      // 执行导入
+      const report = await executeSpaceImport(
+        entries,
+        preflight,
+        "roundtrip-sha"
+      )
+
+      expect(report.targetSpaceId).toBe(99)
+      expect(report.pageCount).toBe(3)
+      expect(report.failedFiles).toHaveLength(0)
+      expect(report.remappedLinksCount).toBe(1)
+
+      // 断言三级骨架父子关系与顺序完全一致
+      expect(createdPages).toHaveLength(3)
+      expect(createdPages[0]).toEqual({
+        id: 101,
+        title: "顶级页面",
+        parentId: null,
+        sortOrder: 0
+      })
+      expect(createdPages[1]).toEqual({
+        id: 102,
+        title: "二级页面",
+        parentId: 101,
+        sortOrder: 0
+      })
+      expect(createdPages[2]).toEqual({
+        id: 103,
+        title: "三级页面",
+        parentId: 102,
+        sortOrder: 0
+      })
+
+      // 断言正文更新与结构化重映射（保真度）
+      // 1. 顶级页面（包含站内链接到三级页、图片、Excalidraw 画布、HTML Embed）
+      const page1Update = updatedPages.get(101)
+      expect(page1Update).toBeDefined()
+      const page1Parsed = JSON.parse(page1Update.contentJson)
+      // 站内链接 /p/3 重映射为新创建的三级页面 ID /p/103
+      expect(page1Parsed.content[0].content[0].marks[0].attrs.href).toBe(
+        "/p/103"
+      )
+      // 图片 key 重映射到新上传 key
+      expect(page1Parsed.content[1].attrs.src).toMatch(
+        /^\/api\/files\/pages\/uploaded-/
+      )
+      expect(page1Parsed.content[2].attrs.src).toMatch(
+        /^\/api\/files\/pages\/uploaded-/
+      )
+      // 画布 sceneKey 与 previewKey 重映射
+      expect(page1Parsed.content[3].attrs.sceneKey).toMatch(/^pages\/uploaded-/)
+      expect(page1Parsed.content[3].attrs.previewKey).toMatch(
+        /^pages\/uploaded-/
+      )
+      // htmlEmbed key 重映射
+      expect(page1Parsed.content[4].attrs.key).toBe(
+        "embeds/uploaded-embed.html"
+      )
+      // 派生 contentHtml 与 contentText
+      expect(page1Update.contentHtml).toContain("跳到三级页")
+      expect(page1Update.contentText).toContain("跳到三级页")
+
+      // 2. 二级页面（包含复杂表格与合并表头）
+      const page2Update = updatedPages.get(102)
+      expect(page2Update).toBeDefined()
+      const page2Parsed = JSON.parse(page2Update.contentJson)
+      expect(page2Parsed.content[0].type).toBe("table")
+      expect(page2Parsed.content[0].content[0].content[0].attrs.colspan).toBe(2)
+      expect(
+        page2Parsed.content[0].content[0].content[0].content[0].content[0].text
+      ).toBe("合并表头")
+
+      // 3. 三级页面（包含代码块）
+      const page3Update = updatedPages.get(103)
+      expect(page3Update).toBeDefined()
+      const page3Parsed = JSON.parse(page3Update.contentJson)
+      expect(page3Parsed.content[0].type).toBe("codeBlock")
+      expect(page3Parsed.content[0].attrs.language).toBe("typescript")
+      expect(page3Parsed.content[0].content[0].text).toBe("const x = 1;")
     })
   })
 })
