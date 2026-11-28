@@ -98,6 +98,38 @@ async function search(
   }>
 }
 
+async function createPageWithDoc(
+  env: Env,
+  cookie: string,
+  input: {
+    title: string
+    spaceId?: number
+    contentJson: unknown
+    contentHtml?: string
+    contentText?: string
+  }
+): Promise<{ id: number; title: string }> {
+  const jsonStr =
+    typeof input.contentJson === "string"
+      ? input.contentJson
+      : JSON.stringify(input.contentJson)
+  const res = await jsonRequest(
+    env,
+    "POST",
+    "/api/pages",
+    {
+      title: input.title,
+      spaceId: input.spaceId ?? null,
+      contentJson: jsonStr,
+      contentHtml: input.contentHtml ?? `<p>${input.title}</p>`,
+      contentText: input.contentText ?? input.title
+    },
+    cookie
+  )
+  expect(res.status).toBe(201)
+  return (await res.json()) as { id: number; title: string }
+}
+
 async function createPage(
   env: Env,
   cookie: string,
@@ -824,5 +856,399 @@ describe("只读接口：GET /api/read/files/:key", () => {
     // 匿名请求会话端点回 401
     const anon = await request(env, `/api/files/${key}`)
     expect(anon.status).toBe(401)
+  })
+
+  it("引用授权：他人上传的文件被可读空间页面引用时，令牌可成功读回 (200)", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const adminWriteToken = await createApiToken(env, admin, "write")
+
+    const memberCookie = await userSession(env, admin, "member@example.com")
+    const memberReadToken = await createApiToken(env, memberCookie, "read")
+    const memberWriteToken = await createApiToken(env, memberCookie, "write")
+
+    // Admin 上传图片
+    const uploadRes = await uploadFile(
+      env,
+      adminWriteToken.token,
+      formWith(PNG, "image/png", "admin-pic.png")
+    )
+    expect(uploadRes.status).toBe(201)
+    const { key } = (await uploadRes.json()) as { key: string }
+
+    // 在默认空间（member 本身就在默认空间中）建页引用此图片
+    await createPageWithDoc(env, admin, {
+      title: "包含引用的页面",
+      contentJson: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              {
+                type: "image",
+                attrs: { src: `/api/files/${key}` }
+              }
+            ]
+          }
+        ]
+      },
+      contentHtml: `<p><img src="/api/files/${key}" /></p>`
+    })
+
+    // Member 使用 read 令牌读回他人上传但已引用的文件 -> 200
+    const readRes = await readGet(
+      env,
+      memberReadToken.token,
+      `/api/read/files/${key}`
+    )
+    expect(readRes.status).toBe(200)
+    expect(readRes.headers.get("content-type")).toBe("image/png")
+    expect(readRes.headers.get("content-length")).toBe(String(PNG.length))
+    const readBytes = new Uint8Array(await readRes.arrayBuffer())
+    expect(readBytes).toEqual(PNG)
+
+    // Member 使用 write 令牌读回 -> 200
+    const writeRes = await readGet(
+      env,
+      memberWriteToken.token,
+      `/api/read/files/${key}`
+    )
+    expect(writeRes.status).toBe(200)
+  })
+
+  it("引用授权：他人上传的 Excalidraw 场景 JSON 与 Embed HTML 被页面引用时放行 (200)", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const adminWriteToken = await createApiToken(env, admin, "write")
+
+    const memberCookie = await userSession(
+      env,
+      admin,
+      "canvas-member@example.com"
+    )
+    const memberReadToken = await createApiToken(env, memberCookie, "read")
+
+    // Admin 上传场景 JSON
+    const sceneJson = JSON.stringify({
+      type: "excalidraw",
+      version: 2,
+      source: "https://excalidraw.com",
+      elements: [],
+      appState: { viewBackgroundColor: "#ffffff" },
+      files: {}
+    })
+    const jsonUploadRes = await uploadFile(
+      env,
+      adminWriteToken.token,
+      formWith(
+        new TextEncoder().encode(sceneJson),
+        "application/json",
+        "scene.json"
+      )
+    )
+    expect(jsonUploadRes.status).toBe(201)
+    const sceneObj = (await jsonUploadRes.json()) as { key: string }
+
+    // Admin 上传 Embed HTML
+    const embedHtml = "<!DOCTYPE html><html><body>Embed Test</body></html>"
+    const embedForm = new FormData()
+    embedForm.append(
+      "file",
+      new File([new TextEncoder().encode(embedHtml)], "test.html", {
+        type: "text/html"
+      })
+    )
+    const embedUploadRes = await request(env, "/api/write/files/embeds", {
+      method: "POST",
+      headers: { authorization: `Bearer ${adminWriteToken.token}` },
+      body: embedForm
+    })
+    expect(embedUploadRes.status).toBe(201)
+    const embedObj = (await embedUploadRes.json()) as { key: string }
+
+    // 建页引用场景 JSON 与 Embed
+    await createPageWithDoc(env, admin, {
+      title: "包含画布与 Embed 的页面",
+      contentJson: {
+        type: "doc",
+        content: [
+          {
+            type: "excalidraw",
+            attrs: { sceneKey: sceneObj.key }
+          },
+          {
+            type: "htmlEmbed",
+            attrs: { key: embedObj.key, name: "test.html" }
+          }
+        ]
+      },
+      contentHtml: `<p><img data-type="excalidraw" data-scene-key="${sceneObj.key}" /><div data-type="html-embed" data-key="${embedObj.key}"></div></p>`
+    })
+
+    // Member 读回场景 JSON 与 Embed HTML -> 200
+    const sceneRead = await readGet(
+      env,
+      memberReadToken.token,
+      `/api/read/files/${sceneObj.key}`
+    )
+    expect(sceneRead.status).toBe(200)
+
+    const embedRead = await readGet(
+      env,
+      memberReadToken.token,
+      `/api/read/files/${embedObj.key}`
+    )
+    expect(embedRead.status).toBe(200)
+    expect(await embedRead.text()).toBe(embedHtml)
+  })
+
+  it("引用授权拒绝：页面所在空间无读权（非成员）回 404", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const adminWriteToken = await createApiToken(env, admin, "write")
+
+    // 非成员用户
+    const outsiderCookie = await userSession(env, admin, "outsider@example.com")
+    const outsiderToken = await createApiToken(env, outsiderCookie, "read")
+
+    // Admin 创建私有空间
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "隔离空间" },
+      admin
+    )
+    const space = (await spaceRes.json()) as { id: number }
+
+    // Admin 上传图片
+    const uploadRes = await uploadFile(
+      env,
+      adminWriteToken.token,
+      formWith(PNG, "image/png", "secret.png")
+    )
+    const { key } = (await uploadRes.json()) as { key: string }
+
+    // 在隔离空间建页引用
+    await createPageWithDoc(env, admin, {
+      title: "私密页",
+      spaceId: space.id,
+      contentJson: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "image", attrs: { src: `/api/files/${key}` } }]
+          }
+        ]
+      },
+      contentHtml: `<p><img src="/api/files/${key}" /></p>`
+    })
+
+    // Outsider 无法读取
+    const res = await readGet(
+      env,
+      outsiderToken.token,
+      `/api/read/files/${key}`
+    )
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: "File not found" })
+  })
+
+  it("引用授权拒绝：页面所在空间不在令牌空间范围 (tokenScope) 内回 404", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const adminWriteToken = await createApiToken(env, admin, "write")
+
+    const userCookie = await userSession(env, admin, "scoped-user@example.com")
+    const userProfile = (await (
+      await jsonRequest(env, "GET", "/api/me", undefined, userCookie)
+    ).json()) as { id: number }
+
+    // 创建第二个空间并将 user 加入
+    const spaceRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/spaces",
+      { name: "第二空间" },
+      admin
+    )
+    const space2 = (await spaceRes.json()) as { id: number }
+    await jsonRequest(
+      env,
+      "POST",
+      `/api/spaces/${space2.id}/members`,
+      { userId: userProfile.id, role: "viewer" },
+      admin
+    )
+
+    // 用户申请仅限定空间 1（默认空间 id=1）的令牌
+    const scopedToken = await createApiToken(env, userCookie, "read", {
+      spaceIds: [1]
+    })
+
+    // Admin 上传图片并在第二空间建页引用
+    const uploadRes = await uploadFile(
+      env,
+      adminWriteToken.token,
+      formWith(PNG, "image/png", "space2.png")
+    )
+    const { key } = (await uploadRes.json()) as { key: string }
+
+    await createPageWithDoc(env, admin, {
+      title: "第二空间的页面",
+      spaceId: space2.id,
+      contentJson: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "image", attrs: { src: `/api/files/${key}` } }]
+          }
+        ]
+      },
+      contentHtml: `<p><img src="/api/files/${key}" /></p>`
+    })
+
+    // scopedToken 仅授权空间 1，访问空间 2 引用的文件 -> 404
+    const res = await readGet(env, scopedToken.token, `/api/read/files/${key}`)
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: "File not found" })
+  })
+
+  it("引用授权拒绝：引用的页面已被软删除回 404", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const adminWriteToken = await createApiToken(env, admin, "write")
+
+    const memberCookie = await userSession(env, admin, "del-member@example.com")
+    const memberToken = await createApiToken(env, memberCookie, "read")
+
+    // Admin 上传图片
+    const uploadRes = await uploadFile(
+      env,
+      adminWriteToken.token,
+      formWith(PNG, "image/png", "deleted-page.png")
+    )
+    const { key } = (await uploadRes.json()) as { key: string }
+
+    // 建页引用
+    const page = await createPageWithDoc(env, admin, {
+      title: "即将软删的页面",
+      contentJson: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "image", attrs: { src: `/api/files/${key}` } }]
+          }
+        ]
+      },
+      contentHtml: `<p><img src="/api/files/${key}" /></p>`
+    })
+
+    // 软删除该页面
+    await jsonRequest(env, "DELETE", `/api/pages/${page.id}`, undefined, admin)
+
+    // Member 读回 -> 404
+    const res = await readGet(env, memberToken.token, `/api/read/files/${key}`)
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ error: "File not found" })
+  })
+
+  it("头像文件 avatars/ 不走引用授权，非上传者即使属于同一空间也一律 404", async () => {
+    const { env, r2 } = await initializedContext()
+    const admin = await adminSession(env)
+    const memberCookie = await userSession(
+      env,
+      admin,
+      "avatar-member@example.com"
+    )
+    const adminProfile = (await (
+      await jsonRequest(env, "GET", "/api/me", undefined, admin)
+    ).json()) as { id: number }
+
+    const adminToken = await createApiToken(env, admin, "read")
+    const memberToken = await createApiToken(env, memberCookie, "read")
+
+    const avatarId = "550e8400-e29b-41d4-a716-446655440000"
+    const avatarKey = `avatars/${avatarId}.png`
+
+    // 在 R2 中写入 Admin 的头像
+    await r2.put(avatarKey, PNG, {
+      customMetadata: { uploaderId: String(adminProfile.id) },
+      httpMetadata: { contentType: "image/png" }
+    })
+
+    // 即使在页面中引用该头像
+    await createPageWithDoc(env, admin, {
+      title: "引用了头像的页面",
+      contentJson: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              { type: "image", attrs: { src: `/api/files/${avatarKey}` } }
+            ]
+          }
+        ]
+      },
+      contentHtml: `<p><img src="/api/files/${avatarKey}" /></p>`
+    })
+
+    // Member 尝试读取 Admin 的头像 -> 404（头像不走引用授权）
+    const memberRes = await readGet(
+      env,
+      memberToken.token,
+      `/api/read/files/${avatarKey}`
+    )
+    expect(memberRes.status).toBe(404)
+    expect(await memberRes.json()).toEqual({ error: "File not found" })
+
+    // Admin 上传者本人读取 -> 200（上传者授权）
+    const adminRes = await readGet(
+      env,
+      adminToken.token,
+      `/api/read/files/${avatarKey}`
+    )
+    expect(adminRes.status).toBe(200)
+  })
+
+  it("上传者授权兜底：未被任何页面引用的暂存文件，上传者本人仍可读回 (200)，跨账号回 404", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+    const userCookie = await userSession(env, admin, "uploader@example.com")
+    const userWriteToken = await createApiToken(env, userCookie, "write")
+    const userReadToken = await createApiToken(env, userCookie, "read")
+    const otherCookie = await userSession(env, admin, "other-user@example.com")
+    const otherReadToken = await createApiToken(env, otherCookie, "read")
+
+    // User 上传文件，尚未被任何页面引用
+    const uploadRes = await uploadFile(
+      env,
+      userWriteToken.token,
+      formWith(PNG, "image/png", "unreferenced.png")
+    )
+    expect(uploadRes.status).toBe(201)
+    const { key } = (await uploadRes.json()) as { key: string }
+
+    // 上传者本人用 read 令牌读回 -> 200
+    const ownerRes = await readGet(
+      env,
+      userReadToken.token,
+      `/api/read/files/${key}`
+    )
+    expect(ownerRes.status).toBe(200)
+
+    // 其它账号读回未引用文件 -> 404
+    const otherRes = await readGet(
+      env,
+      otherReadToken.token,
+      `/api/read/files/${key}`
+    )
+    expect(otherRes.status).toBe(404)
+    expect(await otherRes.json()).toEqual({ error: "File not found" })
   })
 })

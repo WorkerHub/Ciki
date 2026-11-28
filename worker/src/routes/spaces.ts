@@ -12,29 +12,23 @@ import { Hono } from "hono"
 import type { Context } from "hono"
 import { getTablePrefix } from "../lib/table-prefix"
 import { parseId, readIdInput, readJsonBody } from "../lib/http"
-import {
-  isSpaceSlugConflict,
-  isValidSpaceSlug,
-  uniqueSpaceSlug
-} from "../lib/slug"
+import { isSpaceSlugConflict, isValidSpaceSlug } from "../lib/slug"
 import { findUserById } from "../db/queries/users"
+import { createSpace } from "../core/space-create"
 import {
   countSpaceAdmins,
   countSpacePages,
   deleteSpaceMember,
   deleteSpaceStatements,
   findSpaceMember,
-  insertSpace,
   insertSpaceMember,
   isSpaceSlugTaken,
-  listSpaceSlugs,
   listAllSpaces,
   listMemberCandidates,
   listSpaceMembers,
   listSpacesForUser,
   updateSpace,
   updateSpaceMemberRole,
-  updateSpaceSlug,
   type MemberCandidateRow,
   type SpaceMemberViewRow,
   type SpaceRow,
@@ -186,66 +180,24 @@ spaceRoutes.post("/", async (c) => {
     }
     customSlug = rawSlug
   }
-  const userId = c.get("userId")
-  const now = new Date().toISOString()
 
-  // 先落行拿自增 id：slug 的兜底形态 `space-<id>` 要等 id 出来才知道。
-  const inserted = await c.env.DB.batch([
-    insertSpace(c.env.DB, prefix, {
-      name,
-      description,
-      is_default: 0,
-      created_by: userId,
-      created_at: now,
-      updated_at: now
-    })
-  ])
-  const id = inserted[0].meta.last_row_id
-  let slug: string
-  if (customSlug !== null) {
-    slug = customSlug
-  } else {
-    const usedSlugs = new Set(await listSpaceSlugs(c.env.DB, prefix))
-    slug = uniqueSpaceSlug(name, id, (candidate) => usedSlugs.has(candidate))
-  }
-
-  try {
-    await c.env.DB.batch([
-      updateSpaceSlug(c.env.DB, prefix, id, slug),
-      insertSpaceMember(c.env.DB, prefix, {
-        space_id: id,
-        user_id: userId,
-        role: "admin",
-        created_at: now
-      })
-    ])
-  } catch (err) {
-    if (isSpaceSlugConflict(err)) {
-      await c.env.DB.batch(deleteSpaceStatements(c.env.DB, prefix, id)).catch(
-        () => {}
-      )
-      return c.json(
-        {
-          error: "Space slug is already taken",
-          code: "SPACE_SLUG_TAKEN"
-        },
-        409
-      )
-    }
-    throw err
-  }
-
-  const space: SpaceRow = {
-    id,
-    slug,
+  const outcome = await createSpace(c.env.DB, prefix, {
     name,
     description,
-    is_default: 0,
-    created_by: userId,
-    created_at: now,
-    updated_at: now
+    slug: customSlug,
+    userId: c.get("userId")
+  })
+  if (!outcome.ok) {
+    return c.json(
+      {
+        error: "Space slug is already taken",
+        code: "SPACE_SLUG_TAKEN"
+      },
+      409
+    )
   }
-  return c.json(toSpaceDto(space, "admin"), 201)
+
+  return c.json(toSpaceDto(outcome.space, "admin"), 201)
 })
 
 spaceRoutes.get("/:id", async (c) => {
