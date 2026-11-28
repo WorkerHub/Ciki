@@ -485,6 +485,33 @@ describe("三条通用图片入口动态生效实测（验收标准 §3）", () 
       limitBytes
     })
   })
+
+  it("Content-Length 头预检：超过通用上限的超大 JSON 场景正确返回场景上限 2MB", async () => {
+    const { env } = await initializedContext()
+    const admin = await adminSession(env)
+
+    // 上限设为 10MB
+    const limitBytes = 10 * 1024 * 1024
+    const overDeclared = String(limitBytes + 1024 * 1024 + 100)
+    const boundary = "----WebKitFormBoundaryTest"
+    const bodyText = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="large.json"\r\nContent-Type: application/json\r\n\r\n{"elements":[]}`
+
+    const res = await request(env, "/api/files", {
+      method: "POST",
+      headers: {
+        cookie: admin,
+        "content-length": overDeclared,
+        "content-type": `multipart/form-data; boundary=${boundary}`
+      },
+      body: bodyText
+    })
+    expect(res.status).toBe(413)
+    expect(await res.json()).toEqual({
+      error: "File too large",
+      code: "FILE_TOO_LARGE",
+      limitBytes: 2 * 1024 * 1024
+    })
+  })
 })
 
 describe("不动的上限回归不变（头像 2MB、场景 2MB、Embed 1MB）", () => {

@@ -231,13 +231,31 @@ export async function readUpload(
     maxBytes ?? (await readMaxImageUploadBytes(c.env.DB, prefix))
   const declared = Number.parseInt(c.req.header("content-length") ?? "0", 10)
   if (declared > effectiveMaxBytes + 1024 * 1024) {
+    let limitBytes = effectiveMaxBytes
+    if (allowJson && c.req.raw.body) {
+      try {
+        const reader = c.req.raw.body.getReader()
+        const { value } = await reader.read()
+        if (value) {
+          const snippet = new TextDecoder().decode(value.slice(0, 1024))
+          if (
+            snippet.includes('.json"') ||
+            snippet.includes("application/json")
+          ) {
+            limitBytes = MAX_SCENE_BYTES
+          }
+        }
+      } catch {
+        // stream already consumed or not readable, fallback to effectiveMaxBytes
+      }
+    }
     return {
       ok: false,
       response: c.json(
         {
           error: "File too large",
           code: "FILE_TOO_LARGE",
-          limitBytes: effectiveMaxBytes
+          limitBytes
         },
         413
       )

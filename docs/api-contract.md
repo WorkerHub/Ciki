@@ -2070,6 +2070,8 @@ embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字�
 
 400 非图片/类型不符；413 `code:"FILE_TOO_LARGE"`（响应带 `limitBytes` 生效字节数）。
 
+- **413 响应规格与预检口径**：响应体带 `limitBytes`（当前生效上限字节数）。通用图片为系统配置的生效字节数（默认 10MB，1–100MB）；画布场景 JSON 恒为 2MB（2097152 字节）；头像专用口恒为 2MB。请求头声明的 `Content-Length > 生效上限 + 1MB` 时在表单解析前提前拦截并返回 413；若识别为场景 JSON 则返回 2MB，其余按通用图片生效上限返回 `limitBytes`。
+
 #### POST /api/files/embeds
 
 `multipart/form-data`，字段名 `file`，单文件。需会话鉴权（页面写权限）。
