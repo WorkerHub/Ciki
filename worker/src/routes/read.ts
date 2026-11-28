@@ -257,15 +257,67 @@ readRoutes.get("/pages/:id", async (c) => {
 })
 
 /**
+ * 校验 key 是否被当前令牌所属用户在有效范围内可读的未删页面引用。
+ *
+ * 引用关系的判定走 D1 内现行派生列（`content_md`/`content_html` 含 `/api/files/<key>` 绝对地址）
+ * 按 key 检索候选页，再按现行读权校验链核候选页空间；检索先按令牌可读空间收窄候选集（复用
+ * `spaceFilters`），不全表扫描后逐个试（规格 §三.2）。
+ */
+async function hasReferencedPageReadAccess(
+  c: Context<HonoEnv>,
+  key: string
+): Promise<boolean> {
+  const prefix = getTablePrefix(c.env)
+  const filters = spaceFilters(c, prefix)
+  const where = filters.map((filter) => filter.sql).join("\n        ")
+  const binds = filterBinds(filters)
+  const fileRef = `/api/files/${key}`
+  const stmt = c.env.DB.prepare(
+    `SELECT p.id AS id, p.space_id AS space_id
+       FROM ${pagesTable(prefix)} p
+      WHERE p.deleted_at IS NULL
+        ${where}
+        AND (
+          instr(p.content_md, ?) > 0
+          OR instr(p.content_html, ?) > 0
+          OR instr(p.content_html, ?) > 0
+        )
+      LIMIT 1`
+  )
+  const row = await stmt
+    .bind(...binds, fileRef, fileRef, key)
+    .first<{ id: number; space_id: number }>()
+
+  if (!row) return false
+
+  if (!tokenScopeAllows(c.get("tokenScope"), row.space_id)) {
+    return false
+  }
+
+  const role = await resolveSpaceRole(
+    c.env.DB,
+    prefix,
+    row.space_id,
+    c.get("userId"),
+    c.get("role") === "admin"
+  )
+  return role !== null
+}
+
+/**
  * GET /api/read/files/:key：接口令牌文件读回端点。
  *
- * 供外部连接器（如 Agent 自验落盘内容）读回本人上传的文件字节。
+ * 供外部连接器（如 Agent 导出/自验）读回文件字节。
  *
  * - 鉴权已由中间件覆盖：只认 Authorization: Bearer，kind 为 read 或 write 均可；
  *   会话 Cookie 与导入令牌拒 401（带 Cache-Control: no-store）。
  * - key 形状严格校验：命中 UPLOAD_KEY_RE 或 EMBED_KEY_RE 即通过形状关，形状不符回 404。
- * - 归属校验：比对 R2 对象的 customMetadata.uploaderId 与令牌主人 userId；
- *   不相等、无此元数据或对象不存在一律 404，不泄露存在性。
+ * - 授权规则（原则修正，2026-11-28 用户拍板）：
+ *   两条并列，任一成立即放行：
+ *   A. 引用授权：该 key 被至少一个未删页面引用、且令牌所属账号对该页面所在空间有读权、且该空间在令牌范围内；
+ *   B. 上传者授权：对象 customMetadata.uploaderId = 令牌主人 userId（覆盖尚未被任何页面引用的暂存文件）；
+ *   两条都不成立仍 404 不泄露存在性。
+ *   头像文件（avatars/ 类别）不走引用授权，维持现行口径不变。
  * - 成功：200 返回文件字节，响应头与会话端点一致（Content-Type + Content-Length + ETag + Cache-Control）。
  */
 readRoutes.get("/files/:key{.+}", async (c) => {
@@ -280,7 +332,16 @@ readRoutes.get("/files/:key{.+}", async (c) => {
   }
 
   const uploaderId = object.customMetadata?.uploaderId
-  if (!uploaderId || uploaderId !== String(c.get("userId"))) {
+  const isUploader =
+    uploaderId !== undefined && uploaderId === String(c.get("userId"))
+
+  let authorized = isUploader
+
+  if (!authorized && !key.startsWith("avatars/")) {
+    authorized = await hasReferencedPageReadAccess(c, key)
+  }
+
+  if (!authorized) {
     return c.json({ error: "File not found" }, 404)
   }
 

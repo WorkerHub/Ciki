@@ -160,6 +160,28 @@ Ciki 采用专表与职责分离设计，API 令牌分为两种类型（`kind`�
 - **请求**：`DELETE /api/write/pages/:id`
   页面将被移入空间回收站，其子页面一并被软删除，可在站内回收站中恢复。
 
+### 3.5 创建空间
+
+- **请求**：`POST /api/write/spaces`
+- **鉴权要求**：仅**不限范围**（`spaceIds` 为 `null`）的 write 令牌可调用，新空间归属令牌所属账号并自动成为空间管理员；受限令牌回 403 Forbidden；read 令牌与导入令牌回 401。
+- **请求体**：
+```json
+{
+  "title": "新建知识库空间",
+  "description": "可选的空间描述"
+}
+```
+
+- **响应**：201 Created
+```json
+{
+  "id": 2,
+  "slug": "xin-jian-zhi-shi-ku-kong-jian",
+  "title": "新建知识库空间"
+}
+```
+`slug` 由服务端按现行唯一性规则自动派生并保证冲突递增，不接受调用方指定。
+
 ---
 
 ## 四、文件与 Embed 上传
@@ -187,9 +209,14 @@ Ciki 采用专表与职责分离设计，API 令牌分为两种类型（`kind`�
 }
 ```
 
-### 4.3 跨账号读取隔离
+### 4.3 文件读回与授权规则（引用授权与上传者授权）
 
-通过 `GET /api/read/files/:key` 读取文件（支持正文图片、画布场景 JSON 及 Embed 嵌入 HTML，key 须匹配 `pages/<uuid>.<ext>` 或 `embeds/<uuid>.html` 等合法形状）时，服务端会严格校验上传者身份。若文件非当前令牌所属账号上传或形状不合法，接口将返回 404，不泄露文件是否存在。
+通过 `GET /api/read/files/:key` 读取文件（支持正文图片、画布场景 JSON 及 Embed 嵌入 HTML，key 须匹配 `pages/<uuid>.<ext>` 或 `embeds/<uuid>.html` 等合法形状）时，服务端支持两条并列授权（任一成立即放行）：
+
+1. **引用授权**：该 key 被至少一个未删页面引用，且当前令牌所属账号对该页面所在空间有读权限，且该空间在令牌授权范围内；
+2. **上传者授权**：对象元数据 `uploaderId` 等于当前令牌主人 userId（覆盖尚未被任何页面引用的暂存文件，如刚上传待插入的场景文件）。
+
+头像文件（`avatars/`）不走引用授权。若两条均不成立或 key 形状不合法，接口一律返回 404，不泄露文件是否存在。
 
 ---
 
@@ -326,7 +353,8 @@ window.addEventListener("message", (event) => {
 | 状态码                       | 常见原因                     | 排查方向                                                                                                                                                                                                                                                                                               |
 | ---------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **401 Unauthorized**         | 令牌未带、令牌失效或路由混淆 | 1. 检查请求头是否携带 `Authorization: Bearer <token>`；<br>2. **核对端点路径**：外部 Agent 必须调用 `/api/read/*` 与 `/api/write/*`，严禁使用真人前端的会话端点（如 `/api/pages` 等会话端点不接受 API 令牌）；<br>3. 检查令牌是否已在管理后台被吊销，或所属 Agent 账号是否停用。                       |
-| **404 Not Found**            | 资源不存在或无权访问         | 1. 页面确实不存在或已放入回收站；<br>2. 令牌归属账号在目标空间中无对应成员角色（读需成员，写需 editor）；<br>3. 该空间未被包含在令牌授权的空间范围列表中；<br>4. 读文件时，该文件并非由当前令牌归属账号上传。                                                                                          |
+| **403 Forbidden**            | 权限不足或令牌范围受限       | 调用 `POST /api/write/spaces` 时使用了限定空间范围的 write 令牌（仅不限范围令牌可新建空间）。                                                                                                                                                                                                          |
+| **404 Not Found**            | 资源不存在或无权访问         | 1. 页面确实不存在或已放入回收站；<br>2. 令牌归属账号在目标空间中无对应成员角色（读需成员，写需 editor）；<br>3. 该空间未被包含在令牌授权的空间范围列表中；<br>4. 读文件时，该文件既未被当前令牌可见的未删页面引用，且非当前令牌所属账号上传。                                                          |
 | **400 INVALID_CONTENT_JSON** | TipTap JSON 格式不合规       | 1. `content_json` 必须包含合法的 `type: "doc"` 顶层对象；<br>2. `excalidraw` 节点的 `sceneKey` 必须必填且匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`；若提供 `previewKey` 则须匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`。 |
 | **413 PAYLOAD_TOO_LARGE**    | 内容或文件超限               | 1. 正文 JSON 体积超限（单页上限 5 MB）；<br>2. 上传文件超过相应类型大小限制（图片默认 10MB，可在系统管理配置（1–100MB）、场景 2 MB、Embed 1 MB）。                                                                                                                                                     |
 | **429 RATE_LIMITED**         | 触发频控限流                 | 单用户写接口频控为 600 次 / 5 分钟，认证失败为 20 次 / 5 分钟。请遵循响应中的 `retryAfter` 秒数进行退避重试。                                                                                                                                                                                          |
@@ -338,3 +366,114 @@ window.addEventListener("message", (event) => {
 - **OpenAPI 3.1 规范**：`GET /api/openapi.json`（公开免鉴权，返回同源完整 API 规范元数据）。
 - **Agent 指引页**：`GET /api/public/agent-guide`（公开免鉴权，返回本指引 Markdown 原文）。
 - **发现入口**：`GET /api/public`（返回实例版本与上述端点发现字段）。
+
+---
+
+## 十一、空间导出/导入组装协议
+
+本节提供标准化轻端点编排协议，供外部 Agent 在不新增专属服务端批处理端点的前提下，通过客户端管道流水线完成空间的全量导出与导入。
+
+### 11.1 端点序列
+
+空间导出与导入由标准端点序列组合完成：
+
+```
+导出流水线：
+  [GET /api/read/spaces]                  --> 获取源空间信息 (id, name, slug)
+    │
+  [GET /api/read/tree?space_id=:id]       --> 获取未删页面树 (扁平列表，保留 parent_id / sort_order)
+    │
+  [GET /api/read/pages/:id?format=json]   --> 逐页拉取完整 content_json (严禁 Markdown 中转)
+    │
+  [GET /api/read/files/:key]              --> 解析正文引用的图片/场景/Embed，基于引用授权拉取字节
+
+导入流水线：
+  [POST /api/write/spaces]                --> 创建目标新空间 { title }，获得新空间 { id, slug, title }
+    │
+  [POST /api/write/files(*)]              --> 上传图片、场景 JSON 与 Embed HTML，建立 Key 映射
+    │
+  [POST /api/write/pages] (第一遍建页)     --> 按拓扑序建页（骨架或初始正文），建立 Page ID 映射
+    │
+  [PUT /api/write/pages/:id] (第二遍更新)  --> 重映射页面链接与文件 Key，提交最终定稿正文
+```
+
+### 11.2 并发与重试
+
+- **频控限额**：写端点为单账号 600 次 / 5 分钟，认证失败为 20 次 / 5 分钟；读端点为单账号 3000 次 / 5 分钟。
+- **客户端并发建议**：
+  - 导出正文与下载文件：建议并发度保持在 3–5，平稳拉取；
+  - 导入上传文件与建页：建议并发度保持在 2–4，避免瞬时并发触发限流。
+- **重试与退避机制**：
+  - **429 RATE_LIMITED**：响应体包含 `retryAfter` 字段（秒数），客户端必须严格等待对应秒数后再发起重试；
+  - **网络抖动与 5xx 临时错误**：采用指数退避（1s、2s、4s）进行有限重试（最多 3 次）。
+
+### 11.3 检查点字段（断点续跑）
+
+外部 Agent 必须在本地维护断点续跑检查点（Checkpoint State），确保在网络中断或异常恢复后无需从头重新执行：
+
+```json
+{
+  "version": "1.0.0",
+  "source_space_id": 1,
+  "target_space_id": 2,
+  "stage": "importing_pages",
+  "file_mapping": {
+    "pages/old-uuid.png": "pages/new-uuid.png",
+    "embeds/old-uuid.html": "embeds/new-uuid.html"
+  },
+  "page_mapping": {
+    "101": 201,
+    "102": 202
+  },
+  "processed_pages": [101, 102],
+  "processed_files": ["pages/old-uuid.png"],
+  "updated_at": "2026-11-28T09:00:00.000Z"
+}
+```
+
+阶段定义：`exporting_metadata` → `exporting_pages` → `exporting_files` → `importing_files` → `creating_pages` → `remapping_content` → `completed`。
+
+### 11.4 两遍重映射机制
+
+正文之间常有跨页面互链（如页面 A 链接页面 B，页面 B 又链接页面 A），一次写入无法同时满足所有依赖。必须执行两遍写入：
+
+1. **第一遍（拓扑建页）**：
+   - 按照树的层级结构（父节点优先于子节点）依次调用 `POST /api/write/pages` 创建页面；
+   - 若父页面已在前序创建，带上对应 `parent_id`；若存在复杂循环依赖，可先创建空骨架页记录 `oldPageId -> newPageId` 映射关系。
+2. **第二遍（链接与引用重映射）**：
+   - 遍历每个页面的 `content_json`，替换其中的两类引用：
+     - **站内页面超链接**：匹配 `/p/<oldPageId>`、`/s/<oldSlug>/<oldPageId>`，替换为目标空间对应的新页面路径；
+     - **资产文件 Key**：
+       - 图片 `src`: `/api/files/<oldKey>` → `/api/files/<newKey>`
+       - 画布 `sceneKey`: `<oldKey>` → `<newKey>`
+       - 画布 `previewKey`: `<oldKey>` → `<newKey>`（如省略，阅读态将自动回填）
+       - Embed `key`: `<oldKey>` → `<newKey>`
+   - 调用 `PUT /api/write/pages/:newPageId` 将定稿正文写回服务端。
+
+### 11.5 报告字段
+
+导出/导入流程全部结束后，Agent 应输出结构化迁移汇总报告：
+
+```json
+{
+  "status": "success",
+  "source_space": {
+    "id": 1,
+    "slug": "engineering",
+    "title": "工程技术"
+  },
+  "target_space": {
+    "id": 2,
+    "slug": "engineering-backup",
+    "title": "工程技术备份"
+  },
+  "pages_total": 42,
+  "pages_migrated": 42,
+  "files_total": 18,
+  "files_migrated": 18,
+  "errors": [],
+  "duration_ms": 12850
+}
+```
+
+若存在部分失败，`status` 标记为 `"partial_failure"` 或 `"failed"`，并在 `errors` 中附带失败项详情（`item`, `stage`, `error`）。
