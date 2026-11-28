@@ -1,0 +1,1318 @@
+[
+  {
+    "label": "long-nova-light-1280-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 448,
+    "dlgLeft": 416,
+    "dlgRight": 864,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      416
+    ],
+    "contentBoxW": 416,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 607,
+      "clientW": 392,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 432,
+      "rectRight": 824,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 448
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-nova-light-1280-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 437,
+    "listboxRight": 1028.6,
+    "inViewport": true,
+    "maxWidth": "1248px",
+    "itemOverflow": false,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": false,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-nova-light-1280-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 384,
+    "dlgLeft": 448,
+    "dlgRight": 832,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      352
+    ],
+    "contentBoxW": 352,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 621,
+      "clientW": 352,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 464,
+      "rectRight": 816,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 384
+    },
+    "trigger": null
+  },
+  {
+    "label": "long-nova-light-500-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 468,
+    "dlgLeft": 16,
+    "dlgRight": 484,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      436
+    ],
+    "contentBoxW": 436,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 607,
+      "clientW": 412,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 32,
+      "rectRight": 444,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 468
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-nova-light-500-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 22,
+    "listboxRight": 490,
+    "inViewport": true,
+    "maxWidth": "468px",
+    "itemOverflow": true,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": true,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-nova-light-500-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 320,
+    "dlgLeft": 90,
+    "dlgRight": 410,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      288
+    ],
+    "contentBoxW": 288,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 621,
+      "clientW": 288,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 106,
+      "rectRight": 394,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 320
+    },
+    "trigger": null
+  },
+  {
+    "label": "long-nova-dark-1280-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 448,
+    "dlgLeft": 416,
+    "dlgRight": 864,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      416
+    ],
+    "contentBoxW": 416,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 607,
+      "clientW": 392,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 432,
+      "rectRight": 824,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 448
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-nova-dark-1280-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 437,
+    "listboxRight": 1028.6,
+    "inViewport": true,
+    "maxWidth": "1248px",
+    "itemOverflow": false,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": false,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-nova-dark-1280-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 384,
+    "dlgLeft": 448,
+    "dlgRight": 832,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      352
+    ],
+    "contentBoxW": 352,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 621,
+      "clientW": 352,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 464,
+      "rectRight": 816,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 384
+    },
+    "trigger": null
+  },
+  {
+    "label": "long-nova-dark-500-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 468,
+    "dlgLeft": 16,
+    "dlgRight": 484,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      436
+    ],
+    "contentBoxW": 436,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 607,
+      "clientW": 412,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 32,
+      "rectRight": 444,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 468
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-nova-dark-500-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 22,
+    "listboxRight": 490,
+    "inViewport": true,
+    "maxWidth": "468px",
+    "itemOverflow": true,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": true,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-nova-dark-500-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 320,
+    "dlgLeft": 90,
+    "dlgRight": 410,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      288
+    ],
+    "contentBoxW": 288,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 621,
+      "clientW": 288,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 106,
+      "rectRight": 394,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 320
+    },
+    "trigger": null
+  },
+  {
+    "label": "long-paper-light-1280-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 448,
+    "dlgLeft": 416,
+    "dlgRight": 864,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      416
+    ],
+    "contentBoxW": 416,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 609,
+      "clientW": 392,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 432,
+      "rectRight": 824,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 448
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-paper-light-1280-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 437,
+    "listboxRight": 1029.3,
+    "inViewport": true,
+    "maxWidth": "1248px",
+    "itemOverflow": false,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": false,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-paper-light-1280-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 384,
+    "dlgLeft": 448,
+    "dlgRight": 832,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      352
+    ],
+    "contentBoxW": 352,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 624,
+      "clientW": 352,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 464,
+      "rectRight": 816,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 384
+    },
+    "trigger": null
+  },
+  {
+    "label": "long-paper-light-500-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 468,
+    "dlgLeft": 16,
+    "dlgRight": 484,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      436
+    ],
+    "contentBoxW": 436,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 609,
+      "clientW": 412,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 32,
+      "rectRight": 444,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 468
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-paper-light-500-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 22,
+    "listboxRight": 490,
+    "inViewport": true,
+    "maxWidth": "468px",
+    "itemOverflow": true,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": true,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-paper-light-500-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 320,
+    "dlgLeft": 90,
+    "dlgRight": 410,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      288
+    ],
+    "contentBoxW": 288,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 624,
+      "clientW": 288,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 106,
+      "rectRight": 394,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 320
+    },
+    "trigger": null
+  },
+  {
+    "label": "long-paper-dark-1280-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 448,
+    "dlgLeft": 416,
+    "dlgRight": 864,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      416
+    ],
+    "contentBoxW": 416,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 609,
+      "clientW": 392,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 432,
+      "rectRight": 824,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 448
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-paper-dark-1280-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 437,
+    "listboxRight": 1029.3,
+    "inViewport": true,
+    "maxWidth": "1248px",
+    "itemOverflow": false,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": false,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-paper-dark-1280-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 384,
+    "dlgLeft": 448,
+    "dlgRight": 832,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      352
+    ],
+    "contentBoxW": 352,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 624,
+      "clientW": 352,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 464,
+      "rectRight": 816,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 384
+    },
+    "trigger": null
+  },
+  {
+    "label": "long-paper-dark-500-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 468,
+    "dlgLeft": 16,
+    "dlgRight": 484,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      436
+    ],
+    "contentBoxW": 436,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 609,
+      "clientW": 412,
+      "attr": "移动「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」",
+      "rectLeft": 32,
+      "rectRight": 444,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 468
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "long-paper-dark-500-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 22,
+    "listboxRight": 490,
+    "inViewport": true,
+    "maxWidth": "468px",
+    "itemOverflow": true,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": true,
+        "selected": true
+      },
+      {
+        "text": "6.0 短标题回归页",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "long-paper-dark-500-delete-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 320,
+    "dlgLeft": 90,
+    "dlgRight": 410,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      288
+    ],
+    "contentBoxW": 288,
+    "title": {
+      "singleLine": true,
+      "lineH": "21px",
+      "rectH": 21,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": true,
+      "scrollW": 624,
+      "clientW": 288,
+      "attr": "删除「5.0 二级长标题待移动页——移动对话框长标题穿模修复复验用页面标题也是相当的长☆」？",
+      "rectLeft": 106,
+      "rectRight": 394,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 320
+    },
+    "trigger": null
+  },
+  {
+    "label": "short-nova-light-1280-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 448,
+    "dlgLeft": 416,
+    "dlgRight": 864,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      416
+    ],
+    "contentBoxW": 416,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": false,
+      "scrollW": 392,
+      "clientW": 392,
+      "attr": "移动「6.0 短标题回归页」",
+      "rectLeft": 432,
+      "rectRight": 824,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 448
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "short-nova-light-1280-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 437,
+    "listboxRight": 1057,
+    "inViewport": true,
+    "maxWidth": "1248px",
+    "itemOverflow": false,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": false,
+        "selected": true
+      },
+      {
+        "text": "5.0 二级长标题待移动页—",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  },
+  {
+    "label": "short-paper-dark-500-move-closed",
+    "dlgOverflowX": 0,
+    "dlgOverflowY": 0,
+    "dlgWidth": 468,
+    "dlgLeft": 16,
+    "dlgRight": 484,
+    "inViewportX": true,
+    "inViewportY": true,
+    "pageOverflowX": 0,
+    "trackPx": [
+      436
+    ],
+    "contentBoxW": 436,
+    "title": {
+      "singleLine": true,
+      "lineH": "14px",
+      "rectH": 14,
+      "textOverflow": "ellipsis",
+      "whiteSpace": "nowrap",
+      "overflowX": "hidden",
+      "truncated": false,
+      "scrollW": 412,
+      "clientW": 412,
+      "attr": "移动「6.0 短标题回归页」",
+      "rectLeft": 32,
+      "rectRight": 444,
+      "insideDlgX": true
+    },
+    "hasDesc": true,
+    "descInsideDlgX": true,
+    "footerRect": {
+      "inViewport": true,
+      "width": 468
+    },
+    "trigger": {
+      "clipped": true,
+      "ellipsis": true,
+      "withinForm": true
+    }
+  },
+  {
+    "label": "short-paper-dark-500-move-open",
+    "listboxOverflowX": 0,
+    "listboxLeft": 22,
+    "listboxRight": 490,
+    "inViewport": true,
+    "maxWidth": "468px",
+    "itemOverflow": true,
+    "items": [
+      {
+        "text": "顶层（无父页面）",
+        "indentPx": 6,
+        "left": 0,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "1.0 根页面",
+        "indentPx": 0,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "2.0 一级子页面",
+        "indentPx": 18,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "3.0 二级子页面",
+        "indentPx": 36,
+        "left": 6,
+        "overflow": false,
+        "selected": false
+      },
+      {
+        "text": "4.0 这是一个用于验证移动",
+        "indentPx": 54,
+        "left": 6,
+        "overflow": true,
+        "selected": true
+      },
+      {
+        "text": "5.0 二级长标题待移动页—",
+        "indentPx": 72,
+        "left": 6,
+        "overflow": true,
+        "selected": false
+      }
+    ],
+    "indentSteps": [
+      -6,
+      18,
+      18,
+      18,
+      18
+    ],
+    "pageOverflowX": 0
+  }
+]

@@ -1,0 +1,27 @@
+[
+  {
+    "case": "long-nova-light-500-move-open",
+    "what": "下拉选项文本横向溢出",
+    "got": "false"
+  },
+  {
+    "case": "long-nova-dark-500-move-open",
+    "what": "下拉选项文本横向溢出",
+    "got": "false"
+  },
+  {
+    "case": "long-paper-light-500-move-open",
+    "what": "下拉选项文本横向溢出",
+    "got": "false"
+  },
+  {
+    "case": "long-paper-dark-500-move-open",
+    "what": "下拉选项文本横向溢出",
+    "got": "false"
+  },
+  {
+    "case": "short-paper-dark-500-move-open",
+    "what": "下拉选项文本横向溢出",
+    "got": "false"
+  }
+]
