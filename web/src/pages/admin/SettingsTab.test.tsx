@@ -59,6 +59,61 @@ describe("系统管理 · 站点名称", () => {
     expect(screen.getByRole("status")).toHaveTextContent("全站即时生效")
   })
 
+  it("点击保存按钮保存站点名后更新站点 store 并给成功提示", async () => {
+    const user = userEvent.setup()
+    vi.mocked(adminApi.saveSettings).mockResolvedValue({ success: true })
+    vi.mocked(adminApi.settings)
+      .mockResolvedValueOnce(settings)
+      .mockResolvedValueOnce({ ...settings, siteName: "团队知识库" })
+    render(<SettingsTab />)
+
+    const input = await screen.findByLabelText("站点名称")
+    const saveBtn = screen.getAllByRole("button", { name: "保存" })[0]
+    expect(saveBtn).toBeDisabled()
+
+    await user.clear(input)
+    await user.type(input, "团队知识库")
+    expect(saveBtn).toBeEnabled()
+
+    await user.click(saveBtn)
+
+    expect(adminApi.saveSettings).toHaveBeenCalledWith({
+      siteName: "团队知识库"
+    })
+    expect(useSiteStore.getState().name).toBe("团队知识库")
+    expect(screen.getByRole("status")).toHaveTextContent("全站即时生效")
+  })
+
+  it("失焦不提交站点名改动，保留为草稿", async () => {
+    const user = userEvent.setup()
+    render(<SettingsTab />)
+
+    const input = await screen.findByLabelText("站点名称")
+    await user.clear(input)
+    await user.type(input, "临时草稿")
+    await user.tab()
+
+    expect(adminApi.saveSettings).not.toHaveBeenCalled()
+    expect(input).toHaveValue("临时草稿")
+  })
+
+  it("Escape 键还原站点名草稿", async () => {
+    const user = userEvent.setup()
+    render(<SettingsTab />)
+
+    const input = await screen.findByLabelText("站点名称")
+    const saveBtn = screen.getAllByRole("button", { name: "保存" })[0]
+
+    await user.clear(input)
+    await user.type(input, "新名字")
+    expect(saveBtn).toBeEnabled()
+
+    await user.keyboard("{Escape}")
+    expect(input).toHaveValue("Ciki")
+    expect(saveBtn).toBeDisabled()
+    expect(adminApi.saveSettings).not.toHaveBeenCalled()
+  })
+
   it("应用设置里不再有注册开关与初始化页开关（已分别归位）", async () => {
     render(<SettingsTab />)
 
@@ -84,7 +139,7 @@ describe("系统管理 · 站点名称", () => {
     expect(screen.queryByText(/不提供 SMTP 配置/)).toBeNull()
   })
 
-  it("保存失败时回滚输入并显示错误", async () => {
+  it("保存失败时保留草稿并显示错误", async () => {
     const user = userEvent.setup()
     vi.mocked(adminApi.saveSettings).mockRejectedValue(
       new Error("network down")
@@ -96,7 +151,7 @@ describe("系统管理 · 站点名称", () => {
     await user.type(input, "新名字{Enter}")
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
-    expect(input).toHaveValue("Ciki")
+    expect(input).toHaveValue("新名字")
     expect(useSiteStore.getState().name).toBe("Ciki")
   })
 

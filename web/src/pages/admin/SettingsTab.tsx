@@ -49,15 +49,12 @@ export function SettingsTab() {
     setSaving(true)
     setError("")
     setNotice("")
-    const previous = settings
-    setSettings({ ...settings, siteName: next })
     try {
       await adminApi.saveSettings({ siteName: next })
       // 回读一次，确认后端真的落库：旧后端会忽略未知字段并回 200，
       // 不验证的话界面会假装保存成功。以服务端返回值为准。
       const saved = await adminApi.settings()
       if ((saved.siteName ?? "").trim() !== next) {
-        setSettings(previous)
         setError(t("admin.settings.siteName.notSaved"))
         return
       }
@@ -66,7 +63,6 @@ export function SettingsTab() {
       setName(next)
       setNotice(t("admin.settings.siteName.saved"))
     } catch (saveError) {
-      setSettings(previous)
       setError(
         saveError instanceof ApiError && saveError.status === 400
           ? t("admin.settings.siteName.tooLong")

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 
@@ -55,6 +57,7 @@ export function SettingTextRow({
   disabled?: boolean
   onSave: (value: string) => void
 }) {
+  const { t } = useTranslation()
   const [draft, setDraft] = useState(value)
 
   useEffect(() => {
@@ -71,6 +74,8 @@ export function SettingTextRow({
     onSave(next)
   }
 
+  const isClean = draft.trim() === value
+
   return (
     <div className="flex flex-col gap-2 border-b border-border py-3 last:border-b-0 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="space-y-0.5">
@@ -79,25 +84,35 @@ export function SettingTextRow({
           {description}
         </p>
       </div>
-      <Input
-        value={draft}
-        maxLength={maxLength}
-        disabled={disabled}
-        aria-label={label}
-        className="h-8 w-full sm:w-56"
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") {
-            event.preventDefault()
-            commit()
-          }
-          if (event.key === "Escape") {
-            event.preventDefault()
-            setDraft(value)
-          }
-        }}
-      />
+      <div className="flex w-full items-center gap-2 sm:w-auto">
+        <Input
+          value={draft}
+          maxLength={maxLength}
+          disabled={disabled}
+          aria-label={label}
+          className="h-8 w-full sm:w-56"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault()
+              commit()
+            }
+            if (event.key === "Escape") {
+              event.preventDefault()
+              setDraft(value)
+            }
+          }}
+        />
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 shrink-0"
+          disabled={disabled || isClean}
+          onClick={commit}
+        >
+          {t("common.save")}
+        </Button>
+      </div>
     </div>
   )
 }
