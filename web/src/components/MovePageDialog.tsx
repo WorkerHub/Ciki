@@ -150,11 +150,8 @@ export function MovePageDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader className="min-w-0">
-          <DialogTitle
-            title={t("page.move.title", { title: pageTitle })}
-            className="min-w-0 truncate"
-          >
+        <DialogHeader>
+          <DialogTitle title={t("page.move.title", { title: pageTitle })}>
             {t("page.move.title", { title: pageTitle })}
           </DialogTitle>
           <DialogDescription>{t("page.move.description")}</DialogDescription>

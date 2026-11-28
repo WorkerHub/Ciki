@@ -500,7 +500,7 @@ export function TrashPage() {
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader className="min-w-0 w-full">
+          <AlertDialogHeader>
             <AlertDialogTitle
               title={
                 purgeTarget?.type === "single"
@@ -513,7 +513,6 @@ export function TrashPage() {
                         count: purgeTarget?.items.length ?? 0
                       })
               }
-              className="min-w-0 max-w-full w-full truncate"
             >
               {purgeTarget?.type === "single"
                 ? t("trash.purgeDialog.title", {

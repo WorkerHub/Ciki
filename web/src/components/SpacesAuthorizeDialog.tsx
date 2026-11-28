@@ -220,10 +220,8 @@ export function SpacesAuthorizeDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl">
-        <DialogHeader className="min-w-0">
-          <DialogTitle title={title} className="min-w-0 truncate">
-            {title}
-          </DialogTitle>
+        <DialogHeader>
+          <DialogTitle title={title}>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
