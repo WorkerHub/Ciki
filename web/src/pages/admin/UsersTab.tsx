@@ -509,8 +509,13 @@ export function UsersTab() {
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
+          <AlertDialogHeader className="min-w-0 w-full">
+            <AlertDialogTitle
+              title={t("admin.users.deleteTitle", {
+                email: deleteTarget?.email
+              })}
+              className="min-w-0 max-w-full w-full truncate"
+            >
               {t("admin.users.deleteTitle", { email: deleteTarget?.email })}
             </AlertDialogTitle>
             <AlertDialogDescription>

@@ -815,8 +815,13 @@ export function SpaceSettingsPage() {
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
+          <AlertDialogHeader className="min-w-0 w-full">
+            <AlertDialogTitle
+              title={t("space.settings.members.removeTitle", {
+                name: removeTarget?.username || removeTarget?.email
+              })}
+              className="min-w-0 max-w-full w-full truncate"
+            >
               {t("space.settings.members.removeTitle", {
                 name: removeTarget?.username || removeTarget?.email
               })}
@@ -847,8 +852,13 @@ export function SpaceSettingsPage() {
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
+          <AlertDialogHeader className="min-w-0 w-full">
+            <AlertDialogTitle
+              title={t("space.settings.danger.deleteTitle", {
+                name: space.name
+              })}
+              className="min-w-0 max-w-full w-full truncate"
+            >
               {t("space.settings.danger.deleteTitle", { name: space.name })}
             </AlertDialogTitle>
             <AlertDialogDescription>
