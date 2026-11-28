@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { adminApi, describeApiError, type SiteSettings } from "@/lib/api"
 
@@ -35,7 +36,6 @@ export function MaxImageUploadCard({
   }, [limit])
 
   const save = async (value: number | null) => {
-    const current = String(limit ?? DEFAULT_MAX_MB)
     setSaving(true)
     setError("")
     setNotice("")
@@ -50,7 +50,6 @@ export function MaxImageUploadCard({
         raw === undefined ||
         (savedLimit !== expectedLimit && savedLimit !== value)
       ) {
-        setDraft(current)
         setError(t("admin.uploadLimit.notSaved"))
         return
       }
@@ -62,7 +61,6 @@ export function MaxImageUploadCard({
           : t("admin.uploadLimit.saved", { count: value })
       )
     } catch (saveError: unknown) {
-      setDraft(current)
       setError(describeApiError(saveError))
     } finally {
       setSaving(false)
@@ -113,30 +111,42 @@ export function MaxImageUploadCard({
       <div className="rounded-xl border border-border px-4">
         <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <p className="text-sm font-medium">{t("admin.uploadLimit.label")}</p>
-          <Input
-            type="number"
-            min={1}
-            max={100}
-            step={1}
-            inputMode="numeric"
-            placeholder={t("admin.uploadLimit.placeholder")}
-            aria-label={t("admin.uploadLimit.label")}
-            className="h-8 w-full sm:w-56"
-            value={draft}
-            disabled={locked}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault()
-                commit()
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <Input
+              type="number"
+              min={1}
+              max={100}
+              step={1}
+              inputMode="numeric"
+              placeholder={t("admin.uploadLimit.placeholder")}
+              aria-label={t("admin.uploadLimit.label")}
+              className="h-8 w-full sm:w-56"
+              value={draft}
+              disabled={locked}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  commit()
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault()
+                  setDraft(String(limit ?? DEFAULT_MAX_MB))
+                }
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0"
+              disabled={
+                locked || draft.trim() === String(limit ?? DEFAULT_MAX_MB)
               }
-              if (event.key === "Escape") {
-                event.preventDefault()
-                setDraft(String(limit ?? DEFAULT_MAX_MB))
-              }
-            }}
-          />
+              onClick={commit}
+            >
+              {t("common.save")}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

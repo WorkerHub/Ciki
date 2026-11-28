@@ -80,7 +80,6 @@ export function RevisionRetentionCard({
   }, [pruneOpen, saving])
 
   const save = async (value: number | null) => {
-    const current = limit === null ? "" : String(limit)
     setSaving(true)
     setError("")
     setNotice("")
@@ -91,7 +90,6 @@ export function RevisionRetentionCard({
       const raw: unknown = saved.revisionRetentionLimit
       const savedLimit = typeof raw === "number" ? raw : null
       if (raw === undefined || savedLimit !== value) {
-        setDraft(current)
         setError(t("admin.retention.notSaved"))
         return
       }
@@ -102,7 +100,6 @@ export function RevisionRetentionCard({
           : t("admin.retention.saved", { count: value })
       )
     } catch (saveError: unknown) {
-      setDraft(current)
       setError(describeApiError(saveError))
     } finally {
       setSaving(false)
@@ -196,29 +193,41 @@ export function RevisionRetentionCard({
               {t("admin.retention.limit.description")}
             </p>
           </div>
-          <Input
-            type="number"
-            min={1}
-            step={1}
-            inputMode="numeric"
-            placeholder={t("admin.retention.limit.placeholder")}
-            aria-label={t("admin.retention.limit.label")}
-            className="h-8 w-full sm:w-56"
-            value={draft}
-            disabled={locked}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault()
-                commit()
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              placeholder={t("admin.retention.limit.placeholder")}
+              aria-label={t("admin.retention.limit.label")}
+              className="h-8 w-full sm:w-56"
+              value={draft}
+              disabled={locked}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  commit()
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault()
+                  setDraft(limit === null ? "" : String(limit))
+                }
+              }}
+            />
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 shrink-0"
+              disabled={
+                locked || draft.trim() === (limit === null ? "" : String(limit))
               }
-              if (event.key === "Escape") {
-                event.preventDefault()
-                setDraft(limit === null ? "" : String(limit))
-              }
-            }}
-          />
+              onClick={commit}
+            >
+              {t("common.save")}
+            </Button>
+          </div>
         </div>
         <div className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <p className="max-w-prose text-xs text-muted-foreground">
