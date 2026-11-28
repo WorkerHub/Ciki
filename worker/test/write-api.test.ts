@@ -1562,3 +1562,221 @@ describe("写接口：图片上传（第五端点）", () => {
     )
   })
 })
+
+describe("写接口：建空间 POST /api/write/spaces", () => {
+  it("不限范围 write 令牌成功建空间，响应 201 精确三键，新空间归属令牌账号且自动成为 admin 成员", async () => {
+    const context = await initializedContext()
+    const { env, db } = context
+    const admin = await adminSession(env)
+    const userCookie = await userSession(env, admin, "creator@example.com")
+    const userId = await meId(env, userCookie)
+    const token = await issueWriteToken(env, userCookie)
+
+    const res = await writeRequest(
+      env,
+      token.token,
+      "POST",
+      "/api/write/spaces",
+      {
+        title: "研发空间",
+        description: "技术文档"
+      }
+    )
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as {
+      id: number
+      slug: string
+      title: string
+    }
+    expect(Object.keys(body).sort()).toEqual(["id", "slug", "title"])
+    expect(body.title).toBe("研发空间")
+    expect(body.slug).toBe(`space-${body.id}`)
+
+    // 验证 DB 空间行归属
+    const space = db.db
+      .prepare("SELECT * FROM ciki_spaces WHERE id = ?")
+      .get(body.id) as { name: string; description: string; created_by: number }
+    expect(space.name).toBe("研发空间")
+    expect(space.description).toBe("技术文档")
+    expect(space.created_by).toBe(userId)
+
+    // 验证成员角色为 admin
+    const member = db.db
+      .prepare(
+        "SELECT * FROM ciki_space_members WHERE space_id = ? AND user_id = ?"
+      )
+      .get(body.id, userId) as { role: string }
+    expect(member.role).toBe("admin")
+  })
+
+  it("slug 由服务端按规则生成，冲突时递增后缀", async () => {
+    const context = await initializedContext()
+    const { env } = context
+    const admin = await adminSession(env)
+    const token = await issueWriteToken(env, admin)
+
+    const res1 = await writeRequest(
+      env,
+      token.token,
+      "POST",
+      "/api/write/spaces",
+      {
+        title: "Research Lab"
+      }
+    )
+    expect(res1.status).toBe(201)
+    const body1 = (await res1.json()) as {
+      id: number
+      slug: string
+      title: string
+    }
+    expect(body1.slug).toBe("research-lab")
+
+    // 重名空间再次创建，slug 冲突递增
+    const res2 = await writeRequest(
+      env,
+      token.token,
+      "POST",
+      "/api/write/spaces",
+      {
+        title: "Research Lab"
+      }
+    )
+    expect(res2.status).toBe(201)
+    const body2 = (await res2.json()) as {
+      id: number
+      slug: string
+      title: string
+    }
+    expect(body2.id).not.toBe(body1.id)
+    expect(body2.slug).toBe(`space-${body2.id}`)
+  })
+
+  it("参数校验：title 缺失/非法回 400 INVALID_SPACE_NAME，description 超限回 400 INVALID_SPACE_DESCRIPTION", async () => {
+    const context = await initializedContext()
+    const { env } = context
+    const admin = await adminSession(env)
+    const token = await issueWriteToken(env, admin)
+
+    // 空请求体 / 缺少 title
+    const emptyRes = await writeRequest(
+      env,
+      token.token,
+      "POST",
+      "/api/write/spaces",
+      {}
+    )
+    expect(emptyRes.status).toBe(400)
+    expect(await emptyRes.json()).toMatchObject({ code: "INVALID_SPACE_NAME" })
+
+    // title 为空串或全空格
+    const whitespaceRes = await writeRequest(
+      env,
+      token.token,
+      "POST",
+      "/api/write/spaces",
+      {
+        title: "   "
+      }
+    )
+    expect(whitespaceRes.status).toBe(400)
+    expect(await whitespaceRes.json()).toMatchObject({
+      code: "INVALID_SPACE_NAME"
+    })
+
+    // title 超过 64 字符
+    const tooLongTitleRes = await writeRequest(
+      env,
+      token.token,
+      "POST",
+      "/api/write/spaces",
+      {
+        title: "a".repeat(65)
+      }
+    )
+    expect(tooLongTitleRes.status).toBe(400)
+    expect(await tooLongTitleRes.json()).toMatchObject({
+      code: "INVALID_SPACE_NAME"
+    })
+
+    // description 超过 500 字符
+    const tooLongDescRes = await writeRequest(
+      env,
+      token.token,
+      "POST",
+      "/api/write/spaces",
+      {
+        title: "合法名称",
+        description: "d".repeat(501)
+      }
+    )
+    expect(tooLongDescRes.status).toBe(400)
+    expect(await tooLongDescRes.json()).toMatchObject({
+      code: "INVALID_SPACE_DESCRIPTION"
+    })
+  })
+
+  it("隔离矩阵：受限范围 write 令牌回 403 Forbidden", async () => {
+    const context = await initializedContext()
+    const { env } = context
+    const admin = await adminSession(env)
+    const restrictedToken = await issueWriteToken(env, admin, { spaceIds: [1] })
+
+    const res = await writeRequest(
+      env,
+      restrictedToken.token,
+      "POST",
+      "/api/write/spaces",
+      { title: "受限令牌建空间" }
+    )
+    expect(res.status).toBe(403)
+    expect(await res.json()).toEqual({ error: "Forbidden" })
+  })
+
+  it("隔离矩阵：read 令牌、导入令牌、会话 Cookie、匿名访问一律 401", async () => {
+    const context = await initializedContext()
+    const { env } = context
+    const admin = await adminSession(env)
+
+    // read 令牌
+    const readToken = await createApiToken(env, admin, "read")
+    const readRes = await writeRequest(
+      env,
+      readToken.token,
+      "POST",
+      "/api/write/spaces",
+      { title: "只读令牌尝试建空间" }
+    )
+    expect(readRes.status).toBe(401)
+    expect(readRes.headers.get("cache-control")).toContain("no-store")
+
+    // 导入令牌
+    const importToken = await createImportToken(env, admin)
+    const importRes = await writeRequest(
+      env,
+      importToken.token,
+      "POST",
+      "/api/write/spaces",
+      { title: "导入令牌尝试建空间" }
+    )
+    expect(importRes.status).toBe(401)
+
+    // 仅会话 Cookie（无 Bearer 令牌）
+    const sessionRes = await jsonRequest(
+      env,
+      "POST",
+      "/api/write/spaces",
+      { title: "会话尝试调用写接口建空间" },
+      admin
+    )
+    expect(sessionRes.status).toBe(401)
+
+    // 匿名
+    const anonRes = await request(env, "/api/write/spaces", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "匿名建空间" })
+    })
+    expect(anonRes.status).toBe(401)
+  })
+})

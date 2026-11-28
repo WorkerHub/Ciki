@@ -2437,7 +2437,11 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 
 - 鉴权：只认 `Authorization: Bearer <接口令牌>`，`kind = read` 与 `kind = write` 均可；无令牌、无效、已吊销、主人停用或未批准 → 401 `{"error":"Unauthorized"}`，响应头带 `Cache-Control: no-store`；会话 Cookie、导入令牌不认（401）。
 - key 形状：沿用与会话端点同构口径，匹配现有 `UPLOAD_KEY_RE`（`^(?:(?:avatars|pages|imports)/)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|jpeg|gif|webp|json)$`）或 `EMBED_KEY_RE`（`^embeds/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.html$`），形状不符 → 404 `{"error":"File not found"}`。
-- 归属校验：读 R2 `customMetadata.uploaderId`（十进制字符串），与令牌主人 user id 相等才放行；不相等、无此元数据的存量对象、对象不存在 → 一律 404 `{"error":"File not found"}`，不泄露存在性。
+- 归属校验：两条并列授权，任一成立即放行（2026-11-28 用户拍板）：
+  - **A. 引用授权**：该 key 被至少一个未删页面引用（通过 `content_md`/`content_html` 派生列按 key 检索），且令牌所属账号对该页面所在空间有读权、且该空间在令牌范围内（检索须先按令牌可读空间收窄候选集，不许全表扫后逐个试）；
+  - **B. 上传者授权**：读 R2 `customMetadata.uploaderId`（十进制字符串），与令牌主人 user id 相等（覆盖尚未被任何页面引用的暂存文件）；
+  - 头像文件（`avatars/` 类别）不走引用授权（它不被页面引用），维持现行上传者授权口径不变；
+  - 两条都不成立、对象不存在、或 key 形状不符 → 一律 404 `{"error":"File not found"}`，不泄露存在性。
 - 成功：200 返回文件原始字节，`Content-Type` 为上传时类型、`Content-Length` 为文件大小，带 `ETag`（若有）与 `Cache-Control: private, max-age=3600`，与会话端点成功响应一致。
 - 刷新：每次成功调用刷新令牌的 `lastUsedAt`。
 - 限流：计入读接口现有令牌限流桶（`read` 3000 次 / 5 分钟，认证失败计入 `read_auth_fail` 20 次 / 5 分钟），不新开桶。
@@ -2475,6 +2479,19 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
   - 校验规则：`excalidraw` 节点 `sceneKey` 必填且匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$`；可选 `previewKey` 若存在须匹配 `^pages/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.png$`；非法均回 400 `code:"INVALID_CONTENT_JSON"`。详细操作指引见 [agent-guide.md](agent-guide.md)（实例端点：`GET /api/public/agent-guide`）。
 - 限流沿用 `auth_counters`：失败按 IP（`write_auth_fail` 20 次 / 5 分钟，先拒后验），调用按用户（`write` 600 次 / 5 分钟）。超出 429 `{"error":"Too many requests","code":"RATE_LIMITED","retryAfter":秒}`。
 - 每次成功调用刷新令牌的 `lastUsedAt`。
+
+#### POST /api/write/spaces
+
+创建新空间（写接口新增，2026-11-28 定版）。
+
+- **鉴权**：只认 `Authorization: Bearer <kind = write 的接口令牌>`，且**仅限不限范围**（`spaceIds` 为 `null`）的 write 令牌；受限令牌回 403 `{"error":"Forbidden"}`；`kind = read` 的令牌、导入令牌与会话 Cookie 一律 401。
+- **请求体**：`{"title": "新空间名称", "description"?: "可选空间描述"}`：
+  - `title`（或 `name`）：必填，trim 后 1–64 字符且不含控制字符，非法回 400 `code:"INVALID_SPACE_NAME"`；
+  - `description`：可选，最多 500 字符，超限回 400 `code:"INVALID_SPACE_DESCRIPTION"`。
+- **slug 规则**：服务端按现行唯一性规则自动派生（英文转连字符、中文回落 `space-<id>`、冲突递增后缀 `-2`、`-3`…），不接受调用方自定义。
+- **空间归属与成员**：新空间 `created_by` 记令牌主人，令牌主人自动成为该空间管理员（`role: "admin"`），与会话建空间口径完全一致。实现复用同一核心例程。
+- **响应**：201 `{"id": 2, "slug": "xin-kong-jian", "title": "新空间名称"}`。
+- **限流**：计入原有 `write` 限流桶（600 次 / 5 分钟），认证失败计入 `write_auth_fail`（20 次 / 5 分钟）。
 
 #### POST /api/write/pages
 
@@ -2529,7 +2546,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - **上传没有空间维度**：不受令牌空间范围限制（文件本身不属于任何空间）；把 `url` 或 `key` 引用进页面时仍走页面级范围与角色校验——范围外空间建页/改页照样 404。
 - 调用计入现有 `write` 限流桶（600 次 / 5 分钟），不新开桶。
 - 400 非支持类型 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`（响应带 `limitBytes` 生效字节数）。
-- 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回本人上传的文件字节（严格校验上传者归属，跨账号一律 404，不泄露存在性）。
+- 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回文件字节（支持引用授权放行，或上传者本人读回未引用的文件；跨账号且无引用一律 404，不泄露存在性）。
 
 #### POST /api/write/files/embeds
 
@@ -2539,7 +2556,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 鉴权只认 `kind = write` 令牌；`kind = read` 令牌、导入令牌、会话 Cookie 一律 401。
 - 上传没有空间维度，不查令牌空间范围；持 write 令牌且对目标空间有 editor 角色的 agent 可上传拿 key，再在写页 `content_json` 中引用 `htmlEmbed` 节点一条龙写完。
 - 计入现有 `write` 限流桶（600 次 / 5 分钟）。
-- 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回本人上传的文件字节（严格校验上传者归属，跨账号一律 404，不泄露存在性）。
+- 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回文件字节（支持引用授权放行，或上传者本人读回未引用的文件；跨账号且无引用一律 404，不泄露存在性）。
 
 ### 服务端消毒规则（content_html）
 

@@ -24,8 +24,14 @@ import {
   type PageRow
 } from "../db/queries/pages"
 import { findDefaultSpace } from "../db/queries/spaces"
-import { canEditPages, resolveSpaceRole } from "../core/space-access"
+import {
+  canEditPages,
+  normalizeSpaceDescription,
+  normalizeSpaceName,
+  resolveSpaceRole
+} from "../core/space-access"
 import { tokenScopeAllows, type TokenScope } from "../core/token-scope"
+import { createSpace } from "../core/space-create"
 import { createPage, renamePage, savePageContent } from "../core/page-write"
 import { applyPageMove } from "../core/page-move"
 import {
@@ -376,4 +382,84 @@ writeRoutes.delete("/pages/:id", async (c) => {
     softDeleteSubtree(c.env.DB, getTablePrefix(c.env), row.id, now)
   )
   return c.json({ success: true })
+})
+
+/**
+ * POST /api/write/spaces：写接口建空间。
+ *
+ * 规格定版（§三.1）：
+ * - 鉴权只认 write 令牌，且仅限不限范围（`spaceIds` 为 null）的 write 令牌；
+ *   受限令牌回 403；read 令牌、导入令牌、会话 Cookie 一律 401（中间件已保证）。
+ * - 请求体 `{ title }`（可带现行空间模型已有展示性字段，如 `description`）；
+ * - slug 由服务端按现行唯一性规则生成、冲突递增后缀；
+ * - 新空间归属令牌所属账号（成为 admin 成员，口径同会话建空间）。
+ * - 响应 201 `{ id, slug, title }`。
+ * - 实现复用会话建空间的同一核心例程（`createSpace`）。
+ */
+writeRoutes.post("/spaces", async (c) => {
+  const scope = tokenScope(c)
+  if (scope !== null) {
+    return c.json({ error: "Forbidden" }, 403)
+  }
+
+  const body = await readJsonBody<{
+    title?: unknown
+    name?: unknown
+    description?: unknown
+  }>(c)
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return invalidBody(c)
+  }
+
+  const title = normalizeSpaceName(body.title ?? body.name)
+  if (!title) {
+    return c.json(
+      {
+        error: "Space title must be 1-64 characters without control characters",
+        code: "INVALID_SPACE_NAME"
+      },
+      400
+    )
+  }
+
+  let description = ""
+  if (body.description !== undefined) {
+    const normalized = normalizeSpaceDescription(body.description)
+    if (normalized === null) {
+      return c.json(
+        {
+          error: "Description must be at most 500 characters",
+          code: "INVALID_SPACE_DESCRIPTION"
+        },
+        400
+      )
+    }
+    description = normalized
+  }
+
+  const prefix = getTablePrefix(c.env)
+  const outcome = await createSpace(c.env.DB, prefix, {
+    name: title,
+    description,
+    userId: c.get("userId")
+  })
+
+  if (!outcome.ok) {
+    return c.json(
+      {
+        error: "Space slug is already taken",
+        code: "SPACE_SLUG_TAKEN"
+      },
+      409
+    )
+  }
+
+  return c.json(
+    {
+      id: outcome.space.id,
+      slug: outcome.space.slug,
+      title: outcome.space.name
+    },
+    201
+  )
 })

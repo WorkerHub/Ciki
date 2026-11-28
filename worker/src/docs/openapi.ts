@@ -218,6 +218,32 @@ export function buildOpenApiSpec(version: string): Record<string, unknown> {
             }
           }
         },
+        CreateSpaceRequest: {
+          type: "object",
+          required: ["title"],
+          properties: {
+            title: {
+              type: "string",
+              description: "空间名称（1–64 字符，不含控制字符）"
+            },
+            description: {
+              type: "string",
+              description: "空间描述（可选，最多 500 字符）"
+            }
+          }
+        },
+        SpaceMetaResponse: {
+          type: "object",
+          required: ["id", "slug", "title"],
+          properties: {
+            id: { type: "integer", description: "空间 ID" },
+            slug: {
+              type: "string",
+              description: "空间唯一标识符（由服务端自动生成）"
+            },
+            title: { type: "string", description: "空间名称" }
+          }
+        },
         MovePageRequest: {
           type: "object",
           required: ["parent_id", "index"],
@@ -563,7 +589,7 @@ export function buildOpenApiSpec(version: string): Record<string, unknown> {
         get: {
           summary: "读取文件资产",
           description:
-            "读取图片、场景 JSON 或 Embed HTML 资产。服务端严格比对上传者账号，非本账号上传回 404。",
+            "读取图片、场景 JSON 或 Embed HTML 资产。授权两条并列（任一成立即放行）：A. 引用授权（被未删页面引用且对页面空间有读权且在令牌范围内）；B. 上传者授权（对象 uploaderId = 令牌主人，覆盖尚未引用的文件）。头像文件不走引用授权。无权或不存在回 404，不泄露存在性。",
           security: [{ ReadTokenAuth: [] }, { WriteTokenAuth: [] }],
           parameters: [
             {
@@ -588,7 +614,73 @@ export function buildOpenApiSpec(version: string): Record<string, unknown> {
               }
             },
             "404": {
-              description: "文件不存在或无权访问（跨账号读取回 404）",
+              description: "文件不存在或无权访问（两条授权均不满足回 404）",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/write/spaces": {
+        post: {
+          summary: "创建空间",
+          description:
+            "创建新空间。仅不限范围（spaceIds 为 null）的 write 令牌可调，受限令牌回 403；read 令牌、导入令牌回 401。slug 由服务端按唯一性规则自动生成、冲突递增后缀。新空间归属令牌所属账号并授予空间 admin 角色。",
+          security: [{ WriteTokenAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/CreateSpaceRequest" }
+              }
+            }
+          },
+          responses: {
+            "201": {
+              description: "创建成功，返回新空间元数据",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/SpaceMetaResponse" }
+                }
+              }
+            },
+            "400": {
+              description: "参数校验失败（INVALID_SPACE_NAME 等）",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
+                }
+              }
+            },
+            "401": {
+              description: "未携带合法 write 令牌",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
+                }
+              }
+            },
+            "403": {
+              description: "令牌限制了空间范围（仅不限范围令牌可建空间）",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
+                }
+              }
+            },
+            "409": {
+              description: "空间 slug 冲突",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" }
+                }
+              }
+            },
+            "429": {
+              description: "触发频控限制",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/ErrorResponse" }
