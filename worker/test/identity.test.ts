@@ -297,7 +297,10 @@ describe("头像专用上传口", () => {
     big.set(PNG)
     const tooLarge = await postAvatar(env, admin, avatarForm(big))
     expect(tooLarge.status).toBe(413)
-    expect(await tooLarge.json()).toMatchObject({ code: "FILE_TOO_LARGE" })
+    expect(await tooLarge.json()).toMatchObject({
+      code: "FILE_TOO_LARGE",
+      limitBytes: 2 * 1024 * 1024
+    })
 
     // 边界值：正好 2MB 允许上传
     const exact2Mb = new Uint8Array(2 * 1024 * 1024)

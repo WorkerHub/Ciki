@@ -1357,11 +1357,14 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
   "registrationApprovalRequired": true,
   "require2fa": false,
   "revisionRetentionLimit": 3,
+  "maxImageUploadMb": 10,
   "emailConfigured": false
 }
 ```
 
 `revisionRetentionLimit`：每页保留的历史版本数，`number | null`，**`null` = 不限**（缺行与空串同义，这是唯一内部口径；下限 1）。
+
+`maxImageUploadMb`：通用图片单张上传上限（MB），`number`，默认 10，范围 1–100（整数）。
 
 `emailConfigured` 与 `GET /api/auth/config` 同口径（只看 SMTP 非密字段），供系统管理页展示发信可用状态。
 
@@ -1370,6 +1373,8 @@ waker 客户端 SDK 的 `executionId` 幂等账本：`execution_id` TEXT PK、`j
 同一对象的任意子集：布尔项照旧，`siteName` 为字符串（trim 后 1–32 字符、不含控制字符，否则 400 `siteName must be 1-32 characters`）；`emailConfigured` 只读，不在写入字段里。200 `{"success":true}`。
 
 `revisionRetentionLimit`：整数 ≥1 直接保存；`null` / `0` / 空串按「不限」落库（读出来一律是 `null`）；负数、非整数、非数字 → 400 `{"error":"revisionRetentionLimit must be a positive integer or null"}`。改设置不触碰任何存量版本，修剪只发生在「后续保存」与「手动全站修剪」两处。
+
+`maxImageUploadMb`：1–100 整数（数字或数字字符串）直接保存；`null` / 空串按默认值 10 重置（落库为空串）；其余非法输入回 400 `{"error":"maxImageUploadMb must be an integer between 1 and 100 or null"}`。
 
 #### GET /api/admin/system/smtp
 
@@ -2050,7 +2055,7 @@ embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字�
 
 #### POST /api/files
 
-`multipart/form-data`，字段名 `file`。仅 png/jpg/jpeg/gif/webp（按魔数校验，拒 svg 与伪装文件），单张上限 10 MB。落 `pages/<uuid>.<ext>`。
+`multipart/form-data`，字段名 `file`。仅 png/jpg/jpeg/gif/webp（按魔数校验，拒 svg 与伪装文件），单张上限默认 10MB，可在系统管理配置（1–100MB）。落 `pages/<uuid>.<ext>`。
 
 201：
 
@@ -2063,7 +2068,7 @@ embeds/<filename>   # 每个被引用的 htmlEmbed 动画正文一份；名字�
 }
 ```
 
-400 非图片/类型不符；413 `code:"FILE_TOO_LARGE"`。
+400 非图片/类型不符；413 `code:"FILE_TOO_LARGE"`（响应带 `limitBytes` 生效字节数）。
 
 #### POST /api/files/embeds
 
@@ -2211,7 +2216,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 
 #### POST /api/import/files
 
-`multipart/form-data`，字段名 `file`，单文件。校验、R2 落盘与响应形状与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张 ≤10MB），落 `imports/<uuid>.<ext>`，201：
+`multipart/form-data`，字段名 `file`，单文件。校验、R2 落盘与响应形状与 `POST /api/files` 完全一致（仅 png/jpg/jpeg/gif/webp、按魔数校验、拒 svg 与伪装文件、单张默认 10MB，可在系统管理配置（1–100MB）），落 `imports/<uuid>.<ext>`，201：
 
 ```json
 {
@@ -2222,7 +2227,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 }
 ```
 
-插件用 `url` 填进正文图片的 `src`。400 非图片/类型不符；413 `code:"FILE_TOO_LARGE"`。
+插件用 `url` 填进正文图片的 `src`。400 非图片/类型不符；413 `code:"FILE_TOO_LARGE"`（响应带 `limitBytes` 生效字节数）。
 
 #### POST /api/import/pages
 
@@ -2493,7 +2498,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 
 文件上传（写接口第五个端点，2026-11-12 追加正文图，2026-11-22 补全 Excalidraw 场景 JSON）。`multipart/form-data`，字段名 `file`，单文件。落 `pages/<uuid>.<ext>`（正文资产目录，与插件导入的 `imports/` 分开）：
 
-- **正文图片**：支持 png/jpg/jpeg/gif/webp，按魔数校验、拒 svg 与伪装文件，单张 ≤10MB。
+- **正文图片**：支持 png/jpg/jpeg/gif/webp，按魔数校验、拒 svg 与伪装文件，单张默认 10MB，可在系统管理配置（1–100MB）。
 - **Excalidraw 场景 JSON**：支持 `.json`，单文件 ≤2MB，由服务端预检并消毒，落 `pages/<uuid>.json`（`contentType: "application/json"`）。
 
 响应形状：
@@ -2521,7 +2526,7 @@ Confluence 插件用的入口：插件在设置页的「浏览器插件」卡里
 - 鉴权同其它写端点：只认 `kind = write` 的接口令牌；`kind = read` 的令牌、导入令牌、会话 Cookie 一律 401。
 - **上传没有空间维度**：不受令牌空间范围限制（文件本身不属于任何空间）；把 `url` 或 `key` 引用进页面时仍走页面级范围与角色校验——范围外空间建页/改页照样 404。
 - 调用计入现有 `write` 限流桶（600 次 / 5 分钟），不新开桶。
-- 400 非支持类型 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`。
+- 400 非支持类型 / 类型不符（缺 `file` 字段、非 multipart 同样 400）；413 `code:"FILE_TOO_LARGE"`（响应带 `limitBytes` 生效字节数）。
 - 文件的读取：已登录的页面读者通过会话端点 `GET /api/files/:key` 正常渲染；外部接口令牌（`kind = read` 与 `kind = write` 均可）通过 `GET /api/read/files/:key` 读回本人上传的文件字节（严格校验上传者归属，跨账号一律 404，不泄露存在性）。
 
 #### POST /api/write/files/embeds
