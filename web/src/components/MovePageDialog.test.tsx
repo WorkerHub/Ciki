@@ -57,6 +57,23 @@ const targetTree: PageNode[] = [
   node(20, "目标空间页面 M", 0, null, [node(21, "目标空间子页 N", 0, 20)])
 ]
 
+const LONG_TITLE =
+  '4.1 类与对象：面向对象思想与 "造物之旅"☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆'
+const LONG_MOVED_TITLE =
+  '4.2 类的内部成员：Java 类的 "五脏六腑"☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆'
+
+/** 包含深层级（depth >= 3）和超长混排标题的树结构 */
+const deepTree: PageNode[] = [
+  node(10, "1.0 根页面", 0, null, [
+    node(11, "2.0 一级子页面", 0, 10, [
+      node(12, "3.0 二级子页面", 0, 11, [
+        node(13, LONG_TITLE, 0, 12, []),
+        node(14, "3.1 兄弟子页面", 1, 12, [])
+      ])
+    ])
+  ])
+]
+
 const movePageTo = vi.fn()
 
 function renderDialog(
@@ -216,5 +233,34 @@ describe("移动页面对话框", () => {
     expect(
       (await screen.findAllByRole("option")).map((option) => option.textContent)
     ).toEqual(["空间一", "空间二"])
+  })
+
+  it("支持长标题与深层级父页：触发器与表单具备 min-w-0 收缩能力且保留缩进", async () => {
+    vi.mocked(pagesApi.tree).mockImplementation(async () => deepTree)
+    usePagesStore.setState({ tree: deepTree })
+
+    renderDialog({
+      pageId: 999,
+      pageTitle: LONG_MOVED_TITLE,
+      parentId: 13,
+      sourceSpaceId: 1
+    })
+
+    const select = await screen.findByRole("combobox", { name: "父页面" })
+    expect(select).toHaveTextContent(LONG_TITLE)
+    expect(select).toHaveClass("min-w-0")
+
+    const form = select.closest("form")
+    expect(form).toHaveClass("min-w-0")
+
+    const user = userEvent.setup()
+    await user.click(select)
+
+    const longOption = await screen.findByRole("option", { name: LONG_TITLE })
+    expect(longOption).toBeInTheDocument()
+    const span = longOption.querySelector("span.block.truncate")
+    expect(span).not.toBeNull()
+    // depth 为 3，缩进为 3 * 18 = 54px
+    expect(span).toHaveStyle({ paddingLeft: "54px" })
   })
 })
