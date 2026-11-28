@@ -862,6 +862,111 @@ describe("describeApiError：英文界面与兜底", () => {
   })
 })
 
+describe("describeApiError：图片上传上限与 413 超限文案（规格 §6）", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("zh")
+  })
+
+  it("FILE_TOO_LARGE 带 limitBytes 按 MB 渲染（中文与英文）", async () => {
+    const error10Mb = new ApiError(
+      413,
+      "Payload Too Large",
+      "FILE_TOO_LARGE",
+      undefined,
+      { limitBytes: 10 * 1024 * 1024 }
+    )
+    const error25Mb = new ApiError(
+      413,
+      "Payload Too Large",
+      "FILE_TOO_LARGE",
+      undefined,
+      { limitBytes: 25 * 1024 * 1024 }
+    )
+    const error1Mb = new ApiError(
+      413,
+      "Payload Too Large",
+      "FILE_TOO_LARGE",
+      undefined,
+      { limitBytes: 1048576 }
+    )
+
+    // 中文
+    expect(describeApiError(error10Mb)).toBe("图片超过 10MB，请压缩后再上传。")
+    expect(describeApiError(error25Mb)).toBe("图片超过 25MB，请压缩后再上传。")
+    expect(describeApiError(error1Mb)).toBe("图片超过 1MB，请压缩后再上传。")
+
+    // 英文
+    await i18n.changeLanguage("en")
+    expect(describeApiError(error10Mb)).toBe(
+      "The image is over 10MB; compress it and upload again."
+    )
+    expect(describeApiError(error25Mb)).toBe(
+      "The image is over 25MB; compress it and upload again."
+    )
+    expect(describeApiError(error1Mb)).toBe(
+      "The image is over 1MB; compress it and upload again."
+    )
+  })
+
+  it("FILE_TOO_LARGE 缺 limitBytes 时回退通用 413 文案（中文与英文）", async () => {
+    const errorWithoutLimit = new ApiError(
+      413,
+      "Payload Too Large",
+      "FILE_TOO_LARGE"
+    )
+
+    expect(describeApiError(errorWithoutLimit)).toBe(
+      "内容太大，服务器拒绝了这次请求。"
+    )
+
+    await i18n.changeLanguage("en")
+    expect(describeApiError(errorWithoutLimit)).toBe(
+      "The content is too large; the server rejected this request."
+    )
+  })
+
+  it("status 413（无 code）带 limitBytes 时渲染 MB，缺 limitBytes 时回退通用文案", async () => {
+    const errorWithLimit = new ApiError(
+      413,
+      "Payload Too Large",
+      undefined,
+      undefined,
+      { limitBytes: 20 * 1024 * 1024 }
+    )
+    const errorWithoutLimit = new ApiError(413, "Payload Too Large")
+
+    expect(describeApiError(errorWithLimit)).toBe(
+      "图片超过 20MB，请压缩后再上传。"
+    )
+    expect(describeApiError(errorWithoutLimit)).toBe(
+      "内容太大，服务器拒绝了这次请求。"
+    )
+
+    await i18n.changeLanguage("en")
+    expect(describeApiError(errorWithLimit)).toBe(
+      "The image is over 20MB; compress it and upload again."
+    )
+    expect(describeApiError(errorWithoutLimit)).toBe(
+      "The content is too large; the server rejected this request."
+    )
+  })
+
+  it("400 maxImageUploadMb 校验失败提示上限不合法文案", async () => {
+    const badRequest = new ApiError(
+      400,
+      "maxImageUploadMb must be an integer between 1 and 100 or null"
+    )
+    expect(describeApiError(badRequest)).toBe(
+      "上限需为 1–100 的整数，留空表示恢复默认（10MB）。"
+    )
+
+    await i18n.changeLanguage("en")
+    expect(describeApiError(badRequest)).toBe(
+      "Limit must be an integer between 1 and 100, or leave empty for default (10MB)."
+    )
+  })
+})
+
 describe("authApi.passkeyLogin：免密登录端点与 challenge 提取", () => {
   afterEach(() => {
     vi.unstubAllGlobals()

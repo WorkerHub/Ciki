@@ -41,9 +41,6 @@ export function validateImageFile(file: File): string | null {
   ) {
     return i18n.t("common.image.unsupported")
   }
-  if (file.size > MAX_IMAGE_BYTES) {
-    return i18n.t("common.image.tooLarge")
-  }
   return null
 }
 

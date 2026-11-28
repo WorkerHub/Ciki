@@ -8,6 +8,7 @@ import {
 } from "@/lib/api"
 import { SettingTextRow } from "@/pages/admin/SettingRow"
 import { RevisionRetentionCard } from "@/pages/admin/RevisionRetentionCard"
+import { MaxImageUploadCard } from "@/pages/admin/MaxImageUploadCard"
 import { useSiteStore } from "@/stores/site"
 
 /**
@@ -119,6 +120,11 @@ export function SettingsTab() {
       </div>
       <RevisionRetentionCard
         limit={settings.revisionRetentionLimit ?? null}
+        disabled={saving}
+        onSaved={setSettings}
+      />
+      <MaxImageUploadCard
+        limit={settings.maxImageUploadMb ?? 10}
         disabled={saving}
         onSaved={setSettings}
       />
