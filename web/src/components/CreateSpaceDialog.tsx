@@ -1,3 +1,4 @@
+import { Upload } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router"
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ApiError, describeApiError, type Space } from "@/lib/api"
+import { ImportSpaceDialog } from "@/components/ImportSpaceDialog"
 import { isValidSpaceSlug, spaceSlugCandidate } from "@/lib/space"
 import { useSpacesStore } from "@/stores/spaces"
 
@@ -45,6 +47,7 @@ export function CreateSpaceDialog({
   const [busy, setBusy] = useState(false)
   const [createError, setCreateError] = useState("")
   const [slugError, setSlugError] = useState("")
+  const [importOpen, setImportOpen] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -123,97 +126,122 @@ export function CreateSpaceDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{t("shell.spaces.new")}</DialogTitle>
-          <DialogDescription>{t("shell.spaces.create.hint")}</DialogDescription>
-        </DialogHeader>
-        <form
-          className="space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void submitCreate()
-          }}
-        >
-          <div className="space-y-1.5">
-            <Label htmlFor="new-space-name">
-              {t("shell.spaces.create.name")}
-            </Label>
-            <Input
-              id="new-space-name"
-              name="space-name"
-              autoFocus
-              maxLength={64}
-              value={name}
-              onChange={(event) => handleNameChange(event.target.value)}
-              placeholder={t("shell.spaces.create.namePlaceholder")}
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-space-slug">
-              {t("space.settings.info.slug")}
-            </Label>
-            <div className="relative">
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 font-mono text-sm text-muted-foreground select-none"
-              >
-                /s/
-              </span>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("shell.spaces.new")}</DialogTitle>
+            <DialogDescription>
+              {t("shell.spaces.create.hint")}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void submitCreate()
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="new-space-name">
+                {t("shell.spaces.create.name")}
+              </Label>
               <Input
-                id="new-space-slug"
-                name="space-slug"
-                value={slug}
-                onChange={(event) => handleSlugChange(event.target.value)}
-                autoCapitalize="none"
-                autoComplete="off"
-                spellCheck={false}
-                className="pl-8 font-mono"
-                aria-invalid={Boolean(slugError)}
+                id="new-space-name"
+                name="space-name"
+                autoFocus
+                maxLength={64}
+                value={name}
+                onChange={(event) => handleNameChange(event.target.value)}
+                placeholder={t("shell.spaces.create.namePlaceholder")}
               />
             </div>
-            {slugError ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="new-space-slug">
+                {t("space.settings.info.slug")}
+              </Label>
+              <div className="relative">
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 font-mono text-sm text-muted-foreground select-none"
+                >
+                  /s/
+                </span>
+                <Input
+                  id="new-space-slug"
+                  name="space-slug"
+                  value={slug}
+                  onChange={(event) => handleSlugChange(event.target.value)}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="pl-8 font-mono"
+                  aria-invalid={Boolean(slugError)}
+                />
+              </div>
+              {slugError ? (
+                <p role="alert" className="text-xs text-destructive">
+                  {slugError}
+                </p>
+              ) : null}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-space-description">
+                {t("shell.spaces.create.description")}
+              </Label>
+              <Textarea
+                id="new-space-description"
+                name="space-description"
+                maxLength={500}
+                rows={3}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={t("shell.spaces.create.descriptionPlaceholder")}
+              />
+            </div>
+            {createError ? (
               <p role="alert" className="text-xs text-destructive">
-                {slugError}
+                {createError}
               </p>
             ) : null}
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="new-space-description">
-              {t("shell.spaces.create.description")}
-            </Label>
-            <Textarea
-              id="new-space-description"
-              name="space-description"
-              maxLength={500}
-              rows={3}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder={t("shell.spaces.create.descriptionPlaceholder")}
-            />
-          </div>
-          {createError ? (
-            <p role="alert" className="text-xs text-destructive">
-              {createError}
-            </p>
-          ) : null}
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-            >
-              {t("common.cancel")}
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy
-                ? t("shell.spaces.create.creating")
-                : t("shell.spaces.create.submit")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            <DialogFooter className="flex-row justify-between sm:justify-between items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  onOpenChange(false)
+                  setImportOpen(true)
+                }}
+              >
+                <Upload className="size-3.5" aria-hidden="true" />
+                {t("shell.spaces.import")}
+              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button type="submit" disabled={busy}>
+                  {busy
+                    ? t("shell.spaces.create.creating")
+                    : t("shell.spaces.create.submit")}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <ImportSpaceDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onSuccess={(space) => {
+          if (space && onSuccess) onSuccess(space)
+        }}
+      />
+    </>
   )
 }

@@ -1,6 +1,7 @@
 import { Empty } from "@cloudflare/kumo/components/empty"
 import {
   ArrowLeft,
+  Download,
   Settings2,
   ShieldCheck,
   Trash2,
@@ -50,6 +51,7 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { UserAvatar } from "@/components/UserAvatar"
+import { ExportSpaceDialog } from "@/components/ExportSpaceDialog"
 import {
   ApiError,
   describeApiError,
@@ -120,6 +122,7 @@ export function SpaceSettingsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
+  const [exportOpen, setExportOpen] = useState(false)
 
   const loadSpace = useCallback(async () => {
     if (!spaceId) return
@@ -409,6 +412,17 @@ export function SpaceSettingsPage() {
           {space.isDefault ? (
             <Badge variant="outline">{t("space.settings.defaultBadge")}</Badge>
           ) : null}
+          <div className="ml-auto">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setExportOpen(true)}
+            >
+              <Download aria-hidden="true" />
+              {t("space.export.title")}
+            </Button>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           {t("space.settings.subtitle")}
@@ -885,6 +899,13 @@ export function SpaceSettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ExportSpaceDialog
+        spaceId={space.id}
+        spaceName={space.name}
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+      />
     </div>
   )
 }
