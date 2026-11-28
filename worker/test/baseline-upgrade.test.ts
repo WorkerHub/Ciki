@@ -223,12 +223,14 @@ describe("最终形态存量库 → 单条 schema_v1：只动账本", () => {
     // 坍缩不改任何基线结构；追加的 schema_v11 增加 notifications 表及索引。
     const expectedTables = [
       ...beforeTables,
-      tableName(PREFIX, "notifications")
+      tableName(PREFIX, "notifications"),
+      tableName(PREFIX, "content_ref_scan")
     ].sort()
     const expectedIndexes = [
       ...beforeIndexes,
       `${PREFIX}notifications_recipient_created`,
-      `${PREFIX}notifications_recipient_read`
+      `${PREFIX}notifications_recipient_read`,
+      `sqlite_autoindex_${tableName(PREFIX, "content_ref_scan")}_1`
     ].sort()
     expect(tableNames(context).sort()).toEqual(expectedTables)
     expect(indexNames(context).sort()).toEqual(expectedIndexes)
@@ -363,7 +365,8 @@ describe("全新库与幂等", () => {
       "schema_v11",
       "schema_v12",
       "schema_v13",
-      "schema_v14"
+      "schema_v14",
+      "schema_v15"
     ])
 
     const tables = tableNames(context)
