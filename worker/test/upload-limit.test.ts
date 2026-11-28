@@ -19,9 +19,15 @@ const PNG = new Uint8Array([
   0x48, 0x44, 0x52
 ])
 
-const GIF = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00])
+const GIF = new Uint8Array([
+  0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00
+])
 
-function formWithBytes(bytes: Uint8Array, filename: string, type: string): FormData {
+function formWithBytes(
+  bytes: Uint8Array,
+  filename: string,
+  type: string
+): FormData {
   const form = new FormData()
   form.append("file", new File([bytes], filename, { type }))
   return form
@@ -62,7 +68,10 @@ describe("图片上传上限核心 helper（单元测试）", () => {
     it("重置为默认：null 或空串", () => {
       expect(normalizeMaxImageUploadInput(null)).toEqual({ ok: true, mb: null })
       expect(normalizeMaxImageUploadInput("")).toEqual({ ok: true, mb: null })
-      expect(normalizeMaxImageUploadInput("   ")).toEqual({ ok: true, mb: null })
+      expect(normalizeMaxImageUploadInput("   ")).toEqual({
+        ok: true,
+        mb: null
+      })
     })
 
     it("非法输入回 { ok: false }", () => {
@@ -88,7 +97,13 @@ describe("系统管理设置接口 · maxImageUploadMb", () => {
     const { env } = await initializedContext()
     const admin = await adminSession(env)
 
-    const res = await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
+    const res = await jsonRequest(
+      env,
+      "GET",
+      "/api/admin/settings",
+      undefined,
+      admin
+    )
     expect(res.status).toBe(200)
     const body = (await res.json()) as { maxImageUploadMb: number }
     expect(body.maxImageUploadMb).toBe(10)
@@ -108,8 +123,16 @@ describe("系统管理设置接口 · maxImageUploadMb", () => {
     )
     expect(put25.status).toBe(200)
 
-    const get25 = await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
-    expect(((await get25.json()) as { maxImageUploadMb: number }).maxImageUploadMb).toBe(25)
+    const get25 = await jsonRequest(
+      env,
+      "GET",
+      "/api/admin/settings",
+      undefined,
+      admin
+    )
+    expect(
+      ((await get25.json()) as { maxImageUploadMb: number }).maxImageUploadMb
+    ).toBe(25)
 
     // 2. PATCH 设 "50"
     const patch50 = await jsonRequest(
@@ -121,11 +144,30 @@ describe("系统管理设置接口 · maxImageUploadMb", () => {
     )
     expect(patch50.status).toBe(200)
 
-    const get50 = await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
-    expect(((await get50.json()) as { maxImageUploadMb: number }).maxImageUploadMb).toBe(50)
+    const get50 = await jsonRequest(
+      env,
+      "GET",
+      "/api/admin/settings",
+      undefined,
+      admin
+    )
+    expect(
+      ((await get50.json()) as { maxImageUploadMb: number }).maxImageUploadMb
+    ).toBe(50)
 
     // 3. 非法入参：0 / 101 / 小数 / 非数字 / 布尔值回 400，且原值不变
-    for (const invalid of [0, "0", 101, "101", 1.5, "1.5", "abc", true, false, {}]) {
+    for (const invalid of [
+      0,
+      "0",
+      101,
+      "101",
+      1.5,
+      "1.5",
+      "abc",
+      true,
+      false,
+      {}
+    ]) {
       const bad = await jsonRequest(
         env,
         "PUT",
@@ -139,8 +181,17 @@ describe("系统管理设置接口 · maxImageUploadMb", () => {
       })
     }
 
-    const unchanged = await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
-    expect(((await unchanged.json()) as { maxImageUploadMb: number }).maxImageUploadMb).toBe(50)
+    const unchanged = await jsonRequest(
+      env,
+      "GET",
+      "/api/admin/settings",
+      undefined,
+      admin
+    )
+    expect(
+      ((await unchanged.json()) as { maxImageUploadMb: number })
+        .maxImageUploadMb
+    ).toBe(50)
 
     // 4. PUT null → 回落默认 10
     const putNull = await jsonRequest(
@@ -152,11 +203,25 @@ describe("系统管理设置接口 · maxImageUploadMb", () => {
     )
     expect(putNull.status).toBe(200)
 
-    const getNull = await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
-    expect(((await getNull.json()) as { maxImageUploadMb: number }).maxImageUploadMb).toBe(10)
+    const getNull = await jsonRequest(
+      env,
+      "GET",
+      "/api/admin/settings",
+      undefined,
+      admin
+    )
+    expect(
+      ((await getNull.json()) as { maxImageUploadMb: number }).maxImageUploadMb
+    ).toBe(10)
 
     // 5. PUT "" → 回落默认 10
-    await jsonRequest(env, "PUT", "/api/admin/settings", { maxImageUploadMb: 20 }, admin)
+    await jsonRequest(
+      env,
+      "PUT",
+      "/api/admin/settings",
+      { maxImageUploadMb: 20 },
+      admin
+    )
     const putEmpty = await jsonRequest(
       env,
       "PUT",
@@ -166,8 +231,16 @@ describe("系统管理设置接口 · maxImageUploadMb", () => {
     )
     expect(putEmpty.status).toBe(200)
 
-    const getEmpty = await jsonRequest(env, "GET", "/api/admin/settings", undefined, admin)
-    expect(((await getEmpty.json()) as { maxImageUploadMb: number }).maxImageUploadMb).toBe(10)
+    const getEmpty = await jsonRequest(
+      env,
+      "GET",
+      "/api/admin/settings",
+      undefined,
+      admin
+    )
+    expect(
+      ((await getEmpty.json()) as { maxImageUploadMb: number }).maxImageUploadMb
+    ).toBe(10)
   })
 
   it("权限拦截：非管理员调管理接口被拒（未登录 401，普通用户 403）", async () => {

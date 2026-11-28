@@ -684,8 +684,7 @@ adminRoutes.on(["PUT", "PATCH"], "/settings", async (c) => {
     if (!parsed.ok) {
       return c.json(
         {
-          error:
-            "maxImageUploadMb must be an integer between 1 and 100 or null"
+          error: "maxImageUploadMb must be an integer between 1 and 100 or null"
         },
         400
       )
