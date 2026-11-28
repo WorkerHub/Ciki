@@ -78,29 +78,51 @@ describe("图片上传上限管理页配置项", () => {
     expect(input).toHaveValue(25)
   })
 
-  it("失焦（onBlur）也能触发保存", async () => {
+  it("输入 1–100 整数后点保存按钮保存并回读确认", async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn()
     vi.mocked(adminApi.settings).mockResolvedValue({
       ...settings,
-      maxImageUploadMb: 50
+      maxImageUploadMb: 25
     })
     render(<MaxImageUploadCard limit={10} onSaved={onSaved} />)
+
+    const input = screen.getByLabelText("图片上传上限 (MB)")
+    const saveBtn = screen.getByRole("button", { name: "保存" })
+    expect(saveBtn).toBeDisabled()
+
+    await user.clear(input)
+    await user.type(input, "25")
+    expect(saveBtn).toBeEnabled()
+
+    await user.click(saveBtn)
+
+    await waitFor(() =>
+      expect(adminApi.saveSettings).toHaveBeenCalledWith({
+        maxImageUploadMb: 25
+      })
+    )
+    expect(onSaved).toHaveBeenCalledWith({
+      ...settings,
+      maxImageUploadMb: 25
+    })
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "图片上传上限已设为 25MB。"
+    )
+    expect(input).toHaveValue(25)
+  })
+
+  it("失焦（onBlur）不提交改动，保留为草稿", async () => {
+    const user = userEvent.setup()
+    render(<MaxImageUploadCard limit={10} onSaved={vi.fn()} />)
 
     const input = screen.getByLabelText("图片上传上限 (MB)")
     await user.clear(input)
     await user.type(input, "50")
     await user.tab()
 
-    await waitFor(() =>
-      expect(adminApi.saveSettings).toHaveBeenCalledWith({
-        maxImageUploadMb: 50
-      })
-    )
-    expect(onSaved).toHaveBeenCalledWith({
-      ...settings,
-      maxImageUploadMb: 50
-    })
+    expect(adminApi.saveSettings).not.toHaveBeenCalled()
+    expect(input).toHaveValue(50)
   })
 
   it("清空输入框保存为重置默认（null），回显 10", async () => {
@@ -150,23 +172,30 @@ describe("图片上传上限管理页配置项", () => {
     const user = userEvent.setup()
     render(<MaxImageUploadCard limit={10} onSaved={vi.fn()} />)
     const input = screen.getByLabelText("图片上传上限 (MB)")
+    const saveBtn = screen.getByRole("button", { name: "保存" })
 
+    expect(saveBtn).toBeDisabled()
     await user.type(input, "{Enter}")
     expect(adminApi.saveSettings).not.toHaveBeenCalled()
   })
 
-  it("Escape 键还原输入框内容", async () => {
+  it("Escape 键还原输入框内容并禁用保存按钮", async () => {
     const user = userEvent.setup()
     render(<MaxImageUploadCard limit={10} onSaved={vi.fn()} />)
     const input = screen.getByLabelText("图片上传上限 (MB)")
+    const saveBtn = screen.getByRole("button", { name: "保存" })
 
     await user.clear(input)
-    await user.type(input, "30{Escape}")
+    await user.type(input, "30")
+    expect(saveBtn).toBeEnabled()
+
+    await user.keyboard("{Escape}")
     expect(input).toHaveValue(10)
+    expect(saveBtn).toBeDisabled()
     expect(adminApi.saveSettings).not.toHaveBeenCalled()
   })
 
-  it("回读与提交不一致时不假装保存成功", async () => {
+  it("回读与提交不一致时不假装保存成功，保留草稿", async () => {
     const user = userEvent.setup()
     const onSaved = vi.fn()
     vi.mocked(adminApi.settings).mockResolvedValue({
@@ -182,11 +211,11 @@ describe("图片上传上限管理页配置项", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "图片上传上限没有保存成功，请刷新后重试。"
     )
-    expect(input).toHaveValue(10)
+    expect(input).toHaveValue(25)
     expect(onSaved).not.toHaveBeenCalled()
   })
 
-  it("保存异常时回滚输入并显示错误信息", async () => {
+  it("保存异常时保留草稿并显示错误信息", async () => {
     const user = userEvent.setup()
     vi.mocked(adminApi.saveSettings).mockRejectedValue(
       new Error("network failure")
@@ -198,7 +227,7 @@ describe("图片上传上限管理页配置项", () => {
     await user.type(input, "25{Enter}")
 
     expect(await screen.findByRole("alert")).toBeInTheDocument()
-    expect(input).toHaveValue(10)
+    expect(input).toHaveValue(25)
   })
 })
 
